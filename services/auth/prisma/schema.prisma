@@ -19,8 +19,23 @@ model User {
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
   refreshTokens RefreshToken[]
+  profile       UserProfile?
 
   @@map("auth_users")
+}
+
+model UserProfile {
+  id             String  @id @default(cuid())
+  userId         String  @unique @map("user_id")
+  phoneOffice    String? @map("phone_office")
+  phoneMobile    String? @map("phone_mobile")
+  address        String?
+  departmentId   String? @map("department_id")
+  departmentName String? @map("department_name")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("auth_user_profiles")
 }
 
 model RefreshToken {

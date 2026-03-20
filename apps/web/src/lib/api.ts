@@ -16,11 +16,11 @@ export function clearToken() {
   localStorage.removeItem("erp_user");
 }
 
-export function setUser(user: { name: string; role: string }) {
+export function setUser(user: { id: string; name: string; role: string }) {
   localStorage.setItem("erp_user", JSON.stringify(user));
 }
 
-export function getUser(): { name: string; role: string } | null {
+export function getUser(): { id: string; name: string; role: string } | null {
   if (typeof window === "undefined") return null;
   try {
     return JSON.parse(localStorage.getItem("erp_user") ?? "null");
@@ -284,6 +284,21 @@ export const myTasksApi = {
   list: () => request<any[]>("/tasks/mine"),
 };
 
+// ─── My Profile ──────────────────────────────────────────────────────────────
+
+export const myProfileApi = {
+  get: () => request<any>("/auth/me"),
+  getProfile: (id: string) => request<any>(`/users/${id}/profile`),
+  updateProfile: (id: string, data: {
+    phoneOffice?: string | null;
+    phoneMobile?: string | null;
+  }) => request<any>(`/users/${id}/profile`, { method: "PATCH", body: JSON.stringify(data) }),
+  changeName: (name: string) =>
+    request<any>("/auth/me", { method: "PATCH", body: JSON.stringify({ name }) }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<void>("/auth/me/password", { method: "PATCH", body: JSON.stringify({ currentPassword, newPassword }) }),
+};
+
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 export const authApi = {
@@ -309,6 +324,15 @@ export const userManagementApi = {
     request<any>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   resetPassword: (id: string, newPassword: string) =>
     request<void>(`/users/${id}/reset-password`, { method: "POST", body: JSON.stringify({ newPassword }) }),
+  getProfile: (id: string) => request<any>(`/users/${id}/profile`),
+  upsertProfile: (id: string, data: {
+    phoneOffice?: string | null;
+    phoneMobile?: string | null;
+    address?: string | null;
+    departmentId?: string | null;
+    departmentName?: string | null;
+  }) => request<any>(`/users/${id}/profile`, { method: "PATCH", body: JSON.stringify(data) }),
+  delete: (id: string) => request<void>(`/users/${id}`, { method: "DELETE" }),
 };
 
 /** @deprecated Use authApi.login instead */

@@ -9,6 +9,14 @@ export type UpdateUserData = {
   passwordHash?: string | undefined;
 };
 
+export type UserProfileData = {
+  phoneOffice?:    string | null;
+  phoneMobile?:    string | null;
+  address?:        string | null;
+  departmentId?:   string | null;
+  departmentName?: string | null;
+};
+
 export interface IUserRepository {
   findById(id: string): Promise<User | null>;
   findByEmail(email: string): Promise<User | null>;
@@ -16,4 +24,7 @@ export interface IUserRepository {
   create(data: CreateUserData): Promise<User>;
   update(id: string, data: UpdateUserData): Promise<User>;
   updateLastLogin(id: string): Promise<void>;
+  delete(id: string): Promise<void>;
+  findProfile(userId: string): Promise<UserProfileData | null>;
+  upsertProfile(userId: string, data: UserProfileData): Promise<UserProfileData>;
 }

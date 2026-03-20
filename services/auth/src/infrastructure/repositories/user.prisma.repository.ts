@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import type { IUserRepository, CreateUserData, UpdateUserData } from "../../domain/repositories/user.repository";
+import type { IUserRepository, CreateUserData, UpdateUserData, UserProfileData } from "../../domain/repositories/user.repository";
 import type { User } from "../../domain/entities/user.entity";
 
 export class UserPrismaRepository implements IUserRepository {
@@ -15,9 +15,26 @@ export class UserPrismaRepository implements IUserRepository {
     return row ? this.toEntity(row) : null;
   }
 
-  async findAll(): Promise<User[]> {
-    const rows = await this.prisma.user.findMany({ orderBy: { createdAt: "asc" } });
-    return rows.map(this.toEntity);
+  async findAll(): Promise<(User & { profile?: UserProfileData | null; isOnline?: boolean })[]> {
+    const now = new Date();
+    const rows = await this.prisma.user.findMany({
+      orderBy: { createdAt: "asc" },
+      include: {
+        profile: true,
+        refreshTokens: { where: { expiresAt: { gt: now } }, select: { id: true }, take: 1 },
+      },
+    });
+    return rows.map((row) => ({
+      ...this.toEntity(row),
+      profile: row.profile ? {
+        phoneOffice:    row.profile.phoneOffice,
+        phoneMobile:    row.profile.phoneMobile,
+        address:        row.profile.address,
+        departmentId:   row.profile.departmentId,
+        departmentName: row.profile.departmentName,
+      } : null,
+      isOnline: row.refreshTokens.length > 0,
+    }));
   }
 
   async create(data: CreateUserData): Promise<User> {
@@ -47,11 +64,42 @@ export class UserPrismaRepository implements IUserRepository {
     return this.toEntity(row);
   }
 
+  async delete(id: string): Promise<void> {
+    await this.prisma.user.delete({ where: { id } });
+  }
+
   async updateLastLogin(id: string): Promise<void> {
     await this.prisma.user.update({
       where: { id },
       data: { lastLoginAt: new Date() },
     });
+  }
+
+  async findProfile(userId: string): Promise<UserProfileData | null> {
+    const row = await this.prisma.userProfile.findUnique({ where: { userId } });
+    if (!row) return null;
+    return {
+      phoneOffice:    row.phoneOffice,
+      phoneMobile:    row.phoneMobile,
+      address:        row.address,
+      departmentId:   row.departmentId,
+      departmentName: row.departmentName,
+    };
+  }
+
+  async upsertProfile(userId: string, data: UserProfileData): Promise<UserProfileData> {
+    const row = await this.prisma.userProfile.upsert({
+      where: { userId },
+      create: { userId, ...data },
+      update: { ...data },
+    });
+    return {
+      phoneOffice:    row.phoneOffice,
+      phoneMobile:    row.phoneMobile,
+      address:        row.address,
+      departmentId:   row.departmentId,
+      departmentName: row.departmentName,
+    };
   }
 
   private toEntity(row: {

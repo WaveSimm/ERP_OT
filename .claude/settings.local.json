@@ -142,7 +142,25 @@
       "Bash(powershell -Command \"Get-ChildItem '\\\\\\\\.\\\\pipe\\\\' | Where-Object { \\\\$_.Name -like '*docker*' } | Select-Object Name\")",
       "Bash(powershell -Command \"[System.IO.Directory]::GetFiles\\('\\\\\\\\\\\\\\\\.\\\\\\\\pipe\\\\\\\\'\\) | Where-Object { \\\\$_ -like '*docker*' }\")",
       "Bash(cmd /c \"powershell -Command \\\\\"[System.IO.Directory]::GetFiles\\('\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\.\\\\\\\\\\\\\\\\pipe\\\\\\\\\\\\\\\\'\\) | Select-String docker\\\\\"\"  2>&1)",
-      "Bash(cmd /c \"wsl --list --running\" 2>&1)"
+      "Bash(cmd /c \"wsl --list --running\" 2>&1)",
+      "Bash(python:*)",
+      "Bash(docker cp:*)",
+      "Bash(python3 -c \"import openpyxl; wb = openpyxl.load_workbook\\(''E:/claude/ERP_OT/이메일명부.xlsx''\\); ws = wb.active; [print\\(row\\) for row in ws.iter_rows\\(values_only=True\\)]\")",
+      "Bash(python3 -c \"import xlrd; wb = xlrd.open_workbook\\(''E:/claude/ERP_OT/이메일명부.xlsx''\\); ws = wb.sheet_by_index\\(0\\); [print\\([ws.cell\\(r,c\\).value for c in range\\(ws.ncols\\)]\\) for r in range\\(ws.nrows\\)]\")",
+      "Bash(pip install:*)",
+      "Bash(python3 -m pip install openpyxl -q)",
+      "Bash(where python:*)",
+      "Bash(pip --version)",
+      "Bash(python3:*)",
+      "Bash(docker restart:*)",
+      "Read(//mnt/e/claude/**)",
+      "Read(//c/Users/yunsi/Desktop/**)",
+      "Bash(find /mnt/c/Users/yunsi -name *192012* -o -name *192029*)",
+      "Bash(find /mnt/c/Users/yunsi -name 스크린샷*)",
+      "Bash(find /mnt/c/Users/yunsi/Desktop /mnt/c/Users/yunsi/Pictures /mnt/c/Users/yunsi/Downloads -name *.png)",
+      "Bash(cmd.exe /c \"dir E:\\\\claude\\\\ERP_OT\\\\*.png\")",
+      "Bash(cmd.exe /c \"dir /b E:\\\\claude\\\\ERP_OT\\\\\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem 'E:\\\\claude\\\\ERP_OT' -Filter '*.png' | Select-Object Name\")"
     ]
   }
 }

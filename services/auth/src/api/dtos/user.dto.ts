@@ -17,6 +17,15 @@ export const resetPasswordSchema = z.object({
   newPassword: z.string().min(8),
 });
 
-export type CreateUserDto = z.infer<typeof createUserSchema>;
-export type UpdateUserDto = z.infer<typeof updateUserSchema>;
+export const upsertProfileSchema = z.object({
+  phoneOffice:    z.string().max(20).optional().nullable(),
+  phoneMobile:    z.string().max(20).optional().nullable(),
+  address:        z.string().max(200).optional().nullable(),
+  departmentId:   z.string().optional().nullable(),
+  departmentName: z.string().max(100).optional().nullable(),
+});
+
+export type CreateUserDto   = z.infer<typeof createUserSchema>;
+export type UpdateUserDto   = z.infer<typeof updateUserSchema>;
 export type ResetPasswordDto = z.infer<typeof resetPasswordSchema>;
+export type UpsertProfileDto = z.infer<typeof upsertProfileSchema>;

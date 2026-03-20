@@ -2,12 +2,14 @@
 
 import { Fragment, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { resourceApi, resourceGroupApi, taskApi, getUser } from "@/lib/api";
+import { resourceApi, resourceGroupApi, taskApi, userManagementApi, getUser } from "@/lib/api";
 import AppLayout from "@/components/AppLayout";
 
 const TYPE_LABELS: Record<string, string> = {
   PERSON: "👤 인력",
   EQUIPMENT: "🔧 장비",
+  VEHICLE: "🚗 차량",
+  FACILITY: "🏭 시설",
 };
 
 function todayStr() { return new Date().toISOString().slice(0, 10); }
@@ -43,6 +45,8 @@ interface Group {
   sortOrder: number;
   resourceIds: string[];
   children?: Group[];
+  isDept?: boolean;  // 부서 그룹 (admin에서 생성, 수정 불가)
+  isProtected?: boolean; // 삭제/수정 불가 보호 그룹
 }
 
 interface Resource {
@@ -73,6 +77,12 @@ interface DragHandlers {
 
 // ─── 트리 빌더 ────────────────────────────────────────────────────────────────
 
+function groupSortKey(g: Group): number {
+  if (g.name === "전체" || g.description === "__all__") return 0;
+  if (g.isDept) return 1;
+  return 2;
+}
+
 function buildTree(groups: Group[]): Group[] {
   const map = new Map<string, Group>();
   groups.forEach((g) => map.set(g.id, { ...g, children: [] }));
@@ -81,7 +91,8 @@ function buildTree(groups: Group[]): Group[] {
     if (g.parentId && map.has(g.parentId)) map.get(g.parentId)!.children!.push(g);
     else roots.push(g);
   });
-  const sort = (arr: Group[]) => arr.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+  const sort = (arr: Group[]) =>
+    arr.sort((a, b) => groupSortKey(a) - groupSortKey(b) || a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
   map.forEach((g) => sort(g.children!));
   return sort(roots);
 }
@@ -101,10 +112,8 @@ function DropLine() {
 
 export default function ResourcesPage() {
   const router = useRouter();
-  const isAdmin = getUser()?.role === "ADMIN";
-  const savedTab = typeof window !== "undefined"
-    ? (sessionStorage.getItem(TAB_KEY) as "list" | "dashboard" | null) : null;
-  const [tab, setTab] = useState<"list" | "dashboard">(savedTab ?? "list");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [tab, setTab] = useState<"list" | "dashboard">("list");
   const handleTabChange = (t: "list" | "dashboard") => {
     setTab(t); sessionStorage.setItem(TAB_KEY, t);
   };
@@ -132,7 +141,7 @@ export default function ResourcesPage() {
   const [savingMembers, setSavingMembers] = useState(false);
 
   const [showCreateResource, setShowCreateResource] = useState(false);
-  const [resourceForm, setResourceForm] = useState({ lastName: "", firstName: "", type: "PERSON", dailyCapacityHours: 8 });
+  const [resourceForm, setResourceForm] = useState({ name: "", type: "EQUIPMENT", dailyCapacityHours: 8 });
   const [savingResource, setSavingResource] = useState(false);
 
   const [groupModal, setGroupModal] = useState<{ mode: "create" | "rename"; group?: Group } | null>(null);
@@ -165,6 +174,10 @@ export default function ResourcesPage() {
     }
     return new Set<string>();
   });
+  const [dashDeptExpanded, setDashDeptExpanded] = useState<Set<string>>(new Set());
+  const toggleDashDept = (id: string) =>
+    setDashDeptExpanded((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+
   const [editingAlloc, setEditingAlloc] = useState<{
     segmentId: string; resourceId: string;
     projectId: string; taskId: string;
@@ -175,24 +188,122 @@ export default function ResourcesPage() {
   useEffect(() => {
     const token = localStorage.getItem("erp_token");
     if (!token) { router.push("/login"); return; }
+    setIsAdmin(getUser()?.role === "ADMIN");
+    const savedTab = sessionStorage.getItem(TAB_KEY) as "list" | "dashboard" | null;
+    if (savedTab) setTab(savedTab);
     load();
   }, []);
 
   const load = async () => {
     setLoading(true);
     try {
-      const [g, r] = await Promise.all([resourceGroupApi.list(), resourceApi.list()]);
-      setGroups(g);
-      setResources(r);
+      // ── 1. 기본 데이터 로드 ────────────────────────────────────────────────
+      const [rawGroups, initialResources] = await Promise.all([
+        resourceGroupApi.list(),
+        resourceApi.list(),
+      ]);
+      let resources: Resource[] = initialResources as Resource[];
+      const groups: Group[] = rawGroups as Group[];
+
+      // ── 2. 유저 + 프로필 로드 (ADMIN 전용, 실패 허용) ─────────────────────
+      let users: any[] = [];
+      try {
+        const usersData = await userManagementApi.list();
+        // 배열 또는 { items: [] } 모두 처리
+        users = Array.isArray(usersData) ? usersData : ((usersData as any).items ?? []);
+      } catch { /* ADMIN 아닌 유저는 빈 배열 사용 */ }
+
+      // ── 3. 유저를 자원으로 자동 등록 ─────────────────────────────────────
+      if (users.length > 0) {
+        const existingEmails = new Set(resources.map((r) => r.userId).filter(Boolean));
+        const newUsers = users.filter((u: any) => u.isActive !== false && !existingEmails.has(u.email));
+        if (newUsers.length > 0) {
+          for (const u of newUsers) {
+            try {
+              const created = await resourceApi.create({ name: u.name, type: "PERSON", dailyCapacityHours: 8 });
+              await resourceApi.update(created.id, { userId: u.email }).catch(() => {});
+            } catch { /* 개별 실패 무시 */ }
+          }
+          resources = await resourceApi.list();
+        }
+      }
+
+      // ── 4. 그룹 마킹 ──────────────────────────────────────────────────────
+      // isDept: 어떤 유저의 profile.departmentId가 이 그룹을 가리키는 경우
+      const deptGroupIds = new Set(
+        users.filter((u: any) => u.profile?.departmentId).map((u: any) => u.profile.departmentId)
+      );
+      const markedGroups: Group[] = groups.map((g) => {
+        const isDept = deptGroupIds.has(g.id) || g.description === "__dept__";
+        const isProtected = isDept || g.description === "__all__" || g.name === "전체";
+        return { ...g, isDept, isProtected };
+      });
+
+      // ── 5. "전체" 그룹에 활성 유저 자원 전부 동기화 ─────────────────────
+      const allGroup = markedGroups.find((g) => g.name === "전체");
+      if (allGroup && users.length > 0) {
+        const activeEmails = new Set(
+          users.filter((u: any) => u.isActive !== false).map((u: any) => u.email)
+        );
+        const allUserResourceIds = resources
+          .filter((r) => r.userId && activeEmails.has(r.userId))
+          .map((r) => r.id);
+        const currentIds = [...allGroup.resourceIds].sort().join(",");
+        const newIds = [...allUserResourceIds].sort().join(",");
+        if (currentIds !== newIds) {
+          await resourceGroupApi.setMembers(allGroup.id, allUserResourceIds).catch(() => {});
+          allGroup.resourceIds = allUserResourceIds;
+        }
+      }
+
+      // ── 6. 부서 그룹 구성원 자동 동기화 (ADMIN 전용) ────────────────────
+      if (users.length > 0) {
+        for (const g of markedGroups.filter((g) => g.isDept)) {
+          const deptEmails = new Set(
+            users.filter((u: any) => u.profile?.departmentId === g.id).map((u: any) => u.email)
+          );
+          const deptResourceIds = resources
+            .filter((r) => r.userId && deptEmails.has(r.userId))
+            .map((r) => r.id);
+          const currentIds = [...g.resourceIds].sort().join(",");
+          const newIds = [...deptResourceIds].sort().join(",");
+          if (currentIds !== newIds) {
+            await resourceGroupApi.setMembers(g.id, deptResourceIds).catch(() => {});
+            g.resourceIds = deptResourceIds;
+          }
+        }
+      }
+
+      // ── 7. "전체" 그룹 자원을 부서 순서대로 정렬 ─────────────────────────
+      if (allGroup) {
+        const sortedDeptGroups = markedGroups
+          .filter((g) => g.isDept)
+          .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+        const sortedIds: string[] = [];
+        const addedIds = new Set<string>();
+        for (const dg of sortedDeptGroups) {
+          for (const id of dg.resourceIds) {
+            if (!addedIds.has(id)) { sortedIds.push(id); addedIds.add(id); }
+          }
+        }
+        for (const id of allGroup.resourceIds) {
+          if (!addedIds.has(id)) sortedIds.push(id);
+        }
+        allGroup.resourceIds = sortedIds;
+      }
+
+      setGroups(markedGroups);
+      setResources(resources);
       setExpanded((prev) => {
         if (prev.size === 0) {
-          const all = new Set<string>(g.map((x: Group) => x.id));
+          const all = new Set<string>(markedGroups.map((x: Group) => x.id));
           try { sessionStorage.setItem(EXPANDED_KEY, JSON.stringify([...all])); } catch {}
           return all;
         }
         return prev;
       });
     } catch (e: any) {
+      if (e.message !== "Unauthorized") console.error("[resources] load error:", e);
       if (e.message === "Unauthorized") return;
     } finally {
       setLoading(false);
@@ -362,12 +473,12 @@ export default function ResourcesPage() {
     setSavingResource(true);
     try {
       await resourceApi.create({
-        name: (resourceForm.lastName + resourceForm.firstName).trim(),
+        name: resourceForm.name.trim(),
         type: resourceForm.type,
         dailyCapacityHours: resourceForm.dailyCapacityHours,
       });
       setShowCreateResource(false);
-      setResourceForm({ lastName: "", firstName: "", type: "PERSON", dailyCapacityHours: 8 });
+      setResourceForm({ name: "", type: "PERSON", dailyCapacityHours: 8 });
       await load();
     } catch (e: any) { alert(e.message ?? "생성 실패"); }
     finally { setSavingResource(false); }
@@ -405,6 +516,7 @@ export default function ResourcesPage() {
   };
 
   const handleDeleteGroup = async (group: Group) => {
+    if (group.isProtected) { alert(group.isDept ? "부서 그룹은 사용자 관리에서 관리합니다." : "이 그룹은 삭제할 수 없습니다."); return; }
     if (!confirm(`"${group.name}" 그룹을 삭제할까요?`)) return;
     try { await resourceGroupApi.delete(group.id); await load(); }
     catch (e: any) { alert(e.message ?? "삭제 실패"); }
@@ -485,6 +597,140 @@ export default function ResourcesPage() {
     }
   };
 
+  const renderDashCard = (r: any) => {
+    const isOpen = expandedResources.has(r.resourceId);
+    const pct: number = r.totalAllocationPercent;
+    return (
+      <div key={r.resourceId} className={`bg-white rounded-xl border overflow-hidden transition-all ${
+        pct > 100 ? "border-red-200" : pct >= 80 ? "border-orange-200" : "border-gray-200"
+      }`}>
+        <div
+          className={`flex items-center gap-3 px-4 py-3 cursor-pointer select-none hover:bg-gray-50 ${utilizationBg(pct)}`}
+          onClick={() => toggleResourceExpand(r.resourceId)}
+        >
+          <span className="text-gray-400 text-xs w-4 shrink-0">{isOpen ? "▾" : "▸"}</span>
+          <span className="text-base shrink-0">{r.type === "PERSON" ? "👤" : "🔧"}</span>
+          <span className="font-semibold text-gray-900 w-32 shrink-0 truncate">{r.resourceName}</span>
+          <span className="text-xs text-gray-400"><strong className="text-gray-600">{r.dailyCapacityHours}h/일</strong></span>
+          <div className="flex-1 flex items-center gap-3 min-w-0">
+            <div className="flex-1 h-2.5 bg-gray-200 rounded-full overflow-hidden min-w-0">
+              <div className={`h-full rounded-full transition-all ${utilizationColor(pct)}`}
+                style={{ width: `${Math.min(pct, 100)}%` }} />
+            </div>
+            <span className={`font-bold text-sm w-12 text-right shrink-0 ${pct > 100 ? "text-red-600" : "text-gray-700"}`}>
+              {pct.toFixed(0)}%
+            </span>
+          </div>
+          <div className="shrink-0">
+            {pct > 100
+              ? <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-medium">과부하</span>
+              : pct < 20
+              ? <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">여유</span>
+              : <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">정상</span>}
+          </div>
+          <span className="text-xs text-gray-400 shrink-0 w-16 text-right">
+            {r.assignments.length}개 배정
+          </span>
+        </div>
+        {isOpen && (
+          <div className="border-t border-gray-100">
+            {r.assignments.length === 0 ? (
+              <div className="px-6 py-4 text-sm text-gray-400 text-center">배정된 작업이 없습니다</div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100 text-xs text-gray-500">
+                    <th className="text-left px-6 py-2 font-medium">프로젝트</th>
+                    <th className="text-left px-3 py-2 font-medium">태스크 / 세그먼트</th>
+                    <th className="text-left px-3 py-2 font-medium w-40">기간</th>
+                    <th className="text-left px-3 py-2 font-medium w-36">배정율</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...r.assignments].sort((a: any, b: any) =>
+                    a.projectName.localeCompare(b.projectName) ||
+                    (a.taskSortOrder ?? 0) - (b.taskSortOrder ?? 0)
+                  ).map((a: any) => {
+                    const isEditing =
+                      editingAlloc?.segmentId === a.segmentId &&
+                      editingAlloc?.resourceId === r.resourceId;
+                    const displayVal = a.allocationMode === "PERCENT"
+                      ? `${a.allocationPercent ?? 0}%`
+                      : `${a.allocationHoursPerDay ?? 0}h/day (${a.effectivePercent}%)`;
+                    return (
+                      <tr key={a.segmentId} className="border-b border-gray-50 last:border-0 hover:bg-gray-50">
+                        <td className="px-6 py-1.5">
+                          <button
+                            onClick={() => {
+                              sessionStorage.setItem(`erp_tab_${a.projectId}`, "tasks");
+                              router.push(`/projects/${a.projectId}`);
+                            }}
+                            className="text-blue-600 font-medium hover:text-blue-800 hover:underline text-left"
+                          >
+                            {a.projectName}
+                          </button>
+                        </td>
+                        <td className="px-3 py-1.5 text-gray-700 text-xs whitespace-nowrap">
+                          <span className="font-medium">{a.taskName}</span>
+                          <span className="text-gray-300 mx-1">·</span>
+                          <span className="text-gray-400">{a.segmentName}</span>
+                        </td>
+                        <td className="px-3 py-1.5 text-gray-500 text-xs whitespace-nowrap">
+                          {a.startDate.slice(5)} ~ {a.endDate.slice(5)}
+                        </td>
+                        <td className="px-3 py-1.5">
+                          {isEditing ? (
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="number"
+                                min={0}
+                                max={a.allocationMode === "PERCENT" ? 100 : 24}
+                                step={a.allocationMode === "PERCENT" ? 5 : 0.5}
+                                value={editingAlloc!.value}
+                                onChange={(e) => setEditingAlloc((prev) => prev ? { ...prev, value: Number(e.target.value) } : null)}
+                                onBlur={saveAllocation}
+                                onFocus={(e) => (e.target as HTMLInputElement).select()}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") saveAllocation();
+                                  if (e.key === "Escape") setEditingAlloc(null);
+                                }}
+                                className="w-20 px-2 py-1 border border-blue-400 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                autoFocus
+                              />
+                              <span className="text-xs text-gray-500">{a.allocationMode === "PERCENT" ? "%" : "h/day"}</span>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setEditingAlloc({
+                                segmentId: a.segmentId,
+                                resourceId: r.resourceId,
+                                projectId: a.projectId,
+                                taskId: a.taskId,
+                                mode: a.allocationMode,
+                                value: a.allocationMode === "PERCENT"
+                                  ? (a.allocationPercent ?? 0)
+                                  : (a.allocationHoursPerDay ?? 0),
+                              })}
+                              className="text-sm font-semibold text-gray-800 hover:text-blue-600 hover:bg-blue-50 px-2 py-0.5 rounded transition-colors"
+                              title="클릭하여 수정"
+                            >
+                              {displayVal}
+                              <span className="text-xs text-gray-300 ml-1">✎</span>
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <AppLayout>
       <div className="max-w-6xl mx-auto px-6 py-6">
@@ -498,7 +744,7 @@ export default function ResourcesPage() {
             <div className="flex gap-2">
               <button onClick={() => openCreateGroup()}
                 className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
-                + 그룹 추가
+                + 사용자 그룹 추가
               </button>
               <button onClick={() => setShowCreateResource(true)}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700">
@@ -527,26 +773,34 @@ export default function ResourcesPage() {
               <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
             </div>
           ) : (
-            <div className="space-y-0" onDragOver={(e) => e.preventDefault()}>
-              {tree.map((group) => (
-                <Fragment key={group.id}>
-                  {dropIndicator?.targetId === group.id && dropIndicator.position === "before" && <DropLine />}
-                  <div className="mb-2">
-                    <GroupNode
-                      group={group} expanded={expanded} resourceMap={resourceMap} dnd={dnd}
-                      onToggle={toggleExpand} onToggleActive={handleToggleActive}
-                      onDelete={handleDeleteGroup} onRename={openRenameGroup}
-                      onEditMembers={openMemberModal} onEditUserId={isAdmin ? handleOpenUserIdModal : undefined}
-                      isAdmin={isAdmin} depth={0}
-                    />
+            <div onDragOver={(e) => e.preventDefault()}>
+              {[0, 1, 2].map((sectionKey) => {
+                const section = tree.filter((g) => groupSortKey(g) === sectionKey);
+                if (section.length === 0) return null;
+                return (
+                  <div key={sectionKey} style={{ marginTop: sectionKey > 0 ? 12 : 0 }}>
+                    {section.map((group) => (
+                      <Fragment key={group.id}>
+                        {dropIndicator?.targetId === group.id && dropIndicator.position === "before" && <DropLine />}
+                        <div className="mb-0.5">
+                          <GroupNode
+                            group={group} expanded={expanded} resourceMap={resourceMap} dnd={dnd}
+                            onToggle={toggleExpand} onToggleActive={handleToggleActive}
+                            onDelete={handleDeleteGroup} onRename={openRenameGroup}
+                            onEditMembers={openMemberModal} onEditUserId={isAdmin ? handleOpenUserIdModal : undefined}
+                            isAdmin={isAdmin} depth={0}
+                          />
+                        </div>
+                        {dropIndicator?.targetId === group.id && dropIndicator.position === "after" && <DropLine />}
+                      </Fragment>
+                    ))}
                   </div>
-                  {dropIndicator?.targetId === group.id && dropIndicator.position === "after" && <DropLine />}
-                </Fragment>
-              ))}
+                );
+              })}
 
               {/* 미분류 */}
               {ungrouped.length > 0 && (
-                <div className="bg-white rounded-xl border border-dashed border-gray-300 overflow-hidden mt-2">
+                <div className="bg-white rounded-xl border border-dashed border-gray-300 overflow-hidden" style={{ marginTop: 12 }}>
                   <div className="px-4 py-3 bg-gray-50 flex items-center gap-2">
                     <span className="text-sm font-semibold text-gray-500">📂 미분류</span>
                     <span className="text-xs text-gray-400">{ungrouped.length}명</span>
@@ -609,6 +863,22 @@ export default function ResourcesPage() {
                 className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
                 {dashLoading ? "조회 중..." : "조회"}
               </button>
+              <button onClick={() => {
+                const allIds = [
+                  ...groups.filter((g) => g.isDept || (!g.isDept && g.description !== "__all__" && g.name !== "전체")).map((g) => g.id),
+                  "__dash_unassigned__",
+                ];
+                const allOpen = allIds.every((id) => dashDeptExpanded.has(id));
+                setDashDeptExpanded(allOpen ? new Set() : new Set(allIds));
+              }} className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors">
+                {(() => {
+                  const allIds = [
+                    ...groups.filter((g) => g.isDept || (!g.isDept && g.description !== "__all__" && g.name !== "전체")).map((g) => g.id),
+                    "__dash_unassigned__",
+                  ];
+                  return allIds.length > 0 && allIds.every((id) => dashDeptExpanded.has(id)) ? "전체 닫기" : "전체 펼치기";
+                })()}
+              </button>
             </div>
 
             {dashLoading ? (
@@ -618,150 +888,55 @@ export default function ResourcesPage() {
             ) : dashboard.length === 0 ? (
               <div className="text-center py-16 text-gray-400">활성 자원이 없거나 배정 데이터가 없습니다.</div>
             ) : (
-              <div className="space-y-2">
-                {dashboard.map((r: any) => {
-                  const isOpen = expandedResources.has(r.resourceId);
-                  const pct: number = r.totalAllocationPercent;
-                  return (
-                    <div key={r.resourceId} className={`bg-white rounded-xl border overflow-hidden transition-all ${
-                      pct > 100 ? "border-red-200" : pct >= 80 ? "border-orange-200" : "border-gray-200"
-                    }`}>
-                      {/* 자원 요약 행 */}
-                      <div
-                        className={`flex items-center gap-3 px-4 py-3 cursor-pointer select-none hover:bg-gray-50 ${utilizationBg(pct)}`}
-                        onClick={() => toggleResourceExpand(r.resourceId)}
-                      >
-                        <span className="text-gray-400 text-xs w-4 shrink-0">{isOpen ? "▾" : "▸"}</span>
-                        <span className="text-base shrink-0">{r.type === "PERSON" ? "👤" : "🔧"}</span>
-                        <span className="font-semibold text-gray-900 w-32 shrink-0 truncate">{r.resourceName}</span>
-                        <span className="text-xs text-gray-400"><strong className="text-gray-600">{r.dailyCapacityHours}h/일</strong></span>
+              <div className="space-y-1">
+                {(() => {
+                  const deptGroups = groups
+                    .filter((g) => g.isDept)
+                    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+                  const customGroups = groups
+                    .filter((g) => !g.isDept && g.description !== "__all__" && g.name !== "전체")
+                    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+                  const allGroupedIds = new Set([...deptGroups, ...customGroups].flatMap((g) => g.resourceIds));
 
-                        {/* 가동률 바 */}
-                        <div className="flex-1 flex items-center gap-3 min-w-0">
-                          <div className="flex-1 h-2.5 bg-gray-200 rounded-full overflow-hidden min-w-0">
-                            <div className={`h-full rounded-full transition-all ${utilizationColor(pct)}`}
-                              style={{ width: `${Math.min(pct, 100)}%` }} />
+                  const sections: { id: string; name: string; items: any[] }[] = [
+                    ...deptGroups.map((g) => ({
+                      id: g.id,
+                      name: g.name,
+                      items: dashboard.filter((r: any) => g.resourceIds.includes(r.resourceId)),
+                    })),
+                    ...customGroups.map((g) => ({
+                      id: g.id,
+                      name: g.name,
+                      items: dashboard.filter((r: any) => g.resourceIds.includes(r.resourceId)),
+                    })),
+                    {
+                      id: "__dash_unassigned__",
+                      name: "미분류",
+                      items: dashboard.filter((r: any) => !allGroupedIds.has(r.resourceId)),
+                    },
+                  ].filter((s) => s.items.length > 0);
+
+                  return sections.map((section) => {
+                    const isOpen = dashDeptExpanded.has(section.id);
+                    return (
+                      <div key={section.id} className="mb-1">
+                        <button
+                          onClick={() => toggleDashDept(section.id)}
+                          className="w-full flex items-center gap-2 px-4 py-3 bg-gray-50 rounded-xl border border-gray-200 text-left hover:bg-gray-100 transition-colors"
+                        >
+                          <span className="text-gray-400 text-xs">{isOpen ? "▾" : "▸"}</span>
+                          <span className="font-semibold text-gray-700 text-sm">{section.name}</span>
+                          <span className="text-xs text-gray-400">{section.items.length}명</span>
+                        </button>
+                        {isOpen && (
+                          <div className="mt-1 pl-4 space-y-1">
+                            {section.items.map(renderDashCard)}
                           </div>
-                          <span className={`font-bold text-sm w-12 text-right shrink-0 ${pct > 100 ? "text-red-600" : "text-gray-700"}`}>
-                            {pct.toFixed(0)}%
-                          </span>
-                        </div>
-
-                        {/* 상태 뱃지 */}
-                        <div className="shrink-0">
-                          {pct > 100
-                            ? <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-medium">과부하</span>
-                            : pct < 20
-                            ? <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">여유</span>
-                            : <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">정상</span>}
-                        </div>
-
-                        {/* 배정 수 */}
-                        <span className="text-xs text-gray-400 shrink-0 w-16 text-right">
-                          {r.assignments.length}개 배정
-                        </span>
+                        )}
                       </div>
-
-                      {/* 배정 상세 (펼침) */}
-                      {isOpen && (
-                        <div className="border-t border-gray-100">
-                          {r.assignments.length === 0 ? (
-                            <div className="px-6 py-4 text-sm text-gray-400 text-center">배정된 작업이 없습니다</div>
-                          ) : (
-                            <table className="w-full text-sm">
-                              <thead>
-                                <tr className="bg-gray-50 border-b border-gray-100 text-xs text-gray-500">
-                                  <th className="text-left px-6 py-2 font-medium">프로젝트</th>
-                                  <th className="text-left px-3 py-2 font-medium">태스크 / 세그먼트</th>
-                                  <th className="text-left px-3 py-2 font-medium w-40">기간</th>
-                                  <th className="text-left px-3 py-2 font-medium w-36">배정율</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {[...r.assignments].sort((a: any, b: any) =>
-                                  a.projectName.localeCompare(b.projectName) ||
-                                  (a.taskSortOrder ?? 0) - (b.taskSortOrder ?? 0)
-                                ).map((a: any) => {
-                                  const isEditing =
-                                    editingAlloc?.segmentId === a.segmentId &&
-                                    editingAlloc?.resourceId === r.resourceId;
-                                  const displayVal = a.allocationMode === "PERCENT"
-                                    ? `${a.allocationPercent ?? 0}%`
-                                    : `${a.allocationHoursPerDay ?? 0}h/day (${a.effectivePercent}%)`;
-
-                                  return (
-                                    <tr key={a.segmentId} className="border-b border-gray-50 last:border-0 hover:bg-gray-50">
-                                      <td className="px-6 py-1.5">
-                                        <button
-                                          onClick={() => {
-                                            sessionStorage.setItem(`erp_tab_${a.projectId}`, "tasks");
-                                            router.push(`/projects/${a.projectId}`);
-                                          }}
-                                          className="text-blue-600 font-medium hover:text-blue-800 hover:underline text-left"
-                                        >
-                                          {a.projectName}
-                                        </button>
-                                      </td>
-                                      <td className="px-3 py-1.5 text-gray-700 text-xs whitespace-nowrap">
-                                        <span className="font-medium">{a.taskName}</span>
-                                        <span className="text-gray-300 mx-1">·</span>
-                                        <span className="text-gray-400">{a.segmentName}</span>
-                                      </td>
-                                      <td className="px-3 py-1.5 text-gray-500 text-xs whitespace-nowrap">
-                                        {a.startDate.slice(5)} ~ {a.endDate.slice(5)}
-                                      </td>
-                                      <td className="px-3 py-1.5">
-                                        {isEditing ? (
-                                          <div className="flex items-center gap-1.5">
-                                            <input
-                                              type="number"
-                                              min={0}
-                                              max={a.allocationMode === "PERCENT" ? 100 : 24}
-                                              step={a.allocationMode === "PERCENT" ? 5 : 0.5}
-                                              value={editingAlloc!.value}
-                                              onChange={(e) => setEditingAlloc((prev) => prev ? { ...prev, value: Number(e.target.value) } : null)}
-                                              onBlur={saveAllocation}
-                                              onFocus={(e) => (e.target as HTMLInputElement).select()}
-                                              onKeyDown={(e) => {
-                                                if (e.key === "Enter") saveAllocation();
-                                                if (e.key === "Escape") setEditingAlloc(null);
-                                              }}
-                                              className="w-20 px-2 py-1 border border-blue-400 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                              autoFocus
-                                            />
-                                            <span className="text-xs text-gray-500">{a.allocationMode === "PERCENT" ? "%" : "h/day"}</span>
-                                          </div>
-                                        ) : (
-                                          <button
-                                            onClick={() => setEditingAlloc({
-                                              segmentId: a.segmentId,
-                                              resourceId: r.resourceId,
-                                              projectId: a.projectId,
-                                              taskId: a.taskId,
-                                              mode: a.allocationMode,
-                                              value: a.allocationMode === "PERCENT"
-                                                ? (a.allocationPercent ?? 0)
-                                                : (a.allocationHoursPerDay ?? 0),
-                                            })}
-                                            className="text-sm font-semibold text-gray-800 hover:text-blue-600 hover:bg-blue-50 px-2 py-0.5 rounded transition-colors"
-                                            title="클릭하여 수정"
-                                          >
-                                            {displayVal}
-                                            <span className="text-xs text-gray-300 ml-1">✎</span>
-                                          </button>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </div>
             )}
           </div>
@@ -827,28 +1002,20 @@ export default function ResourcesPage() {
               <button onClick={() => setShowCreateResource(false)} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
             </div>
             <form onSubmit={handleCreateResource} className="p-6 space-y-4">
-              <div className="flex gap-3">
-                <div className="w-24">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">성 *</label>
-                  <input type="text" value={resourceForm.lastName}
-                    onChange={(e) => setResourceForm({ ...resourceForm, lastName: e.target.value })}
-                    required placeholder="홍"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">이름 *</label>
-                  <input type="text" value={resourceForm.firstName}
-                    onChange={(e) => setResourceForm({ ...resourceForm, firstName: e.target.value })}
-                    required placeholder="길동"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">이름 *</label>
+                <input type="text" value={resourceForm.name}
+                  onChange={(e) => setResourceForm({ ...resourceForm, name: e.target.value })}
+                  required placeholder="홍길동"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">유형</label>
                 <select value={resourceForm.type} onChange={(e) => setResourceForm({ ...resourceForm, type: e.target.value })}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-                  <option value="PERSON">👤 인력</option>
                   <option value="EQUIPMENT">🔧 장비</option>
+                  <option value="VEHICLE">🚗 차량</option>
+                  <option value="FACILITY">🏭 시설</option>
                 </select>
               </div>
               <div>
@@ -860,7 +1027,7 @@ export default function ResourcesPage() {
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowCreateResource(false)}
                   className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">취소</button>
-                <button type="submit" disabled={savingResource || !resourceForm.lastName.trim() || !resourceForm.firstName.trim()}
+                <button type="submit" disabled={savingResource || !resourceForm.name.trim()}
                   className="flex-1 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
                   {savingResource ? "저장 중..." : "추가"}
                 </button>
@@ -985,8 +1152,10 @@ function GroupNode({
 
   const directResources = group.resourceIds
     .map((id) => resourceMap.get(id))
-    .filter((r): r is Resource => !!r)
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .filter((r): r is Resource => !!r);
+  if (group.name !== "전체" && group.description !== "__all__") {
+    directResources.sort((a, b) => a.name.localeCompare(b.name));
+  }
 
   const totalCount =
     directResources.length +
@@ -1003,17 +1172,19 @@ function GroupNode({
       }`}>
         {/* 그룹 헤더 — 드롭 존 */}
         <div
-          className="flex items-center gap-2 px-4 py-3 bg-gray-50 border-b border-gray-200"
+          className="flex items-center gap-2 px-4 py-3 bg-gray-50 border-b border-gray-200 cursor-pointer select-none hover:bg-gray-100 transition-colors"
+          onClick={() => onToggle(group.id)}
           onDragOver={(e) => dnd.onDragOverGroup(group.id, e)}
           onDragLeave={dnd.onDragLeaveGroup}
           onDrop={() => dnd.onDropOnGroup(group.id)}
         >
-          {/* 드래그 핸들 */}
-          {isAdmin ? (
+          {/* 드래그 핸들 — 보호 그룹(전체/부서)은 순서 변경 불가 */}
+          {isAdmin && !group.isProtected ? (
             <div
               draggable
               onDragStart={(e) => dnd.onDragStartGroup(group.id, e)}
               onDragEnd={dnd.onDragEnd}
+              onClick={(e) => e.stopPropagation()}
               className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing px-0.5 shrink-0 select-none text-lg leading-none"
               title="드래그하여 순서 변경"
             >
@@ -1023,54 +1194,47 @@ function GroupNode({
             <span className="px-0.5 shrink-0 select-none text-lg leading-none text-transparent">⠿</span>
           )}
 
-          <button onClick={() => onToggle(group.id)}
-            className="text-gray-400 text-xs w-4 shrink-0 hover:text-gray-600">
+          <span className="text-gray-400 text-xs w-4 shrink-0">
             {isOpen ? "▾" : "▸"}
-          </button>
+          </span>
 
-          {/* 그룹명 → 멤버 편집 (isAdmin일 때만 클릭 가능) */}
-          {isAdmin ? (
-            <button onClick={() => onEditMembers(group)}
-              className="flex items-center gap-1.5 flex-1 text-left hover:text-blue-600 group min-w-0">
-              <span className="text-base shrink-0">{depth === 0 ? "🏢" : "📁"}</span>
-              <span className="font-semibold text-gray-800 text-sm group-hover:text-blue-600 transition-colors truncate">
-                {group.name}
-              </span>
-              {isResourceDropTarget && !draggedResourceAlreadyIn && (
-                <span className="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded shrink-0">여기에 추가</span>
-              )}
-              {isResourceDropTarget && draggedResourceAlreadyIn && (
-                <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded shrink-0">이미 소속됨</span>
-              )}
-              {!isResourceDropTarget && (
-                <span className="text-xs text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity ml-1 shrink-0">편집</span>
-              )}
+          {/* 그룹명 — 부서 그룹은 클릭 비활성 */}
+          <span className="flex items-center gap-1.5 flex-1 min-w-0">
+            <span className="text-base shrink-0">{depth === 0 ? "🏢" : "📁"}</span>
+            <span className="font-semibold text-gray-800 text-sm truncate">{group.name}</span>
+            {isResourceDropTarget && !draggedResourceAlreadyIn && (
+              <span className="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded shrink-0">여기에 추가</span>
+            )}
+            {isResourceDropTarget && draggedResourceAlreadyIn && (
+              <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded shrink-0">이미 소속됨</span>
+            )}
+          </span>
+          {isAdmin && !group.isProtected && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onEditMembers(group); }}
+              className="text-xs text-blue-500 hover:text-blue-700 px-2 py-0.5 rounded hover:bg-blue-50 shrink-0 font-medium"
+            >
+              편집
             </button>
-          ) : (
-            <span className="flex items-center gap-1.5 flex-1 min-w-0">
-              <span className="text-base shrink-0">{depth === 0 ? "🏢" : "📁"}</span>
-              <span className="font-semibold text-gray-800 text-sm truncate">
-                {group.name}
-              </span>
-              {isResourceDropTarget && !draggedResourceAlreadyIn && (
-                <span className="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded shrink-0">여기에 추가</span>
-              )}
-              {isResourceDropTarget && draggedResourceAlreadyIn && (
-                <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded shrink-0">이미 소속됨</span>
-              )}
-            </span>
           )}
 
-          {group.description && <span className="text-xs text-gray-400 hidden sm:inline shrink-0">{group.description}</span>}
+          {group.description && !group.isDept && <span className="text-xs text-gray-400 hidden sm:inline shrink-0">{group.description}</span>}
           <span className="text-xs text-gray-400 shrink-0">{totalCount}명</span>
 
-          {isAdmin && (
+          {/* 수정/삭제 — isProtected(부서+전체) 모두 삭제 불가, isDept는 수정도 불가 */}
+          {isAdmin && !group.isProtected && (
             <div className="flex gap-1 shrink-0">
-              <button onClick={() => onRename(group)}
+              <button onClick={(e) => { e.stopPropagation(); onRename(group); }}
                 className="text-xs text-gray-400 hover:text-blue-600 px-1.5 py-0.5 rounded hover:bg-blue-50">수정</button>
-              <button onClick={() => onDelete(group)}
+              <button onClick={(e) => { e.stopPropagation(); onDelete(group); }}
                 className="text-xs text-gray-400 hover:text-red-600 px-1.5 py-0.5 rounded hover:bg-red-50">삭제</button>
             </div>
+          )}
+          {group.isProtected && (
+            <span
+              title={group.isDept ? "부서 그룹은 사용자 관리에서 편집합니다" : "이 그룹은 삭제할 수 없습니다"}
+              className="text-xs text-gray-400 shrink-0"
+            >🔒</span>
           )}
         </div>
 
@@ -1098,14 +1262,22 @@ function GroupNode({
             )}
 
             {directResources.length > 0 && (
-              <ResourceRows resources={directResources} dnd={dnd} onToggleActive={onToggleActive} onEditUserId={onEditUserId} isAdmin={isAdmin} />
+              <div className="pl-10">
+                <ResourceRows resources={directResources} dnd={dnd} onToggleActive={onToggleActive} onEditUserId={onEditUserId} isAdmin={isAdmin} />
+              </div>
             )}
 
             {(group.children?.length ?? 0) === 0 && directResources.length === 0 && (
-              <div className="px-4 py-5 text-center text-sm text-gray-400 cursor-pointer hover:bg-gray-50 transition-colors"
-                onClick={() => onEditMembers(group)}>
-                구성원이 없습니다. 클릭하거나 자원을 드래그하여 추가하세요
-              </div>
+              group.isDept ? (
+                <div className="px-4 py-5 text-center text-sm text-gray-400">
+                  구성원이 없습니다. 사용자 관리에서 부서를 지정하세요
+                </div>
+              ) : (
+                <div className="px-4 py-5 text-center text-sm text-gray-400 cursor-pointer hover:bg-gray-50 transition-colors"
+                  onClick={() => onEditMembers(group)}>
+                  구성원이 없습니다. 클릭하거나 자원을 드래그하여 추가하세요
+                </div>
+              )
             )}
           </div>
         )}

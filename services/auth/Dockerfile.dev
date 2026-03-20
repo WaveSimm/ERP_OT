@@ -1,4 +1,5 @@
 FROM node:20-alpine
+RUN apk add --no-cache openssl
 RUN corepack enable pnpm
 
 WORKDIR /app
@@ -24,4 +25,4 @@ WORKDIR /app
 EXPOSE 3001
 
 # DB push creates tables, then start service
-CMD ["sh", "-c", "cd /app/services/auth && npx prisma db push --accept-data-loss && cd /app && node_modules/.bin/tsx services/auth/src/index.ts"]
+CMD ["sh", "-c", "cd /app/services/auth && npx prisma db push --accept-data-loss && npx tsx /app/services/auth/src/index.ts"]

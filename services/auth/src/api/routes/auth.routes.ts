@@ -81,6 +81,22 @@ export async function authRoutes(app: FastifyInstance, opts: { authService: Auth
     return reply.code(200).send(rest);
   });
 
+  // PATCH /api/v1/auth/me  (본인 이름 수정)
+  app.patch("/me", { preHandler: [authenticate] }, async (req, reply) => {
+    const { name } = req.body as { name?: string };
+    if (!name || name.trim().length === 0) {
+      return reply.code(400).send({ error: "이름을 입력하세요." });
+    }
+    try {
+      const updated = await userRepo.update(req.userId, { name: name.trim() });
+      const { passwordHash: _, ...rest } = updated;
+      return reply.code(200).send(rest);
+    } catch (e) {
+      if (e instanceof AuthError) return reply.code(e.statusCode).send({ error: e.message });
+      throw e;
+    }
+  });
+
   // PATCH /api/v1/auth/me/password
   app.patch("/me/password", { preHandler: [authenticate] }, async (req, reply) => {
     const body = changePasswordSchema.safeParse(req.body);
