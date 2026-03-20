@@ -1,0 +1,27 @@
+FROM node:20-alpine
+RUN corepack enable pnpm
+
+WORKDIR /app
+
+# Install dependencies (workspace context)
+COPY pnpm-workspace.yaml package.json ./
+COPY packages/config/package.json ./packages/config/
+COPY services/shared/package.json ./services/shared/
+COPY services/project/package.json ./services/project/
+
+RUN pnpm install --no-frozen-lockfile
+
+# Copy source
+COPY packages/config ./packages/config
+COPY services/shared ./services/shared
+COPY services/project ./services/project
+
+# Prisma generate (required - project-service imports PrismaClient)
+WORKDIR /app/services/project
+RUN npx prisma generate
+
+WORKDIR /app
+EXPOSE 3003
+
+# DB push creates tables, then start service
+CMD ["sh", "-c", "cd /app/services/project && npx prisma db push --accept-data-loss && cd /app && node_modules/.bin/tsx services/project/src/index.ts"]

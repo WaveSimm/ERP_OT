@@ -1,0 +1,27 @@
+FROM node:20-alpine
+RUN corepack enable pnpm
+
+WORKDIR /app
+
+# Install dependencies (workspace context)
+COPY pnpm-workspace.yaml package.json ./
+COPY packages/config/package.json ./packages/config/
+COPY services/shared/package.json ./services/shared/
+COPY services/auth/package.json ./services/auth/
+
+RUN pnpm install --no-frozen-lockfile
+
+# Copy source
+COPY packages/config ./packages/config
+COPY services/shared ./services/shared
+COPY services/auth ./services/auth
+
+# Prisma generate (schema exists, even if routes not implemented yet)
+WORKDIR /app/services/auth
+RUN npx prisma generate
+
+WORKDIR /app
+EXPOSE 3001
+
+# DB push creates tables, then start service
+CMD ["sh", "-c", "cd /app/services/auth && npx prisma db push --accept-data-loss && cd /app && node_modules/.bin/tsx services/auth/src/index.ts"]

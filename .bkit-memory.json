@@ -1,0 +1,37 @@
+{
+  "project": "erp-ot-platform",
+  "level": "enterprise",
+  "version": "1.0.0",
+  "createdAt": "2026-02-26",
+  "stack": {
+    "frontend": "Next.js 14+ (App Router), TypeScript, Tailwind CSS, TanStack Query, Zustand",
+    "backend": "Node.js 20, Fastify, TypeScript, Prisma",
+    "database": "PostgreSQL 16",
+    "cache": "Redis 7",
+    "messageQueue": "RabbitMQ 3.13",
+    "infra": "Docker Compose"
+  },
+  "services": {
+    "auth": { "port": 3001, "status": "scaffolded" },
+    "user": { "port": 3002, "status": "scaffolded" }
+  },
+  "apps": {
+    "web": { "port": 3000, "status": "pending" },
+    "admin": { "port": 3010, "status": "pending" }
+  },
+  "pdca": {
+    "feature": "인증-시스템",
+    "currentPhase": "do",
+    "completedPhases": ["plan", "design", "do"],
+    "planFile": "docs/01-plan/features/인증-시스템.plan.md",
+    "designFile": "docs/02-design/features/인증-시스템.design.md"
+  },
+  "pdcaHistory": [
+    {
+      "feature": "프로젝트-관리",
+      "phase": "completed",
+      "matchRate": 93,
+      "completedAt": "2026-03-19"
+    }
+  ]
+}

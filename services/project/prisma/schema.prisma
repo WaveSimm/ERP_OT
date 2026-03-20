@@ -1,0 +1,564 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["project"]
+}
+
+// ─────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────
+
+enum ProjectStatus {
+  PLANNING
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+
+  @@schema("project")
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  ON_HOLD
+  DONE
+  BLOCKED
+
+  @@schema("project")
+}
+
+enum DependencyType {
+  FS // Finish-to-Start
+  SS // Start-to-Start
+  FF // Finish-to-Finish
+  SF // Start-to-Finish
+
+  @@schema("project")
+}
+
+enum AllocationMode {
+  PERCENT
+  HOURS
+
+  @@schema("project")
+}
+
+enum ResourceType {
+  PERSON
+  EQUIPMENT
+
+  @@schema("project")
+}
+
+enum GroupType {
+  DEPARTMENT
+  CLIENT
+  CUSTOM
+
+  @@schema("project")
+}
+
+enum ChangeType {
+  SEGMENT_ADDED
+  SEGMENT_REMOVED
+  DATE_CHANGED
+  ASSIGNMENT_CHANGED
+  PROGRESS_UPDATED
+  STATUS_CHANGED
+
+  @@schema("project")
+}
+
+enum TemplateScope {
+  ORGANIZATION
+  PERSONAL
+
+  @@schema("project")
+}
+
+// ─────────────────────────────────────────────
+// 1. 프로젝트 기본 구조
+// ─────────────────────────────────────────────
+
+model Project {
+  id            String        @id @default(cuid())
+  name          String
+  description   String?
+  status        ProjectStatus @default(PLANNING)
+  plannedBudget Decimal?      @db.Decimal(15, 2)
+  actualBudget  Decimal?      @db.Decimal(15, 2)
+  ownerId       String // user-service userId
+  createdBy     String
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  milestones       Milestone[]
+  tasks            Task[]
+  baselines        ProjectBaseline[]
+  activityLogs     ActivityLog[]
+  groupMemberships ProjectGroupMembership[]
+
+  @@map("projects")
+  @@schema("project")
+}
+
+model Milestone {
+  id          String   @id @default(cuid())
+  projectId   String
+  name        String
+  description String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   Task[]
+
+  @@map("milestones")
+  @@schema("project")
+}
+
+// Task = 논리적 컨테이너 (직접 날짜 없음)
+model Task {
+  id              String     @id @default(cuid())
+  projectId       String
+  milestoneId     String?
+  parentId        String?    // WBS 계층 (상위 태스크)
+  name            String
+  description     String?
+  status          TaskStatus @default(TODO)
+  sortOrder       Int        @default(0)
+  overallProgress Float      @default(0) // 0~100
+  isManualProgress Boolean   @default(false)
+  isMilestone     Boolean    @default(false) // 마일스톤 태스크 (startDate=endDate)
+  isCritical      Boolean    @default(false) // CPM 결과
+  totalFloat      Float? // CPM 결과
+  createdBy       String
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  project           Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestone         Milestone?           @relation(fields: [milestoneId], references: [id])
+  parent            Task?                @relation("TaskHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children          Task[]               @relation("TaskHierarchy")
+  segments          TaskSegment[]
+  predecessorDeps   TaskDependency[]     @relation("predecessor")
+  successorDeps     TaskDependency[]     @relation("successor")
+  comments          Comment[]
+  attachments       Attachment[]
+  scheduleHistories TaskScheduleHistory[]
+  taskBaselines     TaskBaseline[]
+
+  @@map("tasks")
+  @@schema("project")
+}
+
+// TaskSegment = 구간별 독립 일정 + 자원
+model TaskSegment {
+  id              String   @id @default(cuid())
+  taskId          String
+  name            String
+  sortOrder       Int      @default(0)
+  startDate       DateTime @db.Date
+  endDate         DateTime @db.Date
+  progressPercent Float    @default(0) // 0~100
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  task             Task                  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  assignments      SegmentAssignment[]
+  baselineSegments TaskBaselineSegment[]
+
+  @@map("task_segments")
+  @@schema("project")
+}
+
+// 세그먼트별 자원 배정
+model SegmentAssignment {
+  id                    String         @id @default(cuid())
+  segmentId             String
+  resourceId            String
+  allocationMode        AllocationMode @default(PERCENT)
+  allocationPercent     Float? // PERCENT 모드 (0~100)
+  allocationHoursPerDay Float? // HOURS 모드
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  segment TaskSegment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+
+  @@unique([segmentId, resourceId])
+  @@map("segment_assignments")
+  @@schema("project")
+}
+
+// 태스크 간 의존 관계 (CPM 입력)
+model TaskDependency {
+  id            String         @id @default(cuid())
+  predecessorId String
+  successorId   String
+  type          DependencyType @default(FS)
+  lagDays       Int            @default(0)
+
+  predecessor Task @relation("predecessor", fields: [predecessorId], references: [id], onDelete: Cascade)
+  successor   Task @relation("successor", fields: [successorId], references: [id], onDelete: Cascade)
+
+  @@unique([predecessorId, successorId])
+  @@map("task_dependencies")
+  @@schema("project")
+}
+
+// ─────────────────────────────────────────────
+// 2. 자원 (Resource)
+// ─────────────────────────────────────────────
+
+model ResourceGroup {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  parentId    String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  parent      ResourceGroup?          @relation("ResourceGroupHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    ResourceGroup[]         @relation("ResourceGroupHierarchy")
+  memberships ResourceGroupMember[]
+
+  @@map("resource_groups")
+  @@schema("project")
+}
+
+model ResourceGroupMember {
+  groupId    String
+  resourceId String
+
+  group    ResourceGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  resource Resource      @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, resourceId])
+  @@map("resource_group_members")
+  @@schema("project")
+}
+
+model Resource {
+  id                 String       @id @default(cuid())
+  userId             String?      @unique // user-service userId
+  name               String
+  type               ResourceType @default(PERSON)
+  dailyCapacityHours Float        @default(8.0)
+  isActive           Boolean      @default(true)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  groupMemberships ResourceGroupMember[]
+
+  @@map("resources")
+  @@schema("project")
+}
+
+// ─────────────────────────────────────────────
+// 3. Baseline (일정 버전 관리)
+// ─────────────────────────────────────────────
+
+model ProjectBaseline {
+  id        String   @id @default(cuid())
+  projectId String
+  name      String
+  reason    String
+  createdBy String
+  createdAt DateTime @default(now())
+
+  project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  taskBaselines TaskBaseline[]
+
+  @@map("project_baselines")
+  @@schema("project")
+}
+
+model TaskBaseline {
+  id                     String   @id @default(cuid())
+  baselineId             String
+  taskId                 String
+  baselineEffectiveStart DateTime @db.Date
+  baselineEffectiveEnd   DateTime @db.Date
+  baselineProgress       Float
+
+  baseline         ProjectBaseline      @relation(fields: [baselineId], references: [id], onDelete: Cascade)
+  task             Task                 @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  segmentSnapshots TaskBaselineSegment[]
+
+  @@unique([baselineId, taskId])
+  @@map("task_baselines")
+  @@schema("project")
+}
+
+model TaskBaselineSegment {
+  id             String   @id @default(cuid())
+  taskBaselineId String
+  segmentId      String
+  name           String
+  sortOrder      Int
+  startDate      DateTime @db.Date
+  endDate        DateTime @db.Date
+  assignments    Json // [{resourceId, name, allocationPercent, allocationHoursPerDay, mode}]
+
+  taskBaseline TaskBaseline @relation(fields: [taskBaselineId], references: [id], onDelete: Cascade)
+  segment      TaskSegment  @relation(fields: [segmentId], references: [id])
+
+  @@map("task_baseline_segments")
+  @@schema("project")
+}
+
+model TaskScheduleHistory {
+  id           String     @id @default(cuid())
+  taskId       String
+  segmentId    String?
+  changedBy    String
+  changedAt    DateTime   @default(now())
+  changeReason String
+  changeType   ChangeType
+  field        String
+  oldValue     String?
+  newValue     String?
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, changedAt(sort: Desc)])
+  @@map("task_schedule_histories")
+  @@schema("project")
+}
+
+// ─────────────────────────────────────────────
+// 4. 협업 (Comment, Attachment, ActivityLog)
+// ─────────────────────────────────────────────
+
+model Comment {
+  id        String   @id @default(cuid())
+  taskId    String
+  content   String
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task     Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  mentions Mention[]
+
+  @@map("comments")
+  @@schema("project")
+}
+
+model Mention {
+  id        String  @id @default(cuid())
+  commentId String
+  userId    String
+  isRead    Boolean @default(false)
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId])
+  @@map("mentions")
+  @@schema("project")
+}
+
+model Attachment {
+  id          String   @id @default(cuid())
+  taskId      String
+  fileName    String
+  fileSize    Int
+  mimeType    String
+  storagePath String
+  uploadedBy  String
+  createdAt   DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("attachments")
+  @@schema("project")
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  projectId   String
+  userId      String
+  action      String
+  entityType  String
+  entityId    String
+  description String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt(sort: Desc)])
+  @@map("activity_logs")
+  @@schema("project")
+}
+
+// ─────────────────────────────────────────────
+// 5. 프로젝트 템플릿 시스템
+// ─────────────────────────────────────────────
+
+model ProjectTemplate {
+  id              String        @id @default(cuid())
+  name            String
+  description     String?
+  category        String
+  tags            String[]
+  scope           TemplateScope @default(PERSONAL)
+  isRecommended   Boolean       @default(false)
+  usageCount      Int           @default(0)
+  sourceProjectId String?
+  createdBy       String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  templateTasks TemplateTask[]
+
+  @@map("project_templates")
+  @@schema("project")
+}
+
+model TemplateTask {
+  id             String  @id @default(cuid())
+  templateId     String
+  parentId       String? // WBS 계층 (상위 템플릿 태스크)
+  name           String
+  description    String?
+  milestoneGroup String?
+  sortOrder      Int     @default(0)
+
+  template        ProjectTemplate      @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  parent          TemplateTask?        @relation("TemplateTaskHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children        TemplateTask[]       @relation("TemplateTaskHierarchy")
+  segments        TemplateSegment[]
+  predecessorDeps TemplateDependency[] @relation("templatePredecessor")
+  successorDeps   TemplateDependency[] @relation("templateSuccessor")
+
+  @@map("template_tasks")
+  @@schema("project")
+}
+
+model TemplateSegment {
+  id             String @id @default(cuid())
+  templateTaskId String
+  name           String
+  sortOrder      Int    @default(0)
+  dayOffsetStart Int
+  dayOffsetEnd   Int
+
+  templateTask TemplateTask         @relation(fields: [templateTaskId], references: [id], onDelete: Cascade)
+  assignments  TemplateAssignment[]
+
+  @@map("template_segments")
+  @@schema("project")
+}
+
+model TemplateAssignment {
+  id                    String         @id @default(cuid())
+  templateSegmentId     String
+  resourceRole          String?
+  resourceId            String?
+  allocationMode        AllocationMode @default(PERCENT)
+  allocationPercent     Float?
+  allocationHoursPerDay Float?
+
+  templateSegment TemplateSegment @relation(fields: [templateSegmentId], references: [id], onDelete: Cascade)
+
+  @@map("template_assignments")
+  @@schema("project")
+}
+
+model TemplateDependency {
+  id                        String         @id @default(cuid())
+  predecessorTemplateTaskId String
+  successorTemplateTaskId   String
+  type                      DependencyType @default(FS)
+  lagDays                   Int            @default(0)
+
+  predecessorTask TemplateTask @relation("templatePredecessor", fields: [predecessorTemplateTaskId], references: [id], onDelete: Cascade)
+  successorTask   TemplateTask @relation("templateSuccessor", fields: [successorTemplateTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([predecessorTemplateTaskId, successorTemplateTaskId])
+  @@map("template_dependencies")
+  @@schema("project")
+}
+
+// ─────────────────────────────────────────────
+// 6. 프로젝트 그룹 계층 (최대 2단계)
+// ─────────────────────────────────────────────
+
+model ProjectGroup {
+  id            String    @id @default(cuid())
+  name          String
+  type          GroupType @default(CUSTOM)
+  level         Int // 1 또는 2
+  parentGroupId String?
+  color         String    @default("#6B7280")
+  sortOrder     Int       @default(0)
+  description   String?
+  createdBy     String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  parentGroup ProjectGroup?            @relation("GroupHierarchy", fields: [parentGroupId], references: [id])
+  childGroups ProjectGroup[]           @relation("GroupHierarchy")
+  memberships ProjectGroupMembership[]
+
+  @@map("project_groups")
+  @@schema("project")
+}
+
+model ProjectGroupMembership {
+  id           String   @id @default(cuid())
+  groupId      String
+  projectId    String
+  displayOrder Int      @default(0)
+  addedBy      String
+  createdAt    DateTime @default(now())
+
+  group   ProjectGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  project Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, projectId])
+  @@map("project_group_memberships")
+  @@schema("project")
+}
+
+// ─────────────────────────────────────────────
+// 7. 대시보드 설정 (지휘센터 + 개인)
+// ─────────────────────────────────────────────
+
+model DashboardConfig {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  visibleGroupIds String[] // 표시할 그룹 ID 목록
+  pinnedProjectIds String[] // 상단 고정 프로젝트
+  issueFilter     String   @default("ALL") // ALL | CRITICAL | WARNING
+  timelineRange   Int      @default(7) // ±N일
+  compactView     Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("dashboard_configs")
+  @@schema("project")
+}
+
+model IssueThresholdConfig {
+  id                      String   @id @default(cuid())
+  delayWarningDays        Int      @default(3)
+  delayCriticalDays       Int      @default(7)
+  progressBehindWarning   Float    @default(10.0) // %
+  progressBehindCritical  Float    @default(20.0) // %
+  resourceOverloadWarning Float    @default(90.0) // %
+  updatedBy               String
+  updatedAt               DateTime @updatedAt
+
+  @@map("issue_threshold_configs")
+  @@schema("project")
+}

@@ -1,0 +1,22 @@
+FROM node:20-alpine
+RUN corepack enable pnpm
+
+WORKDIR /app
+
+# Install dependencies (workspace context)
+COPY pnpm-workspace.yaml package.json ./
+COPY packages/config/package.json ./packages/config/
+COPY services/shared/package.json ./services/shared/
+COPY services/user/package.json ./services/user/
+
+RUN pnpm install --no-frozen-lockfile
+
+# Copy source
+COPY packages/config ./packages/config
+COPY services/shared ./services/shared
+COPY services/user ./services/user
+
+WORKDIR /app
+EXPOSE 3002
+
+CMD ["node_modules/.bin/tsx", "services/user/src/index.ts"]
