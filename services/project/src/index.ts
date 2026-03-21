@@ -7,6 +7,7 @@ import { Server } from "socket.io";
 import { PrismaClient } from "@prisma/client";
 import Redis from "ioredis";
 import { z } from "zod";
+import cron from "node-cron";
 
 import { authMiddleware } from "./api/middleware/auth.middleware.js";
 import { projectRoutes } from "./api/routes/project.routes.js";
@@ -32,6 +33,7 @@ import { CollabService } from "./application/collab.service.js";
 
 import { ProjectCacheService } from "./infrastructure/cache/project.cache.js";
 import { ProjectGateway } from "./infrastructure/websocket/project.gateway.js";
+import { RiskDetectionService } from "./application/risk-detection.service.js";
 
 // ─── Env 검증 ─────────────────────────────────────────────────────────────────
 const envSchema = z.object({
@@ -70,6 +72,7 @@ const baselineService = new BaselineService(prisma);
 const templateService = new TemplateService(prisma);
 const resourceService = new ResourceService(prisma, cache);
 const collabService = new CollabService(prisma, gateway, env.STORAGE_PATH);
+const riskDetectionService = new RiskDetectionService(prisma, gateway);
 
 // ─── Fastify + Socket.io Setup ────────────────────────────────────────────────
 declare module "fastify" {
@@ -201,6 +204,16 @@ async function start() {
 
   await app.listen({ port: PORT, host: "0.0.0.0" });
   app.log.info(`project-service running on port ${PORT}`);
+
+  // 지연 리스크 감지 Cron Job (매 5분마다 실행)
+  cron.schedule("*/5 * * * *", async () => {
+    try {
+      await riskDetectionService.detectAndNotify();
+    } catch (err) {
+      app.log.error({ err }, "Risk detection cron failed");
+    }
+  });
+  app.log.info("Risk detection cron job scheduled (every 5 minutes)");
 
   // Graceful shutdown
   const shutdown = async () => {

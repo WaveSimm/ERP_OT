@@ -22,7 +22,9 @@ export type ProjectEventName =
   | "dashboard:new_critical_issue"
   | "dashboard:issue_resolved"
   | "dashboard:project_updated"
-  | "dashboard:refresh_complete";
+  | "dashboard:refresh_complete"
+  | "risk:delay_detected"
+  | "risk:overload_detected";
 
 export class ProjectGateway {
   private io: SocketServer | null = null;
