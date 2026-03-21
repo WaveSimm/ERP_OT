@@ -34,6 +34,7 @@ const TAB_KEY = "erp_tab_resources";
 const EXPANDED_KEY = "erp_expanded_resources";
 const DASH_DATE_KEY = "erp_dash_date_resources";
 const DASH_EXPANDED_KEY = "erp_dash_expanded_resources";
+const DASH_DEPT_EXPANDED_KEY = "erp_dash_dept_expanded_resources";
 
 // ─── 타입 ─────────────────────────────────────────────────────────────────────
 
@@ -174,9 +175,20 @@ export default function ResourcesPage() {
     }
     return new Set<string>();
   });
-  const [dashDeptExpanded, setDashDeptExpanded] = useState<Set<string>>(new Set());
+  const [dashDeptExpanded, setDashDeptExpanded] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const saved = sessionStorage.getItem(DASH_DEPT_EXPANDED_KEY);
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
   const toggleDashDept = (id: string) =>
-    setDashDeptExpanded((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+    setDashDeptExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      try { sessionStorage.setItem(DASH_DEPT_EXPANDED_KEY, JSON.stringify([...next])); } catch {}
+      return next;
+    });
 
   const [editingAlloc, setEditingAlloc] = useState<{
     segmentId: string; resourceId: string;
@@ -295,7 +307,8 @@ export default function ResourcesPage() {
       setGroups(markedGroups);
       setResources(resources);
       setExpanded((prev) => {
-        if (prev.size === 0) {
+        const hasSaved = (() => { try { return sessionStorage.getItem(EXPANDED_KEY) !== null; } catch { return false; } })();
+        if (!hasSaved) {
           const all = new Set<string>(markedGroups.map((x: Group) => x.id));
           try { sessionStorage.setItem(EXPANDED_KEY, JSON.stringify([...all])); } catch {}
           return all;
@@ -328,6 +341,21 @@ export default function ResourcesPage() {
   }, [startDate, endDate]);
 
   useEffect(() => { if (tab === "dashboard") loadDashboard(); }, [tab, loadDashboard]);
+
+  // 운영 현황 탭: 첫 방문 시 전체 펼치기 (저장된 값 없을 때만)
+  useEffect(() => {
+    if (dashboard.length === 0 || groups.length === 0) return;
+    const hasSaved = (() => { try { return sessionStorage.getItem(DASH_DEPT_EXPANDED_KEY) !== null; } catch { return false; } })();
+    if (!hasSaved) {
+      const allIds = [
+        ...groups.filter((g) => g.isDept || (!g.isDept && g.description !== "__all__" && g.name !== "전체")).map((g) => g.id),
+        "__dash_unassigned__",
+      ];
+      const all = new Set<string>(allIds);
+      setDashDeptExpanded(all);
+      try { sessionStorage.setItem(DASH_DEPT_EXPANDED_KEY, JSON.stringify([...all])); } catch {}
+    }
+  }, [dashboard, groups]);
 
   const toggleExpand = (id: string) =>
     setExpanded((prev) => {
@@ -773,6 +801,21 @@ export default function ResourcesPage() {
               <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
             </div>
           ) : (
+            <>
+              <div className="flex justify-end mb-2">
+                <button
+                  onClick={() => {
+                    const allIds = groups.map((g) => g.id);
+                    const allOpen = allIds.length > 0 && allIds.every((id) => expanded.has(id));
+                    const next = allOpen ? new Set<string>() : new Set(allIds);
+                    setExpanded(next);
+                    try { sessionStorage.setItem(EXPANDED_KEY, JSON.stringify([...next])); } catch {}
+                  }}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors"
+                >
+                  {groups.length > 0 && groups.every((g) => expanded.has(g.id)) ? "전체 닫기" : "전체 펼치기"}
+                </button>
+              </div>
             <div onDragOver={(e) => e.preventDefault()}>
               {[0, 1, 2].map((sectionKey) => {
                 const section = tree.filter((g) => groupSortKey(g) === sectionKey);
@@ -828,6 +871,7 @@ export default function ResourcesPage() {
                 </div>
               )}
             </div>
+            </>
           )
         )}
 
@@ -869,7 +913,9 @@ export default function ResourcesPage() {
                   "__dash_unassigned__",
                 ];
                 const allOpen = allIds.every((id) => dashDeptExpanded.has(id));
-                setDashDeptExpanded(allOpen ? new Set() : new Set(allIds));
+                const next = allOpen ? new Set<string>() : new Set(allIds);
+                setDashDeptExpanded(next);
+                try { sessionStorage.setItem(DASH_DEPT_EXPANDED_KEY, JSON.stringify([...next])); } catch {};
               }} className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors">
                 {(() => {
                   const allIds = [

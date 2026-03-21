@@ -313,6 +313,9 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
   const [saving, setSaving] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [showAddSeg, setShowAddSeg] = useState(false);
   const [segFormResources, setSegFormResources] = useState<any[]>([]);
   const [segFormAssigns, setSegFormAssigns] = useState<any[]>([]);
@@ -544,6 +547,18 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
               <p className="text-xs text-gray-500 mt-0.5">📌 {task.milestoneName}</p>
             )}
           </div>
+          <button
+            onClick={async () => {
+              setShowHistory(true);
+              setHistoryLoading(true);
+              try { setHistory(await taskApi.history(projectId, task.id)); }
+              catch { setHistory([]); }
+              finally { setHistoryLoading(false); }
+            }}
+            className="text-xs text-gray-500 hover:text-blue-600 border border-gray-200 hover:border-blue-300 px-2.5 py-1 rounded-lg transition-colors shrink-0"
+          >
+            이력
+          </button>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl mt-0.5">×</button>
         </div>
 
@@ -1039,6 +1054,68 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
           </div>
         </div>
       </div>
+
+      {/* 이력 모달 */}
+      {showHistory && (
+        <div className="fixed right-0 top-0 bottom-0 w-[520px] bg-white z-50 flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-3">
+            <button onClick={() => setShowHistory(false)} className="text-gray-400 hover:text-gray-600 text-lg">←</button>
+            <div>
+              <h3 className="font-bold text-gray-900 text-base">변경 이력</h3>
+              <p className="text-xs text-gray-400 truncate max-w-[340px]">{task.name}</p>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            {historyLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <div className="animate-spin w-6 h-6 border-3 border-blue-600 border-t-transparent rounded-full" />
+              </div>
+            ) : history.length === 0 ? (
+              <div className="text-center py-16 text-gray-400 text-sm">변경 이력이 없습니다.</div>
+            ) : (
+              <div className="space-y-2">
+                {history.map((h: any) => (
+                  <div key={h.id} className="border border-gray-100 rounded-lg px-4 py-3 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={clsx(
+                        "text-xs font-medium px-2 py-0.5 rounded-full",
+                        h.changeType === "DATE_CHANGED" ? "bg-blue-50 text-blue-700" :
+                        h.changeType === "PROGRESS_UPDATED" ? "bg-green-50 text-green-700" :
+                        h.changeType === "ASSIGNMENT_CHANGED" ? "bg-purple-50 text-purple-700" :
+                        h.changeType === "SEGMENT_ADDED" ? "bg-teal-50 text-teal-700" :
+                        h.changeType === "SEGMENT_REMOVED" ? "bg-red-50 text-red-700" :
+                        "bg-gray-100 text-gray-600"
+                      )}>
+                        {h.changeType === "DATE_CHANGED" ? "일정 변경" :
+                         h.changeType === "PROGRESS_UPDATED" ? "진행률 변경" :
+                         h.changeType === "ASSIGNMENT_CHANGED" ? "자원 변경" :
+                         h.changeType === "SEGMENT_ADDED" ? "구간 추가" :
+                         h.changeType === "SEGMENT_REMOVED" ? "구간 삭제" :
+                         h.changeType}
+                      </span>
+                      <span className="text-xs text-gray-400 shrink-0">
+                        {new Date(h.changedAt).toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+                    {h.field && (
+                      <div className="flex items-center gap-2 text-xs text-gray-600">
+                        <span className="text-gray-400">{h.field}</span>
+                        {h.oldValue && <span className="line-through text-gray-400">{h.oldValue}</span>}
+                        {h.oldValue && h.newValue && <span className="text-gray-300">→</span>}
+                        {h.newValue && <span className="font-medium text-gray-700">{h.newValue}</span>}
+                      </div>
+                    )}
+                    {h.changeReason && (
+                      <p className="text-xs text-gray-400 italic">"{h.changeReason}"</p>
+                    )}
+                    <p className="text-xs text-gray-300">{h.changedBy}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -161,6 +161,10 @@ export const taskApi = {
     request<void>(`/projects/${projectId}/tasks/${taskId}/dependencies/${predecessorId}`, {
       method: "DELETE",
     }),
+
+  // History
+  history: (projectId: string, taskId: string) =>
+    request<any[]>(`/projects/${projectId}/tasks/${taskId}/history`),
 };
 
 // ─── Comments ────────────────────────────────────────────────────────────────

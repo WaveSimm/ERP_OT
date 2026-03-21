@@ -430,6 +430,17 @@ export class TaskService {
     this.gateway.emitToProject(projectId, "activity:created", { projectId });
   }
 
+  async getHistory(taskId: string) {
+    const task = await this.prisma.task.findUnique({ where: { id: taskId } });
+    if (!task) throw new AppError(404, "TASK_NOT_FOUND", "태스크를 찾을 수 없습니다.");
+
+    return this.prisma.taskScheduleHistory.findMany({
+      where: { taskId },
+      orderBy: { changedAt: "desc" },
+      take: 100,
+    });
+  }
+
   private async recalculateTaskProgress(taskId: string): Promise<void> {
     const task = await this.prisma.task.findUnique({
       where: { id: taskId },

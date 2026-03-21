@@ -267,6 +267,13 @@ export async function taskRoutes(fastify: FastifyInstance) {
   });
 
   // POST /api/v1/projects/:projectId/cpm — CPM 재계산
+  // GET /api/v1/projects/:projectId/tasks/:taskId/history
+  fastify.get("/:taskId/history", async (req, reply) => {
+    const { taskId } = req.params as { taskId: string };
+    const history = await taskService.getHistory(taskId);
+    return reply.send(history);
+  });
+
   fastify.post("/cpm", {
     preHandler: requireRole("ADMIN", "MANAGER"),
     url: "/cpm", // 이 경로는 prefix 외부에서 별도 등록 필요
