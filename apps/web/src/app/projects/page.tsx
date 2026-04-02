@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { projectApi } from "@/lib/api";
 import AppLayout from "@/components/AppLayout";
+import { usePermission } from "@/hooks/usePermission";
 import clsx from "clsx";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -71,6 +72,7 @@ function fmtDate(s?: string | null) {
 
 export default function ProjectsPage() {
   const router = useRouter();
+  const { isManager } = usePermission();
 
   // API data
   const [projects, setProjects] = useState<Project[]>([]);
@@ -529,12 +531,14 @@ export default function ProjectsPage() {
             >
               <span>📁</span> 폴더
             </button>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors flex items-center gap-1.5"
-            >
-              + 새 프로젝트
-            </button>
+            {isManager && (
+              <button
+                onClick={() => setShowCreate(true)}
+                className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors flex items-center gap-1.5"
+              >
+                + 새 프로젝트
+              </button>
+            )}
           </div>
         </div>
 

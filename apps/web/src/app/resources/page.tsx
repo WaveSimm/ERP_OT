@@ -114,10 +114,6 @@ function DropLine() {
 export default function ResourcesPage() {
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
-  const [tab, setTab] = useState<"list" | "dashboard">("list");
-  const handleTabChange = (t: "list" | "dashboard") => {
-    setTab(t); sessionStorage.setItem(TAB_KEY, t);
-  };
 
   const [groups, setGroups] = useState<Group[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
@@ -201,8 +197,6 @@ export default function ResourcesPage() {
     const token = localStorage.getItem("erp_token");
     if (!token) { router.push("/login"); return; }
     setIsAdmin(getUser()?.role === "ADMIN");
-    const savedTab = sessionStorage.getItem(TAB_KEY) as "list" | "dashboard" | null;
-    if (savedTab) setTab(savedTab);
     load();
   }, []);
 
@@ -241,12 +235,12 @@ export default function ResourcesPage() {
       }
 
       // ── 4. 그룹 마킹 ──────────────────────────────────────────────────────
-      // isDept: 어떤 유저의 profile.departmentId가 이 그룹을 가리키는 경우
-      const deptGroupIds = new Set(
-        users.filter((u: any) => u.profile?.departmentId).map((u: any) => u.profile.departmentId)
+      // isDept: description === "__dept__" 또는 부서명과 일치하는 그룹
+      const deptNames = new Set(
+        users.filter((u: any) => u.profile?.departmentName).map((u: any) => u.profile.departmentName)
       );
       const markedGroups: Group[] = groups.map((g) => {
-        const isDept = deptGroupIds.has(g.id) || g.description === "__dept__";
+        const isDept = g.description === "__dept__" || deptNames.has(g.name);
         const isProtected = isDept || g.description === "__all__" || g.name === "전체";
         return { ...g, isDept, isProtected };
       });
@@ -272,7 +266,7 @@ export default function ResourcesPage() {
       if (users.length > 0) {
         for (const g of markedGroups.filter((g) => g.isDept)) {
           const deptEmails = new Set(
-            users.filter((u: any) => u.profile?.departmentId === g.id).map((u: any) => u.email)
+            users.filter((u: any) => u.profile?.departmentName === g.name).map((u: any) => u.email)
           );
           const deptResourceIds = resources
             .filter((r) => r.userId && deptEmails.has(r.userId))
@@ -340,7 +334,7 @@ export default function ResourcesPage() {
     finally { setDashLoading(false); }
   }, [startDate, endDate]);
 
-  useEffect(() => { if (tab === "dashboard") loadDashboard(); }, [tab, loadDashboard]);
+  useEffect(() => { loadDashboard(); }, [loadDashboard]);
 
   // 운영 현황 탭: 첫 방문 시 전체 펼치기 (저장된 값 없을 때만)
   useEffect(() => {
@@ -765,119 +759,13 @@ export default function ResourcesPage() {
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">자원 관리</h2>
-            <p className="text-sm text-gray-500">그룹명 클릭으로 구성원 편집 · 드래그로 순서/그룹 변경</p>
+            <h2 className="text-xl font-bold text-gray-900">운영 현황</h2>
+            <p className="text-sm text-gray-500">기간별 자원 배정 및 가동률 현황</p>
           </div>
-          {isAdmin && (
-            <div className="flex gap-2">
-              <button onClick={() => openCreateGroup()}
-                className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
-                + 사용자 그룹 추가
-              </button>
-              <button onClick={() => setShowCreateResource(true)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700">
-                + 자원 추가
-              </button>
-            </div>
-          )}
         </div>
 
-        {/* 탭 */}
-        <div className="flex gap-1 border-b border-gray-200 mb-6">
-          {(["list", "dashboard"] as const).map((t) => (
-            <button key={t} onClick={() => handleTabChange(t)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                tab === t ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}>
-              {t === "list" ? "👥 자원 목록" : "📊 운영 현황"}
-            </button>
-          ))}
-        </div>
-
-        {/* 목록 탭 */}
-        {tab === "list" && (
-          loading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
-            </div>
-          ) : (
-            <>
-              <div className="flex justify-end mb-2">
-                <button
-                  onClick={() => {
-                    const allIds = groups.map((g) => g.id);
-                    const allOpen = allIds.length > 0 && allIds.every((id) => expanded.has(id));
-                    const next = allOpen ? new Set<string>() : new Set(allIds);
-                    setExpanded(next);
-                    try { sessionStorage.setItem(EXPANDED_KEY, JSON.stringify([...next])); } catch {}
-                  }}
-                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors"
-                >
-                  {groups.length > 0 && groups.every((g) => expanded.has(g.id)) ? "전체 닫기" : "전체 펼치기"}
-                </button>
-              </div>
-            <div onDragOver={(e) => e.preventDefault()}>
-              {[0, 1, 2].map((sectionKey) => {
-                const section = tree.filter((g) => groupSortKey(g) === sectionKey);
-                if (section.length === 0) return null;
-                return (
-                  <div key={sectionKey} style={{ marginTop: sectionKey > 0 ? 12 : 0 }}>
-                    {section.map((group) => (
-                      <Fragment key={group.id}>
-                        {dropIndicator?.targetId === group.id && dropIndicator.position === "before" && <DropLine />}
-                        <div className="mb-0.5">
-                          <GroupNode
-                            group={group} expanded={expanded} resourceMap={resourceMap} dnd={dnd}
-                            onToggle={toggleExpand} onToggleActive={handleToggleActive}
-                            onDelete={handleDeleteGroup} onRename={openRenameGroup}
-                            onEditMembers={openMemberModal} onEditUserId={isAdmin ? handleOpenUserIdModal : undefined}
-                            isAdmin={isAdmin} depth={0}
-                          />
-                        </div>
-                        {dropIndicator?.targetId === group.id && dropIndicator.position === "after" && <DropLine />}
-                      </Fragment>
-                    ))}
-                  </div>
-                );
-              })}
-
-              {/* 미분류 */}
-              {ungrouped.length > 0 && (
-                <div className="bg-white rounded-xl border border-dashed border-gray-300 overflow-hidden" style={{ marginTop: 12 }}>
-                  <div className="px-4 py-3 bg-gray-50 flex items-center gap-2">
-                    <span className="text-sm font-semibold text-gray-500">📂 미분류</span>
-                    <span className="text-xs text-gray-400">{ungrouped.length}명</span>
-                  </div>
-                  <ResourceRows resources={ungrouped} dnd={dnd} onToggleActive={handleToggleActive} onEditUserId={isAdmin ? handleOpenUserIdModal : undefined} isAdmin={isAdmin} />
-                </div>
-              )}
-
-              {tree.length === 0 && ungrouped.length === 0 && (
-                <div className="text-center py-20">
-                  <div className="text-5xl mb-4">👥</div>
-                  <p className="text-gray-500 mb-4">등록된 자원이 없습니다.</p>
-                  <button onClick={() => setShowCreateResource(true)} className="text-blue-600 hover:underline font-medium">
-                    첫 자원 추가하기 →
-                  </button>
-                </div>
-              )}
-
-              {/* 드래그 중 안내 토스트 */}
-              {dragState && (
-                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-4 py-2 rounded-full shadow-lg pointer-events-none z-50">
-                  {dragState.type === "resource"
-                    ? "그룹 헤더 위에 놓으면 해당 그룹에 추가됩니다"
-                    : "원하는 위치에 놓으면 그 사이에 삽입됩니다"}
-                </div>
-              )}
-            </div>
-            </>
-          )
-        )}
-
-        {/* 운영 현황 탭 */}
-        {tab === "dashboard" && (
-          <div>
+        {/* 운영 현황 */}
+        <div>
             {/* 날짜 필터 */}
             <div className="flex items-center gap-2 mb-4 flex-wrap">
               {/* 빠른 선택 버튼 */}
@@ -986,7 +874,6 @@ export default function ResourcesPage() {
               </div>
             )}
           </div>
-        )}
       </div>
 
       {/* ── 멤버 편집 모달 ─────────────────────────────────────────────────────── */}

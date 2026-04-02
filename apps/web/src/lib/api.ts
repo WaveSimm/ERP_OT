@@ -276,6 +276,7 @@ export const notificationApi = {
       `/notifications${q ? `?${q}` : ""}`,
     );
   },
+  unreadCount: () => request<{ count: number }>("/notifications/unread-count"),
   markRead: (id: string) =>
     request<any>(`/notifications/${id}/read`, { method: "PATCH", body: "{}" }),
   markAllRead: () =>
@@ -286,6 +287,79 @@ export const notificationApi = {
 
 export const myTasksApi = {
   list: () => request<any[]>("/tasks/mine"),
+};
+
+// ─── Me (project-service) ─────────────────────────────────────────────────────
+
+export const meApi = {
+  getKanban: (date?: string) =>
+    request<any>(`/me/kanban${date ? `?date=${date}` : ""}`),
+  getWeekCalendar: (date?: string) =>
+    request<any>(`/me/week-calendar${date ? `?date=${date}` : ""}`),
+  getProjects: () => request<any[]>("/me/projects"),
+  getStaleSegments: (staleDays = 3) =>
+    request<any[]>(`/me/stale-segments?staleDays=${staleDays}`),
+  updateSegmentProgress: (segmentId: string, data: { progressPercent: number; changeReason?: string }) =>
+    request<any>(`/me/segments/${segmentId}/progress`, { method: "PATCH", body: JSON.stringify(data) }),
+};
+
+// ─── Attendance ───────────────────────────────────────────────────────────────
+
+export const attendanceApi = {
+  getToday: () => request<any>("/attendance/today"),
+  checkIn: (data: { workType?: string; note?: string }) =>
+    request<any>("/attendance/check-in", { method: "POST", body: JSON.stringify(data) }),
+  checkOut: () => request<any>("/attendance/check-out", { method: "POST", body: "{}" }),
+  breakOut: () => request<any>("/attendance/break-out", { method: "POST", body: "{}" }),
+  breakIn: () => request<any>("/attendance/break-in", { method: "POST", body: "{}" }),
+  getCalendar: (year: number, month: number) =>
+    request<any>(`/attendance/calendar?year=${year}&month=${month}`),
+  getSummary: (year: number, month: number) =>
+    request<any>(`/attendance/summary?year=${year}&month=${month}`),
+};
+
+// ─── Leave ────────────────────────────────────────────────────────────────────
+
+export const leaveApi = {
+  getBalance: () => request<any>("/leave/balance"),
+  list: (params?: { status?: string; year?: number }) => {
+    const q = params ? new URLSearchParams(params as any).toString() : "";
+    return request<any[]>(`/leave/requests${q ? `?${q}` : ""}`);
+  },
+  create: (data: { type: string; startDate: string; endDate: string; reason: string; approverId?: string }) =>
+    request<any>("/leave/requests", { method: "POST", body: JSON.stringify(data) }),
+  cancel: (id: string) =>
+    request<any>(`/leave/requests/${id}/cancel`, { method: "PATCH", body: "{}" }),
+};
+
+// ─── Overtime ─────────────────────────────────────────────────────────────────
+
+export const overtimeApi = {
+  list: (status?: string) =>
+    request<any[]>(`/overtime/requests${status ? `?status=${status}` : ""}`),
+  create: (data: { date: string; plannedHours: number; reason: string; projectId?: string; approverId?: string }) =>
+    request<any>("/overtime/requests", { method: "POST", body: JSON.stringify(data) }),
+  complete: (id: string, actualHours: number) =>
+    request<any>(`/overtime/requests/${id}/complete`, { method: "PATCH", body: JSON.stringify({ actualHours }) }),
+  cancel: (id: string) =>
+    request<any>(`/overtime/requests/${id}/cancel`, { method: "PATCH", body: "{}" }),
+};
+
+// ─── Team (Manager) ──────────────────────────────────────────────────────────
+
+export const teamApi = {
+  getAttendance: (year: number, month: number) =>
+    request<any[]>(`/team/attendance?year=${year}&month=${month}`),
+  getPendingLeave: () => request<any[]>("/leave/pending"),
+  getPendingOT: () => request<any[]>("/overtime/pending"),
+  approveLeave: (id: string) =>
+    request<any>(`/leave/requests/${id}/approve`, { method: "POST", body: "{}" }),
+  rejectLeave: (id: string, rejectReason: string) =>
+    request<any>(`/leave/requests/${id}/reject`, { method: "POST", body: JSON.stringify({ rejectReason }) }),
+  approveOT: (id: string) =>
+    request<any>(`/overtime/requests/${id}/approve`, { method: "POST", body: "{}" }),
+  rejectOT: (id: string, rejectReason: string) =>
+    request<any>(`/overtime/requests/${id}/reject`, { method: "POST", body: JSON.stringify({ rejectReason }) }),
 };
 
 // ─── My Profile ──────────────────────────────────────────────────────────────
@@ -320,8 +394,32 @@ export const authApi = {
   me: () => request<any>("/auth/me"),
 };
 
+export const departmentApi = {
+  list: () => request<any[]>("/departments"),
+  create: (data: { name: string; code: string; level?: number; sortOrder?: number }) =>
+    request<any>("/departments", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: { name?: string; headUserId?: string | null; parentId?: string | null; soukwalUserId?: string | null; daepyoUserId?: string | null; sortOrder?: number }) =>
+    request<any>(`/departments/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  delete: (id: string) => request<void>(`/departments/${id}`, { method: "DELETE" }),
+  getById: (id: string) => request<any>(`/departments/${id}`),
+};
+
+export const approvalLineApi = {
+  list: () => request<any[]>("/approval-lines"),
+  getMe: () => request<any>("/approval-lines/me"),
+  getByUser: (userId: string) => request<any>(`/approval-lines/${userId}`),
+  upsert: (data: { userId: string; approverId: string; secondApproverId?: string | null; thirdApproverId?: string | null }) =>
+    request<any>("/approval-lines", { method: "POST", body: JSON.stringify(data) }),
+  remove: (userId: string) => request<void>(`/approval-lines/${userId}`, { method: "DELETE" }),
+  bulkByDepartment: (departmentId: string) =>
+    request<void>("/approval-lines/bulk-by-department", { method: "POST", body: JSON.stringify({ departmentId }) }),
+  bulkAll: () =>
+    request<void>("/approval-lines/bulk-all", { method: "POST", body: JSON.stringify({}) }),
+};
+
 export const userManagementApi = {
   list: () => request<{ items: any[]; total: number }>("/users"),
+  members: () => request<{ id: string; name: string }[]>("/users/members"),
   create: (data: { email: string; name: string; password: string; role: string }) =>
     request<any>("/users", { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, data: { name?: string; role?: string; isActive?: boolean }) =>
@@ -337,6 +435,31 @@ export const userManagementApi = {
     departmentName?: string | null;
   }) => request<any>(`/users/${id}/profile`, { method: "PATCH", body: JSON.stringify(data) }),
   delete: (id: string) => request<void>(`/users/${id}`, { method: "DELETE" }),
+};
+
+// ─── Dashboard (지휘센터) ─────────────────────────────────────────────────────
+
+export const dashboardApi = {
+  get: (params?: { groupBy?: string; date?: string; issueFilter?: string }) => {
+    const q = params ? new URLSearchParams(params as any).toString() : "";
+    return request<any>(`/dashboard${q ? `?${q}` : ""}`);
+  },
+  getSummary: (date?: string) =>
+    request<any>(`/dashboard/summary${date ? `?date=${date}` : ""}`),
+  getProjectIssues: (projectId: string) =>
+    request<any[]>(`/dashboard/projects/${projectId}/issues`),
+  getProjectTimeline: (projectId: string, date?: string) =>
+    request<any[]>(`/dashboard/projects/${projectId}/timeline${date ? `?date=${date}` : ""}`),
+  getConfig: () => request<any>("/dashboard/config"),
+  updateConfig: (data: { defaultGroupBy?: string; pinnedProjectIds?: string[]; issueFilter?: string; presentationMode?: boolean }) =>
+    request<any>("/dashboard/config", { method: "PUT", body: JSON.stringify(data) }),
+  getThresholds: () => request<any>("/dashboard/thresholds"),
+  updateThresholds: (data: any) =>
+    request<any>("/dashboard/thresholds", { method: "PUT", body: JSON.stringify(data) }),
+  refreshProject: (projectId: string) =>
+    request<any>(`/dashboard/projects/${projectId}/refresh`, { method: "POST", body: "{}" }),
+  refreshAll: () =>
+    request<any>("/dashboard/refresh-all", { method: "POST", body: "{}" }),
 };
 
 /** @deprecated Use authApi.login instead */

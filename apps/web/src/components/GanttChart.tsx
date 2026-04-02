@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, useCallback, useEffect } from "react";
 import clsx from "clsx";
 import CommentPopover from "@/components/CommentPopover";
 import ResourcePickerPopover from "@/components/ResourcePickerPopover";
+import { taskApi } from "@/lib/api";
 
 interface GanttSegment {
   id: string;
@@ -75,6 +76,12 @@ function formatDate(s: string) {
   return new Date(s).toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
 }
 
+function shiftDate(isoDate: string, days: number): string {
+  const d = parseDate(isoDate);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTaskClick, baselineSegments, allResources, onRefresh, projectId }: {
   data: GanttData;
   flatItems?: FlatItem[];
@@ -107,6 +114,25 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
   useEffect(() => { try { localStorage.setItem("gantt_leftW", String(leftW)); } catch {} }, [leftW]);
   useEffect(() => { try { localStorage.setItem("gantt_resourceW", String(resourceW)); } catch {} }, [resourceW]);
 
+  // data prop이 새 날짜로 갱신되면 일치하는 override를 자동 정리
+  useEffect(() => {
+    setSegDateOverrides((prev) => {
+      if (Object.keys(prev).length === 0) return prev;
+      const next = { ...prev };
+      let changed = false;
+      for (const task of data.tasks) {
+        for (const seg of task.segments) {
+          const ov = next[seg.id];
+          if (ov && ov.startDate === seg.startDate && ov.endDate === seg.endDate) {
+            delete next[seg.id];
+            changed = true;
+          }
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [data]);
+
   const startResize = useCallback((
     e: React.MouseEvent,
     currentW: number,
@@ -128,6 +154,115 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
   }, []);
+
+  // ── Bar drag (move / resize) ──────────────────────────────────────────────
+  // Optimistic date overrides: segId → { startDate, endDate }
+  // mouseup에서 즉시 적용해 바를 고정, API 실패 시에만 롤백
+  const [segDateOverrides, setSegDateOverrides] = useState<Record<string, { startDate: string; endDate: string }>>({});
+
+  const segElsRef = useRef<Map<string, HTMLElement>>(new Map());
+  // dayPxRef는 dayPx가 계산된 후 동기적으로 갱신 — closure가 항상 최신값 읽도록
+  const dayPxRef = useRef(DAY_PX);
+
+  type DragState = {
+    type: "move" | "resize-left" | "resize-right";
+    segId: string;
+    taskId: string;
+    startX: number;
+    origLeft: number;
+    origWidth: number;
+    origStartDate: string;
+    origEndDate: string;
+  };
+  const dragRef = useRef<DragState | null>(null);
+
+  const startBarDrag = useCallback((
+    e: React.MouseEvent,
+    type: "move" | "resize-left" | "resize-right",
+    seg: GanttSegment,
+    taskId: string,
+    sx: number,
+    sw: number,
+  ) => {
+    if (!projectId) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    dragRef.current = {
+      type, segId: seg.id, taskId,
+      startX: e.clientX,
+      origLeft: sx, origWidth: sw,
+      origStartDate: seg.startDate, origEndDate: seg.endDate,
+    };
+
+    document.body.style.cursor = type === "move" ? "grabbing" : "ew-resize";
+    document.body.style.userSelect = "none";
+
+    const onMove = (ev: MouseEvent) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      const el = segElsRef.current.get(drag.segId);
+      if (!el) return;
+
+      const dp = dayPxRef.current;
+      const dayDelta = Math.round((ev.clientX - drag.startX) / dp);
+
+      if (drag.type === "move") {
+        el.style.left = `${drag.origLeft + dayDelta * dp}px`;
+      } else if (drag.type === "resize-right") {
+        el.style.width = `${Math.max(dp, drag.origWidth + dayDelta * dp)}px`;
+      } else {
+        const newLeft = drag.origLeft + dayDelta * dp;
+        const newWidth = Math.max(dp, drag.origWidth - dayDelta * dp);
+        el.style.left = `${newLeft}px`;
+        el.style.width = `${newWidth}px`;
+      }
+    };
+
+    const onUp = (ev: MouseEvent) => {
+      const drag = dragRef.current;
+      dragRef.current = null;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      if (!drag) return;
+
+      const dayDelta = Math.round((ev.clientX - drag.startX) / dayPxRef.current);
+      if (dayDelta === 0) return;
+
+      let newStart = drag.origStartDate;
+      let newEnd = drag.origEndDate;
+
+      if (drag.type === "move") {
+        newStart = shiftDate(drag.origStartDate, dayDelta);
+        newEnd   = shiftDate(drag.origEndDate,   dayDelta);
+      } else if (drag.type === "resize-right") {
+        newEnd = shiftDate(drag.origEndDate, dayDelta);
+        if (newEnd < drag.origStartDate) newEnd = drag.origStartDate;
+      } else {
+        newStart = shiftDate(drag.origStartDate, dayDelta);
+        if (newStart > drag.origEndDate) newStart = drag.origEndDate;
+      }
+
+      // Optimistic update: 즉시 React 상태에 새 날짜 적용 → 바가 새 위치에 고정
+      setSegDateOverrides((prev) => ({ ...prev, [drag.segId]: { startDate: newStart, endDate: newEnd } }));
+
+      taskApi.updateSegment(projectId!, drag.taskId, drag.segId, {
+        startDate: newStart,
+        endDate: newEnd,
+        changeReason: "드래그 이동",
+      }).then(() => {
+        onRefresh?.();
+      }).catch(() => {
+        // 실패: override 롤백 → 원래 위치로 복귀
+        setSegDateOverrides((prev) => { const n = { ...prev }; delete n[drag.segId]; return n; });
+      });
+    };
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, [projectId, onRefresh]);
 
   // Collapse state for parent tasks
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -201,6 +336,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
     : DAY_PX;
 
   const timelineW = totalDays * dayPx;
+  dayPxRef.current = dayPx; // 드래그 closure가 항상 최신 dayPx를 읽도록 갱신
 
   // Month headers
   const months = useMemo(() => {
@@ -630,8 +766,12 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                       );
                     })}
                     {task.segments.map((seg) => {
-                      const sx = daysBetween(rangeStart, parseDate(seg.startDate)) * dayPx;
-                      const sw = (daysBetween(parseDate(seg.startDate), parseDate(seg.endDate)) + 1) * dayPx;
+                      // optimistic override가 있으면 그 날짜로 위치 계산
+                      const ov = segDateOverrides[seg.id];
+                      const effStart = ov?.startDate ?? seg.startDate;
+                      const effEnd   = ov?.endDate   ?? seg.endDate;
+                      const sx = daysBetween(rangeStart, parseDate(effStart)) * dayPx;
+                      const sw = (daysBetween(parseDate(effStart), parseDate(effEnd)) + 1) * dayPx;
                       const pct = Math.min(100, Math.max(0, seg.progressPercent));
                       const isCompleted = seg.progressPercent >= 100;
                       const barColor = isCompleted
@@ -645,12 +785,15 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                           ? "bg-red-200"
                           : "bg-blue-200";
                       const resources = seg.assignments.map((a) => a.resourceName).join(", ");
+                      const canDrag = !!projectId;
                       return (
                         <div
                           key={seg.id}
-                          className="absolute group/seg"
-                          style={{ left: sx, top: BAR_TOP, width: sw, height: BAR_H }}
-                          title={`${seg.name}\n${formatDate(seg.startDate)} ~ ${formatDate(seg.endDate)}\n진행률: ${pct}%${resources ? `\n담당: ${resources}` : ""}`}
+                          ref={(el) => { if (el) segElsRef.current.set(seg.id, el); else segElsRef.current.delete(seg.id); }}
+                          className="absolute group/seg select-none"
+                          style={{ left: sx, top: BAR_TOP, width: sw, height: BAR_H, cursor: canDrag ? "grab" : "default" }}
+                          onMouseDown={canDrag ? (e) => { if (e.button === 0) startBarDrag(e, "move", seg, task.id, sx, sw); } : undefined}
+                          title={`${seg.name}\n${formatDate(effStart)} ~ ${formatDate(effEnd)}\n진행률: ${pct}%${resources ? `\n담당: ${resources}` : ""}`}
                         >
                           {/* Track */}
                           <div className={clsx("h-full w-full rounded", trackColor)} />
@@ -660,11 +803,27 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                             style={{ width: `${pct}%` }}
                           />
                           {/* Label */}
-                          <div className="absolute inset-0 flex items-center px-1.5 overflow-hidden pointer-events-none">
+                          <div className="absolute inset-0 flex items-center px-2.5 overflow-hidden pointer-events-none">
                             <span className="text-[10px] font-medium text-white truncate drop-shadow-sm">
                               {sw > 50 ? seg.name : ""}
                             </span>
                           </div>
+                          {/* Resize handle — left */}
+                          {canDrag && (
+                            <div
+                              className="absolute top-0 left-0 h-full w-2 cursor-ew-resize opacity-0 group-hover/seg:opacity-100 transition-opacity rounded-l z-10"
+                              style={{ background: "rgba(255,255,255,0.35)" }}
+                              onMouseDown={(e) => { e.stopPropagation(); if (e.button === 0) startBarDrag(e, "resize-left", seg, task.id, sx, sw); }}
+                            />
+                          )}
+                          {/* Resize handle — right */}
+                          {canDrag && (
+                            <div
+                              className="absolute top-0 right-0 h-full w-2 cursor-ew-resize opacity-0 group-hover/seg:opacity-100 transition-opacity rounded-r z-10"
+                              style={{ background: "rgba(255,255,255,0.35)" }}
+                              onMouseDown={(e) => { e.stopPropagation(); if (e.button === 0) startBarDrag(e, "resize-right", seg, task.id, sx, sw); }}
+                            />
+                          )}
                         </div>
                       );
                     })}
@@ -677,7 +836,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
       </div>
 
       {/* Legend */}
-      <div className="border-t border-gray-200 px-4 py-2 flex items-center gap-6 text-xs text-gray-500">
+      <div className="border-t border-gray-200 px-4 py-2 flex items-center gap-6 text-xs text-gray-500 flex-wrap">
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-blue-500 inline-block" /> 일반</span>
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-500 inline-block" /> 크리티컬 패스</span>
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-green-500 inline-block" /> 완료</span>
@@ -692,6 +851,9 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
             <span className="w-3 h-1 rounded-sm inline-block" style={{ background: "rgba(251,146,60,0.7)", border: "1px solid rgba(249,115,22,0.8)" }} />
             기준선
           </span>
+        )}
+        {projectId && (
+          <span className="ml-auto text-gray-300 italic">드래그: 이동 &nbsp;|&nbsp; 양끝 핸들: 기간 조절</span>
         )}
       </div>
     </div>

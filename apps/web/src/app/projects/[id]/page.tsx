@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef, Fragment } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { projectApi, taskApi, resourceApi, baselineApi, commentApi, templateApi } from "@/lib/api";
 import dynamic from "next/dynamic";
+import { usePermission } from "@/hooks/usePermission";
 import AddTaskModal from "@/components/AddTaskModal";
 import TaskDrawer from "@/components/TaskDrawer";
 import DateInput from "@/components/DateInput";
@@ -67,6 +68,7 @@ export default function ProjectDetailPage() {
   const router = useRouter();
   const params = useParams();
   const projectId = params.id as string;
+  const { isManager } = usePermission();
 
   const [ganttData, setGanttData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -77,6 +79,9 @@ export default function ProjectDetailPage() {
   const [showProjectPicker, setShowProjectPicker] = useState(false);
   const [projectSearch, setProjectSearch] = useState("");
   const pickerRef = useRef<HTMLDivElement>(null);
+  const [pickerFolders, setPickerFolders] = useState<{ id: string; name: string; parentId: string | null }[]>([]);
+  const [pickerProjMap, setPickerProjMap] = useState<Record<string, string[]>>({});
+  const [pickerOpenFolders, setPickerOpenFolders] = useState<Record<string, boolean>>({});
   const [showAddTask, setShowAddTask] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [inlineTaskName, setInlineTaskName] = useState("");
@@ -161,6 +166,19 @@ export default function ProjectDetailPage() {
     if (!token) { router.push("/login"); return; }
     load();
     projectApi.list().then((r: any) => setAllProjects(r.items ?? [])).catch(() => {});
+    try {
+      const fRaw = localStorage.getItem("erp_folders_v1");
+      const rawFolders = fRaw ? JSON.parse(fRaw) : [];
+      setPickerFolders(Array.isArray(rawFolders) ? rawFolders : []);
+      const mRaw = localStorage.getItem("erp_proj_folder_v2");
+      const rawMap = mRaw ? JSON.parse(mRaw) : {};
+      const map: Record<string, string[]> = {};
+      Object.entries(rawMap ?? {}).forEach(([k, v]) => {
+        if (Array.isArray(v)) map[k] = v as string[];
+        else if (typeof v === "string") map[k] = [v as string];
+      });
+      setPickerProjMap(map);
+    } catch {}
   }, [load, router]);
 
   useEffect(() => {
@@ -779,25 +797,89 @@ export default function ProjectDetailPage() {
                   />
                 </div>
                 <ul className="max-h-64 overflow-y-auto py-1">
-                  {allProjects
-                    .filter((p: any) => p.name.toLowerCase().includes(projectSearch.toLowerCase()))
-                    .map((p: any) => {
+                  {(() => {
+                    const q = projectSearch.toLowerCase();
+
+                    // 검색 중일 때: 플랫 필터 리스트
+                    if (q) {
+                      const matched = allProjects.filter((p: any) => p.name.toLowerCase().includes(q));
+                      if (matched.length === 0) return <li className="px-4 py-3 text-sm text-gray-400 text-center">검색 결과 없음</li>;
+                      return matched.map((p: any) => {
+                        const pst = STATUS_LABELS[p.status];
+                        return (
+                          <li key={p.id}>
+                            <button
+                              onClick={() => { setShowProjectPicker(false); setProjectSearch(""); router.push(`/projects/${p.id}`); }}
+                              className={`w-full text-left px-4 py-2 text-sm hover:bg-blue-50 flex items-center gap-2 ${p.id === projectId ? "bg-blue-50 font-semibold text-blue-700" : "text-gray-700"}`}
+                            >
+                              <span className="flex-1 truncate">{p.name}</span>
+                              {pst && <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${pst.color}`}>{pst.label}</span>}
+                            </button>
+                          </li>
+                        );
+                      });
+                    }
+
+                    // 트리 빌더: 폴더+프로젝트를 깊이 우선으로 flat 배열 생성
+                    type PickerItem =
+                      | { kind: "folder"; folder: { id: string; name: string }; depth: number }
+                      | { kind: "project"; project: any; depth: number };
+
+                    function buildItems(parentId: string | null, depth: number): PickerItem[] {
+                      const items: PickerItem[] = [];
+                      const childFolders = pickerFolders.filter(f => f.parentId === parentId);
+                      for (const folder of childFolders) {
+                        items.push({ kind: "folder", folder, depth });
+                        if (pickerOpenFolders[folder.id] !== false) {
+                          items.push(...buildItems(folder.id, depth + 1));
+                        }
+                      }
+                      const childProjects = parentId === null
+                        ? allProjects.filter((p: any) => !(pickerProjMap[p.id]?.length > 0))
+                        : allProjects.filter((p: any) => (pickerProjMap[p.id] ?? []).includes(parentId));
+                      for (const p of childProjects) {
+                        items.push({ kind: "project", project: p, depth });
+                      }
+                      return items;
+                    }
+
+                    const items = buildItems(null, 0);
+                    if (items.length === 0) return <li className="px-4 py-3 text-sm text-gray-400 text-center">프로젝트 없음</li>;
+
+                    return items.map((item, idx) => {
+                      if (item.kind === "folder") {
+                        const isOpen = pickerOpenFolders[item.folder.id] !== false;
+                        return (
+                          <li key={`f_${item.folder.id}`}>
+                            <button
+                              onClick={() => setPickerOpenFolders(prev => ({ ...prev, [item.folder.id]: !isOpen }))}
+                              className="w-full text-left px-3 py-1.5 text-xs font-semibold text-gray-500 hover:bg-gray-50 flex items-center gap-1.5"
+                              style={{ paddingLeft: 12 + item.depth * 14 }}
+                            >
+                              <span className="text-[9px] transition-transform duration-150 inline-block" style={{ transform: isOpen ? "rotate(90deg)" : "none" }}>▶</span>
+                              <span>{isOpen ? "📂" : "📁"}</span>
+                              <span className="truncate">{item.folder.name}</span>
+                            </button>
+                          </li>
+                        );
+                      }
+                      const p = item.project;
                       const pst = STATUS_LABELS[p.status];
                       return (
-                        <li key={p.id}>
+                        <li key={`p_${p.id}_${idx}`}>
                           <button
                             onClick={() => { setShowProjectPicker(false); setProjectSearch(""); router.push(`/projects/${p.id}`); }}
-                            className={`w-full text-left px-4 py-2 text-sm hover:bg-blue-50 flex items-center gap-2 ${p.id === projectId ? "bg-blue-50 font-semibold text-blue-700" : "text-gray-700"}`}
+                            className={`w-full text-left py-2 text-sm hover:bg-blue-50 flex items-center gap-2 ${p.id === projectId ? "bg-blue-50 font-semibold text-blue-700" : "text-gray-700"}`}
+                            style={{ paddingLeft: 12 + item.depth * 14 }}
                           >
+                            <span className="text-gray-300 text-xs shrink-0">📄</span>
                             <span className="flex-1 truncate">{p.name}</span>
-                            {pst && <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${pst.color}`}>{pst.label}</span>}
+                            {pst && <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 mr-2 ${pst.color}`}>{pst.label}</span>}
                           </button>
                         </li>
                       );
-                    })}
-                  {allProjects.filter((p: any) => p.name.toLowerCase().includes(projectSearch.toLowerCase())).length === 0 && (
-                    <li className="px-4 py-3 text-sm text-gray-400 text-center">검색 결과 없음</li>
-                  )}
+                    });
+                  })()}
                 </ul>
               </div>
             )}
@@ -922,12 +1004,14 @@ export default function ProjectDetailPage() {
             >
               템플릿 저장
             </button>
-            <button
-              onClick={() => setShowAddTask(true)}
-              className="bg-blue-600 text-white px-4 py-1 rounded-lg text-sm font-semibold hover:bg-blue-700"
-            >
-              + 태스크
-            </button>
+            {isManager && (
+              <button
+                onClick={() => setShowAddTask(true)}
+                className="bg-blue-600 text-white px-4 py-1 rounded-lg text-sm font-semibold hover:bg-blue-700"
+              >
+                + 태스크
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1000,7 +1084,7 @@ export default function ProjectDetailPage() {
                 onTaskClick={(task) => { if (selectedTask?.id === task.id) { setSelectedTask(null); } else { handleTaskClick(task); } }}
                 baselineSegments={baselineSegments.length > 0 ? baselineSegments : undefined}
                 allResources={resources}
-                onRefresh={load}
+                onRefresh={loadSilent}
                 projectId={projectId}
               />
             </div>
@@ -1025,10 +1109,12 @@ export default function ProjectDetailPage() {
                   → 들여쓰기
                 </button>
                 <div className="ml-auto flex items-center gap-2">
-                  <button onClick={handleDeleteSelected}
-                    className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded border border-red-200">
-                    🗑 선택 삭제
-                  </button>
+                  {isManager && (
+                    <button onClick={handleDeleteSelected}
+                      className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded border border-red-200">
+                      🗑 선택 삭제
+                    </button>
+                  )}
                   <button onClick={() => setSelected(new Set())}
                     className="text-xs text-gray-400 hover:text-gray-600">선택 해제</button>
                 </div>
@@ -1254,8 +1340,10 @@ export default function ProjectDetailPage() {
                         return null;
                       })}
                       <td className="px-1 text-center" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => handleDeleteTask(task.id, task.name)}
-                          className="text-gray-300 hover:text-red-500 text-xs opacity-0 group-hover/row:opacity-100" title="삭제">🗑</button>
+                        {isManager && (
+                          <button onClick={() => handleDeleteTask(task.id, task.name)}
+                            className="text-gray-300 hover:text-red-500 text-xs opacity-0 group-hover/row:opacity-100" title="삭제">🗑</button>
+                        )}
                       </td>
                     </tr>
 

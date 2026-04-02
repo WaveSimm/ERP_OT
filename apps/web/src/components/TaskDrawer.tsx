@@ -419,6 +419,15 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
 
   useEffect(() => { loadComments(); loadDeps(); }, [task.id]);
 
+  useEffect(() => {
+    if (!showHistory) return;
+    setHistoryLoading(true);
+    taskApi.history(projectId, task.id)
+      .then(setHistory)
+      .catch(() => setHistory([]))
+      .finally(() => setHistoryLoading(false));
+  }, [task.id, showHistory]);
+
   const loadComments = async () => {
     try { setComments(await commentApi.list(task.id)); } catch { setComments([]); }
   };
@@ -550,10 +559,6 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
           <button
             onClick={async () => {
               setShowHistory(true);
-              setHistoryLoading(true);
-              try { setHistory(await taskApi.history(projectId, task.id)); }
-              catch { setHistory([]); }
-              finally { setHistoryLoading(false); }
             }}
             className="text-xs text-gray-500 hover:text-blue-600 border border-gray-200 hover:border-blue-300 px-2.5 py-1 rounded-lg transition-colors shrink-0"
           >
@@ -1061,8 +1066,8 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
           <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-3">
             <button onClick={() => setShowHistory(false)} className="text-gray-400 hover:text-gray-600 text-lg">←</button>
             <div>
-              <h3 className="font-bold text-gray-900 text-base">변경 이력</h3>
-              <p className="text-xs text-gray-400 truncate max-w-[340px]">{task.name}</p>
+              <h3 className="font-bold text-gray-900 text-base truncate max-w-[340px]">{task.name}</h3>
+              <p className="text-xs text-gray-400">변경 이력</p>
             </div>
           </div>
           <div className="flex-1 overflow-y-auto px-6 py-4">
@@ -1077,38 +1082,50 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
                 {history.map((h: any) => (
                   <div key={h.id} className="border border-gray-100 rounded-lg px-4 py-3 space-y-1.5">
                     <div className="flex items-center justify-between gap-2">
-                      <span className={clsx(
-                        "text-xs font-medium px-2 py-0.5 rounded-full",
-                        h.changeType === "DATE_CHANGED" ? "bg-blue-50 text-blue-700" :
-                        h.changeType === "PROGRESS_UPDATED" ? "bg-green-50 text-green-700" :
-                        h.changeType === "ASSIGNMENT_CHANGED" ? "bg-purple-50 text-purple-700" :
-                        h.changeType === "SEGMENT_ADDED" ? "bg-teal-50 text-teal-700" :
-                        h.changeType === "SEGMENT_REMOVED" ? "bg-red-50 text-red-700" :
-                        "bg-gray-100 text-gray-600"
-                      )}>
-                        {h.changeType === "DATE_CHANGED" ? "일정 변경" :
-                         h.changeType === "PROGRESS_UPDATED" ? "진행률 변경" :
-                         h.changeType === "ASSIGNMENT_CHANGED" ? "자원 변경" :
-                         h.changeType === "SEGMENT_ADDED" ? "구간 추가" :
-                         h.changeType === "SEGMENT_REMOVED" ? "구간 삭제" :
-                         h.changeType}
-                      </span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={clsx(
+                          "text-xs font-medium px-2 py-0.5 rounded-full shrink-0",
+                          h.changeType === "DATE_CHANGED" ? "bg-blue-50 text-blue-700" :
+                          h.changeType === "PROGRESS_UPDATED" ? "bg-green-50 text-green-700" :
+                          h.changeType === "ASSIGNMENT_CHANGED" ? "bg-purple-50 text-purple-700" :
+                          h.changeType === "SEGMENT_ADDED" ? "bg-teal-50 text-teal-700" :
+                          h.changeType === "SEGMENT_REMOVED" ? "bg-red-50 text-red-700" :
+                          h.changeType === "COMMENT_ADDED" ? "bg-orange-50 text-orange-700" :
+                          h.changeType === "COMMENT_EDITED" ? "bg-orange-50 text-orange-700" :
+                          h.changeType === "COMMENT_DELETED" ? "bg-red-50 text-red-700" :
+                          "bg-gray-100 text-gray-600"
+                        )}>
+                          {h.changeType === "DATE_CHANGED" ? "일정 변경" :
+                           h.changeType === "PROGRESS_UPDATED" ? "진행률 변경" :
+                           h.changeType === "ASSIGNMENT_CHANGED" ? "자원 변경" :
+                           h.changeType === "SEGMENT_ADDED" ? "구간 추가" :
+                           h.changeType === "SEGMENT_REMOVED" ? "구간 삭제" :
+                           h.changeType === "COMMENT_ADDED" ? "댓글 작성" :
+                           h.changeType === "COMMENT_EDITED" ? "댓글 수정" :
+                           h.changeType === "COMMENT_DELETED" ? "댓글 삭제" :
+                           h.changeType}
+                        </span>
+                        <span className="text-xs text-gray-400 truncate">{h.changedByName ?? h.changedBy}</span>
+                      </div>
                       <span className="text-xs text-gray-400 shrink-0">
                         {new Date(h.changedAt).toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
                       </span>
                     </div>
                     {h.field && (
                       <div className="flex items-center gap-2 text-xs text-gray-600">
-                        <span className="text-gray-400">{h.field}</span>
-                        {h.oldValue && <span className="line-through text-gray-400">{h.oldValue}</span>}
+                        <span className="text-gray-400">
+                          {h.field === "startDate" ? "시작일" :
+                           h.field === "endDate" ? "종료일" :
+                           h.field === "progressPercent" ? "진행률" :
+                           h.field === "assignment" ? "자원 배정" :
+                           h.field === "segment" ? "구간" :
+                           h.field === "comment" ? "댓글" : h.field}
+                        </span>
+                        {h.oldValue && <span className="line-through text-gray-400">{["startDate","endDate"].includes(h.field) ? h.oldValue.slice(0,10) : h.oldValue}</span>}
                         {h.oldValue && h.newValue && <span className="text-gray-300">→</span>}
-                        {h.newValue && <span className="font-medium text-gray-700">{h.newValue}</span>}
+                        {h.newValue && <span className="font-medium text-gray-700">{["startDate","endDate"].includes(h.field) ? h.newValue.slice(0,10) : h.newValue}</span>}
                       </div>
                     )}
-                    {h.changeReason && (
-                      <p className="text-xs text-gray-400 italic">"{h.changeReason}"</p>
-                    )}
-                    <p className="text-xs text-gray-300">{h.changedBy}</p>
                   </div>
                 ))}
               </div>

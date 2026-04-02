@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { userManagementApi, resourceGroupApi, getUser } from "@/lib/api";
+import { userManagementApi, departmentApi, resourceApi, getUser } from "@/lib/api";
 
 interface User {
   id: string;
@@ -60,6 +60,15 @@ export default function UsersPage() {
 
   const [saving, setSaving] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [mainTab, setMainTab] = useState<"users" | "assets">("users");
+
+  // 비인력 자원 (장비/차량/시설)
+  const [assets, setAssets] = useState<any[]>([]);
+  const [showCreateAsset, setShowCreateAsset] = useState(false);
+  const [assetForm, setAssetForm] = useState({ name: "", type: "EQUIPMENT", dailyCapacityHours: 8 });
+  const [savingAsset, setSavingAsset] = useState(false);
+  const [editingAssetId, setEditingAssetId] = useState<string | null>(null);
+  const [editingAssetName, setEditingAssetName] = useState("");
 
   const toggleExpand = (id: string) =>
     setExpanded((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
@@ -74,13 +83,15 @@ export default function UsersPage() {
 
   const load = async () => {
     try {
-      const [userData, groups] = await Promise.all([
+      const [userData, depts, allResources] = await Promise.all([
         userManagementApi.list(),
-        resourceGroupApi.list().catch(() => []),
+        departmentApi.list().catch(() => []),
+        resourceApi.list().catch(() => []),
       ]);
       setUsers(userData.items);
-      const depts = ((groups as any[]) ?? []).filter((g: any) => g.description === "__dept__");
-      setDepartments(depts);
+      const flatten = (nodes: any[]): any[] => nodes.flatMap((n: any) => [n, ...flatten(n.children ?? [])]);
+      setDepartments(flatten(depts as any[]).filter((d: any) => d.isActive !== false).sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)));
+      setAssets((allResources as any[]).filter((r) => r.type !== "PERSON"));
       setExpanded((prev) => prev);
     } finally {
       setLoading(false);
@@ -133,10 +144,12 @@ export default function UsersPage() {
     if (!newDeptName.trim()) return;
     setSavingDept(true);
     try {
-      await resourceGroupApi.create({ name: newDeptName.trim(), description: "__dept__" });
+      const code = "DEPT_" + Date.now().toString(36).toUpperCase();
+      await departmentApi.create({ name: newDeptName.trim(), code, level: 2, sortOrder: departments.length });
       setNewDeptName("");
-      const groups = await resourceGroupApi.list().catch(() => []);
-      setDepartments((groups as any[]) ?? []);
+      const depts = await departmentApi.list().catch(() => []);
+      const flatten2 = (nodes: any[]): any[] => nodes.flatMap((n: any) => [n, ...flatten2(n.children ?? [])]);
+      setDepartments(flatten2(depts as any[]).filter((d: any) => d.isActive !== false).sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)));
     } catch (err: any) {
       alert(err.message ?? "부서 추가 실패");
     } finally {
@@ -155,7 +168,7 @@ export default function UsersPage() {
     dragDeptIdx.current = null;
     try {
       await Promise.all(
-        reordered.map((d, i) => resourceGroupApi.update(d.id, { sortOrder: i }))
+        reordered.map((d, i) => departmentApi.update(d.id, { sortOrder: i }))
       );
     } catch { /* 실패 시 다음 load()에서 복구 */ }
   };
@@ -164,7 +177,7 @@ export default function UsersPage() {
     const name = editingDeptName.trim();
     if (!name || name === dept.name) { setEditingDeptId(null); return; }
     try {
-      await resourceGroupApi.update(dept.id, { name });
+      await departmentApi.update(dept.id, { name });
       setDepartments((prev) => prev.map((d) => d.id === dept.id ? { ...d, name } : d));
     } catch (err: any) {
       alert(err.message ?? "이름 변경 실패");
@@ -176,7 +189,7 @@ export default function UsersPage() {
   const handleDeleteDept = async (dept: Department) => {
     if (!confirm(`"${dept.name}" 부서를 삭제할까요?`)) return;
     try {
-      await resourceGroupApi.delete(dept.id);
+      await departmentApi.delete(dept.id);
       setDepartments((prev) => prev.filter((d) => d.id !== dept.id));
     } catch (err: any) {
       alert(err.message ?? "삭제 실패");
@@ -244,40 +257,192 @@ export default function UsersPage() {
     );
   }
 
+  const TYPE_LABELS: Record<string, string> = {
+    EQUIPMENT: "장비",
+    VEHICLE: "차량",
+    FACILITY: "시설",
+  };
+  const ASSET_TYPES = ["EQUIPMENT", "VEHICLE", "FACILITY"] as const;
+
+  const handleCreateAsset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingAsset(true);
+    try {
+      await resourceApi.create({ name: assetForm.name, type: assetForm.type, dailyCapacityHours: assetForm.dailyCapacityHours });
+      setShowCreateAsset(false);
+      setAssetForm({ name: "", type: "EQUIPMENT", dailyCapacityHours: 8 });
+      const allResources = await resourceApi.list().catch(() => []);
+      setAssets((allResources as any[]).filter((r) => r.type !== "PERSON"));
+    } catch (err: any) {
+      alert(err.message ?? "자원 추가 실패");
+    } finally {
+      setSavingAsset(false);
+    }
+  };
+
+  const handleRenameAsset = async (asset: any) => {
+    const name = editingAssetName.trim();
+    setEditingAssetId(null);
+    if (!name || name === asset.name) return;
+    try {
+      await resourceApi.update(asset.id, { name });
+      setAssets((prev) => prev.map((a) => a.id === asset.id ? { ...a, name } : a));
+    } catch (err: any) {
+      alert(err.message ?? "이름 변경 실패");
+    }
+  };
+
+  const handleToggleAssetActive = async (asset: any) => {
+    try {
+      await resourceApi.update(asset.id, { isActive: !asset.isActive });
+      setAssets((prev) => prev.map((a) => a.id === asset.id ? { ...a, isActive: !asset.isActive } : a));
+    } catch (err: any) {
+      alert(err.message ?? "상태 변경 실패");
+    }
+  };
+
+  const handleUpdateAssetHours = async (asset: any, hours: number) => {
+    try {
+      await resourceApi.update(asset.id, { dailyCapacityHours: hours });
+      setAssets((prev) => prev.map((a) => a.id === asset.id ? { ...a, dailyCapacityHours: hours } : a));
+    } catch (err: any) {
+      alert(err.message ?? "수정 실패");
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">사용자 관리</h1>
-          <p className="text-sm text-gray-500 mt-1">전체 {users.length}명</p>
+          <p className="text-sm text-gray-500 mt-1">
+            {mainTab === "users" ? `전체 ${users.length}명` : `비인력 자원 ${assets.length}개`}
+          </p>
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={() => {
-              const allIds = [...departments.map((d) => d.id), "__unassigned__"];
-              const allOpen = allIds.every((id) => expanded.has(id));
-              setExpanded(allOpen ? new Set() : new Set(allIds));
-            }}
-            className="border border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm hover:bg-gray-50"
-          >
-            {[...departments.map((d) => d.id), "__unassigned__"].every((id) => expanded.has(id)) ? "전체 닫기" : "전체 펼치기"}
-          </button>
-          <button
-            onClick={() => setShowDeptMgmt(true)}
-            className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"
-          >
-            🏢 부서 관리
-          </button>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
-          >
-            + 사용자 추가
-          </button>
+          {mainTab === "users" && (
+            <>
+              <button
+                onClick={() => {
+                  const allIds = [...departments.map((d) => d.id), "__unassigned__"];
+                  const allOpen = allIds.every((id) => expanded.has(id));
+                  setExpanded(allOpen ? new Set() : new Set(allIds));
+                }}
+                className="border border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm hover:bg-gray-50"
+              >
+                {[...departments.map((d) => d.id), "__unassigned__"].every((id) => expanded.has(id)) ? "전체 닫기" : "전체 펼치기"}
+              </button>
+              <button
+                onClick={() => setShowDeptMgmt(true)}
+                className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"
+              >
+                🏢 부서 관리
+              </button>
+              <button
+                onClick={() => setShowCreate(true)}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
+              >
+                + 사용자 추가
+              </button>
+            </>
+          )}
+          {mainTab === "assets" && (
+            <button
+              onClick={() => setShowCreateAsset(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
+            >
+              + 자원 추가
+            </button>
+          )}
         </div>
       </div>
 
+      {/* Tab switcher */}
+      <div className="flex gap-1 mb-5 border-b border-gray-200">
+        {([["users", "사용자"], ["assets", "기타 자원"]] as const).map(([tab, label]) => (
+          <button
+            key={tab}
+            onClick={() => setMainTab(tab)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              mainTab === tab
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Assets tab */}
+      {mainTab === "assets" && (
+        <div className="space-y-1">
+          {(["EQUIPMENT", "VEHICLE", "FACILITY"] as const).map((type) => {
+            const typeAssets = assets.filter((a) => a.type === type);
+            const typeLabel = TYPE_LABELS[type];
+            const icon = type === "EQUIPMENT" ? "🔧" : type === "VEHICLE" ? "🚗" : "🏭";
+            return (
+              <div key={type} className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-1">
+                <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 border-b border-gray-100">
+                  <span className="text-sm font-semibold text-gray-700">{icon} {typeLabel}</span>
+                  <span className="text-xs text-gray-400">{typeAssets.length}개</span>
+                </div>
+                {typeAssets.length === 0 ? (
+                  <div className="px-4 py-3 text-xs text-gray-300">등록된 {typeLabel} 없음</div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {typeAssets.map((asset) => (
+                      <div key={asset.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50">
+                        {editingAssetId === asset.id ? (
+                          <input
+                            autoFocus
+                            value={editingAssetName}
+                            onChange={(e) => setEditingAssetName(e.target.value)}
+                            onBlur={() => handleRenameAsset(asset)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleRenameAsset(asset);
+                              if (e.key === "Escape") setEditingAssetId(null);
+                            }}
+                            className="font-medium text-gray-900 text-sm border border-blue-400 rounded px-2 py-0.5 w-40 outline-none"
+                          />
+                        ) : (
+                          <span
+                            className="font-medium text-gray-900 text-sm w-40 cursor-pointer hover:text-blue-600"
+                            onClick={() => { setEditingAssetId(asset.id); setEditingAssetName(asset.name); }}
+                          >
+                            {asset.name}
+                          </span>
+                        )}
+                        <span className="text-xs text-gray-400 w-20">
+                          일 {asset.dailyCapacityHours}h
+                          <button
+                            onClick={() => {
+                              const v = prompt("일일 가용 시간(h)", String(asset.dailyCapacityHours));
+                              if (v === null) return;
+                              const n = parseFloat(v);
+                              if (!isNaN(n) && n > 0) handleUpdateAssetHours(asset, n);
+                            }}
+                            className="ml-1 text-gray-300 hover:text-gray-500"
+                          >✏️</button>
+                        </span>
+                        <button
+                          onClick={() => handleToggleAssetActive(asset)}
+                          className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${asset.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}
+                        >
+                          {asset.isActive ? "활성" : "비활성"}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* User tree */}
+      {mainTab === "users" && (
       <div className="space-y-0.5">
         {departments.map((dept) => {
           const deptUsers = users.filter((u) => (u as any).profile?.departmentId === dept.id);
@@ -426,6 +591,68 @@ export default function UsersPage() {
           );
         })()}
       </div>
+      )}
+
+      {/* Create asset modal */}
+      {showCreateAsset && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">자원 추가</h2>
+            <form onSubmit={handleCreateAsset} className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">이름</label>
+                <input
+                  type="text"
+                  value={assetForm.name}
+                  onChange={(e) => setAssetForm({ ...assetForm, name: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  placeholder="예) 굴삭기 1호, 1톤 트럭"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">종류</label>
+                <select
+                  value={assetForm.type}
+                  onChange={(e) => setAssetForm({ ...assetForm, type: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                >
+                  {ASSET_TYPES.map((t) => (
+                    <option key={t} value={t}>{TYPE_LABELS[t]}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">일일 가용 시간 (h)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={24}
+                  value={assetForm.dailyCapacityHours}
+                  onChange={(e) => setAssetForm({ ...assetForm, dailyCapacityHours: Number(e.target.value) })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateAsset(false)}
+                  className="flex-1 border border-gray-300 rounded-lg py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingAsset}
+                  className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {savingAsset ? "추가 중..." : "추가"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Create user modal */}
       {showCreate && (

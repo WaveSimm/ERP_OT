@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { clearToken, getUser, setUser, myProfileApi } from "@/lib/api";
+import { clearToken, getUser, setUser, myProfileApi, notificationApi, attendanceApi } from "@/lib/api";
 import clsx from "clsx";
 
 const NAV = [
-  { href: "/projects", label: "프로젝트", icon: "📋" },
-  { href: "/resources", label: "자원 관리", icon: "👥" },
-  { href: "/my-tasks", label: "내 작업", icon: "✅" },
+  { href: "/dashboard",      label: "지휘센터",   icon: "🎯", managerOnly: false },
+  { href: "/projects",       label: "프로젝트",   icon: "📋", managerOnly: false },
+  { href: "/resources",      label: "자원 관리",  icon: "👥", managerOnly: true  },
+  { href: "/me/dashboard",   label: "내 대시보드", icon: "🗂", managerOnly: false },
+  { href: "/me/attendance",  label: "근태",       icon: "🕐", managerOnly: false },
 ];
 
 const STORAGE_KEY = "erp_last_path";
@@ -31,10 +33,94 @@ const ROLE_LABELS: Record<string, string> = {
   VIEWER: "조회자",
 };
 
+function fmtMin(minutes: number) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+function CheckInWidget() {
+  const [today, setToday] = useState<any>(null);
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    try { setToday(await attendanceApi.getToday()); } catch {}
+  }, []);
+
+  useEffect(() => { load(); }, []);
+
+  const act = async (fn: () => Promise<any>) => {
+    setSaving(true);
+    try { await fn(); await load(); }
+    catch {} finally { setSaving(false); }
+  };
+
+  const state: string = today?.checkState ?? "NOT_STARTED";
+
+  if (state === "CHECKED_OUT") {
+    return (
+      <span className="text-xs text-gray-500 hidden sm:inline">
+        오늘 근무 <span className="font-medium text-gray-700">{fmtMin(today.netWorkMinutes ?? 0)}</span>
+      </span>
+    );
+  }
+
+  return (
+    <div className="items-center gap-1.5 hidden sm:flex">
+      {state === "NOT_STARTED" && (
+        <button onClick={() => act(() => attendanceApi.checkIn({ workType: "OFFICE" }))} disabled={saving}
+          className="px-2.5 py-1 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50">
+          출근
+        </button>
+      )}
+      {state === "CHECKED_IN" && (
+        <>
+          {today?.checkIn && (
+            <span className="text-xs text-gray-500">{today.checkIn.slice(11, 16)} 출근</span>
+          )}
+          <button onClick={() => act(() => attendanceApi.breakOut())} disabled={saving}
+            className="px-2 py-1 text-xs font-medium border border-orange-400 text-orange-600 rounded-lg hover:bg-orange-50 disabled:opacity-50">
+            외출
+          </button>
+          <button onClick={() => act(() => attendanceApi.checkOut())} disabled={saving}
+            className="px-2 py-1 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+            퇴근
+          </button>
+        </>
+      )}
+      {state === "ON_BREAK" && (
+        <>
+          <span className="text-xs text-orange-600 font-medium">외출 중</span>
+          <button onClick={() => act(() => attendanceApi.breakIn())} disabled={saving}
+            className="px-2.5 py-1 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50">
+            복귀
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [currentUser, setCurrentUser] = useState<{ id: string; name: string; role: string } | null>(null);
+  const isManager = currentUser?.role === "ADMIN" || currentUser?.role === "MANAGER";
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // 알림 미읽음 수 폴링 (30초)
+  const loadUnread = useCallback(async () => {
+    try {
+      const res = await notificationApi.unreadCount();
+      setUnreadCount(res.count);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    loadUnread();
+    const t = setInterval(loadUnread, 30_000);
+    return () => clearInterval(t);
+  }, [loadUnread]);
 
   // 프로필 모달
   const [showProfile, setShowProfile] = useState(false);
@@ -45,6 +131,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [pwSaving, setPwSaving] = useState(false);
   const [profileMsg, setProfileMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [pwMsg, setPwMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [showAdminMenu, setShowAdminMenu] = useState(false);
+  const adminMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setCurrentUser(getUser());
@@ -125,6 +213,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     router.push(last && last.startsWith(href) ? last : href);
   };
 
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (adminMenuRef.current && !adminMenuRef.current.contains(e.target as Node)) {
+        setShowAdminMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
   const handleLogout = () => {
     clearToken();
     router.push("/login");
@@ -142,7 +240,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <nav className="flex items-center gap-1">
-            {NAV.map((n) => (
+            {NAV.filter((n) => !n.managerOnly || isManager).map((n) => (
               <button
                 key={n.href}
                 onClick={() => handleNavClick(n.href)}
@@ -159,7 +257,38 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
 
-          <div className="ml-auto flex items-center gap-4">
+          <CheckInWidget />
+
+          <div className="ml-auto flex items-center gap-3">
+            {/* 알림 벨 */}
+            <button
+              onClick={() => router.push("/me/notifications")}
+              className="relative p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              title="알림"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* 팀 관리 (Manager/Admin) */}
+            {currentUser && ["ADMIN", "MANAGER"].includes(currentUser.role) && (
+              <button
+                onClick={() => router.push("/me/team")}
+                className={clsx(
+                  "text-sm font-medium px-2.5 py-1.5 rounded-lg transition-colors",
+                  pathname.startsWith("/me/team") ? "bg-blue-50 text-blue-700" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100",
+                )}
+              >
+                팀 관리
+              </button>
+            )}
+
             {currentUser && (
               <button onClick={openProfile} className="text-sm text-gray-600 hover:text-blue-600 transition-colors">
                 {currentUser.name}
@@ -169,12 +298,30 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </button>
             )}
             {currentUser?.role === "ADMIN" && (
-              <button
-                onClick={() => router.push("/admin/users")}
-                className="text-sm text-gray-500 hover:text-gray-700"
-              >
-                사용자 관리
-              </button>
+              <div className="relative" ref={adminMenuRef}>
+                <button
+                  onClick={() => setShowAdminMenu((v) => !v)}
+                  className="text-sm text-gray-500 hover:text-gray-700 px-2 py-1 rounded-lg hover:bg-gray-100 flex items-center gap-1"
+                >
+                  관리 <span className="text-xs">{showAdminMenu ? "▴" : "▾"}</span>
+                </button>
+                {showAdminMenu && (
+                  <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-50">
+                    <button onClick={() => { router.push("/admin/users"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                      사용자 관리
+                    </button>
+                    <button onClick={() => { router.push("/admin/departments"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                      부서 관리
+                    </button>
+                    <button onClick={() => { router.push("/admin/approval-lines"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                      결재라인
+                    </button>
+                    <button onClick={() => { router.push("/admin/org-chart"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                      조직도
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
             <button
               onClick={handleLogout}
