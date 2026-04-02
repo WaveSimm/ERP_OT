@@ -59,6 +59,7 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_password}@redis:6379
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change_me_in_production}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_in_production}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-dev_internal_token_min32chars_change}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@erp-ot.local}
       ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:-Admin1234!}
@@ -121,13 +122,31 @@ services:
     volumes:
       - file_storage:/app/storage
 
-  # attendance-service: 미구현 (Design 완료, Do 대기)
-  # attendance-service:
-  #   build:
-  #     context: .
-  #     dockerfile: services/attendance/Dockerfile
-  #   ports:
-  #     - "3004:3004"
+  attendance-service:
+    build:
+      context: .
+      dockerfile: services/attendance/Dockerfile
+    container_name: erp-ot-attendance
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3004
+      DATABASE_URL: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:-erp_password}@postgres:5432/${POSTGRES_DB:-erp_ot}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_password}@redis:6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change_me_in_production}
+      AUTH_SERVICE_URL: http://auth-service:3001
+      USER_SERVICE_URL: http://user-service:3002
+      PROJECT_SERVICE_URL: http://project-service:3003
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-change_me_in_production}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+    ports:
+      - "3004:3004"
+    depends_on:
+      - postgres
+      - redis
+      - auth-service
+    networks:
+      - erp-network
 
   # ─── Frontend Apps ──────────────────────────────────────────────────────────
   web:
@@ -141,6 +160,7 @@ services:
       NEXT_TELEMETRY_DISABLED: "1"
       API_BASE_URL: http://project-service:3003
       AUTH_SERVICE_URL: http://auth-service:3001
+      ATTENDANCE_SERVICE_URL: http://attendance-service:3004
       JWT_SECRET: ${JWT_ACCESS_SECRET:-change_me_in_production}
     ports:
       - "3000:3000"

@@ -1,0 +1,242 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["attendance"]
+}
+
+// ─────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────
+
+enum WorkType {
+  OFFICE
+  REMOTE
+  FIELD
+
+  @@schema("attendance")
+}
+
+enum AttendanceStatus {
+  NORMAL
+  LATE
+  ABSENT
+  LEAVE
+  HOLIDAY
+
+  @@schema("attendance")
+}
+
+enum LeaveType {
+  ANNUAL
+  HALF_AM
+  HALF_PM
+  SICK
+  SPECIAL
+
+  @@schema("attendance")
+}
+
+enum ApprovalStatus {
+  PENDING
+  PENDING_2ND
+  PENDING_3RD
+  APPROVED
+  REJECTED
+  COMPLETED
+  CANCELLED
+
+  @@schema("attendance")
+}
+
+enum CheckState {
+  NOT_STARTED
+  CHECKED_IN
+  ON_BREAK
+  CHECKED_OUT
+
+  @@schema("attendance")
+}
+
+// ─────────────────────────────────────────────
+// 1. 출퇴근 기록
+// ─────────────────────────────────────────────
+
+model AttendanceRecord {
+  id             String           @id @default(cuid())
+  userId         String
+  date           DateTime         @db.Date
+  checkIn        DateTime?
+  checkOut       DateTime?
+  workType       WorkType         @default(OFFICE)
+  status         AttendanceStatus @default(NORMAL)
+  checkState     CheckState       @default(NOT_STARTED)
+  isLate         Boolean          @default(false)
+  lateMinutes    Int              @default(0)
+  breakMinutes   Int              @default(0)
+  netWorkMinutes Int              @default(0)
+  note           String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  breakRecords BreakRecord[]
+
+  @@unique([userId, date])
+  @@index([userId, date(sort: Desc)])
+  @@map("attendance_records")
+  @@schema("attendance")
+}
+
+model BreakRecord {
+  id              String           @id @default(cuid())
+  attendanceId    String
+  breakOut        DateTime
+  breakIn         DateTime?
+  durationMinutes Int              @default(0)
+
+  attendance AttendanceRecord @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+
+  @@index([attendanceId])
+  @@map("break_records")
+  @@schema("attendance")
+}
+
+// ─────────────────────────────────────────────
+// 2. 휴가 관리
+// ─────────────────────────────────────────────
+
+model LeaveRequest {
+  id           String         @id @default(cuid())
+  userId       String
+  type         LeaveType
+  startDate    DateTime       @db.Date
+  endDate      DateTime       @db.Date
+  days         Float
+  reason       String
+  status            ApprovalStatus @default(PENDING)
+  approverId        String?
+  secondApproverId  String?
+  thirdApproverId   String?
+  approvedAt        DateTime?
+  rejectReason      String?
+  cancelledAt       DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([userId, status])
+  @@index([approverId, status])
+  @@index([secondApproverId, status])
+  @@index([thirdApproverId, status])
+  @@map("leave_requests")
+  @@schema("attendance")
+}
+
+model LeaveBalance {
+  id           String   @id @default(cuid())
+  userId       String
+  year         Int
+  totalDays    Float
+  usedDays     Float    @default(0)
+  pendingDays  Float    @default(0)
+  adjustedDays Float    @default(0)
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, year])
+  @@map("leave_balances")
+  @@schema("attendance")
+}
+
+// ─────────────────────────────────────────────
+// 3. OT 관리
+// ─────────────────────────────────────────────
+
+model OvertimeRequest {
+  id           String         @id @default(cuid())
+  userId       String
+  date         DateTime       @db.Date
+  plannedHours Float
+  actualHours  Float?
+  reason       String
+  status            ApprovalStatus @default(PENDING)
+  approverId        String?
+  secondApproverId  String?
+  thirdApproverId   String?
+  approvedAt        DateTime?
+  rejectReason      String?
+  completedAt       DateTime?
+  projectId         String?
+  segmentId         String?
+  overtimeRate      Float          @default(1.5)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([userId, status])
+  @@index([approverId, status])
+  @@index([secondApproverId, status])
+  @@index([thirdApproverId, status])
+  @@index([date])
+  @@map("overtime_requests")
+  @@schema("attendance")
+}
+
+// ─────────────────────────────────────────────
+// 4. 근태 기준
+// ─────────────────────────────────────────────
+
+model AttendancePolicy {
+  id                   String   @id @default(cuid())
+  workStartTime        String   @default("09:00")
+  workEndTime          String   @default("18:00")
+  dailyWorkHours       Float    @default(8.0)
+  lateToleranceMinutes Int      @default(0)
+  leavePolicy          String   @default("HIRE_DATE")
+  annualLeaveBase      Int      @default(15)
+  overtimeRates        Json     @default("{\"normal\":1.5,\"holiday\":2.0,\"night\":2.0}")
+  updatedBy            String?
+  updatedAt            DateTime @updatedAt
+
+  @@map("attendance_policies")
+  @@schema("attendance")
+}
+
+// ─────────────────────────────────────────────
+// 5. 공휴일
+// ─────────────────────────────────────────────
+
+model PublicHoliday {
+  id   String   @id @default(cuid())
+  date DateTime @db.Date
+  name String
+  year Int
+
+  @@unique([date])
+  @@index([year])
+  @@map("public_holidays")
+  @@schema("attendance")
+}
+
+// ─────────────────────────────────────────────
+// 6. 알림
+// ─────────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  source    String   @default("attendance")
+  title     String
+  body      String
+  isRead    Boolean  @default(false)
+  priority  Int      @default(2)
+  linkUrl   String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead, createdAt(sort: Desc)])
+  @@map("notifications")
+  @@schema("attendance")
+}

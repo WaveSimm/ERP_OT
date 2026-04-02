@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-03-20T10:06:44.770Z",
+  "timestamp": "2026-03-25T15:33:19.727Z",
   "reason": "compaction",
   "status": {
     "version": "2.0",
-    "lastUpdated": "2026-03-20T10:06:44.497Z",
+    "lastUpdated": "2026-03-25T15:33:19.457Z",
     "activeFeatures": [
       "ERP_OT",
       "auth",
@@ -28,7 +28,20 @@
       "middleware",
       "prisma",
       "refresh",
-      "users"
+      "users",
+      "attendance",
+      "dashboard",
+      "notifications",
+      "team",
+      "me",
+      "infrastructure",
+      "departments",
+      "approval-lines",
+      "부서-결재라인: Gap Analysis",
+      "org-chart",
+      "admin",
+      "부서-결재라인",
+      "개인대시보드"
     ],
     "primaryFeature": "프로젝트-관리",
     "features": {
@@ -69,9 +82,9 @@
         "documents": {},
         "timestamps": {
           "started": "2026-02-26T11:04:44.698Z",
-          "lastUpdated": "2026-03-20T09:27:13.462Z"
+          "lastUpdated": "2026-03-23T08:24:06.898Z"
         },
-        "lastFile": "E:/claude/ERP_OT/services/auth/src/infrastructure/repositories/user.prisma.repository.ts"
+        "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\index.ts"
       },
       "user": {
         "phase": "do",
@@ -128,8 +141,8 @@
         }
       },
       "개인대시보드": {
-        "phase": "plan",
-        "phaseNumber": 1,
+        "phase": "act",
+        "phaseNumber": 5,
         "matchRate": null,
         "iterationCount": 0,
         "requirements": [],
@@ -138,8 +151,10 @@
         },
         "timestamps": {
           "started": "2026-02-27T00:00:00.000Z",
-          "lastUpdated": "2026-02-27T00:00:00.000Z"
-        }
+          "lastUpdated": "2026-03-25T12:26:02.843Z"
+        },
+        "previousPhase": "check",
+        "autoAdvanced": true
       },
       "project": {
         "phase": "do",
@@ -150,9 +165,9 @@
         "documents": {},
         "timestamps": {
           "started": "2026-02-26T22:19:54.538Z",
-          "lastUpdated": "2026-03-19T08:47:56.269Z"
+          "lastUpdated": "2026-03-21T06:33:37.180Z"
         },
-        "lastFile": "E:\\claude\\ERP_OT\\services\\project\\entrypoint.sh"
+        "lastFile": "E:\\claude\\ERP_OT\\services\\project\\src\\index.ts"
       },
       "entities": {
         "phase": "do",
@@ -176,9 +191,9 @@
         "documents": {},
         "timestamps": {
           "started": "2026-03-17T01:24:05.309Z",
-          "lastUpdated": "2026-03-19T08:06:37.197Z"
+          "lastUpdated": "2026-03-23T02:52:14.491Z"
         },
-        "lastFile": "E:\\claude\\ERP_OT\\services\\project\\src\\application\\template.service.ts"
+        "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\application\\approval-line.service.ts"
       },
       "routes": {
         "phase": "do",
@@ -189,9 +204,9 @@
         "documents": {},
         "timestamps": {
           "started": "2026-03-17T01:25:35.966Z",
-          "lastUpdated": "2026-03-19T06:20:04.605Z"
+          "lastUpdated": "2026-03-23T08:42:08.737Z"
         },
-        "lastFile": "E:\\claude\\ERP_OT\\services\\project\\src\\api\\routes\\my-tasks.routes.ts"
+        "lastFile": "E:\\claude\\ERP_OT\\services\\attendance\\src\\api\\routes\\overtime.routes.ts"
       },
       "websocket": {
         "phase": "do",
@@ -215,9 +230,9 @@
         "documents": {},
         "timestamps": {
           "started": "2026-03-17T02:39:41.101Z",
-          "lastUpdated": "2026-03-20T10:06:44.497Z"
+          "lastUpdated": "2026-03-25T12:56:40.412Z"
         },
-        "lastFile": "E:/claude/ERP_OT/apps/web/src/app/resources/page.tsx"
+        "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\components\\AppLayout.tsx"
       },
       "login": {
         "phase": "do",
@@ -228,7 +243,7 @@
         "documents": {},
         "timestamps": {
           "started": "2026-03-17T02:40:05.977Z",
-          "lastUpdated": "2026-03-19T03:32:22.707Z"
+          "lastUpdated": "2026-03-20T10:34:08.604Z"
         },
         "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\login\\page.tsx"
       },
@@ -267,7 +282,7 @@
         "documents": {},
         "timestamps": {
           "started": "2026-03-17T02:55:32.910Z",
-          "lastUpdated": "2026-03-19T03:31:21.082Z"
+          "lastUpdated": "2026-03-21T13:39:24.990Z"
         },
         "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\api\\v1\\[...path]\\route.ts"
       },
@@ -280,7 +295,7 @@
         "documents": {},
         "timestamps": {
           "started": "2026-03-17T03:04:10.454Z",
-          "lastUpdated": "2026-03-20T08:36:38.146Z"
+          "lastUpdated": "2026-03-23T04:41:01.873Z"
         },
         "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\resources\\page.tsx"
       },
@@ -293,9 +308,9 @@
         "documents": {},
         "timestamps": {
           "started": "2026-03-18T08:59:40.865Z",
-          "lastUpdated": "2026-03-19T03:34:24.080Z"
+          "lastUpdated": "2026-03-21T08:07:24.083Z"
         },
-        "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\domain\\repositories\\user.repository.ts"
+        "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\infrastructure\\repositories\\user.prisma.repository.ts"
       },
       "dtos": {
         "phase": "do",
@@ -371,9 +386,166 @@
         "documents": {},
         "timestamps": {
           "started": "2026-03-19T03:33:31.478Z",
-          "lastUpdated": "2026-03-20T08:44:31.396Z"
+          "lastUpdated": "2026-03-23T04:44:08.767Z"
         },
         "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\admin\\users\\page.tsx"
+      },
+      "attendance": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-03-21T06:26:00.321Z",
+          "lastUpdated": "2026-03-23T08:43:32.704Z"
+        },
+        "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\me\\attendance\\page.tsx"
+      },
+      "dashboard": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-03-21T06:39:21.588Z",
+          "lastUpdated": "2026-03-25T15:33:19.457Z"
+        },
+        "lastFile": "E:\\claude\\ERP_OT\\services\\project\\src\\application\\dashboard\\dashboard.service.ts"
+      },
+      "notifications": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-03-21T06:41:13.034Z",
+          "lastUpdated": "2026-03-21T06:41:13.034Z"
+        },
+        "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\me\\notifications\\page.tsx"
+      },
+      "team": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-03-21T06:41:59.206Z",
+          "lastUpdated": "2026-03-21T06:41:59.206Z"
+        },
+        "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\me\\team\\page.tsx"
+      },
+      "me": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-03-21T06:42:43.075Z",
+          "lastUpdated": "2026-03-21T06:42:46.484Z"
+        },
+        "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\me\\page.tsx"
+      },
+      "infrastructure": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-03-21T08:08:24.674Z",
+          "lastUpdated": "2026-03-22T06:35:00.294Z"
+        },
+        "lastFile": "E:\\claude\\ERP_OT\\services\\attendance\\src\\infrastructure\\auth-client.ts"
+      },
+      "departments": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-03-21T13:45:39.703Z",
+          "lastUpdated": "2026-03-23T02:52:37.618Z"
+        },
+        "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\admin\\departments\\page.tsx"
+      },
+      "approval-lines": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-03-21T13:46:22.913Z",
+          "lastUpdated": "2026-03-23T01:46:05.728Z"
+        },
+        "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\admin\\approval-lines\\page.tsx"
+      },
+      "부서-결재라인": {
+        "phase": "report",
+        "matchRate": 93,
+        "iterationCount": 0,
+        "startedAt": "2026-03-22T05:16:09.456Z",
+        "updatedAt": "2026-03-22T05:16:09.457Z",
+        "phaseNumber": 6,
+        "previousPhase": "check",
+        "autoAdvanced": true,
+        "timestamps": {
+          "lastUpdated": "2026-03-25T11:23:44.444Z"
+        }
+      },
+      "부서-결재라인: Gap Analysis": {
+        "phase": "act",
+        "phaseNumber": 5,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-03-22T05:16:12.234Z",
+          "lastUpdated": "2026-03-22T05:16:12.235Z"
+        },
+        "previousPhase": "check",
+        "autoAdvanced": true
+      },
+      "org-chart": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-03-22T05:21:06.025Z",
+          "lastUpdated": "2026-03-22T06:19:07.632Z"
+        },
+        "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\admin\\org-chart\\page.tsx"
+      },
+      "admin": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-03-22T06:12:06.403Z",
+          "lastUpdated": "2026-03-22T06:12:06.403Z"
+        },
+        "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\admin\\layout.tsx"
       }
     },
     "pipeline": {
@@ -384,7 +556,7 @@
     "session": {
       "startedAt": "2026-02-26T10:52:05.428Z",
       "onboardingCompleted": false,
-      "lastActivity": "2026-03-20T10:06:44.497Z"
+      "lastActivity": "2026-03-25T15:33:19.457Z"
     },
     "history": [
       {
@@ -6122,7 +6294,1784 @@
         "feature": "web",
         "phase": "do",
         "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T10:10:55.570Z",
+        "feature": "resources",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T10:11:07.579Z",
+        "feature": "resources",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T10:11:50.262Z",
+        "feature": "resources",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T10:19:29.688Z",
+        "feature": "resources",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T10:29:38.647Z",
+        "feature": "resources",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T10:29:45.049Z",
+        "feature": "resources",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T10:29:51.654Z",
+        "feature": "resources",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T10:30:03.207Z",
+        "feature": "resources",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T10:30:10.694Z",
+        "feature": "resources",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T10:33:51.113Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T10:34:02.668Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T10:34:08.604Z",
+        "feature": "login",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T10:34:29.361Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T10:34:34.383Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T10:34:40.996Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T10:34:56.103Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T10:35:03.088Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T10:35:56.912Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T10:51:02.149Z",
+        "feature": "resources",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T10:55:34.796Z",
+        "feature": "resources",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T10:58:43.248Z",
+        "feature": "resources",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T10:58:58.079Z",
+        "feature": "resources",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T11:03:16.155Z",
+        "feature": "resources",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T11:07:27.186Z",
+        "feature": "users",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T11:38:11.021Z",
+        "feature": "repositories",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T11:38:20.536Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T11:38:30.737Z",
+        "feature": "users",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T12:27:33.558Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T12:28:17.482Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T12:29:43.594Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T12:31:36.574Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T12:31:43.293Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T12:32:02.136Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T12:32:15.231Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T12:34:43.912Z",
+        "feature": "project",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T12:34:52.188Z",
+        "feature": "project",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T12:34:57.306Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T12:35:10.621Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T12:35:17.828Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T12:35:50.227Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T12:35:55.674Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T12:37:00.931Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-20T12:37:09.107Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T04:59:05.047Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T04:59:14.742Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T04:59:37.357Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T05:13:22.871Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:02:04.595Z",
+        "feature": "project",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:02:08.764Z",
+        "feature": "project",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:02:12.886Z",
+        "feature": "project",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:02:16.180Z",
+        "feature": "project",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:02:19.761Z",
+        "feature": "project",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:02:24.398Z",
+        "feature": "project",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:02:46.466Z",
+        "feature": "project",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:02:55.166Z",
+        "feature": "project",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:06:03.176Z",
+        "feature": "project",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:26:00.321Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:26:32.559Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:26:37.124Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:27:14.233Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:27:17.478Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:27:38.957Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:27:45.266Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:27:54.920Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:28:03.306Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:28:13.608Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:28:19.979Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:28:29.311Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:28:44.723Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:28:45.055Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:29:12.357Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:30:14.837Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:30:20.251Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:30:23.981Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:30:27.547Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:30:33.605Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:30:39.049Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:30:48.547Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:30:53.134Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:31:41.612Z",
+        "feature": "project",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:33:33.673Z",
+        "feature": "project",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:33:37.180Z",
+        "feature": "project",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:34:01.511Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:35:07.373Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:38:00.194Z",
+        "feature": "[...path]",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:38:15.877Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:38:22.180Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:39:21.588Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:40:50.652Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:41:13.034Z",
+        "feature": "notifications",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:41:59.206Z",
+        "feature": "team",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:42:06.013Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:42:11.873Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:42:25.039Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:42:43.075Z",
+        "feature": "me",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:42:46.484Z",
+        "feature": "me",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:52:20.881Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T06:54:57.951Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T07:02:02.602Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T07:02:12.147Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T07:28:35.494Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T07:28:43.196Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T07:28:46.766Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T07:28:50.928Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T07:28:58.491Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T07:29:02.236Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T07:32:13.038Z",
+        "feature": "[...path]",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T07:39:05.437Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T07:40:27.843Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T07:47:48.630Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T07:51:04.030Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T07:51:08.801Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T07:54:13.242Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T08:04:24.016Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T08:04:42.183Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T08:04:53.993Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T08:05:02.015Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T08:05:12.790Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T08:05:25.416Z",
+        "feature": "auth",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T08:05:29.473Z",
+        "feature": "auth",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T08:05:33.656Z",
+        "feature": "auth",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T08:05:48.207Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T08:05:55.298Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T08:06:01.039Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T08:07:07.438Z",
+        "feature": "repositories",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T08:07:24.083Z",
+        "feature": "repositories",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T08:08:24.674Z",
+        "feature": "infrastructure",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T08:08:29.787Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T08:10:01.836Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T08:10:06.495Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T08:10:09.381Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T08:10:29.786Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T08:11:10.953Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T13:39:24.990Z",
+        "feature": "[...path]",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T13:39:36.350Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T13:39:43.224Z",
+        "feature": "users",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T13:39:52.496Z",
+        "feature": "users",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T13:40:08.559Z",
+        "feature": "users",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T13:40:11.963Z",
+        "feature": "users",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T13:40:15.377Z",
+        "feature": "users",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T13:40:19.382Z",
+        "feature": "users",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T13:40:28.047Z",
+        "feature": "resources",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T13:40:31.104Z",
+        "feature": "resources",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T13:41:19.954Z",
+        "feature": "users",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T13:45:10.242Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T13:45:39.703Z",
+        "feature": "departments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T13:46:22.913Z",
+        "feature": "approval-lines",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T13:46:28.633Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T13:50:45.095Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T13:55:30.763Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T13:55:39.241Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T13:55:44.251Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T13:55:55.452Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T14:30:40.769Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T14:30:44.485Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T14:30:54.143Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T14:31:01.472Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T14:31:08.297Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T14:31:32.996Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-21T14:31:35.754Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T05:16:12.235Z",
+        "feature": "부서-결재라인: Gap Analysis",
+        "phase": "act",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T05:21:06.025Z",
+        "feature": "org-chart",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T05:26:25.073Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T05:32:57.832Z",
+        "feature": "org-chart",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T05:43:10.996Z",
+        "feature": "org-chart",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T05:45:21.655Z",
+        "feature": "org-chart",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T05:45:30.384Z",
+        "feature": "org-chart",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T05:45:35.364Z",
+        "feature": "org-chart",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T05:49:32.181Z",
+        "feature": "org-chart",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T05:50:51.788Z",
+        "feature": "org-chart",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T05:51:40.007Z",
+        "feature": "org-chart",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T05:57:50.056Z",
+        "feature": "org-chart",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:01:53.102Z",
+        "feature": "org-chart",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:03:02.699Z",
+        "feature": "org-chart",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:05:45.368Z",
+        "feature": "org-chart",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:08:08.422Z",
+        "feature": "org-chart",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:08:16.589Z",
+        "feature": "org-chart",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:08:25.201Z",
+        "feature": "org-chart",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:08:35.024Z",
+        "feature": "org-chart",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:08:39.129Z",
+        "feature": "org-chart",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:08:45.998Z",
+        "feature": "org-chart",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:12:06.403Z",
+        "feature": "admin",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:18:48.624Z",
+        "feature": "org-chart",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:19:07.632Z",
+        "feature": "org-chart",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:33:40.790Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:33:48.680Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:33:57.202Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:34:11.873Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:34:32.039Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:34:37.222Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:35:00.294Z",
+        "feature": "infrastructure",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:35:16.438Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:35:22.454Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:35:38.254Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:35:48.788Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:35:59.260Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:36:06.812Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:36:12.226Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:36:22.223Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:36:34.108Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:36:43.191Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:37:08.821Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:37:13.871Z",
+        "feature": "approval-lines",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:37:21.640Z",
+        "feature": "approval-lines",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:37:32.451Z",
+        "feature": "approval-lines",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:38:00.114Z",
+        "feature": "approval-lines",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:38:14.267Z",
+        "feature": "approval-lines",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:38:25.727Z",
+        "feature": "approval-lines",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:44:39.519Z",
+        "feature": "approval-lines",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:44:46.446Z",
+        "feature": "approval-lines",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:44:50.968Z",
+        "feature": "approval-lines",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:44:55.668Z",
+        "feature": "approval-lines",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:45:08.964Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-22T06:48:09.211Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T01:27:56.042Z",
+        "feature": "approval-lines",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T01:33:05.951Z",
+        "feature": "approval-lines",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T01:33:11.515Z",
+        "feature": "approval-lines",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T01:33:18.416Z",
+        "feature": "approval-lines",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T01:33:23.063Z",
+        "feature": "approval-lines",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T01:40:50.542Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T01:45:58.495Z",
+        "feature": "approval-lines",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T01:46:05.728Z",
+        "feature": "approval-lines",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T01:51:50.892Z",
+        "feature": "departments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T01:57:22.731Z",
+        "feature": "departments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:01:02.175Z",
+        "feature": "departments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:03:19.147Z",
+        "feature": "departments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:11:11.225Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:11:47.367Z",
+        "feature": "departments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:26:20.737Z",
+        "feature": "departments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:27:12.529Z",
+        "feature": "departments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:27:23.189Z",
+        "feature": "departments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:29:25.108Z",
+        "feature": "departments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:32:10.002Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:32:15.714Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:32:24.927Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:32:32.237Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:32:39.620Z",
+        "feature": "departments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:32:46.581Z",
+        "feature": "departments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:32:57.842Z",
+        "feature": "departments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:33:10.998Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:33:20.661Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:51:26.806Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:51:33.495Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:51:37.742Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:51:44.001Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:51:48.435Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:51:53.455Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:52:06.143Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:52:14.491Z",
+        "feature": "application",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:52:19.627Z",
+        "feature": "departments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:52:26.674Z",
+        "feature": "departments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T02:52:37.618Z",
+        "feature": "departments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T03:01:15.037Z",
+        "feature": "users",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T03:01:20.227Z",
+        "feature": "users",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T04:40:15.910Z",
+        "feature": "resources",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T04:40:19.905Z",
+        "feature": "resources",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T04:40:24.201Z",
+        "feature": "resources",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T04:40:48.988Z",
+        "feature": "resources",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T04:41:01.873Z",
+        "feature": "resources",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T04:41:08.009Z",
+        "feature": "users",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T04:41:14.558Z",
+        "feature": "users",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T04:43:24.978Z",
+        "feature": "users",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T04:43:53.858Z",
+        "feature": "users",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T04:44:08.767Z",
+        "feature": "users",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T08:23:53.482Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T08:24:06.898Z",
+        "feature": "auth",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T08:24:13.709Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T08:24:18.960Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T08:24:25.481Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T08:24:36.891Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T08:24:42.336Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T08:24:49.503Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T08:41:48.752Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T08:41:59.896Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T08:42:08.737Z",
+        "feature": "routes",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T08:42:14.511Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T08:42:18.359Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T08:42:25.873Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T08:42:32.399Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T08:43:05.233Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-23T08:43:32.704Z",
+        "feature": "attendance",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-25T11:23:44.445Z",
+        "feature": "부서-결재라인",
+        "phase": "report",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-25T11:23:56.849Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-25T11:24:19.069Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-25T11:24:24.425Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-25T11:24:30.404Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-25T11:24:41.837Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-25T11:24:45.696Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-25T11:24:49.630Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-25T11:24:53.270Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-25T12:26:02.843Z",
+        "feature": "개인대시보드",
+        "phase": "act",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-25T12:56:40.412Z",
+        "feature": "web",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-25T15:32:17.543Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-25T15:32:34.047Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-25T15:33:19.457Z",
+        "feature": "dashboard",
+        "phase": "do",
+        "action": "updated"
       }
-    ]
+    ],
+    "부서-결재라인": {
+      "phase": "design",
+      "startedAt": "2026-03-21T07:58:31.875Z",
+      "updatedAt": "2026-03-21T08:02:48.149Z",
+      "matchRate": null,
+      "iterationCount": 0
+    }
   }
 }

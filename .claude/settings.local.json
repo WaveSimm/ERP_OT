@@ -160,7 +160,28 @@
       "Bash(find /mnt/c/Users/yunsi/Desktop /mnt/c/Users/yunsi/Pictures /mnt/c/Users/yunsi/Downloads -name *.png)",
       "Bash(cmd.exe /c \"dir E:\\\\claude\\\\ERP_OT\\\\*.png\")",
       "Bash(cmd.exe /c \"dir /b E:\\\\claude\\\\ERP_OT\\\\\")",
-      "Bash(powershell.exe -Command \"Get-ChildItem 'E:\\\\claude\\\\ERP_OT' -Filter '*.png' | Select-Object Name\")"
+      "Bash(powershell.exe -Command \"Get-ChildItem 'E:\\\\claude\\\\ERP_OT' -Filter '*.png' | Select-Object Name\")",
+      "Bash(pm2 --version)",
+      "Bash(reg query:*)",
+      "Bash(taskkill /F /PID 15864 /PID 34504)",
+      "Bash(taskkill /F /PID 15864)",
+      "Bash(taskkill /F /PID 34504)",
+      "Bash(git diff:*)",
+      "Bash(docker info:*)",
+      "Bash(find E:/claude/ERP_OT/apps/web/src -name *.ts -path */api/*)",
+      "Bash(grep -rn \"departmentName\\\\|departmentId\" E:/claude/ERP_OT/apps/web/src/app --include=*.tsx -l)",
+      "Bash(find E:/claude/ERP_OT/apps/web/src/app/admin -name *.tsx)",
+      "Bash(find E:/claude/ERP_OT/apps/web/src/app -name *.tsx)",
+      "Bash(find E:/claude/ERP_OT/apps/web/src/app/api -name *.ts)",
+      "Bash(find E:/claude/ERP_OT/apps/web/src/app -name sidebar* -o -name nav*)",
+      "Bash(grep -rn \"admin\\\\|부서\\\\|결재\\\\|approval\" E:/claude/ERP_OT/apps/web/src/components/ --include=*.tsx -l)",
+      "Bash(docker stats:*)",
+      "Bash(find E:/claude/ERP_OT/docs/02-design/features -name *.design.md)",
+      "Bash(findstr LISTENING)",
+      "Skill(pdca)",
+      "Bash(docker exec erp-ot-project node -e \":*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }
