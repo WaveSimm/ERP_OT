@@ -88,10 +88,15 @@ export class UserPrismaRepository implements IUserRepository {
   }
 
   async upsertProfile(userId: string, data: UserProfileData): Promise<UserProfileData> {
+    // exactOptionalPropertyTypes 대응: undefined 필드 제거 후 Prisma에 전달
+    const clean: Record<string, string | null> = {};
+    for (const [k, v] of Object.entries(data)) {
+      if (v !== undefined) clean[k] = v as string | null;
+    }
     const row = await this.prisma.userProfile.upsert({
       where: { userId },
-      create: { userId, ...data },
-      update: { ...data },
+      create: { userId, ...clean },
+      update: { ...clean },
     });
     return {
       phoneOffice:    row.phoneOffice,

@@ -10,11 +10,11 @@ export type UpdateUserData = {
 };
 
 export type UserProfileData = {
-  phoneOffice?:    string | null;
-  phoneMobile?:    string | null;
-  address?:        string | null;
-  departmentId?:   string | null;
-  departmentName?: string | null;
+  phoneOffice?:    string | null | undefined;
+  phoneMobile?:    string | null | undefined;
+  address?:        string | null | undefined;
+  departmentId?:   string | null | undefined;
+  departmentName?: string | null | undefined;
 };
 
 export interface IUserRepository {

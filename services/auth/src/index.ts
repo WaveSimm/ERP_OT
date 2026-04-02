@@ -8,6 +8,11 @@ import { AuthService } from "./application/auth.service";
 import { UserService } from "./application/user.service";
 import { authRoutes } from "./api/routes/auth.routes";
 import { userRoutes } from "./api/routes/user.routes";
+import { departmentRoutes } from "./api/routes/department.routes";
+import { approvalLineRoutes } from "./api/routes/approval-line.routes";
+import { internalRoutes } from "./api/routes/internal.routes";
+import { DepartmentService } from "./application/department.service";
+import { ApprovalLineService } from "./application/approval-line.service";
 
 const app = Fastify({
   logger: {
@@ -32,6 +37,8 @@ const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ?? "dev_refresh_secret_cha
 const userRepo = new UserPrismaRepository(prisma);
 const authService = new AuthService(userRepo, prisma, ACCESS_SECRET, REFRESH_SECRET);
 const userService = new UserService(userRepo);
+const deptService = new DepartmentService(prisma);
+const approvalLineService = new ApprovalLineService(prisma);
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get("/health", async () => {
@@ -41,6 +48,9 @@ app.get("/health", async () => {
 // ─── Routes ───────────────────────────────────────────────────────────────────
 app.register(authRoutes, { prefix: "/api/v1/auth", authService, userRepo });
 app.register(userRoutes, { prefix: "/api/v1/users", userService, authService });
+app.register(departmentRoutes, { prefix: "/api/v1/departments", deptService });
+app.register(approvalLineRoutes, { prefix: "/api/v1/approval-lines", approvalLineService, authService });
+app.register(internalRoutes, { prefix: "/internal", approvalLineService, deptService, prisma });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 const PORT = parseInt(process.env.PORT || "3001", 10);

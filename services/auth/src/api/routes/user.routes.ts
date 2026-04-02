@@ -19,6 +19,14 @@ export async function userRoutes(
     return reply.code(200).send({ items: users, total: users.length });
   });
 
+  // GET /api/v1/users/members — 결재자 선택용, 인증된 사용자라면 누구나 조회 가능 (id+name만 반환)
+  app.get("/members", { preHandler: [authenticate] }, async (_req, reply) => {
+    const users = await userService.findAll();
+    return reply.code(200).send(
+      users.filter((u) => u.isActive).map((u) => ({ id: u.id, name: u.name }))
+    );
+  });
+
   // POST /api/v1/users
   app.post("/", { preHandler: [authenticate, adminOnly] }, async (req, reply) => {
     const body = createUserSchema.safeParse(req.body);
