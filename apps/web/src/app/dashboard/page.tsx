@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { dashboardApi } from "@/lib/api";
+import AppLayout from "@/components/AppLayout";
 
 // ─── 타입 ─────────────────────────────────────────────────────────────────────
 
@@ -522,6 +523,7 @@ export default function CommandCenterDashboard() {
   }
 
   return (
+    <AppLayout>
     <div ref={containerRef} className={`p-6 max-w-screen-2xl mx-auto${presentationMode ? " bg-gray-950 min-h-screen text-white" : ""}`}>
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-5">
@@ -647,5 +649,6 @@ export default function CommandCenterDashboard() {
         </>
       )}
     </div>
+    </AppLayout>
   );
 }
