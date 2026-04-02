@@ -128,7 +128,7 @@ export async function templateRoutes(fastify: FastifyInstance) {
 
   // DELETE /api/v1/templates/:templateId
   fastify.delete("/templates/:templateId", {
-    preHandler: requireRole("ADMIN"),
+    preHandler: requireRole("ADMIN", "MANAGER"),
   }, async (req, reply) => {
     const { templateId } = req.params as { templateId: string };
     await service.deleteTemplate(templateId);

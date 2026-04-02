@@ -1,7 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { ProjectService } from "../../application/project.service.js";
-import { requireRole } from "../middleware/auth.middleware.js";
+import { requireRole, requireManager } from "../middleware/auth.middleware.js";
 import { ProjectStatus } from "@prisma/client";
 
 const createProjectSchema = z.object({
@@ -124,7 +124,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/projects/:id/milestones
   fastify.post("/:id/milestones", {
-    preHandler: requireRole("ADMIN", "MANAGER", "OPERATOR"),
+    preHandler: requireManager(),
   }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const dto = createMilestoneSchema.parse(req.body);
@@ -141,7 +141,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
   // PATCH /api/v1/projects/:id/milestones/:mid
   fastify.patch("/:id/milestones/:mid", {
-    preHandler: requireRole("ADMIN", "MANAGER", "OPERATOR"),
+    preHandler: requireManager(),
   }, async (req, reply) => {
     const { mid } = req.params as { id: string; mid: string };
     const dto = updateMilestoneSchema.parse(req.body);

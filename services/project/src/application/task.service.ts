@@ -42,7 +42,7 @@ export interface UpdateSegmentDto {
   endDate?: string;
   progressPercent?: number;
   sortOrder?: number;
-  changeReason: string; // 필수
+  changeReason?: string;
 }
 
 export interface UpsertAssignmentDto {
@@ -320,7 +320,7 @@ export class TaskService {
           taskId: segment.taskId,
           segmentId,
           changedBy: requesterId,
-          changeReason: dto.changeReason,
+          changeReason: dto.changeReason ?? "변경",
           changeType: change.field === "progressPercent" ? "PROGRESS_UPDATED" : "DATE_CHANGED",
           field: change.field,
           oldValue: change.old,

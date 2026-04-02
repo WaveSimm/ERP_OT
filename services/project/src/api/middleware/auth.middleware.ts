@@ -38,3 +38,24 @@ export function requireRole(...roles: string[]) {
     }
   };
 }
+
+/** MANAGER 이상 (MANAGER + ADMIN) */
+export function requireManager() {
+  return requireRole("ADMIN", "MANAGER");
+}
+
+/** ADMIN 전용 */
+export function requireAdmin() {
+  return requireRole("ADMIN");
+}
+
+/**
+ * MANAGER 이상이거나 본인인 경우 허용
+ * 핸들러에서 req.userId로 본인 여부를 직접 확인한 후 이 함수를 활용
+ * 예: if (!isManager && ownerId !== req.userId) return 403
+ */
+export function requireSelfOrManager(req: FastifyRequest, ownerId: string): boolean {
+  const role = req.userRole;
+  if (role === "ADMIN" || role === "MANAGER") return true;
+  return req.userId === ownerId;
+}

@@ -2,7 +2,7 @@ import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { TaskService } from "../../application/task.service.js";
 import { CpmService } from "../../application/cpm.service.js";
-import { requireRole } from "../middleware/auth.middleware.js";
+import { requireRole, requireManager, requireSelfOrManager } from "../middleware/auth.middleware.js";
 import { TaskStatus, DependencyType, AllocationMode } from "@prisma/client";
 
 const createTaskSchema = z.object({
@@ -39,7 +39,7 @@ const updateSegmentSchema = z.object({
   endDate: z.string().optional(),
   progressPercent: z.number().min(0).max(100).optional(),
   sortOrder: z.number().int().optional(),
-  changeReason: z.string().min(1),
+  changeReason: z.string().min(1).optional(),
 });
 
 const upsertAssignmentSchema = z.object({
@@ -68,7 +68,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/projects/:projectId/tasks
   fastify.post("/", {
-    preHandler: requireRole("ADMIN", "MANAGER", "OPERATOR"),
+    preHandler: requireManager(),
   }, async (req, reply) => {
     const { projectId } = req.params as { projectId: string };
     const dto = createTaskSchema.parse(req.body);
@@ -97,12 +97,34 @@ export async function taskRoutes(fastify: FastifyInstance) {
   });
 
   // PATCH /api/v1/projects/:projectId/tasks/:taskId
-  fastify.patch("/:taskId", {
-    preHandler: requireRole("ADMIN", "MANAGER", "OPERATOR"),
-  }, async (req, reply) => {
+  // MANAGER 이상: 모든 필드 수정 가능
+  // OPERATOR: 본인 태스크의 overallProgress/status만 수정 가능
+  fastify.patch("/:taskId", async (req, reply) => {
     const { taskId } = req.params as { projectId: string; taskId: string };
     const dto = updateTaskSchema.parse(req.body);
-    const task = await taskService.updateTask(taskId, dto as any, req.userId);
+
+    if (req.userRole === "ADMIN" || req.userRole === "MANAGER") {
+      const task = await taskService.updateTask(taskId, dto as any, req.userId);
+      return reply.send(task);
+    }
+
+    // OPERATOR: 본인 태스크 여부 확인 (createdBy 기준 — Task 스키마에 assigneeId 없음)
+    const existing = await fastify.prisma.task.findUnique({
+      where: { id: taskId },
+      select: { createdBy: true },
+    });
+    if (!existing) {
+      return reply.status(404).send({ code: "TASK_NOT_FOUND", message: "태스크를 찾을 수 없습니다." });
+    }
+    if (!requireSelfOrManager(req, existing.createdBy)) {
+      return reply.status(403).send({ code: "FORBIDDEN", message: "본인 태스크만 수정할 수 있습니다." });
+    }
+
+    // 허용 필드만 (진행률만 허용)
+    const allowed: { overallProgress?: number } = {};
+    if (dto.overallProgress !== undefined) allowed.overallProgress = dto.overallProgress;
+
+    const task = await taskService.updateTask(taskId, allowed as any, req.userId);
     return reply.send(task);
   });
 
@@ -119,7 +141,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/projects/:projectId/tasks/:taskId/segments
   fastify.post("/:taskId/segments", {
-    preHandler: requireRole("ADMIN", "MANAGER", "OPERATOR"),
+    preHandler: requireManager(),
   }, async (req, reply) => {
     const { taskId } = req.params as { projectId: string; taskId: string };
     const dto = createSegmentSchema.parse(req.body);
@@ -129,7 +151,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
   // PATCH /api/v1/projects/:projectId/tasks/:taskId/segments/:segmentId
   fastify.patch("/:taskId/segments/:segmentId", {
-    preHandler: requireRole("ADMIN", "MANAGER", "OPERATOR"),
+    preHandler: requireManager(),
   }, async (req, reply) => {
     const { segmentId } = req.params as { projectId: string; taskId: string; segmentId: string };
     const dto = updateSegmentSchema.parse(req.body);
@@ -148,7 +170,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
   // PATCH /api/v1/projects/:projectId/tasks/:taskId/segments/reorder
   fastify.patch("/:taskId/segments/reorder", {
-    preHandler: requireRole("ADMIN", "MANAGER", "OPERATOR"),
+    preHandler: requireManager(),
   }, async (req, reply) => {
     const { taskId } = req.params as { projectId: string; taskId: string };
     const body = req.body as { orderedIds: string[] };

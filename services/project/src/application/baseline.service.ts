@@ -216,12 +216,75 @@ export class BaselineService {
     return { tasks: diffs };
   }
 
-  // 태스크 이력 조회
+  // 태스크 이력 조회 (changedByName + 자원명 enrichment)
   async getTaskHistory(taskId: string, limit = 50) {
-    return this.prisma.taskScheduleHistory.findMany({
+    const rows = await this.prisma.taskScheduleHistory.findMany({
       where: { taskId },
       orderBy: { changedAt: "desc" },
       take: Math.min(limit, 200),
     });
+
+    // 고유 userId 수집 → auth service bulk 조회 우선, 없으면 Resource.name 역조회
+    const changedByIds = [...new Set(rows.map((r) => r.changedBy))];
+    const userMap = new Map<string, string>();
+
+    // 1) auth service internal bulk API
+    try {
+      const authUrl = process.env.AUTH_SERVICE_URL ?? "http://auth-service:3001";
+      const token = process.env.INTERNAL_API_TOKEN ?? "";
+      const res = await fetch(
+        `${authUrl}/internal/users/bulk?ids=${changedByIds.join(",")}`,
+        { headers: { "x-internal-token": token } }
+      );
+      if (res.ok) {
+        const data = await res.json() as Record<string, { name: string; email: string }>;
+        for (const [id, u] of Object.entries(data)) userMap.set(id, u.name);
+      }
+    } catch {}
+
+    // 2) fallback: Resource.userId 역조회 (auth에 없는 경우 대비)
+    const missingIds = changedByIds.filter((id) => !userMap.has(id));
+    if (missingIds.length > 0) {
+      const userResources = await this.prisma.resource.findMany({
+        where: { userId: { in: missingIds } },
+        select: { userId: true, name: true },
+      });
+      for (const r of userResources) if (r.userId) userMap.set(r.userId, r.name);
+    }
+
+    // ASSIGNMENT_CHANGED 항목의 resourceId 수집 → Resource.name 역조회
+    const resourceIds: string[] = [];
+    for (const row of rows) {
+      if (row.changeType === "ASSIGNMENT_CHANGED") {
+        for (const val of [row.oldValue, row.newValue]) {
+          if (!val) continue;
+          try { const p = JSON.parse(val); if (p?.resourceId) resourceIds.push(p.resourceId); } catch {}
+        }
+      }
+    }
+    const resourceRecords = await this.prisma.resource.findMany({
+      where: { id: { in: [...new Set(resourceIds)] } },
+      select: { id: true, name: true },
+    });
+    const resourceMap = new Map(resourceRecords.map((r) => [r.id, r.name]));
+
+    const formatAssignment = (val: string | null) => {
+      if (!val) return null;
+      try {
+        const p = JSON.parse(val);
+        const rName = p.resourceId ? (resourceMap.get(p.resourceId) ?? p.resourceId) : null;
+        const alloc = p.allocationMode === "PERCENT"
+          ? `${p.allocationPercent ?? 0}%`
+          : `${p.allocationHoursPerDay ?? 0}h/일`;
+        return rName ? `${rName} (${alloc})` : alloc;
+      } catch { return val; }
+    };
+
+    return rows.map((row) => ({
+      ...row,
+      changedByName: userMap.get(row.changedBy) ?? null,
+      oldValue: row.changeType === "ASSIGNMENT_CHANGED" ? formatAssignment(row.oldValue) : row.oldValue,
+      newValue: row.changeType === "ASSIGNMENT_CHANGED" ? formatAssignment(row.newValue) : row.newValue,
+    }));
   }
 }

@@ -20,6 +20,8 @@ import { resourceRoutes } from "./api/routes/resource.routes.js";
 import { collabRoutes } from "./api/routes/collab.routes.js";
 import { notificationRoutes } from "./api/routes/notification.routes.js";
 import { myTasksRoutes } from "./api/routes/my-tasks.routes.js";
+import { meRoutes } from "./api/routes/me.routes.js";
+import { dashboardRoutes } from "./api/routes/dashboard.routes.js";
 
 import { ProjectService } from "./application/project.service.js";
 import { TaskService } from "./application/task.service.js";
@@ -34,6 +36,7 @@ import { CollabService } from "./application/collab.service.js";
 import { ProjectCacheService } from "./infrastructure/cache/project.cache.js";
 import { ProjectGateway } from "./infrastructure/websocket/project.gateway.js";
 import { RiskDetectionService } from "./application/risk-detection.service.js";
+import { DashboardService } from "./application/dashboard/dashboard.service.js";
 
 // ─── Env 검증 ─────────────────────────────────────────────────────────────────
 const envSchema = z.object({
@@ -73,6 +76,7 @@ const templateService = new TemplateService(prisma);
 const resourceService = new ResourceService(prisma, cache);
 const collabService = new CollabService(prisma, gateway, env.STORAGE_PATH);
 const riskDetectionService = new RiskDetectionService(prisma, gateway);
+const dashboardService = new DashboardService(prisma, redis);
 
 // ─── Fastify + Socket.io Setup ────────────────────────────────────────────────
 declare module "fastify" {
@@ -87,6 +91,7 @@ declare module "fastify" {
     resourceService: ResourceService;
     collabService: CollabService;
     prisma: PrismaClient;
+    redis: Redis;
   }
 }
 
@@ -122,6 +127,7 @@ async function buildApp() {
   app.decorate("resourceService", resourceService);
   app.decorate("collabService", collabService);
   app.decorate("prisma", prisma);
+  app.decorate("redis", redis);
 
   // 인증 미들웨어
   await app.register(authMiddleware);
@@ -167,6 +173,8 @@ async function buildApp() {
   app.register(collabRoutes, { prefix: "/api/v1" });
   app.register(notificationRoutes, { prefix: "/api/v1/notifications" });
   app.register(myTasksRoutes, { prefix: "/api/v1/tasks" });
+  app.register(meRoutes, { prefix: "/api/v1/me" });
+  app.register(dashboardRoutes, { prefix: "/api/v1/dashboard" });
   app.register(
     async (instance) => {
       instance.register(taskRoutes, { prefix: "/:projectId/tasks" });
@@ -214,6 +222,16 @@ async function start() {
     }
   });
   app.log.info("Risk detection cron job scheduled (every 5 minutes)");
+
+  // 대시보드 캐시 갱신 Cron Job (매 5분마다 실행)
+  cron.schedule("*/5 * * * *", async () => {
+    try {
+      await dashboardService.refreshAll();
+    } catch (err) {
+      app.log.error({ err }, "Dashboard cache refresh cron failed");
+    }
+  });
+  app.log.info("Dashboard cache refresh cron job scheduled (every 5 minutes)");
 
   // Graceful shutdown
   const shutdown = async () => {

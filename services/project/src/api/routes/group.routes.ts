@@ -65,7 +65,7 @@ export async function groupRoutes(fastify: FastifyInstance) {
 
   // DELETE /api/v1/groups/:groupId
   fastify.delete("/:groupId", {
-    preHandler: requireRole("ADMIN"),
+    preHandler: requireRole("ADMIN", "MANAGER"),
   }, async (req, reply) => {
     const { groupId } = req.params as { groupId: string };
     await service.deleteGroup(groupId);

@@ -87,6 +87,17 @@ export class CollabService {
       { taskName: task.name, taskId, content: dto.content.slice(0, 200) },
     );
 
+    await this.prisma.taskScheduleHistory.create({
+      data: {
+        taskId,
+        changedBy: authorId,
+        changeType: "COMMENT_ADDED",
+        changeReason: "댓글 작성",
+        field: "comment",
+        newValue: dto.content.slice(0, 500),
+      },
+    });
+
     this.gateway.emitToProject(task.projectId, "comment:created", {
       taskId,
       projectId: task.projectId,
@@ -141,6 +152,18 @@ export class CollabService {
       { taskName: existing.task.name, taskId: existing.taskId, content: dto.content.slice(0, 200) },
     );
 
+    await this.prisma.taskScheduleHistory.create({
+      data: {
+        taskId: existing.taskId,
+        changedBy: userId,
+        changeType: "COMMENT_EDITED",
+        changeReason: "댓글 수정",
+        field: "comment",
+        oldValue: existing.content.slice(0, 500),
+        newValue: dto.content.slice(0, 500),
+      },
+    });
+
     this.gateway.emitToProject(existing.task.projectId, "comment:updated", {
       commentId,
       taskId: existing.taskId,
@@ -170,6 +193,17 @@ export class CollabService {
       commentId,
       "댓글 삭제",
     );
+
+    await this.prisma.taskScheduleHistory.create({
+      data: {
+        taskId: existing.taskId,
+        changedBy: userId,
+        changeType: "COMMENT_DELETED",
+        changeReason: "댓글 삭제",
+        field: "comment",
+        oldValue: existing.content.slice(0, 500),
+      },
+    });
 
     this.gateway.emitToProject(existing.task.projectId, "comment:deleted", {
       commentId,
