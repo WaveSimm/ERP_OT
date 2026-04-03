@@ -42,6 +42,7 @@ function SegmentCard({
   isHidden?: boolean; onToggleVisibility?: () => void;
 }) {
   const [assignments, setAssignments] = useState<any[]>([]);
+  const [allocValues, setAllocValues] = useState<Record<string, number>>({});
   const [resources, setResources] = useState<any[]>([]);
   const [showAddAssign, setShowAddAssign] = useState(false);
   const [assignSearch, setAssignSearch] = useState("");
@@ -52,16 +53,19 @@ function SegmentCard({
   const [startDate, setStartDate] = useState(seg.startDate);
   const [endDate, setEndDate] = useState(seg.endDate);
   const [progress, setProgress] = useState<number>(seg.progressPercent);
-  const [errorPopup, setErrorPopup] = useState<{ message: string; onDismiss: () => void } | null>(null);
+  const [errorPopup, setErrorPopup] = useState<{ message: string } | null>(null);
   // ref for save-on-blur without stale closures
   const latestDates = useRef({ startDate: seg.startDate, endDate: seg.endDate });
+  // 마지막으로 저장된 값 (revert 기준)
+  const savedRef = useRef({ name: seg.name, startDate: seg.startDate, endDate: seg.endDate, progress: seg.progressPercent });
 
   const revertSegFields = () => {
-    setName(seg.name);
-    setStartDate(seg.startDate);
-    setEndDate(seg.endDate);
-    setProgress(seg.progressPercent);
-    latestDates.current = { startDate: seg.startDate, endDate: seg.endDate };
+    const s = savedRef.current;
+    setName(s.name);
+    setStartDate(s.startDate);
+    setEndDate(s.endDate);
+    setProgress(s.progress);
+    latestDates.current = { startDate: s.startDate, endDate: s.endDate };
   };
 
   useEffect(() => {
@@ -70,18 +74,28 @@ function SegmentCard({
   }, [seg.id]);
 
   const loadAssignments = async () => {
-    try { setAssignments(await taskApi.listAssignments(projectId, taskId, seg.id)); }
-    catch { setAssignments([]); }
+    try {
+      const list = await taskApi.listAssignments(projectId, taskId, seg.id);
+      setAssignments(list);
+      const vals: Record<string, number> = {};
+      list.forEach((a: any) => { vals[a.resourceId] = a.allocationMode === "PERCENT" ? (a.allocationPercent ?? 100) : (a.allocationHoursPerDay ?? 8); });
+      setAllocValues(vals);
+    }
+    catch { setAssignments([]); setAllocValues({}); }
   };
 
   const saveSegField = async (fields: Record<string, any>) => {
     setSaving("seg-" + seg.id);
     try {
       await taskApi.updateSegment(projectId, taskId, seg.id, { ...fields, changeReason: "일정 수정" });
+      // 성공 시 savedRef 갱신
+      if ("name" in fields) savedRef.current.name = fields.name;
+      if ("progressPercent" in fields) savedRef.current.progress = fields.progressPercent;
+      if ("startDate" in fields) { savedRef.current.startDate = fields.startDate; savedRef.current.endDate = fields.endDate; }
       onRefresh();
     } catch (e: any) {
       revertSegFields();
-      setErrorPopup({ message: e.message, onDismiss: () => setErrorPopup(null) });
+      setErrorPopup({ message: e.message });
     }
     finally { setSaving(null); }
   };
@@ -216,12 +230,12 @@ function SegmentCard({
       {/* 저장 오류 팝업 */}
       {errorPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
-          onClick={() => { errorPopup.onDismiss(); }}>
+          onClick={() => setErrorPopup(null)}>
           <div className="bg-white rounded-xl shadow-xl px-6 py-5 max-w-xs w-full mx-4" onClick={(e) => e.stopPropagation()}>
             <p className="text-sm font-semibold text-gray-800 mb-1">저장 실패</p>
             <p className="text-sm text-red-600 mb-4">{errorPopup.message}</p>
             <button
-              onClick={() => { errorPopup.onDismiss(); }}
+              onClick={() => setErrorPopup(null)}
               className="w-full bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700"
             >
               확인
@@ -260,7 +274,8 @@ function SegmentCard({
                   min={a.allocationMode === "HOURS" ? 0.5 : 1}
                   max={a.allocationMode === "HOURS" ? 24 : 200}
                   step={a.allocationMode === "HOURS" ? 0.5 : 1}
-                  defaultValue={a.allocationMode === "PERCENT" ? (a.allocationPercent ?? 100) : (a.allocationHoursPerDay ?? 8)}
+                  value={allocValues[a.resourceId] ?? (a.allocationMode === "PERCENT" ? (a.allocationPercent ?? 100) : (a.allocationHoursPerDay ?? 8))}
+                  onChange={(e) => setAllocValues((v) => ({ ...v, [a.resourceId]: Number(e.target.value) }))}
                   onBlur={(e) => saveAssignAlloc(a.resourceId, a.allocationMode ?? "PERCENT", Number(e.target.value))}
                   onFocus={(e) => (e.target as HTMLInputElement).select()}
                   className="w-14 text-xs border border-gray-200 rounded px-1.5 py-0.5 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
