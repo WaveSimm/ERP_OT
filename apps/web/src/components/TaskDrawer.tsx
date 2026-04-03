@@ -80,7 +80,8 @@ function SegmentCard({
       await taskApi.updateSegment(projectId, taskId, seg.id, { ...fields, changeReason: "일정 수정" });
       onRefresh();
     } catch (e: any) {
-      setErrorPopup({ message: e.message, onDismiss: revertSegFields });
+      revertSegFields();
+      setErrorPopup({ message: e.message, onDismiss: () => setErrorPopup(null) });
     }
     finally { setSaving(null); }
   };
@@ -91,7 +92,8 @@ function SegmentCard({
     else payload.allocationHoursPerDay = val;
     try { await taskApi.upsertAssignment(projectId, taskId, seg.id, payload); }
     catch (e: any) {
-      setErrorPopup({ message: e.message, onDismiss: loadAssignments });
+      await loadAssignments();
+      setErrorPopup({ message: e.message, onDismiss: () => setErrorPopup(null) });
     }
   };
 
@@ -214,12 +216,12 @@ function SegmentCard({
       {/* 저장 오류 팝업 */}
       {errorPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
-          onClick={() => { errorPopup.onDismiss(); setErrorPopup(null); }}>
+          onClick={() => { errorPopup.onDismiss(); }}>
           <div className="bg-white rounded-xl shadow-xl px-6 py-5 max-w-xs w-full mx-4" onClick={(e) => e.stopPropagation()}>
             <p className="text-sm font-semibold text-gray-800 mb-1">저장 실패</p>
             <p className="text-sm text-red-600 mb-4">{errorPopup.message}</p>
             <button
-              onClick={() => { errorPopup.onDismiss(); setErrorPopup(null); }}
+              onClick={() => { errorPopup.onDismiss(); }}
               className="w-full bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700"
             >
               확인
