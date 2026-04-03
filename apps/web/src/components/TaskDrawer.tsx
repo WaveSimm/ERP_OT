@@ -52,8 +52,18 @@ function SegmentCard({
   const [startDate, setStartDate] = useState(seg.startDate);
   const [endDate, setEndDate] = useState(seg.endDate);
   const [progress, setProgress] = useState<number>(seg.progressPercent);
+  const [segError, setSegError] = useState<string | null>(null);
   // ref for save-on-blur without stale closures
   const latestDates = useRef({ startDate: seg.startDate, endDate: seg.endDate });
+
+  const revertToOriginal = () => {
+    setName(seg.name);
+    setStartDate(seg.startDate);
+    setEndDate(seg.endDate);
+    setProgress(seg.progressPercent);
+    latestDates.current = { startDate: seg.startDate, endDate: seg.endDate };
+    setSegError(null);
+  };
 
   useEffect(() => {
     loadAssignments();
@@ -67,10 +77,11 @@ function SegmentCard({
 
   const saveSegField = async (fields: Record<string, any>) => {
     setSaving("seg-" + seg.id);
+    setSegError(null);
     try {
       await taskApi.updateSegment(projectId, taskId, seg.id, { ...fields, changeReason: "일정 수정" });
       onRefresh();
-    } catch (e: any) { alert(e.message); }
+    } catch (e: any) { setSegError(e.message); }
     finally { setSaving(null); }
   };
 
@@ -195,6 +206,17 @@ function SegmentCard({
         )}
         <span className="text-xs text-gray-500 shrink-0">%</span>
       </div>
+
+      {/* 저장 오류 메시지 */}
+      {segError && (
+        <div
+          className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1 cursor-pointer hover:bg-red-100"
+          title="클릭하면 원래 값으로 되돌립니다"
+          onClick={revertToOriginal}
+        >
+          {segError} — <span className="underline">되돌리기</span>
+        </div>
+      )}
 
       {/* 담당 자원 */}
       <div className="pt-1 space-y-1">
