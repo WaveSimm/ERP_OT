@@ -42,7 +42,6 @@ function SegmentCard({
   isHidden?: boolean; onToggleVisibility?: () => void;
 }) {
   const [assignments, setAssignments] = useState<any[]>([]);
-  const [allocValues, setAllocValues] = useState<Record<string, number>>({});
   const [resources, setResources] = useState<any[]>([]);
   const [showAddAssign, setShowAddAssign] = useState(false);
   const [assignSearch, setAssignSearch] = useState("");
@@ -74,14 +73,8 @@ function SegmentCard({
   }, [seg.id]);
 
   const loadAssignments = async () => {
-    try {
-      const list = await taskApi.listAssignments(projectId, taskId, seg.id);
-      setAssignments(list);
-      const vals: Record<string, number> = {};
-      list.forEach((a: any) => { vals[a.resourceId] = a.allocationMode === "PERCENT" ? (a.allocationPercent ?? 100) : (a.allocationHoursPerDay ?? 8); });
-      setAllocValues(vals);
-    }
-    catch { setAssignments([]); setAllocValues({}); }
+    try { setAssignments(await taskApi.listAssignments(projectId, taskId, seg.id)); }
+    catch { setAssignments([]); }
   };
 
   const saveSegField = async (fields: Record<string, any>) => {
@@ -270,12 +263,12 @@ function SegmentCard({
                   <option value="HOURS">h/일</option>
                 </select>
                 <input
+                  key={`${a.resourceId}-${a.allocationMode}-${a.allocationPercent}-${a.allocationHoursPerDay}`}
                   type="number"
                   min={a.allocationMode === "HOURS" ? 0.5 : 1}
                   max={a.allocationMode === "HOURS" ? 24 : 200}
                   step={a.allocationMode === "HOURS" ? 0.5 : 1}
-                  value={allocValues[a.resourceId] ?? (a.allocationMode === "PERCENT" ? (a.allocationPercent ?? 100) : (a.allocationHoursPerDay ?? 8))}
-                  onChange={(e) => setAllocValues((v) => ({ ...v, [a.resourceId]: Number(e.target.value) }))}
+                  defaultValue={a.allocationMode === "PERCENT" ? (a.allocationPercent ?? 100) : (a.allocationHoursPerDay ?? 8)}
                   onBlur={(e) => saveAssignAlloc(a.resourceId, a.allocationMode ?? "PERCENT", Number(e.target.value))}
                   onFocus={(e) => (e.target as HTMLInputElement).select()}
                   className="w-14 text-xs border border-gray-200 rounded px-1.5 py-0.5 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
