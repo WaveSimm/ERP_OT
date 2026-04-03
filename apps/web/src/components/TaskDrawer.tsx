@@ -65,6 +65,10 @@ function SegmentCard({
     setSegError(null);
   };
 
+  const dismissError = () => {
+    revertToOriginal();
+  };
+
   useEffect(() => {
     loadAssignments();
     resourceApi.list({ isActive: true }).then(setResources).catch(() => {});
@@ -207,14 +211,19 @@ function SegmentCard({
         <span className="text-xs text-gray-500 shrink-0">%</span>
       </div>
 
-      {/* 저장 오류 메시지 */}
+      {/* 저장 오류 팝업 */}
       {segError && (
-        <div
-          className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1 cursor-pointer hover:bg-red-100"
-          title="클릭하면 원래 값으로 되돌립니다"
-          onClick={revertToOriginal}
-        >
-          {segError} — <span className="underline">되돌리기</span>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={dismissError}>
+          <div className="bg-white rounded-xl shadow-xl px-6 py-5 max-w-xs w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <p className="text-sm font-semibold text-gray-800 mb-1">저장 실패</p>
+            <p className="text-sm text-red-600 mb-4">{segError}</p>
+            <button
+              onClick={dismissError}
+              className="w-full bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700"
+            >
+              확인
+            </button>
+          </div>
         </div>
       )}
 
