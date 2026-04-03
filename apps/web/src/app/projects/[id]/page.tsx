@@ -89,10 +89,12 @@ export default function ProjectDetailPage() {
 
   type TabType = "gantt" | "tasks" | "activity";
   const TAB_KEY = `erp_tab_${projectId}`;
-  const savedTab = typeof window !== "undefined"
-    ? (sessionStorage.getItem(TAB_KEY) as TabType | null)
-    : null;
-  const [activeTab, setActiveTab] = useState<TabType>(savedTab ?? "gantt");
+  const [activeTab, setActiveTab] = useState<TabType>("gantt");
+
+  useEffect(() => {
+    const saved = sessionStorage.getItem(TAB_KEY) as TabType | null;
+    if (saved) setActiveTab(saved);
+  }, [TAB_KEY]);
 
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);

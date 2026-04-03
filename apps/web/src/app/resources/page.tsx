@@ -118,13 +118,7 @@ export default function ResourcesPage() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState<Set<string>>(() => {
-    if (typeof window === "undefined") return new Set();
-    try {
-      const saved = sessionStorage.getItem(EXPANDED_KEY);
-      return saved ? new Set(JSON.parse(saved)) : new Set();
-    } catch { return new Set(); }
-  });
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   // ─── 드래그 상태 ───────────────────────────────────────────────────────────
   const [dragState, setDragState] = useState<{ type: "resource" | "group"; id: string } | null>(null);
@@ -151,33 +145,12 @@ export default function ResourcesPage() {
   const [savingUserId, setSavingUserId] = useState(false);
 
   // Dashboard
-  const [startDate, setStartDate] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      try { const s = JSON.parse(sessionStorage.getItem(DASH_DATE_KEY) ?? "null"); if (s?.startDate) return s.startDate; } catch {}
-    }
-    return addMonths(todayStr(), -1);
-  });
-  const [endDate, setEndDate] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      try { const s = JSON.parse(sessionStorage.getItem(DASH_DATE_KEY) ?? "null"); if (s?.endDate) return s.endDate; } catch {}
-    }
-    return addMonths(todayStr(), 2);
-  });
+  const [startDate, setStartDate] = useState<string>(() => addMonths(todayStr(), -1));
+  const [endDate, setEndDate] = useState<string>(() => addMonths(todayStr(), 2));
   const [dashboard, setDashboard] = useState<any[]>([]);
   const [dashLoading, setDashLoading] = useState(false);
-  const [expandedResources, setExpandedResources] = useState<Set<string>>(() => {
-    if (typeof window !== "undefined") {
-      try { const s = JSON.parse(sessionStorage.getItem(DASH_EXPANDED_KEY) ?? "null"); if (Array.isArray(s)) return new Set<string>(s); } catch {}
-    }
-    return new Set<string>();
-  });
-  const [dashDeptExpanded, setDashDeptExpanded] = useState<Set<string>>(() => {
-    if (typeof window === "undefined") return new Set();
-    try {
-      const saved = sessionStorage.getItem(DASH_DEPT_EXPANDED_KEY);
-      return saved ? new Set(JSON.parse(saved)) : new Set();
-    } catch { return new Set(); }
-  });
+  const [expandedResources, setExpandedResources] = useState<Set<string>>(new Set());
+  const [dashDeptExpanded, setDashDeptExpanded] = useState<Set<string>>(new Set());
   const toggleDashDept = (id: string) =>
     setDashDeptExpanded((prev) => {
       const next = new Set(prev);
