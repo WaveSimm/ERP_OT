@@ -52,21 +52,16 @@ function SegmentCard({
   const [startDate, setStartDate] = useState(seg.startDate);
   const [endDate, setEndDate] = useState(seg.endDate);
   const [progress, setProgress] = useState<number>(seg.progressPercent);
-  const [segError, setSegError] = useState<string | null>(null);
+  const [errorPopup, setErrorPopup] = useState<{ message: string; onDismiss: () => void } | null>(null);
   // ref for save-on-blur without stale closures
   const latestDates = useRef({ startDate: seg.startDate, endDate: seg.endDate });
 
-  const revertToOriginal = () => {
+  const revertSegFields = () => {
     setName(seg.name);
     setStartDate(seg.startDate);
     setEndDate(seg.endDate);
     setProgress(seg.progressPercent);
     latestDates.current = { startDate: seg.startDate, endDate: seg.endDate };
-    setSegError(null);
-  };
-
-  const dismissError = () => {
-    revertToOriginal();
   };
 
   useEffect(() => {
@@ -81,11 +76,12 @@ function SegmentCard({
 
   const saveSegField = async (fields: Record<string, any>) => {
     setSaving("seg-" + seg.id);
-    setSegError(null);
     try {
       await taskApi.updateSegment(projectId, taskId, seg.id, { ...fields, changeReason: "일정 수정" });
       onRefresh();
-    } catch (e: any) { setSegError(e.message); }
+    } catch (e: any) {
+      setErrorPopup({ message: e.message, onDismiss: revertSegFields });
+    }
     finally { setSaving(null); }
   };
 
@@ -94,7 +90,9 @@ function SegmentCard({
     if (mode === "PERCENT") payload.allocationPercent = val;
     else payload.allocationHoursPerDay = val;
     try { await taskApi.upsertAssignment(projectId, taskId, seg.id, payload); }
-    catch (e: any) { alert(e.message); }
+    catch (e: any) {
+      setErrorPopup({ message: e.message, onDismiss: loadAssignments });
+    }
   };
 
   const handleAddAssign = async (e: React.FormEvent) => {
@@ -111,7 +109,9 @@ function SegmentCard({
       setNewAssign({ resourceId: "", allocationMode: "PERCENT", allocationPercent: 100, allocationHoursPerDay: 8 });
       await loadAssignments();
       onRefresh();
-    } catch (e: any) { alert(e.message); }
+    } catch (e: any) {
+      setErrorPopup({ message: e.message, onDismiss: () => setErrorPopup(null) });
+    }
     finally { setSaving(null); }
   };
 
@@ -212,13 +212,14 @@ function SegmentCard({
       </div>
 
       {/* 저장 오류 팝업 */}
-      {segError && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={dismissError}>
+      {errorPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
+          onClick={() => { errorPopup.onDismiss(); setErrorPopup(null); }}>
           <div className="bg-white rounded-xl shadow-xl px-6 py-5 max-w-xs w-full mx-4" onClick={(e) => e.stopPropagation()}>
             <p className="text-sm font-semibold text-gray-800 mb-1">저장 실패</p>
-            <p className="text-sm text-red-600 mb-4">{segError}</p>
+            <p className="text-sm text-red-600 mb-4">{errorPopup.message}</p>
             <button
-              onClick={dismissError}
+              onClick={() => { errorPopup.onDismiss(); setErrorPopup(null); }}
               className="w-full bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700"
             >
               확인
