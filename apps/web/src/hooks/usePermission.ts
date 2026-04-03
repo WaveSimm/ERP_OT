@@ -1,7 +1,7 @@
 "use client";
 
 import { getUser } from "@/lib/api";
-import { useMemo } from "react";
+import { useState, useEffect } from "react";
 
 /**
  * 현재 로그인 사용자의 Role 기반 권한 훅
@@ -11,12 +11,12 @@ import { useMemo } from "react";
  * - isOperator: OPERATOR 이상 (본인 태스크 수정, 조회)
  */
 export function usePermission() {
-  const user = useMemo(() => {
-    if (typeof window === "undefined") return null;
-    return getUser();
-  }, []);
+  const [role, setRole] = useState<string>("VIEWER");
 
-  const role = user?.role ?? "VIEWER";
+  useEffect(() => {
+    const user = getUser();
+    setRole(user?.role ?? "VIEWER");
+  }, []);
 
   const isAdmin = role === "ADMIN";
   const isManager = role === "MANAGER" || isAdmin;

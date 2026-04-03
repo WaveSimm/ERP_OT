@@ -80,7 +80,15 @@ export class DashboardService {
       this.prisma.project.findUnique({
         where: { id: projectId },
         include: {
-          tasks: { select: { overallProgress: true, status: true } },
+          tasks: {
+            select: {
+              id: true,
+              parentId: true,
+              isMilestone: true,
+              status: true,
+              segments: { select: { progressPercent: true } },
+            },
+          },
         },
       }),
       this.issueDetector.detectForProject(projectId),
@@ -89,9 +97,13 @@ export class DashboardService {
 
     if (!project) throw new Error(`Project ${projectId} not found`);
 
-    const activeTasks = project.tasks.filter((t) => t.status !== "DONE");
-    const overallProgress = activeTasks.length > 0
-      ? Math.round(activeTasks.reduce((s, t) => s + t.overallProgress, 0) / activeTasks.length)
+    // 리프 + 마일스톤 제외 태스크 세그먼트 기반 진행률 계산 (project.service와 동일 기준)
+    const parentIds = new Set(project.tasks.map((t) => t.parentId).filter(Boolean));
+    const leafSegments = project.tasks
+      .filter((t) => !parentIds.has(t.id) && !t.isMilestone)
+      .flatMap((t) => t.segments);
+    const overallProgress = leafSegments.length > 0
+      ? Math.round(leafSegments.reduce((s, seg) => s + seg.progressPercent, 0) / leafSegments.length)
       : 0;
 
     const planned = project.plannedBudget ? Number(project.plannedBudget) : undefined;

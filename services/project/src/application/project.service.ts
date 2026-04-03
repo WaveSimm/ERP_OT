@@ -71,7 +71,12 @@ export class ProjectService {
         orderBy: { updatedAt: "desc" },
         include: {
           tasks: {
-            include: { segments: { select: { startDate: true, endDate: true, progressPercent: true } } },
+            select: {
+              id: true,
+              parentId: true,
+              isMilestone: true,
+              segments: { select: { startDate: true, endDate: true, progressPercent: true } },
+            },
           },
         },
       }),
@@ -79,7 +84,12 @@ export class ProjectService {
     ]);
 
     const items: ProjectListItem[] = projects.map((p) => {
-      const segments = p.tasks.flatMap((t) => t.segments);
+      // 부모 역할을 하는 task id 집합 (자식이 있는 task)
+      const parentIds = new Set(p.tasks.map((t) => t.parentId).filter(Boolean));
+      // 리프 태스크 + 마일스톤 제외 → 프론트엔드 rollup 기준과 동일
+      const segments = p.tasks
+        .filter((t) => !parentIds.has(t.id) && !t.isMilestone)
+        .flatMap((t) => t.segments);
       let effectiveStartDate: string | null = null;
       let effectiveEndDate: string | null = null;
       let overallProgress: number | null = null;
