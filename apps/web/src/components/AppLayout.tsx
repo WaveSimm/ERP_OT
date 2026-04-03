@@ -126,6 +126,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [showProfile, setShowProfile] = useState(false);
   const [profileTab, setProfileTab] = useState<"info" | "password">("info");
   const [profileForm, setProfileForm] = useState({ name: "", phoneOffice: "", phoneMobile: "" });
+  const [originalProfileForm, setOriginalProfileForm] = useState({ name: "", phoneOffice: "", phoneMobile: "" });
   const [pwForm, setPwForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [profileSaving, setProfileSaving] = useState(false);
   const [pwSaving, setPwSaving] = useState(false);
@@ -145,10 +146,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     setProfileMsg(null);
     setPwMsg(null);
     setPwForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-    setProfileForm({ name: user.name, phoneOffice: "", phoneMobile: "" });
+    const initial = { name: user.name, phoneOffice: "", phoneMobile: "" };
+    setProfileForm(initial);
+    setOriginalProfileForm(initial);
     try {
       const profile = await myProfileApi.getProfile(user.id);
-      setProfileForm({ name: user.name, phoneOffice: profile?.phoneOffice ?? "", phoneMobile: profile?.phoneMobile ?? "" });
+      const loaded = { name: user.name, phoneOffice: profile?.phoneOffice ?? "", phoneMobile: profile?.phoneMobile ?? "" };
+      setProfileForm(loaded);
+      setOriginalProfileForm(loaded);
     } catch {}
     setShowProfile(true);
   };
@@ -382,7 +387,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 {profileMsg && (
-                  <p className={`text-sm ${profileMsg.type === "ok" ? "text-green-600" : "text-red-600"}`}>{profileMsg.text}</p>
+                  profileMsg.type === "err" ? (
+                    <p
+                      className="text-sm text-red-600 cursor-pointer hover:underline"
+                      title="클릭하면 원래 값으로 되돌립니다"
+                      onClick={() => { setProfileForm(originalProfileForm); setProfileMsg(null); }}
+                    >
+                      {profileMsg.text} <span className="text-xs underline ml-1">되돌리기</span>
+                    </p>
+                  ) : (
+                    <p className="text-sm text-green-600">{profileMsg.text}</p>
+                  )
                 )}
                 <div className="flex gap-3 pt-1">
                   <button type="button" onClick={() => setShowProfile(false)}

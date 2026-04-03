@@ -46,6 +46,7 @@ export default function UsersPage() {
   // Profile edit state
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [profileForm, setProfileForm] = useState(EMPTY_PROFILE);
+  const [originalProfileForm, setOriginalProfileForm] = useState(EMPTY_PROFILE);
   const [profileError, setProfileError] = useState("");
 
   // Departments (= resource groups)
@@ -105,15 +106,18 @@ export default function UsersPage() {
     try {
       const data = await userManagementApi.getProfile(user.id);
       const p = data.profile ?? {};
-      setProfileForm({
+      const loaded = {
         phoneOffice:    p.phoneOffice    ?? "",
         phoneMobile:    p.phoneMobile    ?? "",
         address:        p.address        ?? "",
         departmentId:   p.departmentId   ?? "",
         departmentName: p.departmentName ?? "",
-      });
+      };
+      setProfileForm(loaded);
+      setOriginalProfileForm(loaded);
     } catch {
       setProfileForm(EMPTY_PROFILE);
+      setOriginalProfileForm(EMPTY_PROFILE);
     }
     setProfileUserId(user.id);
   };
@@ -787,7 +791,13 @@ export default function UsersPage() {
                 />
               </div>
               {profileError && (
-                <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2">{profileError}</div>
+                <div
+                  className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2 cursor-pointer hover:bg-red-100"
+                  title="클릭하면 원래 값으로 되돌립니다"
+                  onClick={() => { setProfileForm(originalProfileForm); setProfileError(""); }}
+                >
+                  {profileError} <span className="underline text-xs ml-1">되돌리기</span>
+                </div>
               )}
               <div className="flex gap-2 pt-2">
                 <button type="button" onClick={() => setProfileUserId(null)}
