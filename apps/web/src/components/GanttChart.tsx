@@ -82,7 +82,7 @@ function shiftDate(isoDate: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTaskClick, baselineSegments, allResources, onRefresh, projectId }: {
+export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTaskClick, baselineSegments, allResources, onRefresh, projectId, inlineTaskName, onInlineTaskNameChange, inlineAdding, onInlineTaskCreate, selected, onToggleSelect, onToggleAll, dragIds, dropGap, onDragStart, onDragOver, onDrop, onDragEnd, onIndent, onOutdent }: {
   data: GanttData;
   flatItems?: FlatItem[];
   viewStart?: string;
@@ -92,6 +92,21 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
   allResources?: any[];
   onRefresh?: () => void;
   projectId?: string;
+  inlineTaskName?: string;
+  onInlineTaskNameChange?: (v: string) => void;
+  inlineAdding?: boolean;
+  onInlineTaskCreate?: () => void;
+  selected?: Set<string>;
+  onToggleSelect?: (id: string) => void;
+  onToggleAll?: () => void;
+  dragIds?: string[];
+  dropGap?: { taskId: string; pos: "before" | "after" } | null;
+  onDragStart?: (e: React.DragEvent, taskId: string) => void;
+  onDragOver?: (e: React.DragEvent, taskId: string) => void;
+  onDrop?: (e: React.DragEvent) => void;
+  onDragEnd?: () => void;
+  onIndent?: () => void;
+  onOutdent?: () => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -426,6 +441,22 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden" ref={containerRef}>
+      {/* 선택 툴바 */}
+      {selected && selected.size > 0 && onIndent && onOutdent && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border-b border-blue-100">
+          <span className="text-xs font-semibold text-blue-700">{selected.size}개 선택됨</span>
+          <span className="text-[10px] text-blue-400">— 드래그 핸들(⠿)로 이동</span>
+          <div className="h-3 w-px bg-blue-200" />
+          <button onClick={onOutdent}
+            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:bg-white rounded border border-gray-200">
+            ← 내어쓰기
+          </button>
+          <button onClick={onIndent}
+            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:bg-white rounded border border-gray-200">
+            → 들여쓰기
+          </button>
+        </div>
+      )}
       <div className="flex" style={{ height: `${totalH + 56}px` }}>
         {/* Left panel */}
         <div
@@ -433,24 +464,65 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
           style={{ width: leftW }}
         >
           {/* Header */}
-          <div className="h-14 border-b border-gray-200 px-4 flex items-end pb-1.5">
+          <div className="h-14 border-b border-gray-200 px-4 flex items-end pb-1.5 gap-2">
+            {onToggleAll && (
+              <input
+                type="checkbox"
+                checked={!!selected && selected.size > 0 && selected.size === rows.length}
+                ref={(el) => { if (el) el.indeterminate = !!selected && selected.size > 0 && selected.size < rows.length; }}
+                onChange={onToggleAll}
+                className="w-3 h-3 rounded accent-blue-600 cursor-pointer shrink-0 mb-0.5"
+              />
+            )}
+            {onDragStart && <span className="w-3 shrink-0" />}
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">태스크</span>
           </div>
           {/* Rows */}
           <div className="flex-1 overflow-hidden">
-            {rows.map(({ task, depth }, i) => (
+            {rows.map(({ task, depth }) => (
               <div
                 key={task.id}
                 style={{ height: ROW_H }}
                 onClick={(e) => { e.stopPropagation(); onTaskClick?.(task); }}
+                onDragOver={onDragOver ? (e) => onDragOver(e, task.id) : undefined}
+                onDrop={onDrop ? (e) => { e.preventDefault(); onDrop(e); } : undefined}
                 className={clsx(
-                  "flex items-center border-b border-gray-100 gap-1 pr-1 group/row",
+                  "flex items-center border-b border-gray-100 gap-1 pr-1 group/row relative",
                   task.isCritical && !task.isMilestone && "bg-red-50/30",
                   onTaskClick && "cursor-pointer hover:bg-blue-50/40",
+                  selected?.has(task.id) && "!bg-blue-50",
+                  dragIds?.includes(task.id) && "opacity-30",
                 )}
               >
+                {/* 드롭 위치 표시선 */}
+                {dropGap?.taskId === task.id && dropGap.pos === "before" && (
+                  <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500 z-10 pointer-events-none" />
+                )}
+                {dropGap?.taskId === task.id && dropGap.pos === "after" && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 z-10 pointer-events-none" />
+                )}
+                {/* 드래그 핸들 */}
+                {onDragStart ? (
+                  <span
+                    draggable
+                    onDragStart={(e) => { e.stopPropagation(); onDragStart(e, task.id); }}
+                    onDragEnd={onDragEnd}
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing select-none text-xs px-0.5 shrink-0"
+                  >⠿</span>
+                ) : <span className="w-3 shrink-0" />}
+                {/* 체크박스 */}
+                {onToggleSelect && (
+                  <input
+                    type="checkbox"
+                    checked={selected?.has(task.id) ?? false}
+                    onChange={() => {}}
+                    onClick={(e) => { e.stopPropagation(); onToggleSelect(task.id); }}
+                    className="w-3 h-3 rounded accent-blue-600 cursor-pointer shrink-0"
+                  />
+                )}
                 {/* Task name */}
-                <div className="flex-1 min-w-0 flex items-center gap-0.5" style={{ paddingLeft: 10 + depth * 14 }}>
+                <div className="flex-1 min-w-0 flex items-center gap-0.5" style={{ paddingLeft: 4 + depth * 14 }}>
                   {/* Collapse toggle for parent tasks */}
                   {parentIds.has(task.id) ? (
                     <button
@@ -834,6 +906,30 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
           </div>
         </div>
       </div>
+
+      {/* 인라인 태스크 추가 행 */}
+      {onInlineTaskNameChange && onInlineTaskCreate !== undefined && (
+        <div className="border-t border-gray-100 flex">
+          <div className="flex items-center gap-2 px-3 py-1.5 border-r border-gray-200" style={{ width: leftW + resourceW }}>
+            <span className="text-gray-300 text-xs w-4 shrink-0">+</span>
+            <input
+              type="text"
+              value={inlineTaskName ?? ""}
+              onChange={(e) => onInlineTaskNameChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); onInlineTaskCreate(); }
+                if (e.key === "Escape") { onInlineTaskNameChange(""); }
+              }}
+              onBlur={onInlineTaskCreate}
+              placeholder="태스크 이름 입력 후 Enter..."
+              disabled={inlineAdding}
+              className="flex-1 text-xs text-gray-600 placeholder-gray-300 bg-transparent focus:outline-none disabled:opacity-50"
+            />
+            {inlineAdding && <span className="text-xs text-gray-400">저장 중...</span>}
+          </div>
+          <div className="flex-1" />
+        </div>
+      )}
 
       {/* Legend */}
       <div className="border-t border-gray-200 px-4 py-2 flex items-center gap-6 text-xs text-gray-500 flex-wrap">

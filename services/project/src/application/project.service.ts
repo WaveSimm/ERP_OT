@@ -26,6 +26,7 @@ export interface ProjectListItem extends Omit<Project, never> {
   effectiveStartDate: string | null;
   effectiveEndDate: string | null;
   overallProgress: number | null;
+  ownerName: string | null;
 }
 
 function computeStatus(dbStatus: ProjectStatus, progress: number | null): ProjectStatus {
@@ -83,6 +84,23 @@ export class ProjectService {
       this.prisma.project.count({ where }),
     ]);
 
+    // owner 이름 일괄 조회
+    const ownerIds = [...new Set(projects.map((p) => p.ownerId).filter(Boolean))];
+    const ownerMap = new Map<string, string>();
+    if (ownerIds.length > 0) {
+      try {
+        const authUrl = process.env.AUTH_SERVICE_URL ?? "http://auth-service:3001";
+        const res = await fetch(
+          `${authUrl}/internal/users/bulk?ids=${ownerIds.join(",")}`,
+          { headers: { "X-Internal-Token": process.env.INTERNAL_API_TOKEN ?? "" } },
+        );
+        if (res.ok) {
+          const data = (await res.json()) as Record<string, { name: string }>;
+          Object.entries(data).forEach(([id, u]) => ownerMap.set(id, u.name));
+        }
+      } catch { /* owner 이름 조회 실패 시 무시 */ }
+    }
+
     const items: ProjectListItem[] = projects.map((p) => {
       // 부모 역할을 하는 task id 집합 (자식이 있는 task)
       const parentIds = new Set(p.tasks.map((t) => t.parentId).filter(Boolean));
@@ -104,7 +122,7 @@ export class ProjectService {
 
       const { tasks: _tasks, ...rest } = p as any;
       const status = computeStatus(rest.status, overallProgress);
-      return { ...rest, status, effectiveStartDate, effectiveEndDate, overallProgress };
+      return { ...rest, status, effectiveStartDate, effectiveEndDate, overallProgress, ownerName: ownerMap.get(p.ownerId) ?? null };
     });
 
     return { items, total, page, limit };
@@ -516,10 +534,13 @@ export class ProjectService {
       .flatMap((t) => [t.effectiveStartDate, t.effectiveEndDate])
       .filter((d): d is string => d !== null && d !== "");
 
-    const allSegs = tasks.flatMap((t) => t.segments);
+    const parentIds = new Set(tasks.map((t) => t.parentId).filter(Boolean));
+    const leafSegs = tasks
+      .filter((t) => !parentIds.has(t.id) && !t.isMilestone)
+      .flatMap((t) => t.segments);
     const overallProgress =
-      allSegs.length > 0
-        ? Math.round(allSegs.reduce((sum, s) => sum + s.progressPercent, 0) / allSegs.length * 10) / 10
+      leafSegs.length > 0
+        ? Math.round(leafSegs.reduce((sum, s) => sum + s.progressPercent, 0) / leafSegs.length * 10) / 10
         : 0;
 
     return {

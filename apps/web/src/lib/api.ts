@@ -318,6 +318,17 @@ export const attendanceApi = {
     request<any>(`/attendance/summary?year=${year}&month=${month}`),
 };
 
+// ─── Work Schedule ────────────────────────────────────────────────────────────
+
+export const workScheduleApi = {
+  listAll: () => request<any[]>("/policy/work-schedules"),
+  get: (userId: string) => request<any>(`/policy/work-schedule/${userId}`),
+  set: (userId: string, data: { workStartTime: string; workEndTime: string; dailyWorkHours?: number }) =>
+    request<any>(`/policy/work-schedule/${userId}`, { method: "PUT", body: JSON.stringify(data) }),
+  remove: (userId: string) =>
+    request<any>(`/policy/work-schedule/${userId}`, { method: "DELETE" }),
+};
+
 // ─── Leave ────────────────────────────────────────────────────────────────────
 
 export const leaveApi = {
@@ -419,7 +430,7 @@ export const approvalLineApi = {
 
 export const userManagementApi = {
   list: () => request<{ items: any[]; total: number }>("/users"),
-  members: () => request<{ id: string; name: string }[]>("/users/members"),
+  members: (all?: boolean) => request<{ id: string; name: string }[]>(`/users/members${all ? "?all=true" : ""}`),
   create: (data: { email: string; name: string; password: string; role: string }) =>
     request<any>("/users", { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, data: { name?: string; role?: string; isActive?: boolean }) =>

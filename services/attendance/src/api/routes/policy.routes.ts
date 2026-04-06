@@ -34,6 +34,49 @@ export async function policyRoutes(fastify: FastifyInstance) {
     return reply.send(await svc.updatePolicy(update));
   });
 
+  // GET /api/v1/policy/work-schedule/:userId  (ADMIN)
+  fastify.get("/work-schedule/:userId", {
+    preHandler: requireRole("ADMIN"),
+  }, async (req, reply) => {
+    const { userId } = req.params as { userId: string };
+    const schedule = await fastify.prisma.userWorkSchedule.findUnique({ where: { userId } });
+    return reply.send(schedule ?? null);
+  });
+
+  // PUT /api/v1/policy/work-schedule/:userId  (ADMIN)
+  fastify.put("/work-schedule/:userId", {
+    preHandler: requireRole("ADMIN"),
+  }, async (req, reply) => {
+    const { userId } = req.params as { userId: string };
+    const body = z.object({
+      workStartTime: z.string().regex(/^\d{2}:\d{2}$/),
+      workEndTime:   z.string().regex(/^\d{2}:\d{2}$/),
+      dailyWorkHours: z.number().default(8),
+    }).parse(req.body);
+    const schedule = await fastify.prisma.userWorkSchedule.upsert({
+      where:  { userId },
+      create: { userId, ...body, updatedBy: req.userId },
+      update: { ...body, updatedBy: req.userId },
+    });
+    return reply.send(schedule);
+  });
+
+  // DELETE /api/v1/policy/work-schedule/:userId  (ADMIN) — 개인 설정 제거 → 기본값 복원
+  fastify.delete("/work-schedule/:userId", {
+    preHandler: requireRole("ADMIN"),
+  }, async (req, reply) => {
+    const { userId } = req.params as { userId: string };
+    await fastify.prisma.userWorkSchedule.deleteMany({ where: { userId } });
+    return reply.status(204).send();
+  });
+
+  // GET /api/v1/policy/work-schedules  (ADMIN) — 전체 목록
+  fastify.get("/work-schedules", {
+    preHandler: requireRole("ADMIN"),
+  }, async (_req, reply) => {
+    return reply.send(await fastify.prisma.userWorkSchedule.findMany());
+  });
+
   // GET /api/v1/holidays
   fastify.get("/holidays", async (req, reply) => {
     const q = req.query as { year?: string };

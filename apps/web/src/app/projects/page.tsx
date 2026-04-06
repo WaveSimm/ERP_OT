@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { projectApi } from "@/lib/api";
+import { projectApi, userManagementApi } from "@/lib/api";
 import AppLayout from "@/components/AppLayout";
 import { usePermission } from "@/hooks/usePermission";
 import clsx from "clsx";
@@ -14,6 +15,7 @@ interface Project {
   name: string;
   status: string;
   ownerId?: string;
+  ownerName?: string | null;
   effectiveStartDate?: string | null;
   effectiveEndDate?: string | null;
   overallProgress?: number;
@@ -39,9 +41,10 @@ const STATUS_CFG: Record<string, { label: string; dot: string; text: string }> =
 
 // ─── localStorage helpers ─────────────────────────────────────────────────────
 
-const LS_FOLDERS     = "erp_folders_v1";
-const LS_PROJ_FOLDER = "erp_proj_folder_v2"; // v2: string[] per project
-const LS_FOLDER_OPEN = "erp_folder_open_v1";
+const LS_FOLDERS          = "erp_folders_v1";
+const LS_PROJ_FOLDER      = "erp_proj_folder_v2"; // v2: string[] per project
+const LS_FOLDER_OPEN      = "erp_folder_open_v1";
+const LS_FOLDER_PROJ_ORDER = "erp_folder_proj_order_v1"; // folderId → projectId[]
 
 function lsGet<T>(key: string, fallback: T): T {
   try { return JSON.parse(localStorage.getItem(key) ?? "null") ?? fallback; }
@@ -86,9 +89,19 @@ export default function ProjectsPage() {
   const [openFolders, setOpenFolders]     = useState<Record<string, boolean>>({});
 
   // Drag state
-  const [dragging, setDragging]     = useState<{ type: "project" | "folder"; id: string } | null>(null);
+  const [dragging, setDragging]     = useState<{ type: "project" | "folder"; id: string; fromFolderId?: string } | null>(null);
+  const dropHandledRef = useRef(false);
   const [dropTarget, setDropTarget] = useState<string | "root" | null>(null); // "into" 대상 폴더 id
-  const [dropGap, setDropGap]       = useState<{ id: string; pos: "before" | "after" } | null>(null); // 순서 변경용 갭
+  const [dropGap, setDropGap]       = useState<{ id: string; pos: "before" | "after" } | null>(null); // 폴더 순서 변경용 갭
+  const [projGap, setProjGap]       = useState<{ folderId: string; refId: string; pos: "before" | "after" } | null>(null); // 프로젝트 순서 변경용 갭
+  const [folderProjOrder, setFolderProjOrder] = useState<Record<string, string[]>>({}); // folderId → projectId[]
+
+  // Owner edit
+  const [allEmployees, setAllEmployees] = useState<{ id: string; name: string }[]>([]);
+  const [ownerEditId, setOwnerEditId]   = useState<string | null>(null); // 편집 중인 projectId
+  const [ownerSearch, setOwnerSearch]   = useState("");
+  const [ownerDropPos, setOwnerDropPos] = useState<{ top: number; left: number } | null>(null);
+  const ownerDropRef = useRef<HTMLDivElement>(null);
 
   // Modals
   const [showCreate, setShowCreate]           = useState(false);
@@ -113,6 +126,7 @@ export default function ProjectsPage() {
     setFolders(lsGet<Folder[]>(LS_FOLDERS, []));
     setProjFolderMap(loadProjFolderMap());
     setOpenFolders(lsGet<Record<string, boolean>>(LS_FOLDER_OPEN, {}));
+    setFolderProjOrder(lsGet<Record<string, string[]>>(LS_FOLDER_PROJ_ORDER, {}));
   }, []);
 
   // Persist helpers
@@ -126,11 +140,11 @@ export default function ProjectsPage() {
     });
   };
 
-  // Load projects
+  // Load projects — 항상 전체 로드, 필터링은 클라이언트에서 처리
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await projectApi.list(search ? { search } : undefined);
+      const r = await projectApi.list();
       setProjects(r.items);
       setTotal(r.total);
     } catch (e: any) {
@@ -138,13 +152,40 @@ export default function ProjectsPage() {
     } finally {
       setLoading(false);
     }
-  }, [search]);
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("erp_token");
     if (!token) { router.push("/login"); return; }
     load();
+    userManagementApi.members(true).then(setAllEmployees).catch(() => {});
   }, [load, router]);
+
+  // owner 드롭다운 외부 클릭 시 닫기
+  useEffect(() => {
+    if (!ownerEditId) return;
+    const handler = (e: MouseEvent) => {
+      if (ownerDropRef.current && !ownerDropRef.current.contains(e.target as Node)) {
+        setOwnerEditId(null);
+        setOwnerDropPos(null);
+        setOwnerSearch("");
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [ownerEditId]);
+
+  const handleOwnerChange = async (projectId: string, newOwnerId: string, newOwnerName: string) => {
+    setProjects(prev => prev.map(p => p.id === projectId ? { ...p, ownerId: newOwnerId, ownerName: newOwnerName } : p));
+    setOwnerEditId(null);
+    setOwnerDropPos(null);
+    setOwnerSearch("");
+    try {
+      await projectApi.update(projectId, { ownerId: newOwnerId });
+    } catch {
+      load(); // 실패 시 원복
+    }
+  };
 
   // Create project
   const handleCreate = async (e: React.FormEvent) => {
@@ -234,9 +275,10 @@ export default function ProjectsPage() {
   };
 
   // Drag & drop
-  const clearDrag = () => { setDragging(null); setDropTarget(null); setDropGap(null); };
+  const clearDrag = () => { setDragging(null); setDropTarget(null); setDropGap(null); setProjGap(null); };
 
-  const onDragStart = (type: "project" | "folder", id: string) => setDragging({ type, id });
+  const onDragStart = (type: "project" | "folder", id: string, fromFolderId?: string) =>
+    setDragging({ type, id, fromFolderId });
 
   const onFolderDragOver = (e: React.DragEvent, folder: Folder) => {
     e.preventDefault(); e.stopPropagation();
@@ -287,6 +329,7 @@ export default function ProjectsPage() {
         }
       }
     }
+    dropHandledRef.current = true;
     clearDrag();
   };
 
@@ -294,14 +337,68 @@ export default function ProjectsPage() {
     e.preventDefault(); e.stopPropagation();
     if (!dragging) { clearDrag(); return; }
     if (dragging.type === "project") {
-      updateMap({ ...projFolderMap, [dragging.id]: [] });
+      if (dragging.fromFolderId) {
+        removeFromFolder(dragging.id, dragging.fromFolderId);
+      }
     } else {
       updateFolders(folders.map(f => f.id === dragging.id ? { ...f, parentId: null } : f));
     }
+    dropHandledRef.current = true;
     clearDrag();
   };
 
-  const onDragEnd = () => clearDrag();
+  const onDragEnd = () => {
+    // 드롭이 처리되지 않은 경우(영역 밖으로 드래그) → 출발 폴더에서만 제거
+    if (!dropHandledRef.current && dragging?.type === "project" && dragging.fromFolderId) {
+      removeFromFolder(dragging.id, dragging.fromFolderId);
+    }
+    dropHandledRef.current = false;
+    clearDrag();
+  };
+
+  // 폴더 내 프로젝트 순서 드래그
+  const getOrderedChildProjects = (folderId: string): Project[] => {
+    const inFolder = filteredProjects.filter(p => (projFolderMap[p.id] ?? []).includes(folderId));
+    const order = folderProjOrder[folderId];
+    if (!order?.length) return inFolder;
+    const idSet = new Set(inFolder.map(p => p.id));
+    return [
+      ...order.filter(id => idSet.has(id)).map(id => inFolder.find(p => p.id === id)!),
+      ...inFolder.filter(p => !order.includes(p.id)),
+    ];
+  };
+
+  const onProjRowDragOver = (e: React.DragEvent, targetProjId: string, folderId: string) => {
+    e.preventDefault(); e.stopPropagation();
+    if (dragging?.type !== "project") return;
+    setDropTarget(null); setDropGap(null);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pos: "before" | "after" = (e.clientY - rect.top) / rect.height < 0.5 ? "before" : "after";
+    setProjGap({ folderId, refId: targetProjId, pos });
+  };
+
+  const onProjRowDrop = (e: React.DragEvent, folderId: string) => {
+    e.preventDefault(); e.stopPropagation();
+    if (!dragging || dragging.type !== "project" || !projGap) { clearDrag(); return; }
+
+    const ordered = getOrderedChildProjects(folderId).map(p => p.id);
+    const srcIdx  = ordered.indexOf(dragging.id);
+    const refIdx  = ordered.indexOf(projGap.refId);
+    if (srcIdx === -1 || refIdx === -1 || srcIdx === refIdx) { clearDrag(); return; }
+
+    const newOrder = ordered.filter(id => id !== dragging.id);
+    const adjustedRef = newOrder.indexOf(projGap.refId);
+    const insertIdx = projGap.pos === "before" ? adjustedRef : adjustedRef + 1;
+    newOrder.splice(Math.max(0, insertIdx), 0, dragging.id);
+
+    setFolderProjOrder(prev => {
+      const next = { ...prev, [folderId]: newOrder };
+      lsSet(LS_FOLDER_PROJ_ORDER, next);
+      return next;
+    });
+    dropHandledRef.current = true;
+    clearDrag();
+  };
 
   // ─── Row renderers ───────────────────────────────────────────────────────────
 
@@ -309,21 +406,26 @@ export default function ProjectsPage() {
     const st = STATUS_CFG[p.status] ?? STATUS_CFG.PLANNING;
     const prog = p.overallProgress ?? null;
     const isDragging = dragging?.type === "project" && dragging.id === p.id;
-    const ownerDisplay = p.ownerId ? p.ownerId.slice(-8) : "—";
+    const ownerDisplay = p.ownerName ?? (p.ownerId ? p.ownerId.slice(-8) : "—");
+    const showGapBefore = folderId && projGap?.folderId === folderId && projGap.refId === p.id && projGap.pos === "before";
+    const showGapAfter  = folderId && projGap?.folderId === folderId && projGap.refId === p.id && projGap.pos === "after";
 
     return (
-      <div
-        key={folderId ? `${p.id}__${folderId}` : p.id}
-        className={clsx(
-          "flex items-center border-b border-gray-100 group/row cursor-pointer transition-colors",
-          isDragging ? "opacity-30" : "hover:bg-blue-50/40",
-        )}
-        style={{ height: ROW_H }}
-        draggable
-        onDragStart={() => onDragStart("project", p.id)}
-        onDragEnd={onDragEnd}
-        onClick={() => router.push(`/projects/${p.id}`)}
-      >
+      <div key={folderId ? `${p.id}__${folderId}` : p.id}>
+        {showGapBefore && <div className="h-0.5 bg-blue-500 rounded mx-3 -mb-px relative z-10" />}
+        <div
+          className={clsx(
+            "flex items-center border-b border-gray-100 group/row cursor-pointer transition-colors",
+            isDragging ? "opacity-30" : "hover:bg-blue-50/40",
+          )}
+          style={{ height: ROW_H }}
+          draggable
+          onDragStart={() => onDragStart("project", p.id, folderId)}
+          onDragEnd={onDragEnd}
+          onDragOver={folderId ? (e) => onProjRowDragOver(e, p.id, folderId) : undefined}
+          onDrop={folderId ? (e) => onProjRowDrop(e, folderId) : undefined}
+          onClick={() => router.push(`/projects/${p.id}`)}
+        >
         {/* Name */}
         <div
           className="flex-1 min-w-0 flex items-center gap-1.5"
@@ -345,8 +447,26 @@ export default function ProjectsPage() {
             </button>
           )}
         </div>
-        {/* Owner */}
-        <div className="w-[100px] shrink-0 px-2 text-xs text-gray-400 truncate">{ownerDisplay}</div>
+        {/* Owner — 클릭 시 드롭다운 (portal 렌더) */}
+        <div className="w-[100px] shrink-0 px-2" onClick={e => e.stopPropagation()}>
+          <button
+            className="w-full text-left text-xs text-gray-500 truncate hover:text-blue-600 hover:bg-blue-50 rounded px-1 py-0.5 transition-colors"
+            onClick={(e) => {
+              if (ownerEditId === p.id) {
+                setOwnerEditId(null);
+                setOwnerDropPos(null);
+              } else {
+                const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
+                setOwnerDropPos({ top: rect.bottom + 4, left: rect.left });
+                setOwnerEditId(p.id);
+                setOwnerSearch("");
+              }
+            }}
+            title="클릭해서 소유자 변경"
+          >
+            {ownerDisplay}
+          </button>
+        </div>
         {/* Progress */}
         <div className="w-[100px] shrink-0 flex items-center gap-1.5 px-2">
           {prog !== null ? (
@@ -379,6 +499,8 @@ export default function ProjectsPage() {
             🗑
           </button>
         </div>
+        </div>
+        {showGapAfter && <div className="h-0.5 bg-blue-500 rounded mx-3 -mt-px relative z-10" />}
       </div>
     );
   };
@@ -387,7 +509,7 @@ export default function ProjectsPage() {
     const isOpen       = openFolders[folder.id] !== false;
     const isDropping   = dropTarget === folder.id;
     const childFolders  = folders.filter(f => f.parentId === folder.id);
-    const childProjects = filteredProjects.filter(p => (projFolderMap[p.id] ?? []).includes(folder.id));
+    const childProjects = getOrderedChildProjects(folder.id);
     const childCount    = childFolders.length + childProjects.length;
 
     return (
@@ -499,6 +621,8 @@ export default function ProjectsPage() {
     ? projects.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
     : projects;
 
+  const displayTotal = search ? filteredProjects.length : total;
+
   const rootFolders  = folders.filter(f => f.parentId === null);
   // 어떤 폴더에도 속하지 않은 프로젝트만 루트에 표시
   const rootProjects = filteredProjects.filter(p => !(projFolderMap[p.id]?.length > 0));
@@ -514,7 +638,7 @@ export default function ProjectsPage() {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <h2 className="text-base font-bold text-gray-900">프로젝트</h2>
-            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{total}</span>
+            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{displayTotal}</span>
           </div>
           <div className="flex items-center gap-2">
             <input
@@ -522,7 +646,7 @@ export default function ProjectsPage() {
               placeholder="프로젝트 검색..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && load()}
+              onKeyDown={undefined}
               className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-44"
             />
             <button
@@ -586,8 +710,10 @@ export default function ProjectsPage() {
         {/* Drag hint */}
         {dragging && (
           <p className="text-xs text-gray-400 mt-2 text-center">
-            {dragging.type === "project"
-              ? "폴더 위에 놓으면 추가 / 빈 영역에 놓으면 모든 폴더에서 제거"
+            {dragging.type === "project" && dragging.fromFolderId
+              ? "폴더 영역 밖으로 드래그하면 해당 폴더에서만 제거"
+              : dragging.type === "project"
+              ? "폴더 위에 놓으면 추가"
               : "폴더 위에 놓으면 이동됩니다"}
           </p>
         )}
@@ -777,6 +903,50 @@ export default function ProjectsPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* ── Owner 드롭다운 (portal — overflow-hidden 컨테이너 밖에서 렌더) ── */}
+      {ownerEditId && ownerDropPos && typeof document !== "undefined" && createPortal(
+        <div
+          ref={ownerDropRef}
+          style={{ position: "fixed", top: ownerDropPos.top, left: ownerDropPos.left }}
+          className="z-[9999] bg-white border border-gray-200 rounded-xl shadow-lg w-56 overflow-hidden"
+        >
+          <div className="p-2 border-b border-gray-100">
+            <input
+              autoFocus
+              type="text"
+              placeholder="이름 검색..."
+              value={ownerSearch}
+              onChange={e => setOwnerSearch(e.target.value)}
+              autoComplete="off"
+              className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onClick={e => e.stopPropagation()}
+            />
+          </div>
+          <ul className="max-h-48 overflow-y-auto py-1">
+            {(() => {
+              const editingProject = projects.find(p => p.id === ownerEditId);
+              const filtered = allEmployees.filter(u => !ownerSearch || u.name.includes(ownerSearch));
+              return filtered.length === 0
+                ? <li className="px-3 py-2 text-sm text-gray-400 text-center">검색 결과 없음</li>
+                : filtered.map(u => (
+                    <li key={u.id}>
+                      <button
+                        className={clsx(
+                          "w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 transition-colors",
+                          u.id === editingProject?.ownerId ? "font-semibold text-blue-600" : "text-gray-700"
+                        )}
+                        onClick={() => handleOwnerChange(ownerEditId, u.id, u.name)}
+                      >
+                        {u.name}
+                      </button>
+                    </li>
+                  ));
+            })()}
+          </ul>
+        </div>,
+        document.body
       )}
     </AppLayout>
   );

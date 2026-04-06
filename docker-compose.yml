@@ -154,7 +154,7 @@ services:
     container_name: erp-ot-web
     restart: unless-stopped
     working_dir: /app
-    command: sh -c "npm install && npm run dev"
+    command: sh -c "rm -rf .next && npm install && npm run dev"
     environment:
       NODE_ENV: development
       NEXT_TELEMETRY_DISABLED: "1"
@@ -162,6 +162,8 @@ services:
       AUTH_SERVICE_URL: http://auth-service:3001
       ATTENDANCE_SERVICE_URL: http://attendance-service:3004
       JWT_SECRET: ${JWT_ACCESS_SECRET:-change_me_in_production}
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
     ports:
       - "3000:3000"
     volumes:

@@ -82,6 +82,7 @@ export default function ProjectDetailPage() {
   const [pickerFolders, setPickerFolders] = useState<{ id: string; name: string; parentId: string | null }[]>([]);
   const [pickerProjMap, setPickerProjMap] = useState<Record<string, string[]>>({});
   const [pickerOpenFolders, setPickerOpenFolders] = useState<Record<string, boolean>>({});
+  const [pickerFolderProjOrder, setPickerFolderProjOrder] = useState<Record<string, string[]>>({});
   const [showAddTask, setShowAddTask] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [inlineTaskName, setInlineTaskName] = useState("");
@@ -180,11 +181,18 @@ export default function ProjectDetailPage() {
         else if (typeof v === "string") map[k] = [v as string];
       });
       setPickerProjMap(map);
+      const oRaw = localStorage.getItem("erp_folder_proj_order_v1");
+      setPickerFolderProjOrder(oRaw ? JSON.parse(oRaw) : {});
     } catch {}
   }, [load, router]);
 
   useEffect(() => {
     if (!showProjectPicker) return;
+    // 드롭다운 열릴 때마다 최신 순서 갱신
+    try {
+      const oRaw = localStorage.getItem("erp_folder_proj_order_v1");
+      setPickerFolderProjOrder(oRaw ? JSON.parse(oRaw) : {});
+    } catch {}
     const handler = (e: MouseEvent) => {
       if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
         setShowProjectPicker(false);
@@ -579,7 +587,10 @@ export default function ProjectDetailPage() {
       if (!t.parentId || !map.has(t.parentId)) rollup(t);
     }
 
-    return taskList.map((t: any) => map.get(t.id) ?? t);
+    return taskList.map((t: any) => {
+      const task = map.get(t.id) ?? t;
+      return { ...task, isCritical: task.isCritical && task.status !== "DONE" };
+    });
   })();
 
   // 자식이 있는 태스크 ID 집합 (진행률 수동 입력 차단용)
@@ -836,9 +847,16 @@ export default function ProjectDetailPage() {
                           items.push(...buildItems(folder.id, depth + 1));
                         }
                       }
-                      const childProjects = parentId === null
+                      const inFolder = parentId === null
                         ? allProjects.filter((p: any) => !(pickerProjMap[p.id]?.length > 0))
                         : allProjects.filter((p: any) => (pickerProjMap[p.id] ?? []).includes(parentId));
+                      const order = parentId ? (pickerFolderProjOrder[parentId] ?? []) : [];
+                      const childProjects = order.length > 0
+                        ? [
+                            ...order.filter((id: string) => inFolder.some((p: any) => p.id === id)).map((id: string) => inFolder.find((p: any) => p.id === id)!),
+                            ...inFolder.filter((p: any) => !order.includes(p.id)),
+                          ]
+                        : inFolder;
                       for (const p of childProjects) {
                         items.push({ kind: "project", project: p, depth });
                       }
@@ -1088,6 +1106,21 @@ export default function ProjectDetailPage() {
                 allResources={resources}
                 onRefresh={loadSilent}
                 projectId={projectId}
+                inlineTaskName={inlineTaskName}
+                onInlineTaskNameChange={setInlineTaskName}
+                inlineAdding={inlineAdding}
+                onInlineTaskCreate={createInlineTask}
+                selected={selected}
+                onToggleSelect={(id) => setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; })}
+                onToggleAll={toggleAll}
+                dragIds={dragIds}
+                dropGap={dropGap}
+                onDragStart={handleDragStart}
+                onDragOver={handleRowDragOver}
+                onDrop={handleRowDrop}
+                onDragEnd={clearDragState}
+                onIndent={handleIndent}
+                onOutdent={handleOutdent}
               />
             </div>
           )
@@ -1110,16 +1143,15 @@ export default function ProjectDetailPage() {
                   className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:bg-white rounded border border-gray-200" title="들여쓰기 (레벨 내리기)">
                   → 들여쓰기
                 </button>
-                <div className="ml-auto flex items-center gap-2">
-                  {isManager && (
-                    <button onClick={handleDeleteSelected}
-                      className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded border border-red-200">
-                      🗑 선택 삭제
-                    </button>
-                  )}
-                  <button onClick={() => setSelected(new Set())}
-                    className="text-xs text-gray-400 hover:text-gray-600">선택 해제</button>
-                </div>
+                <div className="h-3 w-px bg-blue-200" />
+                {isManager && (
+                  <button onClick={handleDeleteSelected}
+                    className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded border border-red-200">
+                    🗑 선택 삭제
+                  </button>
+                )}
+                <button onClick={() => setSelected(new Set())}
+                  className="text-xs text-gray-400 hover:text-gray-600">선택 해제</button>
               </div>
             )}
 
@@ -1132,7 +1164,7 @@ export default function ProjectDetailPage() {
                       checked={selected.size === flatItems.length && flatItems.length > 0}
                       className="cursor-pointer" />
                   </th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 text-xs">태스크명</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 text-xs w-64">태스크명</th>
                   {colOrder.map((col) => {
                     const cfg = COL_CFG[col];
                     const isDraggingThis = colDragging === col;

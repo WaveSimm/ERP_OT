@@ -19,12 +19,14 @@ export async function userRoutes(
     return reply.code(200).send({ items: users, total: users.length });
   });
 
-  // GET /api/v1/users/members — 결재자 선택용, 인증된 사용자라면 누구나 조회 가능 (id+name만 반환)
-  app.get("/members", { preHandler: [authenticate] }, async (_req, reply) => {
+  // GET /api/v1/users/members — 결재자 선택용 (기본: MANAGER 이상, ?all=true: 전직원)
+  app.get("/members", { preHandler: [authenticate] }, async (req, reply) => {
+    const { all } = req.query as { all?: string };
     const users = await userService.findAll();
-    return reply.code(200).send(
-      users.filter((u) => u.isActive).map((u) => ({ id: u.id, name: u.name }))
-    );
+    const filtered = all === "true"
+      ? users.filter((u) => u.isActive)
+      : users.filter((u) => u.isActive && (u.role === "MANAGER" || u.role === "ADMIN"));
+    return reply.code(200).send(filtered.map((u) => ({ id: u.id, name: u.name })));
   });
 
   // POST /api/v1/users

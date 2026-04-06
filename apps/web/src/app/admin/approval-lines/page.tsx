@@ -28,6 +28,7 @@ export default function ApprovalLinesPage() {
   const [loading, setLoading] = useState(true);
   const [filterDept, setFilterDept] = useState("");
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [bulkingAll, setBulkingAll] = useState(false);
   const [bulkDeptId, setBulkDeptId] = useState<string | null>(null);
   // ref to always read latest rows in async callbacks
@@ -81,35 +82,41 @@ export default function ApprovalLinesPage() {
     }
   };
 
-  const updateLine = async (userId: string, field: keyof LineData, value: string) => {
-    let newLine: LineData = EMPTY_LINE;
+  // onChange 시점에 row.line에서 직접 newLine을 받아 타이밍 문제 제거
+  const saveLine = async (userId: string, newLine: LineData) => {
+    const prevRow = rowsRef.current.find((r) => r.id === userId);
 
+    // 낙관적 업데이트
     setRows((prev) => {
-      const next = prev.map((r) => {
-        if (r.id !== userId) return r;
-        newLine = { ...r.line, [field]: value };
-        return { ...r, line: newLine };
-      });
+      const next = prev.map((r) => r.id === userId ? { ...r, line: newLine } : r);
       rowsRef.current = next;
       return next;
     });
 
-    if (!newLine.approverId) return; // 1차 미설정이면 저장 안 함
-
     setSavingIds((s) => new Set(s).add(userId));
+    setSaveError(null);
     try {
-      await approvalLineApi.upsert({
-        userId,
-        approverId: newLine.approverId,
-        secondApproverId: newLine.secondApproverId || null,
-        thirdApproverId: newLine.thirdApproverId || null,
-      });
-    } catch {
-      // 실패 시 롤백
-      const original = rowsRef.current.find((r) => r.id === userId);
-      if (original) {
+      if (!newLine.approverId) {
+        // 1차 미설정 → 결재라인 삭제
+        await approvalLineApi.remove(userId);
+      } else {
+        await approvalLineApi.upsert({
+          userId,
+          approverId: newLine.approverId,
+          secondApproverId: newLine.secondApproverId || null,
+          thirdApproverId: newLine.thirdApproverId || null,
+        });
+      }
+    } catch (err: any) {
+      console.error("[approval-lines] save failed:", err);
+      setSaveError(err.message ?? "저장 실패");
+      // 롤백
+      if (prevRow) {
         setRows((prev) =>
-          prev.map((r) => r.id === userId ? { ...r, line: { ...newLine, [field]: "" } } : r)
+          prev.map((r) => r.id === userId ? { ...r, line: prevRow.line } : r)
+        );
+        rowsRef.current = rowsRef.current.map((r) =>
+          r.id === userId ? { ...r, line: prevRow.line } : r
         );
       }
     } finally {
@@ -163,9 +170,8 @@ export default function ApprovalLinesPage() {
     }
     return { teamHead, soukwal: null, daepyo: parent?.headName ?? null };
   };
-  // 드롭다운에는 부서장(팀장/총괄이사/대표이사)만 표시
-  const headUserIds = new Set(departments.map((d) => d.headUserId).filter(Boolean));
-  const approverUsers = activeUsers.filter((u) => headUserIds.has(u.id));
+  // 드롭다운: MANAGER 이상 권한(팀장 이상)만 표시
+  const approverUsers = activeUsers.filter((u) => u.role === "MANAGER" || u.role === "ADMIN");
 
   const filtered = filterDept
     ? rows.filter((r) => r.deptName === filterDept || r.deptId === filterDept)
@@ -182,6 +188,12 @@ export default function ApprovalLinesPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-4">
+      {saveError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-2.5 flex items-center justify-between">
+          <span>저장 실패: {saveError}</span>
+          <button onClick={() => setSaveError(null)} className="ml-4 text-red-400 hover:text-red-600 font-bold">×</button>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-gray-900">결재라인 관리</h1>
@@ -281,7 +293,7 @@ export default function ApprovalLinesPage() {
                         <td className="px-3 py-1.5">
                           <select
                             value={row.line.approverId}
-                            onChange={(e) => updateLine(row.id, "approverId", e.target.value)}
+                            onChange={(e) => saveLine(row.id, { ...row.line, approverId: e.target.value })}
                             disabled={isSaving}
                             className="w-full border border-gray-200 rounded-lg px-2 py-1 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
                           >
@@ -300,7 +312,7 @@ export default function ApprovalLinesPage() {
                         <td className="px-3 py-1.5">
                           <select
                             value={row.line.secondApproverId}
-                            onChange={(e) => updateLine(row.id, "secondApproverId", e.target.value)}
+                            onChange={(e) => saveLine(row.id, { ...row.line, secondApproverId: e.target.value })}
                             disabled={isSaving}
                             className="w-full border border-gray-200 rounded-lg px-2 py-1 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
                           >
@@ -319,7 +331,7 @@ export default function ApprovalLinesPage() {
                         <td className="px-3 py-1.5">
                           <select
                             value={row.line.thirdApproverId}
-                            onChange={(e) => updateLine(row.id, "thirdApproverId", e.target.value)}
+                            onChange={(e) => saveLine(row.id, { ...row.line, thirdApproverId: e.target.value })}
                             disabled={isSaving}
                             className="w-full border border-gray-200 rounded-lg px-2 py-1 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
                           >

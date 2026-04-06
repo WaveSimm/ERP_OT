@@ -181,7 +181,29 @@
       "Skill(pdca)",
       "Bash(docker exec erp-ot-project node -e \":*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git config:*)",
+      "Bash(gh auth:*)",
+      "Bash(git remote:*)",
+      "Bash(git push:*)",
+      "Bash(taskkill /PID 23684 /F)",
+      "Bash(taskkill /PID 32788 /F)",
+      "Bash(cmd.exe /c \"taskkill /PID 23684 /F & taskkill /PID 32788 /F\" 2>&1)",
+      "Bash(cmd.exe /c \"taskkill /PID 23684 /F 2>&1 && taskkill /PID 32788 /F 2>&1\")",
+      "Bash(cmd.exe /c \"taskkill /IM node.exe /F\" 2>&1)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(cmd.exe /c \"taskkill /IM node.exe /F\")",
+      "Bash(powershell -Command \"Stop-Process -Name node -Force -ErrorAction SilentlyContinue; Write-Host 'done'\")",
+      "Bash(powershell -Command \"Get-Process -Id 23684, 32788 -ErrorAction SilentlyContinue | Select-Object Id, Name, MainWindowTitle\")",
+      "Bash(grep -n \"권한\\\\|403\\\\|forbidden\\\\|Forbidden\" /e/claude/ERP_OT/apps/web/src/app/projects/[id]/page.tsx)",
+      "Bash(grep -n \"error\\\\|Error\\\\|catch\\\\|message\\\\|msg\\\\|toast\" /e/claude/ERP_OT/apps/web/src/app/projects/[id]/page.tsx)",
+      "Bash(dir /b *.png *.jpg *.jpeg)",
+      "Bash(docker volume:*)",
+      "Bash(docker start:*)",
+      "Bash(grep -n \"allProjects\\\\|dropDown\\\\|projectList\\\\|ProjectSearch\\\\|프로젝트 검색\\\\|주간업무\\\\|관련테스트\" E:/claude/ERP_OT/apps/web/src/app/projects/[id]/page.tsx)",
+      "Bash(grep -n \"owner\\\\|ownerId\\\\|소유자\" E:/claude/ERP_OT/apps/web/src/app/projects/[id]/page.tsx)",
+      "Bash(grep -v \"^$\")",
+      "Bash(git stash:*)"
     ]
   }
 }

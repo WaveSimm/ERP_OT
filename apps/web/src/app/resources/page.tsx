@@ -4,6 +4,7 @@ import { Fragment, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { resourceApi, resourceGroupApi, taskApi, userManagementApi, getUser } from "@/lib/api";
 import AppLayout from "@/components/AppLayout";
+import UserAccountsTab from "@/components/UserAccountsTab";
 
 const TYPE_LABELS: Record<string, string> = {
   PERSON: "👤 인력",
@@ -111,9 +112,33 @@ function DropLine() {
 
 // ─── 메인 컴포넌트 ────────────────────────────────────────────────────────────
 
+type ResourceTab = "dashboard" | "people" | "equipment";
+
 export default function ResourcesPage() {
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [resourceTab, setResourceTab] = useState<ResourceTab>("dashboard");
+
+  // 탭 복원: SSR 이후 클라이언트에서만 실행 (hydration 안전)
+  useEffect(() => {
+    const urlTab = new URLSearchParams(window.location.search).get("tab");
+    if (urlTab) {
+      const resolved: ResourceTab =
+        urlTab === "users" || urlTab === "list" || urlTab === "people" ? "people"
+        : urlTab === "equipment" ? "equipment"
+        : urlTab === "dashboard" ? "dashboard" : "dashboard";
+      setResourceTab(resolved);
+      try { sessionStorage.setItem(TAB_KEY, resolved); } catch {}
+      window.history.replaceState(null, "", window.location.pathname);
+    } else {
+      try {
+        const saved = sessionStorage.getItem(TAB_KEY);
+        if (saved === "list" || saved === "users" || saved === "people") setResourceTab("people");
+        else if (saved === "equipment") setResourceTab("equipment");
+        else if (saved === "dashboard") setResourceTab("dashboard");
+      } catch {}
+    }
+  }, []);
 
   const [groups, setGroups] = useState<Group[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
@@ -145,8 +170,8 @@ export default function ResourcesPage() {
   const [savingUserId, setSavingUserId] = useState(false);
 
   // Dashboard
-  const [startDate, setStartDate] = useState<string>(() => addMonths(todayStr(), -1));
-  const [endDate, setEndDate] = useState<string>(() => addMonths(todayStr(), 2));
+  const [startDate, setStartDate] = useState<string>(addMonths(todayStr(), -1));
+  const [endDate, setEndDate] = useState<string>(addMonths(todayStr(), 2));
   const [dashboard, setDashboard] = useState<any[]>([]);
   const [dashLoading, setDashLoading] = useState(false);
   const [expandedResources, setExpandedResources] = useState<Set<string>>(new Set());
@@ -170,6 +195,21 @@ export default function ResourcesPage() {
     const token = localStorage.getItem("erp_token");
     if (!token) { router.push("/login"); return; }
     setIsAdmin(getUser()?.role === "ADMIN");
+    // sessionStorage 복원 (hydration 이후 클라이언트에서만)
+    try {
+      const savedExpanded = sessionStorage.getItem(EXPANDED_KEY);
+      if (savedExpanded) setExpanded(new Set<string>(JSON.parse(savedExpanded)));
+      const savedDate = sessionStorage.getItem(DASH_DATE_KEY);
+      if (savedDate) {
+        const { startDate: s, endDate: e } = JSON.parse(savedDate);
+        if (s) setStartDate(s);
+        if (e) setEndDate(e);
+      }
+      const savedDashExp = sessionStorage.getItem(DASH_EXPANDED_KEY);
+      if (savedDashExp) setExpandedResources(new Set<string>(JSON.parse(savedDashExp)));
+      const savedDeptExp = sessionStorage.getItem(DASH_DEPT_EXPANDED_KEY);
+      if (savedDeptExp) setDashDeptExpanded(new Set<string>(JSON.parse(savedDeptExp)));
+    } catch {}
     load();
   }, []);
 
@@ -548,6 +588,11 @@ export default function ResourcesPage() {
   const resourceMap = new Map(resources.map((r) => [r.id, r]));
   const allGroupedIds = new Set(groups.flatMap((g) => g.resourceIds));
   const ungrouped = resources.filter((r) => !allGroupedIds.has(r.id));
+
+  // 비인력 자원 (장비·시설 등)
+  const nonPersonResources = resources.filter((r) => r.type !== "PERSON");
+  const nonPersonResourceMap = new Map(nonPersonResources.map((r) => [r.id, r]));
+  const nonPersonUngrouped = ungrouped.filter((r) => r.type !== "PERSON");
   const rootGroups = groups.filter((g) => !g.parentId);
   const filteredForModal = resources.filter((r) =>
     r.name.toLowerCase().includes(memberSearch.toLowerCase())
@@ -730,15 +775,94 @@ export default function ResourcesPage() {
     <AppLayout>
       <div className="max-w-6xl mx-auto px-6 py-6">
         {/* 헤더 */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">운영 현황</h2>
-            <p className="text-sm text-gray-500">기간별 자원 배정 및 가동률 현황</p>
-          </div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-gray-900">자원관리</h2>
+          {resourceTab === "equipment" && isAdmin && (
+            <div className="flex gap-2">
+              <button onClick={() => openCreateGroup()}
+                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors">
+                + 그룹 추가
+              </button>
+              <button onClick={() => setShowCreateResource(true)}
+                className="px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors">
+                + 자원 추가
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* 운영 현황 */}
-        <div>
+        {/* 탭 */}
+        <div className="flex gap-1 border-b border-gray-200 mb-6">
+          {([
+            { key: "dashboard",  label: "운영 현황" },
+            { key: "people",     label: "인력자원" },
+            { key: "equipment",  label: "비인력 자원" },
+          ] as { key: ResourceTab; label: string }[]).map((t) => (
+            <button key={t.key}
+              onClick={() => { setResourceTab(t.key); try { sessionStorage.setItem(TAB_KEY, t.key); } catch {} }}
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                resourceTab === t.key ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* 인력자원 탭 */}
+        {resourceTab === "people" && (
+          <UserAccountsTab onResourcesChanged={load} />
+        )}
+
+        {/* 비인력 자원 탭 */}
+        {resourceTab === "equipment" && (
+          <div>
+            {loading ? (
+              <div className="flex items-center justify-center py-16">
+                <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+              </div>
+            ) : nonPersonResources.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+                <span className="text-4xl mb-3">🔧</span>
+                <p className="text-sm">등록된 장비·시설 자원이 없습니다.</p>
+                {isAdmin && (
+                  <button onClick={() => setShowCreateResource(true)}
+                    className="mt-4 px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors">
+                    + 자원 추가
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {tree.filter((g) => g.name !== "전체" && g.description !== "__all__" && !g.isDept).map((group) => (
+                  <Fragment key={group.id}>
+                    {dnd.dropIndicator?.targetId === group.id && dnd.dropIndicator.position === "before" && <DropLine />}
+                    <GroupNode
+                      group={group} expanded={expanded} resourceMap={nonPersonResourceMap} dnd={dnd}
+                      onToggle={toggleExpand} onToggleActive={handleToggleActive}
+                      onDelete={handleDeleteGroup} onRename={openRenameGroup}
+                      onEditMembers={openMemberModal} onEditUserId={undefined}
+                      isAdmin={isAdmin} depth={0}
+                    />
+                    {dnd.dropIndicator?.targetId === group.id && dnd.dropIndicator.position === "after" && <DropLine />}
+                  </Fragment>
+                ))}
+                {nonPersonUngrouped.length > 0 && (
+                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
+                      <span className="text-base">📦</span>
+                      <span className="font-semibold text-gray-700 text-sm">미분류 자원</span>
+                      <span className="text-xs text-gray-400">{nonPersonUngrouped.length}개</span>
+                    </div>
+                    <ResourceRows resources={nonPersonUngrouped} dnd={dnd} onToggleActive={handleToggleActive} isAdmin={isAdmin} />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 운영 현황 탭 */}
+        {resourceTab === "dashboard" && (<div>
             {/* 날짜 필터 */}
             <div className="flex items-center gap-2 mb-4 flex-wrap">
               {/* 빠른 선택 버튼 */}
@@ -847,6 +971,9 @@ export default function ResourcesPage() {
               </div>
             )}
           </div>
+        )}
+
+
       </div>
 
       {/* ── 멤버 편집 모달 ─────────────────────────────────────────────────────── */}
@@ -909,10 +1036,10 @@ export default function ResourcesPage() {
             </div>
             <form onSubmit={handleCreateResource} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">이름 *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">자원이름 *</label>
                 <input type="text" value={resourceForm.name}
                   onChange={(e) => setResourceForm({ ...resourceForm, name: e.target.value })}
-                  required placeholder="홍길동"
+                  required placeholder="압착기 A"
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
               </div>
               <div>
@@ -923,12 +1050,6 @@ export default function ResourcesPage() {
                   <option value="VEHICLE">🚗 차량</option>
                   <option value="FACILITY">🏭 시설</option>
                 </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">일일 가용시간</label>
-                <input type="number" min={1} max={24} value={resourceForm.dailyCapacityHours}
-                  onChange={(e) => setResourceForm({ ...resourceForm, dailyCapacityHours: Number(e.target.value) })}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowCreateResource(false)}

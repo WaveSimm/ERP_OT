@@ -27,11 +27,11 @@ export class AttendanceService {
     const record = await this.getOrCreateRecord(userId, today);
     const newState = transition(record.checkState as CheckState, "CHECK_IN");
 
-    const policy = await this.getPolicy();
+    const policy = await this.getPolicy(userId);
     const now = new Date();
-    const [startH, startM] = policy.workStartTime.split(":").map(Number);
-    const workStart = new Date(now);
-    workStart.setHours(startH!, startM!, 0, 0);
+    // workStartTime은 KST 기준("09:30") → UTC 타임스탬프로 변환
+    const todayKST = this.todayDate(); // "YYYY-MM-DD" (KST)
+    const workStart = new Date(`${todayKST}T${policy.workStartTime}:00+09:00`);
     const toleranceMs = policy.lateToleranceMinutes * 60 * 1000;
     const isLate = now.getTime() > workStart.getTime() + toleranceMs;
     const lateMinutes = isLate ? Math.floor((now.getTime() - workStart.getTime()) / 60000) : 0;
@@ -121,8 +121,9 @@ export class AttendanceService {
 
   // 월간 근태 달력
   async getCalendar(userId: string, year: number, month: number) {
-    const start = new Date(year, month - 1, 1);
-    const end = new Date(year, month, 0);
+    // KST 기준 월 범위
+    const start = new Date(Date.UTC(year, month - 1, 1));
+    const end = new Date(Date.UTC(year, month, 0));
 
     const [records, holidays] = await Promise.all([
       this.prisma.attendanceRecord.findMany({
@@ -224,12 +225,21 @@ export class AttendanceService {
     return "NORMAL" as const;
   }
 
-  private async getPolicy() {
-    const p = await this.prisma.attendancePolicy.findFirst();
-    return p ?? {
-      workStartTime: "09:00", workEndTime: "18:00",
+  private async getPolicy(userId?: string) {
+    const global = await this.prisma.attendancePolicy.findFirst();
+    const base = global ?? {
+      workStartTime: "09:30", workEndTime: "18:30",
       dailyWorkHours: 8, lateToleranceMinutes: 0,
       leavePolicy: "HIRE_DATE", annualLeaveBase: 15,
+    };
+    if (!userId) return base;
+    const personal = await this.prisma.userWorkSchedule.findUnique({ where: { userId } });
+    if (!personal) return base;
+    return {
+      ...base,
+      workStartTime: personal.workStartTime,
+      workEndTime: personal.workEndTime,
+      dailyWorkHours: personal.dailyWorkHours,
     };
   }
 
@@ -256,9 +266,10 @@ export class AttendanceService {
   }
 
   private todayDate() {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
+    // KST(UTC+9) 기준 오늘 날짜 — 서버가 UTC로 실행되는 경우에도 올바른 날짜 반환
+    const now = new Date();
+    const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+    return new Date(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate()));
   }
 
   private formatDate(d: Date) {

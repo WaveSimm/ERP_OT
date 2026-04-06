@@ -49,7 +49,7 @@ export class ApprovalLineService {
     return this.prisma.approvalLine.upsert({
       where: { userId: data.userId },
       create: { ...data, isActive: true },
-      update: { ...data },
+      update: { ...data, isActive: true },
     });
   }
 

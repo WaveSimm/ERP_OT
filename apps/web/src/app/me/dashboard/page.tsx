@@ -2,8 +2,9 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { meApi, attendanceApi, leaveApi, myTasksApi, taskApi } from "@/lib/api";
+import { meApi, myTasksApi, taskApi, projectApi, myProfileApi } from "@/lib/api";
 import TaskDrawer from "@/components/TaskDrawer";
+import AttendanceView from "@/components/AttendanceView";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -224,142 +225,6 @@ function KanbanColumn({ colKey, cards, onUpdate }: {
   );
 }
 
-// ─── Attendance Summary Bar ───────────────────────────────────────────────────
-
-const CHECK_STATE_LABEL: Record<string, string> = {
-  NOT_STARTED: "미출근",
-  CHECKED_IN: "근무 중",
-  ON_BREAK: "외출 중",
-  CHECKED_OUT: "퇴근",
-};
-
-const CHECK_STATE_COLOR: Record<string, string> = {
-  NOT_STARTED: "bg-gray-100 text-gray-600",
-  CHECKED_IN: "bg-green-100 text-green-700",
-  ON_BREAK: "bg-orange-100 text-orange-700",
-  CHECKED_OUT: "bg-blue-100 text-blue-700",
-};
-
-function fmtMin(minutes: number) {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
-}
-
-function AttendanceSummaryBar() {
-  const router = useRouter();
-  const [today, setToday] = useState<any>(null);
-  const [balance, setBalance] = useState<any>(null);
-  const [saving, setSaving] = useState(false);
-
-  const load = useCallback(async () => {
-    try {
-      const [t, b] = await Promise.all([
-        attendanceApi.getToday().catch(() => null),
-        leaveApi.getBalance().catch(() => null),
-      ]);
-      setToday(t);
-      setBalance(b);
-    } catch {}
-  }, []);
-
-  useEffect(() => { load(); }, []);
-
-  const handleCheckIn = async () => {
-    setSaving(true);
-    try { await attendanceApi.checkIn({ workType: "OFFICE" }); await load(); }
-    catch {} finally { setSaving(false); }
-  };
-  const handleCheckOut = async () => {
-    setSaving(true);
-    try { await attendanceApi.checkOut(); await load(); }
-    catch {} finally { setSaving(false); }
-  };
-  const handleBreakOut = async () => {
-    setSaving(true);
-    try { await attendanceApi.breakOut(); await load(); }
-    catch {} finally { setSaving(false); }
-  };
-  const handleBreakIn = async () => {
-    setSaving(true);
-    try { await attendanceApi.breakIn(); await load(); }
-    catch {} finally { setSaving(false); }
-  };
-
-  const checkState: string = today?.checkState ?? "NOT_STARTED";
-  const remainingLeave = balance
-    ? Math.max(0, (balance.totalDays ?? 0) + (balance.adjustedDays ?? 0) - (balance.usedDays ?? 0) - (balance.pendingDays ?? 0))
-    : null;
-
-  return (
-    <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 flex items-center gap-4 flex-wrap">
-      {/* 상태 배지 */}
-      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${CHECK_STATE_COLOR[checkState] ?? "bg-gray-100 text-gray-600"}`}>
-        {CHECK_STATE_LABEL[checkState] ?? checkState}
-      </span>
-
-      {/* 출퇴근 시각 */}
-      {today?.checkIn && (
-        <span className="text-xs text-gray-500">
-          출근 {today.checkIn.slice(11, 16)}
-          {today.checkOut && ` · 퇴근 ${today.checkOut.slice(11, 16)}`}
-        </span>
-      )}
-
-      {/* 실근무시간 */}
-      {today?.netWorkMinutes > 0 && (
-        <span className="text-xs text-gray-600">
-          근무 <span className="font-medium text-gray-800">{fmtMin(today.netWorkMinutes)}</span>
-        </span>
-      )}
-
-      {/* 액션 버튼 */}
-      <div className="flex items-center gap-1.5">
-        {checkState === "NOT_STARTED" && (
-          <button onClick={handleCheckIn} disabled={saving}
-            className="px-2.5 py-1 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50">
-            출근
-          </button>
-        )}
-        {checkState === "CHECKED_IN" && (
-          <>
-            <button onClick={handleBreakOut} disabled={saving}
-              className="px-2.5 py-1 text-xs font-medium bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50">
-              외출
-            </button>
-            <button onClick={handleCheckOut} disabled={saving}
-              className="px-2.5 py-1 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
-              퇴근
-            </button>
-          </>
-        )}
-        {checkState === "ON_BREAK" && (
-          <button onClick={handleBreakIn} disabled={saving}
-            className="px-2.5 py-1 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50">
-            복귀
-          </button>
-        )}
-      </div>
-
-      {/* 연차 잔여 */}
-      {remainingLeave !== null && (
-        <div className="ml-auto flex items-center gap-1 text-xs text-gray-500">
-          잔여 연차
-          <span className={`font-semibold ${remainingLeave <= 3 ? "text-orange-600" : "text-gray-800"}`}>
-            {remainingLeave}일
-          </span>
-        </div>
-      )}
-
-      {/* 근태 페이지 링크 */}
-      <button onClick={() => router.push("/me/attendance")}
-        className="text-xs text-blue-600 hover:underline shrink-0">
-        근태 관리 →
-      </button>
-    </div>
-  );
-}
-
 // ─── Week Calendar ────────────────────────────────────────────────────────────
 
 function WeekCalendarView() {
@@ -485,6 +350,7 @@ function MyTasksView() {
   });
   const [dragProjectId, setDragProjectId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<{ id: string; pos: "before" | "after" } | null>(null);
+
 
   const load = async () => {
     setLoading(true); setError("");
@@ -821,21 +687,183 @@ function MyTasksView() {
   );
 }
 
+// ─── My Projects ─────────────────────────────────────────────────────────────
+
+const PROJ_STATUS_CFG: Record<string, { label: string; dot: string; text: string; bg: string }> = {
+  PLANNING:    { label: "계획",   dot: "bg-gray-400",   text: "text-gray-600",   bg: "bg-gray-100" },
+  IN_PROGRESS: { label: "진행중", dot: "bg-blue-500",   text: "text-blue-700",   bg: "bg-blue-100" },
+  ON_HOLD:     { label: "보류",   dot: "bg-yellow-500", text: "text-yellow-700", bg: "bg-yellow-100" },
+  COMPLETED:   { label: "완료",   dot: "bg-green-500",  text: "text-green-700",  bg: "bg-green-100" },
+  CANCELLED:   { label: "취소",   dot: "bg-red-400",    text: "text-red-600",    bg: "bg-red-100" },
+};
+
+const ACTIVE_STATUSES = ["PLANNING", "IN_PROGRESS", "ON_HOLD"];
+
+const fmtDate = (d?: string | null) => d ? d.slice(0, 10) : "—";
+
+function ProjectTreeGroup({
+  label, icon, accent, projects, router, defaultOpen = true,
+}: {
+  label: string; icon: string; accent: string;
+  projects: any[]; router: ReturnType<typeof useRouter>; defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border border-gray-200 rounded-xl overflow-hidden">
+      {/* 그룹 헤더 */}
+      <button
+        onClick={() => setOpen(v => !v)}
+        className={`w-full flex items-center gap-2 px-4 py-2.5 ${accent} border-b border-gray-200 hover:brightness-95 transition-all`}
+      >
+        <span className="text-sm">{open ? "▾" : "▸"}</span>
+        <span className="text-sm">{icon}</span>
+        <span className="text-sm font-semibold text-gray-800">{label}</span>
+        <span className="ml-1 text-xs text-gray-400 bg-white/60 border border-gray-200 px-1.5 py-0.5 rounded-full">{projects.length}</span>
+      </button>
+
+      {/* 트리 */}
+      {open && (
+        <div className="divide-y divide-gray-50">
+          {projects.length === 0 ? (
+            <div className="py-5 text-center text-xs text-gray-400">해당하는 프로젝트가 없습니다.</div>
+          ) : projects.map((p, idx) => {
+            const cfg = PROJ_STATUS_CFG[p.status] ?? PROJ_STATUS_CFG.PLANNING;
+            const prog = p.overallProgress ?? null;
+            const isLast = idx === projects.length - 1;
+            return (
+              <div key={p.id}
+                className="flex items-center gap-0 pl-4 pr-4 hover:bg-blue-50/40 cursor-pointer transition-colors h-10"
+                onClick={() => router.push(`/projects/${p.id}`)}>
+                {/* 트리 라인 */}
+                <div className="flex flex-col items-center self-stretch mr-2 shrink-0" style={{ width: 16 }}>
+                  <div className="w-px flex-1 bg-gray-200" />
+                  <div className="w-3 h-px bg-gray-200" style={{ marginLeft: 8 }} />
+                  {!isLast && <div className="w-px flex-1 bg-gray-200" />}
+                </div>
+                {/* 프로젝트명 */}
+                <div className="flex-1 min-w-0 flex items-center gap-2 mr-3">
+                  <span className="text-sm font-medium text-gray-800 truncate">{p.name}</span>
+                </div>
+                {/* 상태 */}
+                <span className={`shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full mr-3 ${cfg.bg} ${cfg.text}`}>{cfg.label}</span>
+                {/* 진도율 */}
+                <div className="flex items-center gap-1.5 w-28 shrink-0 mr-3">
+                  {prog !== null ? (
+                    <>
+                      <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-blue-500 rounded-full" style={{ width: `${prog}%` }} />
+                      </div>
+                      <span className="text-xs text-gray-500 w-7 text-right shrink-0">{Math.round(prog)}%</span>
+                    </>
+                  ) : <span className="text-xs text-gray-300 w-full">—</span>}
+                </div>
+                {/* 기간 */}
+                <div className="text-xs text-gray-400 shrink-0 w-24 text-right">
+                  {fmtDate(p.effectiveStartDate)} ~
+                </div>
+                <div className="text-xs text-gray-400 shrink-0 w-24 text-right">
+                  {fmtDate(p.effectiveEndDate)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MyProjectsView() {
+  const router = useRouter();
+  const [ownedProjects, setOwnedProjects]   = useState<any[]>([]);
+  const [memberProjects, setMemberProjects] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<"ALL" | "ACTIVE" | "COMPLETED">("ALL");
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const [me, allRes, groups] = await Promise.all([
+          myProfileApi.get(),
+          projectApi.list(),
+          myTasksApi.list(),
+        ]);
+        const allItems: any[] = (allRes as any).items ?? [];
+        const assignedIds = new Set((groups as any[]).map((g: any) => g.project?.id).filter(Boolean));
+
+        setOwnedProjects(allItems.filter(p => p.ownerId === me.id));
+        setMemberProjects(allItems.filter(p => p.ownerId !== me.id && assignedIds.has(p.id)));
+      } catch {}
+      setLoading(false);
+    })();
+  }, []);
+
+  const applyFilter = (list: any[]) => {
+    if (filter === "ACTIVE")    return list.filter(p => ACTIVE_STATUSES.includes(p.status));
+    if (filter === "COMPLETED") return list.filter(p => p.status === "COMPLETED");
+    return list;
+  };
+
+  const filteredOwned  = useMemo(() => applyFilter(ownedProjects),  [ownedProjects, filter]);
+  const filteredMember = useMemo(() => applyFilter(memberProjects), [memberProjects, filter]);
+
+  const FILTERS = [
+    { key: "ALL"      as const, label: `전체 (${ownedProjects.length + memberProjects.length})` },
+    { key: "ACTIVE"   as const, label: `진행중 (${[...ownedProjects, ...memberProjects].filter(p => ACTIVE_STATUSES.includes(p.status)).length})` },
+    { key: "COMPLETED"as const, label: `완료 (${[...ownedProjects, ...memberProjects].filter(p => p.status === "COMPLETED").length})` },
+  ];
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-16">
+      <div className="animate-spin w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full" />
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Filter bar */}
+      <div className="flex items-center gap-2">
+        {FILTERS.map(f => (
+          <button key={f.key} onClick={() => setFilter(f.key)}
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${filter === f.key ? "bg-blue-600 text-white" : "bg-white text-gray-600 border border-gray-300 hover:bg-gray-50"}`}>
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      <ProjectTreeGroup label="내가 소유한 프로젝트" icon="👑" accent="bg-blue-50" projects={filteredOwned} router={router} />
+      <ProjectTreeGroup label="내가 속한 프로젝트" icon="👥" accent="bg-gray-50" projects={filteredMember} router={router} defaultOpen={true} />
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-type Tab = "kanban" | "week" | "tasks";
+type Tab = "kanban" | "week" | "tasks" | "projects" | "attendance";
+
+const DASHBOARD_TAB_KEY = "erp_tab_dashboard";
 
 export default function DashboardPage() {
   const { data, loading, error, load, updateProgress } = useKanban();
   const [modalCard, setModalCard] = useState<KanbanCard | null>(null);
   const [tab, setTab] = useState<Tab>("kanban");
 
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(DASHBOARD_TAB_KEY) as Tab;
+      if (saved) setTab(saved);
+    } catch {}
+  }, []);
+
   useEffect(() => { load(); }, []);
 
   const TABS: { key: Tab; label: string }[] = [
-    { key: "kanban", label: "칸반" },
-    { key: "week",   label: "주간" },
-    { key: "tasks",  label: "작업 목록" },
+    { key: "kanban",     label: "칸반" },
+    { key: "week",       label: "주간" },
+    { key: "tasks",      label: "작업 목록" },
+    { key: "projects",   label: "내 프로젝트" },
+    { key: "attendance", label: "근태" },
   ];
 
   return (
@@ -850,24 +878,25 @@ export default function DashboardPage() {
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          {TABS.map((t) => (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${tab === t.key ? "bg-blue-600 text-white" : "bg-white text-gray-600 border border-gray-300 hover:bg-gray-50"}`}>
-              {t.label}
-            </button>
-          ))}
-          {tab !== "tasks" && (
-            <button onClick={load} className="p-1.5 text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg bg-white" title="새로고침">↻</button>
-          )}
-        </div>
+        {(tab === "kanban" || tab === "week") && (
+          <button onClick={load} className="p-1.5 text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg bg-white" title="새로고침">↻</button>
+        )}
       </div>
 
-      {/* Attendance summary */}
-      <AttendanceSummaryBar />
+      {/* Tabs — 프로젝트 상세와 동일한 언더라인 스타일 */}
+      <div className="flex gap-1 border-b border-gray-200 -mb-2">
+        {TABS.map((t) => (
+          <button key={t.key} onClick={() => { setTab(t.key); try { sessionStorage.setItem(DASHBOARD_TAB_KEY, t.key); } catch {} }}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              tab === t.key ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
 
       {/* Kanban / Week: stale banner */}
-      {tab !== "tasks" && data && <StaleBanner count={data.staleCount} />}
+      {tab === "kanban" && data && <StaleBanner count={data.staleCount} />}
 
       {/* Kanban */}
       {tab === "kanban" && (
@@ -894,6 +923,12 @@ export default function DashboardPage() {
 
       {/* Tasks */}
       {tab === "tasks" && <MyTasksView />}
+
+      {/* My Projects */}
+      {tab === "projects" && <MyProjectsView />}
+
+      {/* Attendance */}
+      {tab === "attendance" && <AttendanceView />}
 
       {/* Progress modal */}
       {modalCard && (

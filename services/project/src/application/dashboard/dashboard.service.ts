@@ -345,7 +345,7 @@ export class DashboardService {
           include: {
             tasks: {
               include: {
-                segments: { select: { startDate: true, endDate: true } },
+                segments: { select: { startDate: true, endDate: true, progressPercent: true } },
               },
             },
           },
@@ -388,9 +388,12 @@ export class DashboardService {
             }
           }
 
-          const activeTasks = p.tasks.filter((t) => t.status !== "DONE");
-          const progress = activeTasks.length > 0
-            ? Math.round(activeTasks.reduce((s, t) => s + t.overallProgress, 0) / activeTasks.length)
+          const parentIds = new Set(p.tasks.map((t) => t.parentId).filter(Boolean));
+          const leafSegs = p.tasks
+            .filter((t) => !parentIds.has(t.id) && !t.isMilestone)
+            .flatMap((t) => t.segments);
+          const progress = leafSegs.length > 0
+            ? Math.round(leafSegs.reduce((s, seg) => s + seg.progressPercent, 0) / leafSegs.length)
             : 0;
           totalProgress += progress;
         });

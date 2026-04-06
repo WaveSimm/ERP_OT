@@ -10,7 +10,6 @@ const NAV = [
   { href: "/projects",       label: "프로젝트",   icon: "📋", managerOnly: false },
   { href: "/resources",      label: "자원 관리",  icon: "👥", managerOnly: true  },
   { href: "/me/dashboard",   label: "내 대시보드", icon: "🗂", managerOnly: false },
-  { href: "/me/attendance",  label: "근태",       icon: "🕐", managerOnly: false },
 ];
 
 const STORAGE_KEY = "erp_last_path";
@@ -41,59 +40,83 @@ function fmtMin(minutes: number) {
 
 function CheckInWidget() {
   const [today, setToday] = useState<any>(null);
+  const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
 
   const load = useCallback(async () => {
     try { setToday(await attendanceApi.getToday()); } catch {}
+    finally { setLoaded(true); }
   }, []);
 
   useEffect(() => { load(); }, []);
 
+  // 1분마다 현재 시각 갱신 (실시간 근무시간 계산용)
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
   const act = async (fn: () => Promise<any>) => {
     setSaving(true);
-    try { await fn(); await load(); }
-    catch {} finally { setSaving(false); }
+    try { await fn(); } catch {}
+    finally {
+      await load();
+      window.dispatchEvent(new CustomEvent("attendance-updated"));
+      setSaving(false);
+    }
   };
+
+  if (!loaded) return null;
 
   const state: string = today?.checkState ?? "NOT_STARTED";
 
-  if (state === "CHECKED_OUT") {
-    return (
-      <span className="text-xs text-gray-500 hidden sm:inline">
-        오늘 근무 <span className="font-medium text-gray-700">{fmtMin(today.netWorkMinutes ?? 0)}</span>
-      </span>
-    );
-  }
+  // 출근 중/외출 중: 실시간 계산 (checkIn 기준 경과 - 누적 휴식)
+  // 퇴근 후: 저장된 netWorkMinutes 사용
+  const workMins: number = (() => {
+    if (!today?.checkIn) return 0;
+    if (state === "CHECKED_IN" || state === "ON_BREAK") {
+      const elapsed = Math.floor((now - new Date(today.checkIn).getTime()) / 60000);
+      return Math.max(0, elapsed - (today.breakMinutes ?? 0));
+    }
+    return today?.netWorkMinutes ?? 0;
+  })();
 
   return (
-    <div className="items-center gap-1.5 hidden sm:flex">
+    <div className="hidden sm:flex items-center gap-2 ml-8 shrink-0">
+      {/* 근무시간 (출근 후에만 표시) */}
+      {state !== "NOT_STARTED" && (
+        <div className="flex items-center gap-1 border border-gray-200 rounded-lg bg-gray-50 px-2.5 py-1 text-xs">
+          <span className="text-gray-500">근무</span>
+          <span className="font-semibold text-gray-700 tabular-nums">{fmtMin(workMins)}</span>
+        </div>
+      )}
+
+      {/* 액션 버튼 */}
       {state === "NOT_STARTED" && (
         <button onClick={() => act(() => attendanceApi.checkIn({ workType: "OFFICE" }))} disabled={saving}
-          className="px-2.5 py-1 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50">
-          출근
+          className="px-3 py-1.5 text-xs font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors">
+          🟢 출근
         </button>
       )}
       {state === "CHECKED_IN" && (
         <>
-          {today?.checkIn && (
-            <span className="text-xs text-gray-500">{today.checkIn.slice(11, 16)} 출근</span>
-          )}
           <button onClick={() => act(() => attendanceApi.breakOut())} disabled={saving}
-            className="px-2 py-1 text-xs font-medium border border-orange-400 text-orange-600 rounded-lg hover:bg-orange-50 disabled:opacity-50">
-            외출
+            className="px-2.5 py-1.5 text-xs font-semibold border border-orange-300 text-orange-600 rounded-lg hover:bg-orange-50 disabled:opacity-50 transition-colors">
+            🟡 외출
           </button>
           <button onClick={() => act(() => attendanceApi.checkOut())} disabled={saving}
-            className="px-2 py-1 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
-            퇴근
+            className="px-2.5 py-1.5 text-xs font-semibold bg-gray-700 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors">
+            🔴 퇴근
           </button>
         </>
       )}
       {state === "ON_BREAK" && (
         <>
-          <span className="text-xs text-orange-600 font-medium">외출 중</span>
+          <span className="text-xs text-orange-500 font-medium">🟡 외출중</span>
           <button onClick={() => act(() => attendanceApi.breakIn())} disabled={saving}
-            className="px-2.5 py-1 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50">
-            복귀
+            className="px-2.5 py-1.5 text-xs font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors">
+            🟢 복귀
           </button>
         </>
       )}
@@ -213,7 +236,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   const handleNavClick = (href: string) => {
-    if (pathname.startsWith(href)) return;
+    if (pathname === href) return; // 이미 섹션 루트
+    if (pathname.startsWith(href + "/")) {
+      router.push(href); // 하위 페이지 → 섹션 루트로
+      return;
+    }
     const last = getLastPaths()[href];
     router.push(last && last.startsWith(href) ? last : href);
   };
@@ -236,7 +263,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
-        <div className="max-w-full px-6 h-14 flex items-center gap-6">
+        <div className="max-w-full px-6 h-14 flex items-center gap-4">
           <div className="flex items-center gap-2 shrink-0">
             <div className="w-7 h-7 bg-blue-600 rounded-md flex items-center justify-center">
               <span className="text-white text-xs font-bold">ERP</span>
@@ -312,7 +339,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </button>
                 {showAdminMenu && (
                   <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-50">
-                    <button onClick={() => { router.push("/admin/users"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                    <button onClick={() => { router.push("/resources?tab=users"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
                       사용자 관리
                     </button>
                     <button onClick={() => { router.push("/admin/departments"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">

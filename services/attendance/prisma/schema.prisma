@@ -187,10 +187,27 @@ model OvertimeRequest {
 // 4. 근태 기준
 // ─────────────────────────────────────────────
 
+// ─────────────────────────────────────────────
+// 7. 개인 근무 스케줄 (유연근무)
+// ─────────────────────────────────────────────
+
+model UserWorkSchedule {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  workStartTime  String   @default("09:30")   // "HH:MM" 형식, 30분 단위
+  workEndTime    String   @default("18:30")
+  dailyWorkHours Float    @default(8.0)
+  updatedBy      String?
+  updatedAt      DateTime @updatedAt
+
+  @@map("user_work_schedules")
+  @@schema("attendance")
+}
+
 model AttendancePolicy {
   id                   String   @id @default(cuid())
-  workStartTime        String   @default("09:00")
-  workEndTime          String   @default("18:00")
+  workStartTime        String   @default("09:30")
+  workEndTime          String   @default("18:30")
   dailyWorkHours       Float    @default(8.0)
   lateToleranceMinutes Int      @default(0)
   leavePolicy          String   @default("HIRE_DATE")
