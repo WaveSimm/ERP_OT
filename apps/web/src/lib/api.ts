@@ -32,7 +32,7 @@ export function getUser(): { id: string; name: string; role: string } | null {
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(init.body != null && { "Content-Type": "application/json" }),
     ...(init.headers as Record<string, string>),
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -471,6 +471,169 @@ export const dashboardApi = {
     request<any>(`/dashboard/projects/${projectId}/refresh`, { method: "POST", body: "{}" }),
   refreshAll: () =>
     request<any>("/dashboard/refresh-all", { method: "POST", body: "{}" }),
+};
+
+// ─── Equipment (장비 관리) ────────────────────────────────────────────────────
+
+export const equipmentApi = {
+  list: (params?: { categoryId?: string; status?: string; search?: string; page?: number; limit?: number }) => {
+    const q = params ? new URLSearchParams(params as any).toString() : "";
+    return request<{ items: any[]; total: number; page: number; limit: number }>(
+      `/equipment${q ? `?${q}` : ""}`,
+    );
+  },
+  get: (id: string) => request<any>(`/equipment/${id}`),
+  create: (data: any) =>
+    request<any>("/equipment", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: any) =>
+    request<any>(`/equipment/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  changeStatus: (id: string, status: string) =>
+    request<any>(`/equipment/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
+  remove: (id: string) => request<void>(`/equipment/${id}`, { method: "DELETE" }),
+  getMaintenance: (id: string, page = 1) =>
+    request<any>(`/maintenance/equipment/${id}?page=${page}`),
+  getSchedules: (id: string, startDate?: string, endDate?: string) => {
+    const q = new URLSearchParams();
+    if (startDate) q.set("startDate", startDate);
+    if (endDate) q.set("endDate", endDate);
+    return request<any[]>(`/schedules/equipment/${id}${q.toString() ? `?${q}` : ""}`);
+  },
+  getCompatibleSensors: (id: string) =>
+    request<any[]>(`/compatibility/equipment/${id}`),
+  getDeployments: (id: string) =>
+    request<any>(`/deployments?equipmentId=${id}`),
+  // 구성요소
+  getComponents: (id: string) => request<any[]>(`/equipment/${id}/components`),
+  addComponent: (id: string, data: { name: string; spec?: string; notes?: string }) =>
+    request<any>(`/equipment/${id}/components`, { method: "POST", body: JSON.stringify(data) }),
+  updateComponent: (compId: string, data: { name?: string; spec?: string; notes?: string }) =>
+    request<any>(`/equipment/components/${compId}`, { method: "PUT", body: JSON.stringify(data) }),
+  removeComponent: (compId: string) =>
+    request<void>(`/equipment/components/${compId}`, { method: "DELETE" }),
+};
+
+export const sensorApi = {
+  list: (params?: { categoryId?: string; status?: string; search?: string; page?: number; limit?: number }) => {
+    const q = params ? new URLSearchParams(params as any).toString() : "";
+    return request<{ items: any[]; total: number; page: number; limit: number }>(
+      `/sensors${q ? `?${q}` : ""}`,
+    );
+  },
+  listAvailable: (categoryId?: string, startDate?: string, endDate?: string) => {
+    const q = new URLSearchParams();
+    if (categoryId) q.set("categoryId", categoryId);
+    if (startDate) q.set("startDate", startDate);
+    if (endDate) q.set("endDate", endDate);
+    const qs = q.toString();
+    return request<any[]>(`/sensors/available${qs ? `?${qs}` : ""}`);
+  },
+  get: (id: string) => request<any>(`/sensors/${id}`),
+  create: (data: any) =>
+    request<any>("/sensors", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: any) =>
+    request<any>(`/sensors/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  changeStatus: (id: string, status: string) =>
+    request<any>(`/sensors/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
+  remove: (id: string) => request<void>(`/sensors/${id}`, { method: "DELETE" }),
+  getDeploymentHistory: (id: string) => request<any[]>(`/sensors/${id}/deployment-history`),
+  getCompatibleEquipment: (id: string) =>
+    request<any[]>(`/compatibility/sensor/${id}`),
+  getDeployments: (id: string) =>
+    request<any>(`/deployments?sensorId=${id}`),
+  getMaintenance: (id: string, page = 1) =>
+    request<any>(`/sensors/${id}/maintenance?page=${page}`),
+  getSchedules: (id: string, startDate?: string, endDate?: string) => {
+    const q = new URLSearchParams();
+    if (startDate) q.set("startDate", startDate);
+    if (endDate) q.set("endDate", endDate);
+    return request<any[]>(`/schedules/sensor/${id}${q.toString() ? `?${q}` : ""}`);
+  },
+};
+
+export const equipmentCategoryApi = {
+  list: (type?: string) =>
+    request<any[]>(`/categories${type ? `?type=${type}` : ""}`),
+  create: (data: { name: string; type: string; description?: string; sortOrder?: number }) =>
+    request<any>("/categories", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: any) =>
+    request<any>(`/categories/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  remove: (id: string) => request<void>(`/categories/${id}`, { method: "DELETE" }),
+};
+
+export const maintenanceApi = {
+  create: (data: any) =>
+    request<any>("/maintenance", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: any) =>
+    request<any>(`/maintenance/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  remove: (id: string) => request<void>(`/maintenance/${id}`, { method: "DELETE" }),
+};
+
+export const equipmentScheduleApi = {
+  getTimeline: (params: { startDate: string; endDate: string; assetType?: string; categoryId?: string }) => {
+    const q = new URLSearchParams();
+    q.set("startDate", params.startDate);
+    q.set("endDate", params.endDate);
+    if (params.assetType) q.set("assetType", params.assetType);
+    if (params.categoryId) q.set("categoryId", params.categoryId);
+    return request<any>(`/schedules/timeline?${q}`);
+  },
+  create: (data: any) =>
+    request<any>("/schedules", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: any) =>
+    request<any>(`/schedules/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  remove: (id: string) => request<void>(`/schedules/${id}`, { method: "DELETE" }),
+};
+
+export const deploymentApi = {
+  list: (params?: { projectId?: string; equipmentId?: string; sensorId?: string; status?: string }) => {
+    const q = params ? new URLSearchParams(params as any).toString() : "";
+    return request<any>(`/deployments${q ? `?${q}` : ""}`);
+  },
+  listByTask: (taskId: string) => request<any[]>(`/deployments/by-task/${taskId}`),
+  get: (id: string) => request<any>(`/deployments/${id}`),
+  create: (data: any) =>
+    request<any>("/deployments", { method: "POST", body: JSON.stringify(data) }),
+  activate: (id: string) =>
+    request<any>(`/deployments/${id}/activate`, { method: "POST", body: "{}" }),
+  complete: (id: string) =>
+    request<any>(`/deployments/${id}/complete`, { method: "POST", body: "{}" }),
+  cancel: (id: string) =>
+    request<any>(`/deployments/${id}/cancel`, { method: "POST", body: "{}" }),
+};
+
+export const equipmentStatsApi = {
+  summary: () => request<any>("/stats/summary"),
+  utilization: (startDate: string, endDate: string) =>
+    request<any[]>(`/stats/utilization?startDate=${startDate}&endDate=${endDate}`),
+  maintenanceCosts: (startDate?: string, endDate?: string) => {
+    const q = new URLSearchParams();
+    if (startDate) q.set("startDate", startDate);
+    if (endDate) q.set("endDate", endDate);
+    return request<any[]>(`/stats/maintenance-costs${q.toString() ? `?${q}` : ""}`);
+  },
+  breakdownFrequency: (limit = 10) =>
+    request<any[]>(`/stats/breakdown-frequency?limit=${limit}`),
+  calibrationWarnings: () => request<any[]>("/stats/calibration-warnings"),
+  preventiveDue: (days = 30) => request<any[]>(`/stats/preventive-due?days=${days}`),
+};
+
+export const deploymentTemplateApi = {
+  list: (params?: { categoryId?: string }) => {
+    const q = params ? new URLSearchParams(params as any).toString() : "";
+    return request<any[]>(`/deployment-templates${q ? `?${q}` : ""}`);
+  },
+  get: (id: string) => request<any>(`/deployment-templates/${id}`),
+  create: (data: { name: string; description?: string; categoryId?: string; sensorConfig: any; isPublic?: boolean }) =>
+    request<any>("/deployment-templates", { method: "POST", body: JSON.stringify(data) }),
+  saveFromDeployment: (deploymentId: string, data: { name: string; description?: string; isPublic?: boolean }) =>
+    request<any>(`/deployment-templates/from-deployment/${deploymentId}`, { method: "POST", body: JSON.stringify(data) }),
+  remove: (id: string) => request<void>(`/deployment-templates/${id}`, { method: "DELETE" }),
+};
+
+export const compatibilityApi = {
+  create: (data: { equipmentId: string; sensorId: string; notes?: string }) =>
+    request<any>("/compatibility", { method: "POST", body: JSON.stringify(data) }),
+  remove: (id: string) => request<void>(`/compatibility/${id}`, { method: "DELETE" }),
 };
 
 /** @deprecated Use authApi.login instead */

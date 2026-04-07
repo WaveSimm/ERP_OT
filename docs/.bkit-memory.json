@@ -1,11 +1,11 @@
 {
-  "sessionCount": 71,
+  "sessionCount": 76,
   "lastSession": {
-    "startedAt": "2026-04-06T00:04:13.478Z",
+    "startedAt": "2026-04-06T21:59:48.295Z",
     "platform": "claude",
     "level": "Enterprise"
   },
-  "currentFeature": "부서-결재라인",
-  "currentPhase": "design",
-  "lastUpdated": "2026-03-21T08:02:48.147Z"
+  "currentFeature": "장비-관리",
+  "currentPhase": "do",
+  "lastUpdated": "2026-04-06T12:00:00.000Z"
 }

@@ -148,6 +148,29 @@ services:
     networks:
       - erp-network
 
+  equipment-service:
+    build:
+      context: .
+      dockerfile: services/equipment/Dockerfile
+    container_name: erp-ot-equipment
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3005
+      DATABASE_URL: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:-erp_password}@postgres:5432/${POSTGRES_DB:-erp_ot}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change_me_in_production}
+      AUTH_SERVICE_URL: http://auth-service:3001
+      PROJECT_SERVICE_URL: http://project-service:3003
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-dev_internal_token_min32chars_change}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+    ports:
+      - "3005:3005"
+    depends_on:
+      - postgres
+      - auth-service
+    networks:
+      - erp-network
+
   # ─── Frontend Apps ──────────────────────────────────────────────────────────
   web:
     image: node:20-alpine
@@ -161,6 +184,7 @@ services:
       API_BASE_URL: http://project-service:3003
       AUTH_SERVICE_URL: http://auth-service:3001
       ATTENDANCE_SERVICE_URL: http://attendance-service:3004
+      EQUIPMENT_SERVICE_URL: http://equipment-service:3005
       JWT_SECRET: ${JWT_ACCESS_SECRET:-change_me_in_production}
       WATCHPACK_POLLING: "true"
       CHOKIDAR_USEPOLLING: "true"

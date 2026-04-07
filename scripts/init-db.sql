@@ -8,6 +8,7 @@ CREATE SCHEMA IF NOT EXISTS auth;
 CREATE SCHEMA IF NOT EXISTS users;
 CREATE SCHEMA IF NOT EXISTS project;
 CREATE SCHEMA IF NOT EXISTS attendance;
+CREATE SCHEMA IF NOT EXISTS equipment;
 
 -- Extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -18,6 +19,7 @@ GRANT ALL ON SCHEMA auth TO erp_user;
 GRANT ALL ON SCHEMA users TO erp_user;
 GRANT ALL ON SCHEMA project TO erp_user;
 GRANT ALL ON SCHEMA attendance TO erp_user;
+GRANT ALL ON SCHEMA equipment TO erp_user;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Attendance default policy (attendance-service baseline)

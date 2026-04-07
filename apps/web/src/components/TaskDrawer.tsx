@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { taskApi, commentApi, resourceApi } from "@/lib/api";
+import { taskApi, commentApi, resourceApi, deploymentApi, equipmentApi, sensorApi } from "@/lib/api";
 import clsx from "clsx";
 import DateInput from "./DateInput";
 
@@ -459,7 +459,19 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
   const [showAddDep, setShowAddDep] = useState(false);
   const [newDep, setNewDep] = useState({ predecessorId: "", type: "FS", lagDays: 0 });
 
-  useEffect(() => { loadComments(); loadDeps(); }, [task.id]);
+  // Equipment deployment state
+  const [taskDeployments, setTaskDeployments] = useState<any[]>([]);
+  const [showAddEquip, setShowAddEquip] = useState(false);
+  const [equipList, setEquipList] = useState<any[]>([]);
+  const [selectedEquipId, setSelectedEquipId] = useState("");
+  const [availSensorsForEquip, setAvailSensorsForEquip] = useState<any[]>([]);
+  const [selectedSensorIds, setSelectedSensorIds] = useState<string[]>([]);
+
+  const loadTaskDeployments = async () => {
+    try { setTaskDeployments(await deploymentApi.listByTask(task.id)); } catch { setTaskDeployments([]); }
+  };
+
+  useEffect(() => { loadComments(); loadDeps(); loadTaskDeployments(); }, [task.id]);
 
   useEffect(() => {
     if (!showHistory) return;
@@ -560,6 +572,52 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
       await loadComments();
       onRefresh();
     } catch (e: any) { alert(e.message); }
+  };
+
+  const openAddEquip = async () => {
+    try {
+      const res = await equipmentApi.list({});
+      setEquipList((res.items ?? []).filter((e: any) => e.status === "AVAILABLE" || e.status === "IN_OPERATION"));
+      setSelectedEquipId("");
+      setAvailSensorsForEquip([]);
+      setSelectedSensorIds([]);
+      setShowAddEquip(true);
+    } catch { alert("장비 목록을 불러올 수 없습니다."); }
+  };
+
+  const handleEquipSelect = async (equipId: string) => {
+    setSelectedEquipId(equipId);
+    setSelectedSensorIds([]);
+    if (!equipId) { setAvailSensorsForEquip([]); return; }
+    try {
+      const seg = task.segments?.[0];
+      const sensors = await sensorApi.listAvailable(undefined, seg?.startDate?.slice(0, 10), seg?.endDate?.slice(0, 10));
+      setAvailSensorsForEquip(sensors ?? []);
+    } catch { setAvailSensorsForEquip([]); }
+  };
+
+  const handleAssignEquipment = async () => {
+    if (!selectedEquipId) return alert("장비를 선택해주세요.");
+    const seg = task.segments?.[0];
+    if (!seg?.startDate) return alert("태스크에 일정(세그먼트)이 없어 장비를 배정할 수 없습니다.");
+    const equip = equipList.find((e: any) => e.id === selectedEquipId);
+    try {
+      await deploymentApi.create({
+        equipmentId: selectedEquipId,
+        projectId: projectId,
+        projectName: task._projectName ?? "",
+        taskId: task.id,
+        taskName: task.name,
+        startDate: seg.startDate.slice(0, 10),
+        ...(seg.endDate && { endDate: seg.endDate.slice(0, 10) }),
+        ...(selectedSensorIds.length > 0 && {
+          sensors: selectedSensorIds.map((sid) => ({ sensorId: sid })),
+        }),
+      });
+      setShowAddEquip(false);
+      await loadTaskDeployments();
+      onRefresh();
+    } catch (e: any) { alert(e.message || "장비 배정 실패"); }
   };
 
   const startEditComment = (c: any) => {
@@ -1015,6 +1073,95 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
                     <span className="text-xs text-blue-400 shrink-0">후행</span>
                     <span className="text-xs font-medium text-gray-800 flex-1 truncate">{s.successor.name}</span>
                     <span className="text-xs text-gray-500">{s.type}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-gray-100" />
+
+          {/* ── 장비 배정 ── */}
+          <div className="px-6 py-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase">장비 배정 ({taskDeployments.length})</h3>
+              {!isParent && (
+                <button onClick={openAddEquip} className="text-xs text-blue-600 hover:underline">+ 장비 배정</button>
+              )}
+            </div>
+
+            {showAddEquip && (
+              <div className="mb-3 bg-gray-50 border rounded-lg p-3 space-y-2">
+                <select value={selectedEquipId} onChange={(e) => handleEquipSelect(e.target.value)}
+                  className="w-full border rounded px-2 py-1.5 text-sm">
+                  <option value="">-- 장비 선택 --</option>
+                  {equipList.map((eq) => (
+                    <option key={eq.id} value={eq.id}>{eq.name} ({eq.category?.name}) - {eq.serialNumber}</option>
+                  ))}
+                </select>
+                {selectedEquipId && availSensorsForEquip.length > 0 && (
+                  <div>
+                    <label className="text-xs text-gray-500">센서 선택 (선택사항)</label>
+                    <div className="max-h-28 overflow-y-auto space-y-1 mt-1">
+                      {availSensorsForEquip.map((s) => (
+                        <label key={s.id} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                          <input type="checkbox" checked={selectedSensorIds.includes(s.id)}
+                            onChange={() => setSelectedSensorIds((prev) =>
+                              prev.includes(s.id) ? prev.filter((x) => x !== s.id) : [...prev, s.id]
+                            )} className="rounded" />
+                          <span>{s.name}</span>
+                          <span className="text-gray-400">{s.category?.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => setShowAddEquip(false)} className="text-xs px-2 py-1 border rounded">취소</button>
+                  <button onClick={handleAssignEquipment} className="text-xs px-2 py-1 bg-blue-600 text-white rounded">배정</button>
+                </div>
+              </div>
+            )}
+
+            {taskDeployments.length === 0 ? (
+              <p className="text-xs text-gray-400">배정된 장비가 없습니다.</p>
+            ) : (
+              <div className="space-y-2">
+                {taskDeployments.map((d) => (
+                  <div key={d.id} className="bg-white border rounded p-2.5">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-1.5">
+                        <span>🔧</span>
+                        <span className="font-medium">{d.equipment?.name}</span>
+                        <span className="text-xs text-gray-400">{d.equipment?.category?.name}</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                          d.status === "ACTIVE" ? "bg-blue-100 text-blue-700" :
+                          d.status === "COMPLETED" ? "bg-green-100 text-green-700" :
+                          d.status === "CANCELLED" ? "bg-red-100 text-red-600" :
+                          "bg-gray-100 text-gray-600"
+                        }`}>{d.status === "PLANNED" ? "계획" : d.status === "ACTIVE" ? "진행중" : d.status === "COMPLETED" ? "완료" : "취소"}</span>
+                      </div>
+                      {(d.status === "PLANNED" || d.status === "ACTIVE") && (
+                        <button onClick={async () => {
+                          if (!confirm(`${d.equipment?.name} 배정을 해제하시겠습니까?${d.sensors?.length > 0 ? " 센서도 반납됩니다." : ""}`)) return;
+                          try {
+                            await deploymentApi.cancel(d.id);
+                            await loadTaskDeployments();
+                            onRefresh();
+                          } catch (e: any) { alert(e.message || "해제 실패"); }
+                        }} className="text-xs text-red-500 hover:text-red-700">해제</button>
+                      )}
+                    </div>
+                    {d.sensors?.length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {d.sensors.map((ds: any) => (
+                          <span key={ds.id} className="inline-flex items-center gap-1 text-[11px] bg-gray-50 border rounded px-1.5 py-0.5">
+                            📡 {ds.sensor?.name}
+                            <span className="text-gray-400">{ds.sensor?.category?.name}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

@@ -1,0 +1,313 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["equipment"]
+}
+
+// ─────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────
+
+enum AssetStatus {
+  AVAILABLE
+  IN_OPERATION
+  DEPLOYED
+  IN_MAINTENANCE
+  BROKEN
+  RETIRED
+
+  @@schema("equipment")
+}
+
+enum MaintenanceType {
+  PREVENTIVE
+  CORRECTIVE
+  CALIBRATION
+  UPGRADE
+
+  @@schema("equipment")
+}
+
+enum ScheduleType {
+  PROJECT
+  MAINTENANCE
+  CALIBRATION
+  TRAINING
+  STANDBY
+
+  @@schema("equipment")
+}
+
+enum DeploymentStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+
+  @@schema("equipment")
+}
+
+// ─────────────────────────────────────────────
+// 1. Category (장비 종류 + 센서 종류 통합)
+// ─────────────────────────────────────────────
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   // "EQUIPMENT" | "SENSOR"
+  description String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  equipment Equipment[]
+  sensors   Sensor[]
+
+  @@unique([name, type])
+  @@map("categories")
+  @@schema("equipment")
+}
+
+// ─────────────────────────────────────────────
+// 2. Equipment (장비: USV, AUV 등)
+// ─────────────────────────────────────────────
+
+model Equipment {
+  id           String      @id @default(cuid())
+  categoryId   String
+  name         String
+  serialNumber String      @unique
+  manufacturer String?
+  model        String?
+  acquiredAt   DateTime?
+  status       AssetStatus @default(AVAILABLE)
+  description  String?
+  imageUrl     String?
+  metadata     Json?
+  createdBy    String
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  category            Category              @relation(fields: [categoryId], references: [id])
+  components          EquipmentComponent[]
+  maintenanceRecords  MaintenanceRecord[]
+  schedules           AssetSchedule[]
+  sensorCompatibility SensorCompatibility[]
+  deployments         Deployment[]
+
+  @@map("equipment")
+  @@schema("equipment")
+}
+
+// ─────────────────────────────────────────────
+// 2-1. EquipmentComponent (장비 구성요소: 엔진, GPS 등)
+// ─────────────────────────────────────────────
+
+model EquipmentComponent {
+  id          String   @id @default(cuid())
+  equipmentId String
+  name        String
+  spec        String?
+  notes       String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@index([equipmentId])
+  @@map("equipment_components")
+  @@schema("equipment")
+}
+
+// ─────────────────────────────────────────────
+// 3. Sensor (독립 자산 풀)
+// ─────────────────────────────────────────────
+
+model Sensor {
+  id                      String      @id @default(cuid())
+  categoryId              String
+  name                    String
+  serialNumber            String      @unique
+  manufacturer            String?
+  model                   String?
+  acquiredAt              DateTime?
+  status                  AssetStatus @default(AVAILABLE)
+  description             String?
+  calibrationIntervalDays Int?
+  lastCalibratedAt        DateTime?
+  nextCalibrationDue      DateTime?
+  currentLocation         String?     @default("창고")
+  currentEquipmentId      String?
+  currentDeploymentId     String?
+  metadata                Json?
+  createdBy               String
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
+
+  category            Category              @relation(fields: [categoryId], references: [id])
+  maintenanceRecords  MaintenanceRecord[]
+  schedules           AssetSchedule[]
+  sensorCompatibility SensorCompatibility[]
+  deploymentSensors   DeploymentSensor[]
+
+  @@map("sensors")
+  @@schema("equipment")
+}
+
+// ─────────────────────────────────────────────
+// 4. SensorCompatibility (장비-센서 호환성 N:M)
+// ─────────────────────────────────────────────
+
+model SensorCompatibility {
+  id          String   @id @default(cuid())
+  equipmentId String
+  sensorId    String
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  sensor    Sensor    @relation(fields: [sensorId], references: [id], onDelete: Cascade)
+
+  @@unique([equipmentId, sensorId])
+  @@map("sensor_compatibility")
+  @@schema("equipment")
+}
+
+// ─────────────────────────────────────────────
+// 5. MaintenanceRecord (정비 이력 — 장비+센서 공용)
+// ─────────────────────────────────────────────
+
+model MaintenanceRecord {
+  id            String          @id @default(cuid())
+  equipmentId   String?
+  sensorId      String?
+  type          MaintenanceType
+  title         String
+  description   String?
+  performedBy   String?
+  performedAt   DateTime
+  completedAt   DateTime?
+  cost          Decimal?        @db.Decimal(12, 2)
+  durationHours Float?
+  replacedParts String?
+  attachmentUrls Json?
+  notes         String?
+  createdBy     String
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  equipment Equipment? @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  sensor    Sensor?    @relation(fields: [sensorId], references: [id], onDelete: Cascade)
+
+  @@index([equipmentId])
+  @@index([sensorId])
+  @@map("maintenance_records")
+  @@schema("equipment")
+}
+
+// ─────────────────────────────────────────────
+// 6. AssetSchedule (운영 일정 — 장비+센서 공용)
+// ─────────────────────────────────────────────
+
+model AssetSchedule {
+  id           String       @id @default(cuid())
+  equipmentId  String?
+  sensorId     String?
+  type         ScheduleType @default(MAINTENANCE)
+  title        String
+  description  String?
+  startDate    DateTime
+  endDate      DateTime
+  projectId    String?
+  projectName  String?
+  deploymentId String?
+  createdBy    String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  equipment Equipment? @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  sensor    Sensor?    @relation(fields: [sensorId], references: [id], onDelete: Cascade)
+
+  @@index([equipmentId, startDate, endDate])
+  @@index([sensorId, startDate, endDate])
+  @@index([projectId])
+  @@map("asset_schedules")
+  @@schema("equipment")
+}
+
+// ─────────────────────────────────────────────
+// 7. Deployment (투입 구성)
+// ─────────────────────────────────────────────
+
+model Deployment {
+  id           String           @id @default(cuid())
+  equipmentId  String?
+  projectId    String
+  projectName  String
+  taskId       String?
+  taskName     String?
+  status       DeploymentStatus @default(PLANNED)
+  startDate    DateTime
+  endDate      DateTime?
+  configParams Json?
+  notes        String?
+  createdBy    String
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  equipment Equipment?         @relation(fields: [equipmentId], references: [id])
+  sensors   DeploymentSensor[]
+
+  @@index([equipmentId])
+  @@index([projectId])
+  @@index([taskId])
+  @@map("deployments")
+  @@schema("equipment")
+}
+
+// ─────────────────────────────────────────────
+// 8. DeploymentSensor (투입 시 센서 체크아웃)
+// ─────────────────────────────────────────────
+
+model DeploymentSensor {
+  id           String    @id @default(cuid())
+  deploymentId String
+  sensorId     String
+  configParams Json?
+  checkedOutAt DateTime  @default(now())
+  returnedAt   DateTime?
+  notes        String?
+
+  deployment Deployment @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
+  sensor     Sensor     @relation(fields: [sensorId], references: [id])
+
+  @@index([deploymentId])
+  @@index([sensorId])
+  @@map("deployment_sensors")
+  @@schema("equipment")
+}
+
+// ─────────────────────────────────────────────
+// 9. DeploymentTemplate (투입 구성 템플릿)
+// ─────────────────────────────────────────────
+
+model DeploymentTemplate {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  categoryId   String?
+  sensorConfig Json
+  isPublic     Boolean  @default(false)
+  createdBy    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("deployment_templates")
+  @@schema("equipment")
+}

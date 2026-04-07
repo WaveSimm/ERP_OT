@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, Fragment } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { projectApi, taskApi, resourceApi, baselineApi, commentApi, templateApi } from "@/lib/api";
+import { projectApi, taskApi, resourceApi, baselineApi, commentApi, templateApi, deploymentApi } from "@/lib/api";
 import dynamic from "next/dynamic";
 import { usePermission } from "@/hooks/usePermission";
 import AddTaskModal from "@/components/AddTaskModal";
@@ -88,9 +88,11 @@ export default function ProjectDetailPage() {
   const [inlineTaskName, setInlineTaskName] = useState("");
   const [inlineAdding, setInlineAdding] = useState(false);
 
-  type TabType = "gantt" | "tasks" | "activity";
+  type TabType = "gantt" | "tasks" | "activity" | "equipment";
   const TAB_KEY = `erp_tab_${projectId}`;
   const [activeTab, setActiveTab] = useState<TabType>("gantt");
+  const [projectDeployments, setProjectDeployments] = useState<any[]>([]);
+  const [deploymentsLoading, setDeploymentsLoading] = useState(false);
 
   useEffect(() => {
     const saved = sessionStorage.getItem(TAB_KEY) as TabType | null;
@@ -209,6 +211,15 @@ export default function ProjectDetailPage() {
     const interval = setInterval(loadActivities, 15000);
     return () => clearInterval(interval);
   }, [activeTab, loadActivities, activityTick]);
+
+  // 장비 투입 목록 로딩
+  useEffect(() => {
+    if (activeTab !== "equipment") return;
+    setDeploymentsLoading(true);
+    deploymentApi.list({ projectId }).then((r) => {
+      setProjectDeployments(r.items ?? []);
+    }).catch(() => {}).finally(() => setDeploymentsLoading(false));
+  }, [activeTab, projectId]);
 
   // baseline 목록 로딩
   useEffect(() => {
@@ -645,7 +656,7 @@ export default function ProjectDetailPage() {
       return;
     }
     const fullTask = tasks.find((t: any) => t.id === task.id) ?? task;
-    setSelectedTask(fullTask);
+    setSelectedTask({ ...fullTask, _projectName: ganttData?.project?.name ?? "" });
   };
 
 
@@ -1038,7 +1049,7 @@ export default function ProjectDetailPage() {
 
       {/* Tabs */}
       <div className="bg-white border-b border-gray-200 px-6 flex gap-1">
-        {(["gantt", "tasks", "activity"] as const).map((tab) => (
+        {(["gantt", "tasks", "equipment", "activity"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => handleTabChange(tab)}
@@ -1048,6 +1059,7 @@ export default function ProjectDetailPage() {
           >
             {tab === "gantt" ? "📊 간트 차트"
               : tab === "tasks" ? "📋 태스크 목록"
+              : tab === "equipment" ? "🔧 장비 투입"
               : "🕐 활동 피드"}
           </button>
         ))}
@@ -1436,6 +1448,69 @@ export default function ProjectDetailPage() {
                 {inlineAdding && <span className="text-xs text-gray-400">저장 중...</span>}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ── Equipment ── */}
+        {activeTab === "equipment" && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">투입 장비 / 센서</h3>
+              <button onClick={() => window.open("/equipment", "_blank")}
+                className="text-sm text-blue-600 hover:underline">장비 관리 →</button>
+            </div>
+            {deploymentsLoading ? (
+              <div className="text-center py-12 text-gray-400">불러오는 중...</div>
+            ) : projectDeployments.length === 0 ? (
+              <div className="text-center py-16 text-gray-400 bg-white rounded-xl border border-dashed border-gray-200">
+                <div className="text-3xl mb-2">🔧</div>
+                <p className="text-sm mb-2">투입된 장비가 없습니다.</p>
+                <p className="text-xs text-gray-400">장비 관리 &gt; 장비 상세에서 &ldquo;프로젝트에 투입&rdquo;을 이용하세요.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {projectDeployments.map((d) => {
+                  const statusMap: Record<string, { label: string; color: string }> = {
+                    PLANNED: { label: "계획", color: "bg-gray-100 text-gray-600" },
+                    ACTIVE: { label: "진행중", color: "bg-blue-100 text-blue-700" },
+                    COMPLETED: { label: "완료", color: "bg-green-100 text-green-700" },
+                    CANCELLED: { label: "취소", color: "bg-red-100 text-red-600" },
+                  };
+                  const st = statusMap[d.status] ?? { label: d.status, color: "bg-gray-100" };
+                  return (
+                    <div key={d.id} className="bg-white border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">🔧</span>
+                          <span className="font-semibold">{d.equipment?.name ?? "장비"}</span>
+                          <span className="text-xs text-gray-400">{d.equipment?.category?.name}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${st.color}`}>{st.label}</span>
+                        </div>
+                        <span className="text-sm text-gray-500">
+                          {new Date(d.startDate).toLocaleDateString()} ~ {d.endDate ? new Date(d.endDate).toLocaleDateString() : "미정"}
+                        </span>
+                      </div>
+                      {d.sensors?.length > 0 && (
+                        <div className="mt-2 pl-7">
+                          <div className="text-xs text-gray-500 mb-1">장착 센서:</div>
+                          <div className="flex flex-wrap gap-2">
+                            {d.sensors.map((ds: any) => (
+                              <div key={ds.id} className="flex items-center gap-1 bg-gray-50 border rounded px-2 py-1 text-xs">
+                                <span>📡</span>
+                                <span className="font-medium">{ds.sensor?.name}</span>
+                                <span className="text-gray-400">{ds.sensor?.category?.name}</span>
+                                {ds.notes && <span className="text-gray-400 ml-1">({ds.notes})</span>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {d.notes && <div className="mt-2 pl-7 text-xs text-gray-500">{d.notes}</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
