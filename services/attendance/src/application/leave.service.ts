@@ -66,14 +66,18 @@ export class LeaveService {
     });
     if (!req) throw new Error("취소할 수 없는 신청입니다.");
     const year = req.startDate.getFullYear();
-    const [updated] = await this.prisma.$transaction([
-      this.prisma.leaveRequest.update({ where: { id }, data: { status: "CANCELLED", cancelledAt: new Date() } }),
-      this.prisma.leaveBalance.update({
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.leaveRequest.update({
+        where: { id }, data: { status: "CANCELLED", cancelledAt: new Date() },
+      });
+      await tx.leaveBalance.update({
         where: { userId_year: { userId, year } },
         data: { pendingDays: { decrement: req.days } },
-      }),
-    ]);
-    return updated;
+      });
+      // 근태현황 엔트리 삭제
+      await tx.workScheduleEntry.deleteMany({ where: { sourceId: id } });
+      return updated;
+    });
   }
 
   async getPending(approverId: string) {
@@ -109,17 +113,27 @@ export class LeaveService {
     const year = req.startDate.getFullYear();
 
     if (isFinalApproval) {
-      const [updated] = await this.prisma.$transaction([
-        this.prisma.leaveRequest.update({
+      return this.prisma.$transaction(async (tx) => {
+        const updated = await tx.leaveRequest.update({
           where: { id },
           data: { status: "APPROVED" as any, approvedAt: new Date() },
-        }),
-        this.prisma.leaveBalance.update({
+        });
+        await tx.leaveBalance.update({
           where: { userId_year: { userId: req.userId, year } },
           data: { usedDays: { increment: req.days }, pendingDays: { decrement: req.days } },
-        }),
-      ]);
-      return updated;
+        });
+        // 근태현황 캘린더에 자동 반영
+        const entryType = this.mapLeaveToEntryType(req.type);
+        const dates = this.getDateRange(req.startDate, req.endDate);
+        for (const date of dates) {
+          await tx.workScheduleEntry.upsert({
+            where: { userId_date_entryType_sourceId: { userId: req.userId, date, entryType, sourceId: id } },
+            create: { userId: req.userId, date, entryType, sourceType: "LEAVE_APPROVED", sourceId: id },
+            update: {},
+          });
+        }
+        return updated;
+      });
     }
 
     return this.prisma.leaveRequest.update({
@@ -174,6 +188,8 @@ export class LeaveService {
 
   private calcDays(type: string, start: Date, end: Date): number {
     if (type === "HALF_AM" || type === "HALF_PM") return 0.5;
+    if (type === "QUARTER") return 0.25;
+    if (type === "FAMILY") return 0.125;
     let count = 0;
     const cur = new Date(start);
     while (cur <= end) {
@@ -187,5 +203,24 @@ export class LeaveService {
   private async calculateAnnualLeave(userId: string, year: number): Promise<number> {
     // 기본 15일 (user-service 연동 없이 기본값)
     return 15;
+  }
+
+  private mapLeaveToEntryType(leaveType: string) {
+    const map: Record<string, any> = {
+      ANNUAL: "ANNUAL", HALF_AM: "HALF_AM", HALF_PM: "HALF_PM",
+      QUARTER: "QUARTER", FAMILY: "FAMILY",
+      SICK: "SICK", SPECIAL: "SPECIAL",
+    };
+    return map[leaveType] ?? "ANNUAL";
+  }
+
+  private getDateRange(start: Date, end: Date): Date[] {
+    const dates: Date[] = [];
+    const cur = new Date(start);
+    while (cur <= end) {
+      dates.push(new Date(cur));
+      cur.setDate(cur.getDate() + 1);
+    }
+    return dates;
   }
 }

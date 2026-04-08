@@ -83,6 +83,21 @@ export class AuthClient {
     return result ?? [];
   }
 
+  async getAllUsersWithDepartments(): Promise<{
+    id: string; name: string; email: string;
+    departmentId: string | null; departmentName: string | null; departmentSortOrder: number;
+  }[]> {
+    const result = await this.get<{
+      id: string; name: string; email: string;
+      departmentId: string | null; departmentName: string | null; departmentSortOrder: number;
+    }[]>(
+      "/internal/users/all-with-departments",
+      "all_users_depts",
+      300,
+    );
+    return result ?? [];
+  }
+
   // 캐시 무효화 (결재라인 변경 시 호출)
   async invalidateApprover(userId: string) {
     await this.redis.del(`approver:${userId}`);

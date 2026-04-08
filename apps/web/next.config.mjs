@@ -32,6 +32,8 @@ const nextConfig = {
       { source: "/api/v1/team/:path*", destination: `${process.env.ATTENDANCE_SERVICE_URL || "http://localhost:3004"}/api/v1/team/:path*` },
       { source: "/api/v1/notifications", destination: `${process.env.ATTENDANCE_SERVICE_URL || "http://localhost:3004"}/api/v1/notifications` },
       { source: "/api/v1/notifications/:path*", destination: `${process.env.ATTENDANCE_SERVICE_URL || "http://localhost:3004"}/api/v1/notifications/:path*` },
+      { source: "/api/v1/work-schedule", destination: `${process.env.ATTENDANCE_SERVICE_URL || "http://localhost:3004"}/api/v1/work-schedule` },
+      { source: "/api/v1/work-schedule/:path*", destination: `${process.env.ATTENDANCE_SERVICE_URL || "http://localhost:3004"}/api/v1/work-schedule/:path*` },
       { source: "/api/v1/:path*", destination: `${process.env.API_BASE_URL || "http://localhost:3003"}/api/v1/:path*` },
     ];
   },

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
-import { attendanceApi, leaveApi, overtimeApi, approvalLineApi, userManagementApi } from "@/lib/api";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { attendanceApi, leaveApi, overtimeApi, approvalLineApi, userManagementApi, attendanceOverviewApi, getUser } from "@/lib/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -38,9 +38,59 @@ interface LeaveBalance {
   remainingDays: number;
 }
 
+interface WorkScheduleEntry {
+  id: string;
+  date: string;
+  entryType: string;
+  startTime: string | null;
+  endTime: string | null;
+  label: string | null;
+  groupId: string | null;
+  sourceType: string;
+}
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const WORK_ENTRY_TYPES = [
+  { value: "WORK", label: "사무실 출근" },
+  { value: "FIELD", label: "외근" },
+  { value: "TRAINING", label: "교육" },
+  { value: "BUSINESS_TRIP", label: "출장" },
+];
+
+const ENTRY_LABELS: Record<string, string> = {
+  WORK: "출근", FIELD: "외근", TRAINING: "교육",
+  BUSINESS_TRIP: "출장", HALF_AM: "오전반차", HALF_PM: "오후반차",
+  QUARTER: "1/4차", FAMILY: "가정의날",
+  ANNUAL: "연차", SICK: "병가", SPECIAL: "특별휴가", OT: "OT",
+};
+
+const ENTRY_COLORS: Record<string, string> = {
+  WORK: "bg-blue-100 text-blue-800",
+  FIELD: "bg-green-100 text-green-800",
+  TRAINING: "bg-purple-100 text-purple-800",
+  BUSINESS_TRIP: "bg-orange-100 text-orange-800",
+  HALF_AM: "bg-yellow-100 text-yellow-800",
+  HALF_PM: "bg-yellow-100 text-yellow-800",
+  QUARTER: "bg-amber-100 text-amber-800",
+  FAMILY: "bg-emerald-100 text-emerald-800",
+  ANNUAL: "bg-red-100 text-red-800",
+  SICK: "bg-pink-100 text-pink-800",
+  SPECIAL: "bg-indigo-100 text-indigo-800",
+  OT: "bg-gray-200 text-gray-800",
+};
+
+const ALL_ENTRY_TYPES = [
+  { value: "FIELD", label: "외근" },
+  { value: "TRAINING", label: "교육" },
+  { value: "BUSINESS_TRIP", label: "출장" },
+];
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
 function fmtTime(iso: string | null) {
   if (!iso) return "--:--";
-  return new Date(iso).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 function fmtMinutes(mins: number) {
@@ -50,11 +100,14 @@ function fmtMinutes(mins: number) {
   return m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
 }
 
+function toDateStr(d: Date) { return d.toISOString().slice(0, 10); }
+
 // ─── CheckIn Widget ───────────────────────────────────────────────────────────
 
 function CheckInWidget({ today, onAction }: { today: TodayRecord | null; onAction: () => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [entryType, setEntryType] = useState("WORK");
 
   const doAction = async (action: () => Promise<any>) => {
     setLoading(true);
@@ -66,6 +119,18 @@ function CheckInWidget({ today, onAction }: { today: TodayRecord | null; onActio
       window.dispatchEvent(new CustomEvent("attendance-updated"));
       setLoading(false);
     }
+  };
+
+  const handleCheckIn = async () => {
+    await doAction(async () => {
+      await attendanceApi.checkIn({ workType: "OFFICE" });
+      try {
+        const now = new Date();
+        const hh = String(now.getHours()).padStart(2, "0");
+        const mm = String(now.getMinutes()).padStart(2, "0");
+        await attendanceOverviewApi.createEntry({ date: toDateStr(now), entryType, startTime: `${hh}:${mm}` });
+      } catch {}
+    });
   };
 
   if (!today) return (
@@ -104,10 +169,14 @@ function CheckInWidget({ today, onAction }: { today: TodayRecord | null; onActio
       </div>
       {error && <div className="text-xs text-red-500 mb-2">{error}</div>}
       <div className="flex gap-2">
-        {state === "NOT_STARTED" && (
-          <button onClick={() => doAction(() => attendanceApi.checkIn({ workType: "OFFICE" }))} disabled={loading}
+        {state === "NOT_STARTED" && (<>
+          <select value={entryType} onChange={(e) => setEntryType(e.target.value)}
+            className="px-2 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-500">
+            {WORK_ENTRY_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </select>
+          <button onClick={handleCheckIn} disabled={loading}
             className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 disabled:opacity-50">출근</button>
-        )}
+        </>)}
         {state === "CHECKED_IN" && (<>
           <button onClick={() => doAction(() => attendanceApi.breakOut())} disabled={loading}
             className="flex-1 bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-orange-600 disabled:opacity-50">외출</button>
@@ -128,29 +197,316 @@ function CheckInWidget({ today, onAction }: { today: TodayRecord | null; onActio
   );
 }
 
-// ─── Monthly Calendar ─────────────────────────────────────────────────────────
+// ─── Time Input (HH:mm, 시/분 개별 클릭 편집) ───────────────────────────────
 
-const STATUS_LABELS: Record<string, { icon: string; color: string }> = {
-  NORMAL:  { icon: "✓", color: "text-green-600" },
-  LATE:    { icon: "✓", color: "text-orange-500" },
-  ABSENT:  { icon: "✗", color: "text-red-500" },
-  LEAVE:   { icon: "휴", color: "text-blue-600" },
-  HOLIDAY: { icon: "•", color: "text-gray-400" },
-};
+function TimeInput({ value, onChange, nextRef, hInputRef }: { value: string; onChange: (v: string) => void; nextRef?: React.RefObject<HTMLInputElement | null>; hInputRef?: React.RefObject<HTMLInputElement | null> }) {
+  const [h, m] = value.split(":");
+  const [hDraft, setHDraft] = useState(h);
+  const [mDraft, setMDraft] = useState(m);
+  const mRef = useRef<HTMLInputElement>(null);
 
-function MonthlyCalendar({ year, month }: { year: number; month: number }) {
+  useEffect(() => { setHDraft(h); setMDraft(m); }, [h, m]);
+
+  const commitH = (v: string) => {
+    const n = Math.min(23, Math.max(0, parseInt(v) || 0));
+    const padded = String(n).padStart(2, "0");
+    setHDraft(padded);
+    onChange(`${padded}:${m}`);
+  };
+  const commitM = (v: string) => {
+    const n = Math.min(59, Math.max(0, parseInt(v) || 0));
+    const padded = String(n).padStart(2, "0");
+    setMDraft(padded);
+    onChange(`${h}:${padded}`);
+  };
+
+  const inputCls = "w-8 text-center bg-transparent text-sm font-medium focus:outline-none focus:bg-teal-50 rounded";
+
+  return (
+    <div className="flex items-center border border-gray-300 rounded-lg px-2 py-2 focus-within:ring-2 focus-within:ring-teal-500">
+      <input ref={hInputRef} type="text" inputMode="numeric" maxLength={2}
+        value={hDraft} onFocus={(e) => e.target.select()}
+        onChange={(e) => {
+          const raw = e.target.value.replace(/\D/g, "").slice(0, 2);
+          setHDraft(raw);
+          if (raw.length >= 2) { commitH(raw); mRef.current?.focus(); }
+        }}
+        onBlur={(e) => commitH(e.target.value)}
+        className={inputCls} />
+      <span className="text-gray-400 text-sm font-medium">:</span>
+      <input ref={mRef} type="text" inputMode="numeric" maxLength={2}
+        value={mDraft} onFocus={(e) => e.target.select()}
+        onChange={(e) => {
+          const raw = e.target.value.replace(/\D/g, "").slice(0, 2);
+          setMDraft(raw);
+          if (raw.length >= 2) { commitM(raw); nextRef?.current?.focus(); }
+        }}
+        onBlur={(e) => commitM(e.target.value)}
+        className={inputCls} />
+    </div>
+  );
+}
+
+// ─── Work Entry Modal (근태 추가/수정) ───────────────────────────────────────
+
+function getDatesInRange(start: string, end: string): string[] {
+  const dates: string[] = [];
+  const cur = new Date(start);
+  const last = new Date(end);
+  while (cur <= last) {
+    dates.push(toDateStr(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return dates;
+}
+
+function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete }: {
+  date: string;
+  entry?: WorkScheduleEntry | null;
+  onClose: () => void;
+  onSuccess: () => void;
+  onDelete?: (id: string) => void;
+}) {
+  const isEdit = !!entry;
+  const isEditable = !entry || entry.sourceType === "MANUAL";
+  const hasGroup = !!(entry?.groupId);
+  const [startDate, setStartDate] = useState(date);
+  const [endDate, setEndDate] = useState(date);
+  const [entryType, setEntryType] = useState(entry?.entryType ?? "FIELD");
+  const [startTime, setStartTime] = useState(entry?.startTime ?? "09:30");
+  const [endTime, setEndTime] = useState(entry?.endTime ?? "18:30");
+  const endTimeHRef = useRef<HTMLInputElement>(null);
+  const [label, setLabel] = useState(entry?.label ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [groupAction, setGroupAction] = useState<"single" | "group">(hasGroup ? "group" : "single");
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true); setError(null);
+    try {
+      if (isEdit && entry) {
+        if (hasGroup && groupAction === "group") {
+          await attendanceOverviewApi.updateGroup(entry.groupId!, {
+            entryType,
+            startTime,
+            endTime,
+            label: label.trim(),
+          });
+        } else {
+          await attendanceOverviewApi.updateEntry(entry.id, {
+            entryType,
+            startTime,
+            endTime,
+            label: label.trim(),
+          });
+        }
+      } else {
+        const isMultiDay = entryType === "BUSINESS_TRIP" || entryType === "TRAINING";
+        const dates = isMultiDay ? getDatesInRange(startDate, endDate) : [startDate];
+        const gId = dates.length > 1 ? (Math.random().toString(36).slice(2) + Date.now().toString(36)) : undefined;
+        for (const d of dates) {
+          await attendanceOverviewApi.createEntry({
+            date: d,
+            entryType,
+            startTime,
+            endTime,
+            ...(label.trim() ? { label: label.trim() } : {}),
+            ...(gId ? { groupId: gId } : {}),
+          });
+        }
+      }
+      onSuccess();
+      onClose();
+    } catch (e: any) { setError(e.message); }
+    finally { setSaving(false); }
+  };
+
+  const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
+  const fmtDateLabel = (ds: string) => {
+    const d = new Date(ds);
+    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")} (${DAY_NAMES[d.getDay()]})`;
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-semibold text-gray-900">{isEdit ? "근태 수정" : "근태 추가"}</h3>
+            {isEdit && <p className="text-xs text-gray-500 mt-0.5">{fmtDateLabel(date)}</p>}
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+        </div>
+
+        {!isEditable ? (
+          <div className="space-y-3">
+            <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-600">
+              <p className="font-medium mb-1">{ENTRY_LABELS[entry!.entryType] ?? entry!.entryType}</p>
+              {entry!.startTime && <p className="text-xs">{entry!.startTime}{entry!.endTime ? ` ~ ${entry!.endTime}` : ""}</p>}
+              {entry!.label && <p className="text-xs text-gray-500">{entry!.label}</p>}
+              <p className="text-[10px] text-gray-400 mt-2">자동 생성된 항목은 수정할 수 없습니다.</p>
+            </div>
+            <button type="button" onClick={onClose} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">닫기</button>
+          </div>
+        ) : (
+          <form onSubmit={submit} className="space-y-3">
+            {/* 그룹 수정 범위 선택 (수정 모드 + groupId 있을 때) */}
+            {isEdit && hasGroup && (
+              <div className="flex gap-2 p-2 bg-gray-50 rounded-lg">
+                <button type="button" onClick={() => setGroupAction("single")}
+                  className={`flex-1 text-xs py-1.5 rounded-md font-medium transition-colors ${groupAction === "single" ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"}`}>
+                  이 항목만
+                </button>
+                <button type="button" onClick={() => setGroupAction("group")}
+                  className={`flex-1 text-xs py-1.5 rounded-md font-medium transition-colors ${groupAction === "group" ? "bg-white shadow text-teal-700" : "text-gray-500 hover:text-gray-700"}`}>
+                  전체 일정
+                </button>
+              </div>
+            )}
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">근태 유형</label>
+              <select value={entryType} onChange={(e) => setEntryType(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                {ALL_ENTRY_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </div>
+            {/* 날짜 선택 (추가 모드만) */}
+            {!isEdit && (entryType === "BUSINESS_TRIP" || entryType === "TRAINING" ? (
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">시작일</label>
+                  <input type="date" value={startDate} required onChange={(e) => {
+                    setStartDate(e.target.value);
+                    if (e.target.value > endDate) setEndDate(e.target.value);
+                  }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">종료일</label>
+                  <input type="date" value={endDate} required min={startDate} onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">날짜</label>
+                <input type="date" value={startDate} required onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+            ))}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">시작 시간</label>
+                <TimeInput value={startTime} onChange={setStartTime} nextRef={endTimeHRef} />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">종료 시간</label>
+                <TimeInput value={endTime} onChange={setEndTime} hInputRef={endTimeHRef} />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">내용 (선택)</label>
+              <input type="text" value={label} onChange={(e) => setLabel(e.target.value)}
+                placeholder="예: 강남 현장, 안전교육"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            </div>
+            {error && <p className="text-xs text-red-500">{error}</p>}
+            <div className="flex gap-2 pt-1">
+              {isEdit && onDelete && (
+                <button type="button" onClick={async () => {
+                  if (hasGroup && groupAction === "group") {
+                    try { await attendanceOverviewApi.deleteGroup(entry!.groupId!); } catch {}
+                    onSuccess(); onClose();
+                  } else {
+                    onDelete(entry!.id); onClose();
+                  }
+                }}
+                  className="px-3 py-2 border border-red-300 text-red-600 rounded-lg text-sm hover:bg-red-50">
+                  {hasGroup && groupAction === "group" ? "전체 삭제" : "삭제"}
+                </button>
+              )}
+              <button type="button" onClick={onClose} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">취소</button>
+              <button type="submit" disabled={saving} className="flex-1 bg-teal-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-teal-700 disabled:opacity-50">
+                {saving ? (isEdit ? "수정 중..." : "등록 중...") : (isEdit ? "수정" : "등록")}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Monthly Calendar with Work Schedule Entries ─────────────────────────────
+
+function MonthlyCalendar({ year, month, refresh, onEntryChanged }: {
+  year: number;
+  month: number;
+  refresh: number;
+  onEntryChanged: () => void;
+}) {
   const [days, setDays] = useState<CalendarDay[]>([]);
   const [summary, setSummary] = useState<any>(null);
+  const [entries, setEntries] = useState<WorkScheduleEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [addingDate, setAddingDate] = useState<string | null>(null);
+  const [editingEntry, setEditingEntry] = useState<{ date: string; entry: WorkScheduleEntry } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    Promise.all([attendanceApi.getCalendar(year, month), attendanceApi.getSummary(year, month)])
-      .then(([cal, sum]) => { if (!cancelled) { setDays(cal.days ?? []); setSummary(sum); setLoading(false); } })
+
+    const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+    const currentUser = getUser();
+
+    Promise.all([
+      attendanceApi.getCalendar(year, month),
+      attendanceApi.getSummary(year, month),
+      attendanceOverviewApi.getWeekly(startDate, endDate),
+    ])
+      .then(([cal, sum, wsData]) => {
+        if (cancelled) return;
+        setDays(cal.days ?? []);
+        setSummary(sum);
+
+        // 내 엔트리만 추출
+        const myEntries: WorkScheduleEntry[] = [];
+        const collect = (members: any[]) => {
+          for (const m of members) {
+            if (currentUser && m.userId === currentUser.id) {
+              for (const e of m.entries) myEntries.push(e);
+            }
+          }
+        };
+        if (wsData.departments) for (const d of wsData.departments) collect(d.members);
+        if (wsData.unassigned) collect(wsData.unassigned);
+        setEntries(myEntries);
+        setLoading(false);
+      })
       .catch(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [year, month]);
+  }, [year, month, refresh]);
+
+  const entriesByDate = useMemo(() => {
+    const map = new Map<string, WorkScheduleEntry[]>();
+    for (const e of entries) {
+      if (!map.has(e.date)) map.set(e.date, []);
+      map.get(e.date)!.push(e);
+    }
+    return map;
+  }, [entries]);
+
+  const handleDeleteEntry = async (id: string) => {
+    try {
+      await attendanceOverviewApi.deleteEntry(id);
+      setEntries((prev) => prev.filter((e) => e.id !== id));
+      onEntryChanged();
+    } catch {}
+  };
 
   if (loading) return <div className="text-sm text-gray-400 py-6 text-center">불러오는 중...</div>;
 
@@ -158,7 +514,7 @@ function MonthlyCalendar({ year, month }: { year: number; month: number }) {
   const cells: (CalendarDay | null)[] = [...Array(firstDay).fill(null), ...days];
   while (cells.length % 7 !== 0) cells.push(null);
   const DAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
-  const today = new Date().toISOString().slice(0, 10);
+  const todayStr = toDateStr(new Date());
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -180,32 +536,97 @@ function MonthlyCalendar({ year, month }: { year: number; month: number }) {
         </div>
         <div className="grid grid-cols-7 gap-0.5">
           {cells.map((cell, idx) => {
-            if (!cell) return <div key={`empty-${idx}`} className="h-14 rounded-lg" />;
+            if (!cell) return <div key={`empty-${idx}`} className="min-h-[72px] rounded-lg" />;
             const dayNum = parseInt(cell.date.slice(8));
-            const isToday = cell.date === today;
+            const isToday = cell.date === todayStr;
             const dow = new Date(cell.date).getDay();
-            const meta = STATUS_LABELS[cell.status] ?? { icon: "", color: "text-gray-400" };
+            const dayEntries = entriesByDate.get(cell.date) ?? [];
+
             return (
-              <div key={cell.date} className={`h-14 rounded-lg p-1.5 flex flex-col ${
-                isToday ? "bg-blue-50 ring-1 ring-blue-300" :
-                cell.isHoliday || cell.isWeekend ? "bg-gray-50" : "hover:bg-gray-50"
-              }`}>
-                <span className={`text-xs font-medium ${
-                  isToday ? "text-blue-700 font-bold" :
-                  dow === 0 || cell.isHoliday ? "text-red-500" :
-                  dow === 6 ? "text-blue-500" : "text-gray-700"
-                }`}>{dayNum}</span>
-                {cell.isHoliday && <span className="text-[10px] text-red-400 truncate">{cell.holidayName}</span>}
-                {!cell.isHoliday && cell.status && cell.status !== "HOLIDAY" && (
-                  <span className={`text-xs font-bold ${meta.color}`}>{meta.icon}</span>
-                )}
-                {cell.isLate && <span className="text-[10px] text-orange-500">지각</span>}
-                {cell.otHours > 0 && <span className="text-[10px] text-purple-500 mt-auto">OT {cell.otHours}h</span>}
+              <div key={cell.date}
+                className={`min-h-[72px] rounded-lg p-1 flex flex-col transition-colors group ${
+                  isToday ? "bg-blue-50 ring-1 ring-blue-300" :
+                  cell.isHoliday || cell.isWeekend ? "bg-gray-50" : ""
+                }`}>
+                {/* 날짜 헤더 + 출퇴근 — 고정 높이로 엔트리 시작 위치 통일 */}
+                <div className="h-[40px] flex-shrink-0">
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs font-medium leading-none ${
+                      isToday ? "text-blue-700 font-bold" :
+                      dow === 0 || cell.isHoliday ? "text-red-500" :
+                      dow === 6 ? "text-blue-500" : "text-gray-700"
+                    }`}>{dayNum}</span>
+                    <button onClick={() => setAddingDate(cell.date)}
+                      className="text-gray-300 hover:text-teal-600 hover:bg-teal-50 rounded text-xs leading-none transition-colors w-4 h-4 flex items-center justify-center opacity-0 group-hover:opacity-100"
+                      title="근태 추가">+</button>
+                  </div>
+                  {cell.isHoliday
+                    ? <span className="text-[9px] text-red-400 truncate leading-tight">{cell.holidayName}</span>
+                    : cell.checkIn && (
+                      <span className="text-[9px] text-gray-400 leading-tight">
+                        {fmtTime(cell.checkIn).slice(0, 5)}{cell.checkOut ? `~${fmtTime(cell.checkOut).slice(0, 5)}` : ""}
+                      </span>
+                    )
+                  }
+                </div>
+
+                {/* 근태 엔트리 블록 — 3줄: 유형 / 시간 / 내용 */}
+                <div className="flex flex-col gap-0.5">
+                  {dayEntries.slice(0, 2).map((entry) => {
+                    const timeStr = entry.startTime && entry.endTime
+                      ? `${entry.startTime}~${entry.endTime}`
+                      : entry.startTime ? `${entry.startTime}~` : "";
+                    return (
+                      <div key={entry.id}
+                        onClick={() => setEditingEntry({ date: cell.date, entry })}
+                        className={`rounded px-1 py-0.5 cursor-pointer hover:opacity-80 transition-opacity ${ENTRY_COLORS[entry.entryType] ?? "bg-gray-100 text-gray-600"}`}
+                        title={[ENTRY_LABELS[entry.entryType], timeStr, entry.label].filter(Boolean).join(" / ")}>
+                        <div className="text-[10px] font-medium leading-tight truncate">
+                          {ENTRY_LABELS[entry.entryType] ?? entry.entryType}
+                        </div>
+                        {timeStr && (
+                          <div className="text-[9px] leading-tight opacity-75 truncate">{timeStr}</div>
+                        )}
+                        {entry.label && (
+                          <div className="text-[9px] leading-tight opacity-60 truncate">{entry.label}</div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {dayEntries.length > 2 && (
+                    <span className="text-[9px] text-gray-400">+{dayEntries.length - 2}건</span>
+                  )}
+
+                  {/* OT 표시 */}
+                  {cell.otHours > 0 && !dayEntries.some((e) => e.entryType === "OT") && (
+                    <span className="text-[9px] text-purple-500 leading-tight">OT {cell.otHours}h</span>
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
       </div>
+
+      {/* 근태 추가 모달 */}
+      {addingDate && (
+        <WorkEntryModal
+          date={addingDate}
+          onClose={() => setAddingDate(null)}
+          onSuccess={() => { onEntryChanged(); }}
+        />
+      )}
+
+      {/* 근태 수정 모달 */}
+      {editingEntry && (
+        <WorkEntryModal
+          date={editingEntry.date}
+          entry={editingEntry.entry}
+          onClose={() => setEditingEntry(null)}
+          onSuccess={() => { onEntryChanged(); }}
+          onDelete={(id) => { handleDeleteEntry(id); }}
+        />
+      )}
     </div>
   );
 }
@@ -240,16 +661,21 @@ function LeaveBalanceCard({ balance }: { balance: LeaveBalance | null }) {
 // ─── Leave Request Form ───────────────────────────────────────────────────────
 
 const LEAVE_TYPES = [
-  { value: "ANNUAL", label: "연차" },
+  { value: "ANNUAL", label: "연차 (1일)" },
+  { value: "HALF_AM", label: "반차-오전 (0.5일)" },
+  { value: "HALF_PM", label: "반차-오후 (0.5일)" },
+  { value: "QUARTER", label: "1/4차 (2시간)" },
+  { value: "FAMILY", label: "가정의날 (1시간)" },
   { value: "SICK", label: "병가" },
-  { value: "HALF_AM", label: "반차(오전)" },
-  { value: "HALF_PM", label: "반차(오후)" },
   { value: "SPECIAL", label: "특별휴가" },
 ];
 
 function LeaveRequestForm({ onSuccess }: { onSuccess: () => void }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ type: "ANNUAL", startDate: "", endDate: "", reason: "" });
+  const [leaveStartTime, setLeaveStartTime] = useState("09:30");
+  const [leaveEndTime, setLeaveEndTime] = useState("18:30");
+  const leaveEndTimeHRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [approverId, setApproverId] = useState<string>("");
@@ -308,18 +734,38 @@ function LeaveRequestForm({ onSuccess }: { onSuccess: () => void }) {
                   {LEAVE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs text-gray-600 mb-1">시작일</label>
-                  <input type="date" value={form.startDate} required onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              {["HALF_AM", "HALF_PM", "QUARTER", "FAMILY"].includes(form.type) ? (
+                <>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">날짜</label>
+                    <input type="date" value={form.startDate} required onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value, endDate: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">시작 시간</label>
+                      <TimeInput value={leaveStartTime} onChange={setLeaveStartTime} nextRef={leaveEndTimeHRef} />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">종료 시간</label>
+                      <TimeInput value={leaveEndTime} onChange={setLeaveEndTime} hInputRef={leaveEndTimeHRef} />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">시작일</label>
+                    <input type="date" value={form.startDate} required onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">종료일</label>
+                    <input type="date" value={form.endDate} required min={form.startDate} onChange={(e) => setForm((p) => ({ ...p, endDate: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs text-gray-600 mb-1">종료일</label>
-                  <input type="date" value={form.endDate} required onChange={(e) => setForm((p) => ({ ...p, endDate: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                </div>
-              </div>
+              )}
               <div>
                 <label className="block text-xs text-gray-600 mb-1">사유</label>
                 <input type="text" value={form.reason} required onChange={(e) => setForm((p) => ({ ...p, reason: e.target.value }))}
@@ -442,12 +888,12 @@ function LeaveHistory({ refresh }: { refresh: number }) {
 
   useEffect(() => {
     setLoading(true);
-    leaveApi.list().then(setItems).catch(() => {}).finally(() => setLoading(false));
+    leaveApi.list().then((list) => setItems(list.filter((i: any) => i.status !== "CANCELLED"))).catch(() => {}).finally(() => setLoading(false));
   }, [refresh]);
 
   const cancel = async (id: string) => {
     await leaveApi.cancel(id);
-    setItems((prev) => prev.map((i) => i.id === id ? { ...i, status: "CANCELLED" } : i));
+    setItems((prev) => prev.filter((i) => i.id !== id));
   };
 
   if (loading) return <div className="text-xs text-gray-400 py-4 text-center">불러오는 중...</div>;
@@ -555,7 +1001,6 @@ export default function AttendanceView() {
 
   useEffect(() => { loadToday(); loadBalance(); }, []);
 
-  // 헤더 출근 버튼 등 외부 액션과 연동
   useEffect(() => {
     const handler = () => { loadToday(); setRefresh((r) => r + 1); };
     window.addEventListener("attendance-updated", handler);
@@ -574,7 +1019,7 @@ export default function AttendanceView() {
   return (
     <div className="space-y-6">
       {/* 신청 버튼 */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <LeaveRequestForm onSuccess={() => { setRefresh((r) => r + 1); loadBalance(); }} />
         <OvertimeRequestForm onSuccess={() => setRefresh((r) => r + 1)} />
       </div>
@@ -586,7 +1031,7 @@ export default function AttendanceView() {
         <LeaveBalanceCard balance={balance} />
       </div>
 
-      {/* 월간 달력 */}
+      {/* 월간 달력 (근태 통합) */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-gray-900">월간 근태 현황</h2>
@@ -596,7 +1041,8 @@ export default function AttendanceView() {
             <button onClick={() => navigateMonth(1)} className="p-1 text-gray-400 hover:text-gray-700 border border-gray-200 rounded">›</button>
           </div>
         </div>
-        <MonthlyCalendar year={year} month={month} />
+        <MonthlyCalendar year={year} month={month} refresh={refresh} onEntryChanged={() => setRefresh((r) => r + 1)} />
+        <p className="text-[10px] text-gray-400 mt-1.5 ml-1">날짜를 클릭하여 근태를 추가할 수 있습니다</p>
       </div>
 
       {/* 휴가 / OT 내역 */}

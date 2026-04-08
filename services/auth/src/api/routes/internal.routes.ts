@@ -107,6 +107,37 @@ export async function internalRoutes(
     return reply.send(users);
   });
 
+  // GET /internal/users/all-with-departments — 전체 사용자 + 부서 정보
+  fastify.get("/users/all-with-departments", async (req, reply) => {
+    const profiles = await prisma.userProfile.findMany({
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+        department: { select: { id: true, name: true, sortOrder: true } },
+      },
+    });
+    const result = profiles.map((p) => ({
+      id: p.user.id,
+      name: p.user.name,
+      email: p.user.email,
+      departmentId: p.department?.id ?? null,
+      departmentName: p.department?.name ?? null,
+      departmentSortOrder: p.department?.sortOrder ?? 999,
+    }));
+    // UserProfile 없는 사용자도 포함
+    const profileUserIds = new Set(profiles.map((p) => p.userId));
+    const orphans = await prisma.user.findMany({
+      where: { id: { notIn: Array.from(profileUserIds) } },
+      select: { id: true, name: true, email: true },
+    });
+    for (const u of orphans) {
+      result.push({
+        id: u.id, name: u.name, email: u.email,
+        departmentId: null, departmentName: null, departmentSortOrder: 999,
+      });
+    }
+    return reply.send(result);
+  });
+
   // GET /internal/departments/:id/members
   fastify.get("/departments/:id/members", async (req, reply) => {
     const { id } = req.params as { id: string };

@@ -203,7 +203,10 @@
       "Bash(grep -n \"allProjects\\\\|dropDown\\\\|projectList\\\\|ProjectSearch\\\\|프로젝트 검색\\\\|주간업무\\\\|관련테스트\" E:/claude/ERP_OT/apps/web/src/app/projects/[id]/page.tsx)",
       "Bash(grep -n \"owner\\\\|ownerId\\\\|소유자\" E:/claude/ERP_OT/apps/web/src/app/projects/[id]/page.tsx)",
       "Bash(grep -v \"^$\")",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(npx next:*)",
+      "Bash(npx -y tsc --noEmit --project apps/web/tsconfig.json)",
+      "Bash(timeout 15 bash -c 'until curl -s http://localhost:3000 > /dev/null 2>&1; do sleep 2; done; echo \"Web is up\"')"
     ]
   }
 }

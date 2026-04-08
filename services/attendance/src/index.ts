@@ -13,12 +13,14 @@ import { overtimeRoutes } from "./api/routes/overtime.routes.js";
 import { policyRoutes } from "./api/routes/policy.routes.js";
 import { teamRoutes } from "./api/routes/team.routes.js";
 import { notificationRoutes } from "./api/routes/notification.routes.js";
+import { workScheduleRoutes } from "./api/routes/work-schedule.routes.js";
 
 import { AttendanceService } from "./application/attendance.service.js";
 import { LeaveService } from "./application/leave.service.js";
 import { OvertimeService } from "./application/overtime.service.js";
 import { PolicyService } from "./application/policy.service.js";
 import { NotificationService } from "./application/notification.service.js";
+import { WorkScheduleService } from "./application/work-schedule.service.js";
 import { AuthClient } from "./infrastructure/auth-client.js";
 
 // ─── Env 검증 ──────────────────────────────────────────────────────────────
@@ -50,6 +52,7 @@ const overtimeService = new OvertimeService(prisma);
 const policyService = new PolicyService(prisma);
 const notificationService = new NotificationService(prisma, redis);
 const authClient = new AuthClient(env.AUTH_SERVICE_URL, env.INTERNAL_API_TOKEN, redis);
+const workScheduleService = new WorkScheduleService(prisma, authClient);
 
 // ─── Type declarations ─────────────────────────────────────────────────────
 declare module "fastify" {
@@ -59,6 +62,7 @@ declare module "fastify" {
     overtimeService: OvertimeService;
     policyService: PolicyService;
     notificationService: NotificationService;
+    workScheduleService: WorkScheduleService;
     authClient: AuthClient;
     prisma: PrismaClient;
   }
@@ -76,6 +80,7 @@ async function buildApp() {
   app.decorate("overtimeService", overtimeService);
   app.decorate("policyService", policyService);
   app.decorate("notificationService", notificationService);
+  app.decorate("workScheduleService", workScheduleService);
   app.decorate("authClient", authClient);
   app.decorate("prisma", prisma);
 
@@ -106,6 +111,7 @@ async function buildApp() {
   app.register(policyRoutes, { prefix: "/api/v1/policy" });
   app.register(teamRoutes, { prefix: "/api/v1/team" });
   app.register(notificationRoutes, { prefix: "/api/v1/notifications" });
+  app.register(workScheduleRoutes, { prefix: "/api/v1/work-schedule" });
 
   return app;
 }

@@ -329,6 +329,23 @@ export const workScheduleApi = {
     request<any>(`/policy/work-schedule/${userId}`, { method: "DELETE" }),
 };
 
+// ─── Attendance Overview (근태현황) ──────────────────────────────────────────
+
+export const attendanceOverviewApi = {
+  getWeekly: (start: string, end: string) =>
+    request<any>(`/work-schedule?start=${start}&end=${end}`),
+  createEntry: (data: { date: string; entryType: string; startTime?: string; endTime?: string; label?: string; groupId?: string }) =>
+    request<any>("/work-schedule", { method: "POST", body: JSON.stringify(data) }),
+  updateEntry: (id: string, data: { entryType?: string; startTime?: string; endTime?: string; label?: string }) =>
+    request<any>(`/work-schedule/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteEntry: (id: string) =>
+    request<void>(`/work-schedule/${id}`, { method: "DELETE" }),
+  updateGroup: (groupId: string, data: { entryType?: string; startTime?: string; endTime?: string; label?: string }) =>
+    request<any>(`/work-schedule/group/${groupId}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteGroup: (groupId: string) =>
+    request<any>(`/work-schedule/group/${groupId}`, { method: "DELETE" }),
+};
+
 // ─── Leave ────────────────────────────────────────────────────────────────────
 
 export const leaveApi = {

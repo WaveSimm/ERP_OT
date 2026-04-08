@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { resourceApi, resourceGroupApi, taskApi, userManagementApi, getUser } from "@/lib/api";
 import AppLayout from "@/components/AppLayout";
 import UserAccountsTab from "@/components/UserAccountsTab";
+import AttendanceOverview from "@/components/AttendanceOverview";
 
 const TYPE_LABELS: Record<string, string> = {
   PERSON: "👤 인력",
@@ -112,7 +113,7 @@ function DropLine() {
 
 // ─── 메인 컴포넌트 ────────────────────────────────────────────────────────────
 
-type ResourceTab = "dashboard" | "people" | "equipment";
+type ResourceTab = "dashboard" | "people" | "equipment" | "attendance";
 
 export default function ResourcesPage() {
   const router = useRouter();
@@ -126,6 +127,7 @@ export default function ResourcesPage() {
       const resolved: ResourceTab =
         urlTab === "users" || urlTab === "list" || urlTab === "people" ? "people"
         : urlTab === "equipment" ? "equipment"
+        : urlTab === "attendance" ? "attendance"
         : urlTab === "dashboard" ? "dashboard" : "dashboard";
       setResourceTab(resolved);
       try { sessionStorage.setItem(TAB_KEY, resolved); } catch {}
@@ -135,6 +137,7 @@ export default function ResourcesPage() {
         const saved = sessionStorage.getItem(TAB_KEY);
         if (saved === "list" || saved === "users" || saved === "people") setResourceTab("people");
         else if (saved === "equipment") setResourceTab("equipment");
+        else if (saved === "attendance") setResourceTab("attendance");
         else if (saved === "dashboard") setResourceTab("dashboard");
       } catch {}
     }
@@ -797,6 +800,7 @@ export default function ResourcesPage() {
             { key: "dashboard",  label: "운영 현황" },
             { key: "people",     label: "인력자원" },
             { key: "equipment",  label: "비인력 자원" },
+            { key: "attendance", label: "근태현황" },
           ] as { key: ResourceTab; label: string }[]).map((t) => (
             <button key={t.key}
               onClick={() => { setResourceTab(t.key); try { sessionStorage.setItem(TAB_KEY, t.key); } catch {} }}
@@ -973,6 +977,10 @@ export default function ResourcesPage() {
           </div>
         )}
 
+        {/* 근태현황 탭 */}
+        {resourceTab === "attendance" && (
+          <AttendanceOverview />
+        )}
 
       </div>
 

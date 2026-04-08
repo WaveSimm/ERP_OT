@@ -43,7 +43,12 @@ export class OvertimeService {
       where: { id, userId, status: { in: ["PENDING", "PENDING_2ND", "PENDING_3RD", "APPROVED"] as any[] } },
     });
     if (!req) throw new Error("취소할 수 없는 신청입니다.");
-    return this.prisma.overtimeRequest.update({ where: { id }, data: { status: "CANCELLED" } });
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.overtimeRequest.update({ where: { id }, data: { status: "CANCELLED" } });
+      // 근태현황 엔트리 삭제
+      await tx.workScheduleEntry.deleteMany({ where: { sourceId: id } });
+      return updated;
+    });
   }
 
   async getPending(approverId: string) {
@@ -74,12 +79,25 @@ export class OvertimeService {
       nextStatus = "APPROVED";
     }
 
+    if (nextStatus === "APPROVED") {
+      return this.prisma.$transaction(async (tx) => {
+        const updated = await tx.overtimeRequest.update({
+          where: { id },
+          data: { status: "APPROVED" as any, approvedAt: new Date() },
+        });
+        // 근태현황 캘린더에 OT 자동 반영
+        await tx.workScheduleEntry.upsert({
+          where: { userId_date_entryType_sourceId: { userId: req.userId, date: req.date, entryType: "OT", sourceId: id } },
+          create: { userId: req.userId, date: req.date, entryType: "OT", sourceType: "OT_APPROVED", sourceId: id, label: `${req.plannedHours}h` },
+          update: {},
+        });
+        return updated;
+      });
+    }
+
     return this.prisma.overtimeRequest.update({
       where: { id },
-      data: {
-        status: nextStatus as any,
-        ...(nextStatus === "APPROVED" ? { approvedAt: new Date() } : {}),
-      },
+      data: { status: nextStatus as any },
     });
   }
 

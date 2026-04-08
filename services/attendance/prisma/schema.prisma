@@ -35,6 +35,8 @@ enum LeaveType {
   ANNUAL
   HALF_AM
   HALF_PM
+  QUARTER
+  FAMILY
   SICK
   SPECIAL
 
@@ -58,6 +60,31 @@ enum CheckState {
   CHECKED_IN
   ON_BREAK
   CHECKED_OUT
+
+  @@schema("attendance")
+}
+
+enum EntryType {
+  WORK
+  FIELD
+  TRAINING
+  BUSINESS_TRIP
+  HALF_AM
+  HALF_PM
+  QUARTER
+  FAMILY
+  ANNUAL
+  SICK
+  SPECIAL
+  OT
+
+  @@schema("attendance")
+}
+
+enum EntrySource {
+  MANUAL
+  LEAVE_APPROVED
+  OT_APPROVED
 
   @@schema("attendance")
 }
@@ -239,6 +266,32 @@ model PublicHoliday {
 // ─────────────────────────────────────────────
 // 6. 알림
 // ─────────────────────────────────────────────
+
+// ─────────────────────────────────────────────
+// 8. 근태현황 캘린더 (Work Schedule Entries)
+// ─────────────────────────────────────────────
+
+model WorkScheduleEntry {
+  id          String      @id @default(cuid())
+  userId      String
+  date        DateTime    @db.Date
+  entryType   EntryType
+  startTime   String?     // "HH:mm" 형식
+  endTime     String?     // "HH:mm" 형식
+  label       String?
+  groupId     String?     // 여러 날 근태를 묶는 그룹 ID
+  sourceType  EntrySource @default(MANUAL)
+  sourceId    String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([userId, date, entryType, sourceId])
+  @@index([userId, date])
+  @@index([date])
+  @@index([sourceId])
+  @@map("work_schedule_entries")
+  @@schema("attendance")
+}
 
 model Notification {
   id        String   @id @default(cuid())

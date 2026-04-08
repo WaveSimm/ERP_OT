@@ -30,8 +30,8 @@ export class AttendanceService {
     const policy = await this.getPolicy(userId);
     const now = new Date();
     // workStartTime은 KST 기준("09:30") → UTC 타임스탬프로 변환
-    const todayKST = this.todayDate(); // "YYYY-MM-DD" (KST)
-    const workStart = new Date(`${todayKST}T${policy.workStartTime}:00+09:00`);
+    const todayStr = this.formatDate(today); // "YYYY-MM-DD"
+    const workStart = new Date(`${todayStr}T${policy.workStartTime}:00+09:00`);
     const toleranceMs = policy.lateToleranceMinutes * 60 * 1000;
     const isLate = now.getTime() > workStart.getTime() + toleranceMs;
     const lateMinutes = isLate ? Math.floor((now.getTime() - workStart.getTime()) / 60000) : 0;
