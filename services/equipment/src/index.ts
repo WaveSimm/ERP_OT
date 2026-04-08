@@ -25,11 +25,26 @@ import { TemplateService } from "./application/template.service.js";
 import { CustomerService } from "./application/customer.service.js";
 import { CustomerAssetService } from "./application/customer-asset.service.js";
 import { RepairOrderService } from "./application/repair-order.service.js";
+import { InspectionReportService } from "./application/inspection-report.service.js";
+import { RepairCostService } from "./application/repair-cost.service.js";
+import { RepairQuoteService } from "./application/repair-quote.service.js";
+import { PartService } from "./application/part.service.js";
+import { PurchaseOrderService } from "./application/purchase-order.service.js";
+import { ShipmentService } from "./application/shipment.service.js";
+import { RepairStatsService } from "./application/repair-stats.service.js";
 import { statsRoutes } from "./api/routes/stats.routes.js";
 import { templateRoutes } from "./api/routes/template.routes.js";
 import { customerRoutes } from "./api/routes/customer.routes.js";
 import { customerAssetRoutes } from "./api/routes/customer-asset.routes.js";
 import { repairOrderRoutes } from "./api/routes/repair-order.routes.js";
+import { inspectionReportRoutes } from "./api/routes/inspection-report.routes.js";
+import { repairCostRoutes } from "./api/routes/repair-cost.routes.js";
+import { repairQuoteRoutes } from "./api/routes/repair-quote.routes.js";
+import { partRoutes } from "./api/routes/part.routes.js";
+import { partTransactionRoutes } from "./api/routes/part-transaction.routes.js";
+import { purchaseOrderRoutes } from "./api/routes/purchase-order.routes.js";
+import { shipmentRoutes as shipmentMgmtRoutes } from "./api/routes/shipment.routes.js";
+import { repairStatsRoutes } from "./api/routes/repair-stats.routes.js";
 
 // ─── Env 검증 ──────────────────────────────────────────────────────────────
 const envSchema = z.object({
@@ -63,6 +78,13 @@ const templateService = new TemplateService(prisma);
 const customerService = new CustomerService(prisma);
 const customerAssetService = new CustomerAssetService(prisma);
 const repairOrderService = new RepairOrderService(prisma);
+const inspectionReportService = new InspectionReportService(prisma);
+const repairCostService = new RepairCostService(prisma);
+const repairQuoteService = new RepairQuoteService(prisma);
+const partService = new PartService(prisma);
+const purchaseOrderService = new PurchaseOrderService(prisma);
+const shipmentService = new ShipmentService(prisma);
+const repairStatsService = new RepairStatsService(prisma);
 
 // ─── Type declarations ─────────────────────────────────────────────────────
 declare module "fastify" {
@@ -79,6 +101,13 @@ declare module "fastify" {
     customerService: CustomerService;
     customerAssetService: CustomerAssetService;
     repairOrderService: RepairOrderService;
+    inspectionReportService: InspectionReportService;
+    repairCostService: RepairCostService;
+    repairQuoteService: RepairQuoteService;
+    partService: PartService;
+    purchaseOrderService: PurchaseOrderService;
+    shipmentService: ShipmentService;
+    repairStatsService: RepairStatsService;
     prisma: PrismaClient;
   }
 }
@@ -102,6 +131,13 @@ async function buildApp() {
   app.decorate("customerService", customerService);
   app.decorate("customerAssetService", customerAssetService);
   app.decorate("repairOrderService", repairOrderService);
+  app.decorate("inspectionReportService", inspectionReportService);
+  app.decorate("repairCostService", repairCostService);
+  app.decorate("repairQuoteService", repairQuoteService);
+  app.decorate("partService", partService);
+  app.decorate("purchaseOrderService", purchaseOrderService);
+  app.decorate("shipmentService", shipmentService);
+  app.decorate("repairStatsService", repairStatsService);
   app.decorate("prisma", prisma);
 
   await app.register(authMiddleware);
@@ -139,6 +175,14 @@ async function buildApp() {
   app.register(customerRoutes, { prefix: "/api/v1/customers" });
   app.register(customerAssetRoutes, { prefix: "/api/v1/customer-assets" });
   app.register(repairOrderRoutes, { prefix: "/api/v1/repair-orders" });
+  app.register(inspectionReportRoutes, { prefix: "/api/v1/inspection-reports" });
+  app.register(repairCostRoutes, { prefix: "/api/v1/repair-costs" });
+  app.register(repairQuoteRoutes, { prefix: "/api/v1/repair-quotes" });
+  app.register(partRoutes, { prefix: "/api/v1/parts" });
+  app.register(partTransactionRoutes, { prefix: "/api/v1/part-transactions" });
+  app.register(purchaseOrderRoutes, { prefix: "/api/v1/purchase-orders" });
+  app.register(shipmentMgmtRoutes, { prefix: "/api/v1/shipments" });
+  app.register(repairStatsRoutes, { prefix: "/api/v1/repair-stats" });
 
   return app;
 }

@@ -735,6 +735,101 @@ export const repairApi = {
   deleteRepairOrder: (id: string) =>
     request<void>(`/repair-orders/${id}`, { method: "DELETE" }),
   getTransitions: (id: string) => request<any>(`/repair-orders/${id}/transitions`),
+
+  // 점검보고서
+  getInspectionReport: (repairOrderId: string) =>
+    request<any>(`/inspection-reports?repairOrderId=${repairOrderId}`),
+  createInspectionReport: (data: any) =>
+    request<any>("/inspection-reports", { method: "POST", body: JSON.stringify(data) }),
+  updateInspectionReport: (id: string, data: any) =>
+    request<any>(`/inspection-reports/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+
+  // 비용
+  getRepairCosts: (repairOrderId: string) =>
+    request<any>(`/repair-costs?repairOrderId=${repairOrderId}`),
+  createRepairCost: (data: any) =>
+    request<any>("/repair-costs", { method: "POST", body: JSON.stringify(data) }),
+  updateRepairCost: (id: string, data: any) =>
+    request<any>(`/repair-costs/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteRepairCost: (id: string) =>
+    request<void>(`/repair-costs/${id}`, { method: "DELETE" }),
+
+  // 견적
+  getRepairQuotes: (repairOrderId: string) =>
+    request<any>(`/repair-quotes?repairOrderId=${repairOrderId}`),
+  createRepairQuote: (data: any) =>
+    request<any>("/repair-quotes", { method: "POST", body: JSON.stringify(data) }),
+  updateRepairQuote: (id: string, data: any) =>
+    request<any>(`/repair-quotes/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  changeQuoteStatus: (id: string, data: { status: string }) =>
+    request<any>(`/repair-quotes/${id}/status`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteRepairQuote: (id: string) =>
+    request<void>(`/repair-quotes/${id}`, { method: "DELETE" }),
+  addQuoteItem: (quoteId: string, data: any) =>
+    request<any>(`/repair-quotes/${quoteId}/items`, { method: "POST", body: JSON.stringify(data) }),
+  deleteQuoteItem: (itemId: string) =>
+    request<void>(`/repair-quotes/items/${itemId}`, { method: "DELETE" }),
+
+  // 부품
+  getParts: (params?: { search?: string; lowStock?: boolean; page?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.search) q.set("search", params.search);
+    if (params?.lowStock) q.set("lowStock", "true");
+    if (params?.page) q.set("page", String(params.page));
+    const qs = q.toString();
+    return request<any>(`/parts${qs ? `?${qs}` : ""}`);
+  },
+  getPart: (id: string) => request<any>(`/parts/${id}`),
+  createPart: (data: any) =>
+    request<any>("/parts", { method: "POST", body: JSON.stringify(data) }),
+  updatePart: (id: string, data: any) =>
+    request<any>(`/parts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deletePart: (id: string) =>
+    request<void>(`/parts/${id}`, { method: "DELETE" }),
+
+  // 부품 입출고
+  getPartTransactions: (params?: { partId?: string; repairOrderId?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.partId) q.set("partId", params.partId);
+    if (params?.repairOrderId) q.set("repairOrderId", params.repairOrderId);
+    const qs = q.toString();
+    return request<any>(`/part-transactions${qs ? `?${qs}` : ""}`);
+  },
+  createPartTransaction: (data: any) =>
+    request<any>("/part-transactions", { method: "POST", body: JSON.stringify(data) }),
+
+  // 발주
+  getPurchaseOrders: (params?: { status?: string; page?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set("status", params.status);
+    if (params?.page) q.set("page", String(params.page));
+    const qs = q.toString();
+    return request<any>(`/purchase-orders${qs ? `?${qs}` : ""}`);
+  },
+  createPurchaseOrder: (data: any) =>
+    request<any>("/purchase-orders", { method: "POST", body: JSON.stringify(data) }),
+  updatePurchaseOrder: (id: string, data: any) =>
+    request<any>(`/purchase-orders/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  receivePurchaseOrder: (id: string, data: { items: { itemId: string; receivedQuantity: number }[] }) =>
+    request<any>(`/purchase-orders/${id}/receive`, { method: "PATCH", body: JSON.stringify(data) }),
+
+  // 발송/입고
+  getShipments: (repairOrderId: string) =>
+    request<any>(`/shipments?repairOrderId=${repairOrderId}`),
+  createShipment: (data: any) =>
+    request<any>("/shipments", { method: "POST", body: JSON.stringify(data) }),
+  updateShipment: (id: string, data: any) =>
+    request<any>(`/shipments/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  changeShipmentStatus: (id: string, data: { status: string }) =>
+    request<any>(`/shipments/${id}/status`, { method: "PATCH", body: JSON.stringify(data) }),
+
+  // 통계
+  getRepairStatsSummary: () => request<any>("/repair-stats/summary"),
+  getRepairStatsByEquipment: () => request<any>("/repair-stats/by-equipment"),
+  getRepairStatsMonthly: (months?: number) =>
+    request<any>(`/repair-stats/monthly${months ? `?months=${months}` : ""}`),
+  getRepairStatsCosts: () => request<any>("/repair-stats/costs"),
+  getRepairStatsPartsUsage: () => request<any>("/repair-stats/parts-usage"),
 };
 
 /** @deprecated Use authApi.login instead */

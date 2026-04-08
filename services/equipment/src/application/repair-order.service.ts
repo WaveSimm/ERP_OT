@@ -197,7 +197,31 @@ export class RepairOrderService {
 
     const updateData: any = { status: newStatus as RepairOrderStatus };
 
-    // 자동 동작
+    // 자동 동작: 제조사 발송 시 Shipment(OUTBOUND) 자동 생성
+    if (newStatus === "SHIPPED_TO_MFG") {
+      await this.prisma.shipment.create({
+        data: {
+          repairOrderId: id,
+          direction: "OUTBOUND",
+          status: "PREPARING",
+        },
+      });
+    }
+
+    // 제조사 입고 시 OUTBOUND Shipment 상태 업데이트
+    if (newStatus === "RECEIVED_FROM_MFG") {
+      const outbound = await this.prisma.shipment.findFirst({
+        where: { repairOrderId: id, direction: "OUTBOUND" },
+        orderBy: { createdAt: "desc" },
+      });
+      if (outbound) {
+        await this.prisma.shipment.update({
+          where: { id: outbound.id },
+          data: { status: "DELIVERED", receivedAt: new Date() },
+        });
+      }
+    }
+
     if (newStatus === "COMPLETED") {
       updateData.completedAt = new Date();
       // MaintenanceRecord 자동 생성
