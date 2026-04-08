@@ -37,6 +37,7 @@ import { ProjectCacheService } from "./infrastructure/cache/project.cache.js";
 import { ProjectGateway } from "./infrastructure/websocket/project.gateway.js";
 import { RiskDetectionService } from "./application/risk-detection.service.js";
 import { DashboardService } from "./application/dashboard/dashboard.service.js";
+import { ActivityEventConsumer } from "./infrastructure/event-consumer.js";
 
 // ─── Env 검증 ─────────────────────────────────────────────────────────────────
 const envSchema = z.object({
@@ -210,6 +211,12 @@ async function start() {
   });
   gateway.setServer(io);
 
+  // RabbitMQ 이벤트 컨슈머 시작
+  const activityConsumer = new ActivityEventConsumer(prisma);
+  activityConsumer.start().catch((err) => {
+    app.log.error({ err }, "Failed to start activity event consumer");
+  });
+
   await app.listen({ port: PORT, host: "0.0.0.0" });
   app.log.info(`project-service running on port ${PORT}`);
 
@@ -236,6 +243,7 @@ async function start() {
   // Graceful shutdown
   const shutdown = async () => {
     app.log.info("Shutting down project-service...");
+    await activityConsumer.stop();
     await app.close();
     await prisma.$disconnect();
     redis.disconnect();

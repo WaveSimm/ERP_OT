@@ -70,7 +70,7 @@ export default function DepartmentsPage() {
   ) ?? null;
   const daepyoUsers = daepyoDept ? allUsers.filter((u) => u.profile?.departmentId === daepyoDept.id) : [];
 
-  // 총괄이사 후보: 임원 부서 소속 인원
+  // 이사 후보: 임원 부서 소속 인원
   const soukwalDept = daepyoDept ? departments.find((d) => d.parentId === daepyoDept.id) ?? null : null;
   const soukwalUsers = soukwalDept ? allUsers.filter((u) => u.profile?.departmentId === soukwalDept.id) : [];
 
@@ -118,7 +118,7 @@ export default function DepartmentsPage() {
         <div>
           <h1 className="text-xl font-bold text-gray-900">부서 관리</h1>
           <p className="text-xs text-gray-400 mt-0.5">
-            상위 부서를 설정하면 팀장 → 총괄이사 → 대표이사 계층이 자동 결정됩니다
+            상위 부서를 설정하면 팀장 → 이사 → 대표이사 계층이 자동 결정됩니다
           </p>
         </div>
         <button
@@ -137,7 +137,7 @@ export default function DepartmentsPage() {
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 w-12">인원</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 w-36">상위 부서</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-green-600 w-36">팀장</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-purple-600 w-36">총괄이사</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-purple-600 w-36">이사</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-amber-600 w-36">대표이사</th>
             </tr>
           </thead>
@@ -189,7 +189,7 @@ export default function DepartmentsPage() {
                     )}
                   </td>
 
-                  {/* 총괄이사: 팀마다 독립 설정 (soukwalUserId) */}
+                  {/* 이사: 팀마다 독립 설정 (soukwalUserId) */}
                   <td className="px-4 py-2.5">
                     {level === "leaf" ? (
                       <select
@@ -234,7 +234,7 @@ export default function DepartmentsPage() {
       </div>
 
       <p className="text-xs text-gray-400">
-        💡 사용법: 먼저 각 부서의 <strong>상위 부서</strong>를 설정하면 팀장/총괄이사/대표이사 컬럼이 자동으로 구성됩니다.
+        💡 사용법: 먼저 각 부서의 <strong>상위 부서</strong>를 설정하면 팀장/이사/대표이사 컬럼이 자동으로 구성됩니다.
       </p>
     </div>
   );

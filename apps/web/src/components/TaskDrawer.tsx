@@ -1131,9 +1131,10 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
                   <div key={d.id} className="bg-white border rounded p-2.5">
                     <div className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-1.5">
-                        <span>🔧</span>
-                        <span className="font-medium">{d.equipment?.name}</span>
-                        <span className="text-xs text-gray-400">{d.equipment?.category?.name}</span>
+                        <span>{d.equipment ? "🔧" : "📡"}</span>
+                        <span className="font-medium">{d.equipment?.name ?? (d.sensors?.[0]?.sensor?.name || "센서 단독")}</span>
+                        <span className="text-xs text-gray-400">{d.equipment?.category?.name ?? (d.sensors?.[0]?.sensor?.model || "")}</span>
+                        {!d.equipment && <span className="text-[10px] px-1 py-0.5 rounded bg-cyan-50 text-cyan-600">센서 단독</span>}
                         <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
                           d.status === "ACTIVE" ? "bg-blue-100 text-blue-700" :
                           d.status === "COMPLETED" ? "bg-green-100 text-green-700" :
@@ -1143,7 +1144,7 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
                       </div>
                       {d.status !== "COMPLETED" && (
                         <button onClick={async () => {
-                          if (!confirm(`${d.equipment?.name} 배정을 해제하시겠습니까?${d.sensors?.length > 0 ? " 센서도 반납됩니다." : ""} 기록이 삭제됩니다.`)) return;
+                          if (!confirm(`${d.equipment?.name ?? d.sensors?.[0]?.sensor?.name ?? "장비/센서"} 배정을 해제하시겠습니까?${d.sensors?.length > 0 && d.equipment ? " 센서도 반납됩니다." : ""} 기록이 삭제됩니다.`)) return;
                           try {
                             await deploymentApi.remove(d.id);
                             await loadTaskDeployments();

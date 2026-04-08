@@ -305,12 +305,15 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete }: {
         const isMultiDay = entryType === "BUSINESS_TRIP" || entryType === "TRAINING";
         const dates = isMultiDay ? getDatesInRange(startDate, endDate) : [startDate];
         const gId = dates.length > 1 ? (Math.random().toString(36).slice(2) + Date.now().toString(36)) : undefined;
-        for (const d of dates) {
+        for (let i = 0; i < dates.length; i++) {
+          const isFirst = i === 0;
+          const isLast = i === dates.length - 1;
+          const isSingle = dates.length === 1;
           await attendanceOverviewApi.createEntry({
-            date: d,
+            date: dates[i],
             entryType,
-            startTime,
-            endTime,
+            startTime: isSingle || isFirst ? startTime : undefined,
+            endTime: isSingle || isLast ? endTime : undefined,
             ...(label.trim() ? { label: label.trim() } : {}),
             ...(gId ? { groupId: gId } : {}),
           });
@@ -343,7 +346,7 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete }: {
           <div className="space-y-3">
             <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-600">
               <p className="font-medium mb-1">{ENTRY_LABELS[entry!.entryType] ?? entry!.entryType}</p>
-              {entry!.startTime && <p className="text-xs">{entry!.startTime}{entry!.endTime ? ` ~ ${entry!.endTime}` : ""}</p>}
+              {(entry!.startTime || entry!.endTime) && <p className="text-xs">{entry!.startTime ? entry!.startTime : ""}{entry!.startTime && entry!.endTime ? " ~ " : ""}{entry!.endTime ? (entry!.startTime ? entry!.endTime : `~${entry!.endTime}`) : ""}</p>}
               {entry!.label && <p className="text-xs text-gray-500">{entry!.label}</p>}
               <p className="text-[10px] text-gray-400 mt-2">자동 생성된 항목은 수정할 수 없습니다.</p>
             </div>
@@ -575,7 +578,8 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged }: {
                   {dayEntries.slice(0, 2).map((entry) => {
                     const timeStr = entry.startTime && entry.endTime
                       ? `${entry.startTime}~${entry.endTime}`
-                      : entry.startTime ? `${entry.startTime}~` : "";
+                      : entry.startTime ? `${entry.startTime}~`
+                      : entry.endTime ? `~${entry.endTime}` : "";
                     return (
                       <div key={entry.id}
                         onClick={() => setEditingEntry({ date: cell.date, entry })}

@@ -13,6 +13,7 @@ import { approvalLineRoutes } from "./api/routes/approval-line.routes";
 import { internalRoutes } from "./api/routes/internal.routes";
 import { DepartmentService } from "./application/department.service";
 import { ApprovalLineService } from "./application/approval-line.service";
+import { closePublisher } from "./infrastructure/event-publisher";
 
 const app = Fastify({
   logger: {
@@ -62,3 +63,12 @@ app.listen({ port: PORT, host: "0.0.0.0" }, (err) => {
   }
   app.log.info(`auth-service running on port ${PORT}`);
 });
+
+// Graceful shutdown
+const shutdown = async () => {
+  await closePublisher();
+  await app.close();
+  process.exit(0);
+};
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);

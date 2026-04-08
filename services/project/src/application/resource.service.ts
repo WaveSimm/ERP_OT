@@ -280,9 +280,26 @@ export class ResourceService {
       };
     });
 
-    const totalAllocationPercent = Math.round(
-      projectRows.reduce((sum, r) => sum + r.effectivePercent, 0) * 10,
-    ) / 10;
+    // 날짜별 배정률 계산 (기간 겹침 반영)
+    const dayMap = new Map<string, number>();
+    for (const row of projectRows) {
+      const s = new Date(row.startDate);
+      const e = new Date(row.endDate);
+      const overlapStart = s > qStart ? s : qStart;
+      const overlapEnd = e < qEnd ? e : qEnd;
+      const d = new Date(overlapStart);
+      while (d <= overlapEnd) {
+        const key = d.toISOString().slice(0, 10);
+        dayMap.set(key, (dayMap.get(key) ?? 0) + row.effectivePercent);
+        d.setDate(d.getDate() + 1);
+      }
+    }
+    // 최대 일별 배정률 (피크 기준)
+    let peakPercent = 0;
+    for (const pct of dayMap.values()) {
+      if (pct > peakPercent) peakPercent = pct;
+    }
+    const totalAllocationPercent = Math.round(peakPercent * 10) / 10;
 
     return {
       resourceId: resource.id,

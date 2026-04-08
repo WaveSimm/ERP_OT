@@ -336,7 +336,7 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
 
       {/* 사용자 트리 */}
       <div className="space-y-0.5">
-        {departments.map((dept) => {
+        {departments.filter((dept) => users.some((u) => (u as any).profile?.departmentId === dept.id)).map((dept) => {
           const deptUsers = users.filter((u) => (u as any).profile?.departmentId === dept.id);
           const isOpen = expanded.has(dept.id);
           return (

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { meApi, myTasksApi, taskApi, projectApi, myProfileApi } from "@/lib/api";
+import { meApi, myTasksApi, taskApi, projectApi, myProfileApi, dashboardApi } from "@/lib/api";
 import TaskDrawer from "@/components/TaskDrawer";
 import AttendanceView from "@/components/AttendanceView";
 
@@ -701,75 +701,389 @@ const ACTIVE_STATUSES = ["PLANNING", "IN_PROGRESS", "ON_HOLD"];
 
 const fmtDate = (d?: string | null) => d ? d.slice(0, 10) : "—";
 
-function ProjectTreeGroup({
-  label, icon, accent, projects, router, defaultOpen = true,
-}: {
-  label: string; icon: string; accent: string;
-  projects: any[]; router: ReturnType<typeof useRouter>; defaultOpen?: boolean;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
+function ProjectIssuePopup({ projectName, issues, onClose }: { projectName: string; issues: any[]; onClose: () => void }) {
+  const SEV_COLOR: Record<string, string> = {
+    CRITICAL: "bg-red-100 text-red-800 border-red-200",
+    WARNING: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    INFO: "bg-blue-100 text-blue-800 border-blue-200",
+  };
   return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden">
-      {/* 그룹 헤더 */}
-      <button
-        onClick={() => setOpen(v => !v)}
-        className={`w-full flex items-center gap-2 px-4 py-2.5 ${accent} border-b border-gray-200 hover:brightness-95 transition-all`}
-      >
-        <span className="text-sm">{open ? "▾" : "▸"}</span>
-        <span className="text-sm">{icon}</span>
-        <span className="text-sm font-semibold text-gray-800">{label}</span>
-        <span className="ml-1 text-xs text-gray-400 bg-white/60 border border-gray-200 px-1.5 py-0.5 rounded-full">{projects.length}</span>
-      </button>
-
-      {/* 트리 */}
-      {open && (
-        <div className="divide-y divide-gray-50">
-          {projects.length === 0 ? (
-            <div className="py-5 text-center text-xs text-gray-400">해당하는 프로젝트가 없습니다.</div>
-          ) : projects.map((p, idx) => {
-            const cfg = PROJ_STATUS_CFG[p.status] ?? PROJ_STATUS_CFG.PLANNING;
-            const prog = p.overallProgress ?? null;
-            const isLast = idx === projects.length - 1;
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[70vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-3 border-b">
+          <h3 className="font-semibold text-gray-900">{projectName} — 이슈 상세</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl leading-none">×</button>
+        </div>
+        <div className="overflow-y-auto flex-1 p-4 space-y-2">
+          {issues.length === 0 && <p className="text-sm text-gray-400 text-center py-6">이슈가 없습니다.</p>}
+          {issues.map((iss, i) => {
+            const taskNames: string[] = iss.taskName
+              ? [iss.taskName]
+              : (iss.metadata?.tasks as any[])?.map((t: any) => t.name).filter(Boolean) ?? [];
             return (
-              <div key={p.id}
-                className="flex items-center gap-0 pl-4 pr-4 hover:bg-blue-50/40 cursor-pointer transition-colors h-10"
-                onClick={() => router.push(`/projects/${p.id}`)}>
-                {/* 트리 라인 */}
-                <div className="flex flex-col items-center self-stretch mr-2 shrink-0" style={{ width: 16 }}>
-                  <div className="w-px flex-1 bg-gray-200" />
-                  <div className="w-3 h-px bg-gray-200" style={{ marginLeft: 8 }} />
-                  {!isLast && <div className="w-px flex-1 bg-gray-200" />}
+              <div key={i} className={`border rounded-lg px-4 py-2.5 text-sm ${SEV_COLOR[iss.severity] ?? ""}`}>
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">{iss.title}</span>
+                  <span className="text-[11px] opacity-70">{iss.severity}</span>
                 </div>
-                {/* 프로젝트명 */}
-                <div className="flex-1 min-w-0 flex items-center gap-2 mr-3">
-                  <span className="text-sm font-medium text-gray-800 truncate">{p.name}</span>
-                </div>
-                {/* 상태 */}
-                <span className={`shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full mr-3 ${cfg.bg} ${cfg.text}`}>{cfg.label}</span>
-                {/* 진도율 */}
-                <div className="flex items-center gap-1.5 w-28 shrink-0 mr-3">
-                  {prog !== null ? (
-                    <>
-                      <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-500 rounded-full" style={{ width: `${prog}%` }} />
-                      </div>
-                      <span className="text-xs text-gray-500 w-7 text-right shrink-0">{Math.round(prog)}%</span>
-                    </>
-                  ) : <span className="text-xs text-gray-300 w-full">—</span>}
-                </div>
-                {/* 기간 */}
-                <div className="text-xs text-gray-400 shrink-0 w-24 text-right">
-                  {fmtDate(p.effectiveStartDate)} ~
-                </div>
-                <div className="text-xs text-gray-400 shrink-0 w-24 text-right">
-                  {fmtDate(p.effectiveEndDate)}
-                </div>
+                <div className="opacity-80 text-xs mt-0.5">{iss.description}</div>
+                {taskNames.length > 0 && (
+                  <div className="text-xs opacity-60 mt-1">태스크: {taskNames.join(", ")}</div>
+                )}
               </div>
             );
           })}
         </div>
-      )}
+      </div>
     </div>
+  );
+}
+
+function ProjectTreeGroup({
+  label, icon, accent, projects, issueMap, issues, router, defaultOpen = true,
+}: {
+  label: string; icon: string; accent: string;
+  projects: any[]; issueMap: Record<string, { critical: number; warning: number; info: number }>;
+  issues: any[]; router: ReturnType<typeof useRouter>; defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const [issuePopup, setIssuePopup] = useState<{ projectId: string; projectName: string } | null>(null);
+  return (
+    <>
+      {issuePopup && (
+        <ProjectIssuePopup
+          projectName={issuePopup.projectName}
+          issues={issues.filter(i => i.projectId === issuePopup.projectId)}
+          onClose={() => setIssuePopup(null)}
+        />
+      )}
+      <div className="border border-gray-200 rounded-xl overflow-hidden">
+        {/* 그룹 헤더 */}
+        <button
+          onClick={() => setOpen(v => !v)}
+          className={`w-full flex items-center gap-2 px-4 py-2.5 ${accent} border-b border-gray-200 hover:brightness-95 transition-all`}
+        >
+          <span className="text-sm">{open ? "▾" : "▸"}</span>
+          <span className="text-sm">{icon}</span>
+          <span className="text-sm font-semibold text-gray-800">{label}</span>
+          <span className="ml-1 text-xs text-gray-400 bg-white/60 border border-gray-200 px-1.5 py-0.5 rounded-full">{projects.length}</span>
+        </button>
+
+        {open && (
+          <>
+            {projects.length === 0 ? (
+              <div className="py-5 text-center text-xs text-gray-400">해당하는 프로젝트가 없습니다.</div>
+            ) : (
+              <table className="w-full table-auto">
+                <thead>
+                  <tr className="bg-gray-50 text-xs text-gray-500 border-b">
+                    <th className="px-3 py-1.5 text-left w-10"></th>
+                    <th className="px-3 py-1.5 text-left">프로젝트</th>
+                    <th className="px-3 py-1.5 text-left w-28">진행률</th>
+                    <th className="px-3 py-1.5 text-left w-24">예산</th>
+                    <th className="px-3 py-1.5 text-left w-24">이슈</th>
+                    <th className="px-3 py-1.5 text-right w-24">기간</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projects.map((p) => {
+                    const cfg = PROJ_STATUS_CFG[p.status] ?? PROJ_STATUS_CFG.PLANNING;
+                    const prog = p.overallProgress ?? 0;
+                    const ic = issueMap[p.id] ?? { critical: 0, warning: 0, info: 0 };
+                    const totalIssues = ic.critical + ic.warning + ic.info;
+                    const budgetPct = p.plannedBudget ? Math.round((Number(p.actualBudget ?? 0) / Number(p.plannedBudget)) * 100) : null;
+                    return (
+                      <tr key={p.id} className="border-b hover:bg-gray-50 transition-colors cursor-pointer"
+                        onClick={() => router.push(`/projects/${p.id}`)}>
+                        <td className="px-3 py-2.5">
+                          <span className={`inline-block w-2.5 h-2.5 rounded-full ${cfg.dot}`} />
+                        </td>
+                        <td className="px-3 py-2.5 min-w-[160px]">
+                          <span className="text-sm font-medium text-blue-700 hover:underline">{p.name}</span>
+                          <span className={`ml-2 text-[11px] px-1.5 py-0.5 rounded-full ${cfg.bg} ${cfg.text}`}>{cfg.label}</span>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                              <div className="h-1.5 rounded-full bg-blue-500 transition-all" style={{ width: `${prog}%` }} />
+                            </div>
+                            <span className="text-xs text-gray-600 w-7 text-right">{Math.round(prog)}%</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5 text-xs text-gray-600">
+                          {budgetPct != null ? (
+                            <span className={budgetPct >= 110 ? "text-red-600 font-medium" : budgetPct >= 100 ? "text-yellow-600" : ""}>{budgetPct}%</span>
+                          ) : <span className="text-gray-300">-</span>}
+                        </td>
+                        <td className="px-3 py-2.5" onClick={(e) => { if (totalIssues > 0) { e.stopPropagation(); setIssuePopup({ projectId: p.id, projectName: p.name }); } }}>
+                          {totalIssues > 0 ? (
+                            <button className="flex items-center gap-1 text-xs">
+                              {ic.critical > 0 && <span className="bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-medium">{ic.critical}</span>}
+                              {ic.warning > 0 && <span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">{ic.warning}</span>}
+                              {ic.info > 0 && <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{ic.info}</span>}
+                            </button>
+                          ) : <span className="text-xs text-gray-300">-</span>}
+                        </td>
+                        <td className="px-3 py-2.5 text-xs text-gray-400 text-right whitespace-nowrap">
+                          {fmtDate(p.effectiveStartDate)} ~ {fmtDate(p.effectiveEndDate)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
+function ProjectListTable({ projects, issues, type, today }: { projects: any[]; issues: any[]; type: string; today: Date }) {
+  const issueMap = useMemo(() => {
+    const m: Record<string, { critical: number; warning: number; info: number }> = {};
+    for (const issue of issues) {
+      const pid = issue.projectId;
+      if (!m[pid]) m[pid] = { critical: 0, warning: 0, info: 0 };
+      if (issue.severity === "CRITICAL") m[pid].critical++;
+      else if (issue.severity === "WARNING") m[pid].warning++;
+      else m[pid].info++;
+    }
+    return m;
+  }, [issues]);
+
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b text-xs text-gray-500">
+          <th className="py-1.5 text-left px-2">상태</th>
+          <th className="py-1.5 text-left px-2">프로젝트</th>
+          <th className="py-1.5 text-right px-2">진행률</th>
+          <th className="py-1.5 text-right px-2">이슈</th>
+          {(type === "dueSoon" || type === "overdue") && <th className="py-1.5 text-right px-2">D-Day</th>}
+        </tr>
+      </thead>
+      <tbody>
+        {projects.map((p: any) => {
+          const cfg = PROJ_STATUS_CFG[p.status] ?? PROJ_STATUS_CFG.PLANNING;
+          const prog = p.overallProgress ?? 0;
+          const ic = issueMap[p.id] ?? { critical: 0, warning: 0, info: 0 };
+          const dday = p.effectiveEndDate ? Math.ceil((new Date(p.effectiveEndDate).getTime() - today.getTime()) / 86400000) : null;
+          return (
+            <tr key={p.id} className="border-b hover:bg-gray-50">
+              <td className="py-2 px-2">
+                <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${cfg.bg} ${cfg.text}`}>{cfg.label}</span>
+              </td>
+              <td className="py-2 px-2">
+                <span className="font-medium text-gray-800">{p.name}</span>
+              </td>
+              <td className="py-2 px-2 text-right">{Math.round(prog)}%</td>
+              <td className="py-2 px-2 text-right">
+                {ic.critical > 0 && <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded mr-1">{ic.critical}</span>}
+                {ic.warning > 0 && <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded mr-1">{ic.warning}</span>}
+                {ic.info > 0 && <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{ic.info}</span>}
+              </td>
+              {(type === "dueSoon" || type === "overdue") && (
+                <td className={`py-2 px-2 text-right text-xs font-semibold ${dday != null && dday < 0 ? "text-red-600" : dday != null && dday <= 3 ? "text-orange-600" : "text-gray-500"}`}>
+                  {dday != null ? (dday < 0 ? `D+${Math.abs(dday)}` : dday === 0 ? "D-Day" : `D-${dday}`) : "—"}
+                </td>
+              )}
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
+function MyProjectDetailPopup({ type, projects, issues, onClose }: { type: string; projects: any[]; issues: any[]; onClose: () => void }) {
+  const today = new Date();
+  const soonDate = new Date(today);
+  soonDate.setDate(soonDate.getDate() + 7);
+
+  const filtered = useMemo(() => {
+    if (type === "projects") return projects;
+    if (type === "dueSoon") return projects.filter(p => {
+      if (!p.effectiveEndDate || p.status === "COMPLETED" || p.status === "CANCELLED") return false;
+      const end = new Date(p.effectiveEndDate);
+      return end >= today && end <= soonDate;
+    });
+    if (type === "overdue") return projects.filter(p => {
+      if (!p.effectiveEndDate || p.status === "COMPLETED" || p.status === "CANCELLED") return false;
+      return new Date(p.effectiveEndDate) < today;
+    });
+    return [];
+  }, [type, projects]);
+
+  const titles: Record<string, string> = {
+    projects: "내 프로젝트 현황",
+    issues: "내 프로젝트 이슈",
+    dueSoon: "마감 임박 프로젝트 (7일 이내)",
+    overdue: "기한 초과 프로젝트",
+  };
+
+  const SEV_CARD: Record<string, string> = {
+    CRITICAL: "border-red-200 bg-red-50 text-red-800",
+    WARNING: "border-yellow-200 bg-yellow-50 text-yellow-800",
+    INFO: "border-blue-200 bg-blue-50 text-blue-800",
+  };
+
+  const SEVERITY_STYLE: Record<string, { bg: string; text: string; label: string }> = {
+    CRITICAL: { bg: "bg-red-100", text: "text-red-700", label: "위험" },
+    WARNING: { bg: "bg-yellow-100", text: "text-yellow-700", label: "경고" },
+    INFO: { bg: "bg-blue-100", text: "text-blue-700", label: "정보" },
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+          <h3 className="font-semibold text-gray-900">{titles[type] ?? type}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+        </div>
+        <div className="overflow-y-auto flex-1 p-4">
+          {type === "issues" ? (
+            issues.length === 0 ? (
+              <div className="text-center py-10 text-sm text-gray-400">이슈가 없습니다.</div>
+            ) : (
+              <div className="space-y-4">
+                {(() => {
+                  const SEV_ORDER: Record<string, number> = { CRITICAL: 0, WARNING: 1, INFO: 2 };
+                  const grouped = new Map<string, { projectName: string; items: any[] }>();
+                  for (const issue of issues) {
+                    const key = issue.projectId ?? "unknown";
+                    if (!grouped.has(key)) grouped.set(key, { projectName: issue.projectName ?? key, items: [] });
+                    grouped.get(key)!.items.push(issue);
+                  }
+                  for (const g of grouped.values()) {
+                    g.items.sort((a: any, b: any) => (SEV_ORDER[a.severity] ?? 9) - (SEV_ORDER[b.severity] ?? 9));
+                  }
+                  return Array.from(grouped.values()).map((group) => (
+                    <div key={group.projectName}>
+                      <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-gray-200">
+                        <span className="text-sm font-bold text-gray-800">{group.projectName}</span>
+                        <span className="text-[11px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">{group.items.length}건</span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {group.items.map((issue: any, idx: number) => {
+                          const taskNames: string[] = issue.taskName
+                            ? [issue.taskName]
+                            : (issue.metadata?.tasks as any[])?.map((t: any) => t.name).filter(Boolean) ?? [];
+                          return (
+                            <div key={idx} className={`border rounded-lg px-4 py-2.5 text-sm ${SEV_CARD[issue.severity] ?? ""}`}>
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium">{issue.title}</span>
+                                <span className="text-[11px] opacity-70">{issue.severity}</span>
+                              </div>
+                              <div className="text-xs opacity-80 mt-0.5">{issue.description}</div>
+                              {taskNames.length > 0 && (
+                                <div className="text-xs opacity-60 mt-1">태스크: {taskNames.join(", ")}</div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            )
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-10 text-sm text-gray-400">해당하는 프로젝트가 없습니다.</div>
+          ) : (
+            <ProjectListTable projects={filtered} issues={issues} type={type} today={today} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MyProjectsSummaryCards({ projects, issues }: { projects: any[]; issues: any[] }) {
+  const [detailType, setDetailType] = useState<string | null>(null);
+
+  const issueCount = useMemo(() => {
+    let critical = 0, warning = 0, info = 0;
+    for (const i of issues) {
+      if (i.severity === "CRITICAL") critical++;
+      else if (i.severity === "WARNING") warning++;
+      else info++;
+    }
+    return { critical, warning, info, total: critical + warning + info };
+  }, [issues]);
+
+  const stats = useMemo(() => {
+    const statusCount = { planning: 0, inProgress: 0, onHold: 0, completed: 0, cancelled: 0 };
+    let overdue = 0;
+    let dueSoon = 0;
+    const today = new Date();
+    const soonDate = new Date(today);
+    soonDate.setDate(soonDate.getDate() + 7);
+
+    for (const p of projects) {
+      if (p.status === "PLANNING") statusCount.planning++;
+      else if (p.status === "IN_PROGRESS") statusCount.inProgress++;
+      else if (p.status === "ON_HOLD") statusCount.onHold++;
+      else if (p.status === "COMPLETED") statusCount.completed++;
+      else if (p.status === "CANCELLED") statusCount.cancelled++;
+
+      if (p.effectiveEndDate && p.status !== "COMPLETED" && p.status !== "CANCELLED") {
+        const end = new Date(p.effectiveEndDate);
+        if (end < today) overdue++;
+        else if (end <= soonDate) dueSoon++;
+      }
+    }
+
+    return { total: projects.length, statusCount, overdue, dueSoon };
+  }, [projects]);
+
+  const sc = stats.statusCount;
+  const cardCls = "bg-white rounded-xl border shadow-sm p-4 cursor-pointer hover:ring-2 hover:ring-blue-200 transition-all";
+
+  return (
+    <>
+      {detailType && <MyProjectDetailPopup type={detailType} projects={projects} issues={issues} onClose={() => setDetailType(null)} />}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        {/* 프로젝트 현황 */}
+        <div className={cardCls} onClick={() => setDetailType("projects")}>
+          <div className="text-xs text-gray-500 mb-1">내 프로젝트</div>
+          <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {sc.inProgress > 0 && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{sc.inProgress} 진행중</span>}
+            {sc.planning > 0 && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{sc.planning} 계획</span>}
+            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">{sc.completed} 완료</span>
+            <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">{sc.onHold} 보류</span>
+          </div>
+        </div>
+
+        {/* 내 이슈 */}
+        <div className={cardCls} onClick={() => setDetailType("issues")}>
+          <div className="text-xs text-gray-500 mb-1">내 이슈</div>
+          <div className="text-2xl font-bold text-gray-900">{issueCount.total}</div>
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {issueCount.critical > 0 && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">{issueCount.critical} 위험</span>}
+            {issueCount.warning > 0 && <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">{issueCount.warning} 경고</span>}
+            {issueCount.info > 0 && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{issueCount.info} 정보</span>}
+            {issueCount.total === 0 && <span className="text-xs text-gray-400">이슈 없음</span>}
+          </div>
+        </div>
+
+        {/* 마감 임박 */}
+        <div className={cardCls} onClick={() => setDetailType("dueSoon")}>
+          <div className="text-xs text-gray-500 mb-1">마감 임박 (7일 이내)</div>
+          <div className={`text-2xl font-bold ${stats.dueSoon > 0 ? "text-orange-600" : "text-gray-400"}`}>{stats.dueSoon}</div>
+          <div className="text-xs text-gray-400 mt-2">종료일 임박 프로젝트</div>
+        </div>
+
+        {/* 기한 초과 */}
+        <div className={cardCls} onClick={() => setDetailType("overdue")}>
+          <div className="text-xs text-gray-500 mb-1">기한 초과</div>
+          <div className={`text-2xl font-bold ${stats.overdue > 0 ? "text-red-600" : "text-gray-400"}`}>{stats.overdue}</div>
+          <div className="text-xs text-gray-400 mt-2">종료일이 지난 프로젝트</div>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -779,6 +1093,7 @@ function MyProjectsView() {
   const [memberProjects, setMemberProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"ALL" | "ACTIVE" | "COMPLETED">("ALL");
+  const [issues, setIssues] = useState<any[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -792,8 +1107,22 @@ function MyProjectsView() {
         const allItems: any[] = (allRes as any).items ?? [];
         const assignedIds = new Set((groups as any[]).map((g: any) => g.project?.id).filter(Boolean));
 
-        setOwnedProjects(allItems.filter(p => p.ownerId === me.id));
-        setMemberProjects(allItems.filter(p => p.ownerId !== me.id && assignedIds.has(p.id)));
+        const owned = allItems.filter(p => p.ownerId === me.id);
+        const member = allItems.filter(p => p.ownerId !== me.id && assignedIds.has(p.id));
+        setOwnedProjects(owned);
+        setMemberProjects(member);
+
+        // fetch issues for all my projects
+        const all = [...owned, ...member];
+        const issueResults = await Promise.all(
+          all.filter(p => p.status !== "CANCELLED").map(async (p) => {
+            try {
+              const list = await dashboardApi.getProjectIssues(p.id);
+              return (list as any[]).map((issue: any) => ({ ...issue, projectName: p.name, projectId: p.id }));
+            } catch { return []; }
+          }),
+        );
+        setIssues(issueResults.flat());
       } catch {}
       setLoading(false);
     })();
@@ -807,6 +1136,19 @@ function MyProjectsView() {
 
   const filteredOwned  = useMemo(() => applyFilter(ownedProjects),  [ownedProjects, filter]);
   const filteredMember = useMemo(() => applyFilter(memberProjects), [memberProjects, filter]);
+  const allProjects = useMemo(() => [...ownedProjects, ...memberProjects], [ownedProjects, memberProjects]);
+
+  const issueMap = useMemo(() => {
+    const m: Record<string, { critical: number; warning: number; info: number }> = {};
+    for (const issue of issues) {
+      const pid = issue.projectId;
+      if (!m[pid]) m[pid] = { critical: 0, warning: 0, info: 0 };
+      if (issue.severity === "CRITICAL") m[pid].critical++;
+      else if (issue.severity === "WARNING") m[pid].warning++;
+      else m[pid].info++;
+    }
+    return m;
+  }, [issues]);
 
   const FILTERS = [
     { key: "ALL"      as const, label: `전체 (${ownedProjects.length + memberProjects.length})` },
@@ -822,6 +1164,9 @@ function MyProjectsView() {
 
   return (
     <div className="space-y-4">
+      {/* Summary Cards */}
+      {allProjects.length > 0 && <MyProjectsSummaryCards projects={allProjects} issues={issues} />}
+
       {/* Filter bar */}
       <div className="flex items-center gap-2">
         {FILTERS.map(f => (
@@ -832,8 +1177,8 @@ function MyProjectsView() {
         ))}
       </div>
 
-      <ProjectTreeGroup label="내가 소유한 프로젝트" icon="👑" accent="bg-blue-50" projects={filteredOwned} router={router} />
-      <ProjectTreeGroup label="내가 속한 프로젝트" icon="👥" accent="bg-gray-50" projects={filteredMember} router={router} defaultOpen={true} />
+      <ProjectTreeGroup label="내가 소유한 프로젝트" icon="👑" accent="bg-blue-50" projects={filteredOwned} issueMap={issueMap} issues={issues} router={router} />
+      <ProjectTreeGroup label="내가 속한 프로젝트" icon="👥" accent="bg-gray-50" projects={filteredMember} issueMap={issueMap} issues={issues} router={router} defaultOpen={true} />
     </div>
   );
 }
@@ -859,11 +1204,11 @@ export default function DashboardPage() {
   useEffect(() => { load(); }, []);
 
   const TABS: { key: Tab; label: string }[] = [
+    { key: "attendance", label: "근태" },
     { key: "kanban",     label: "칸반" },
     { key: "week",       label: "주간" },
     { key: "tasks",      label: "작업 목록" },
     { key: "projects",   label: "내 프로젝트" },
-    { key: "attendance", label: "근태" },
   ];
 
   return (

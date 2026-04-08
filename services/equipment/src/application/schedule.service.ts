@@ -161,8 +161,8 @@ export class ScheduleService {
     const start = new Date(startDate);
     const end = new Date(endDate);
     const where: any = {
-      startDate: { lt: end },
-      endDate: { gt: start },
+      startDate: { lte: end },
+      endDate: { gte: start },
     };
     if (equipmentId) where.equipmentId = equipmentId;
     if (sensorId) where.sensorId = sensorId;

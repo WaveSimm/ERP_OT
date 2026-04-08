@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { DepartmentService } from "../../application/department.service.js";
+import { publishActivity } from "../../infrastructure/event-publisher";
 
 export async function departmentRoutes(
   fastify: FastifyInstance,
@@ -37,6 +38,13 @@ export async function departmentRoutes(
       ...(body.parentId !== undefined ? { parentId: body.parentId } : {}),
       ...(body.headUserId !== undefined ? { headUserId: body.headUserId } : {}),
     });
+    publishActivity({
+      action: "dept.created",
+      userId: (req as any).userId ?? "system",
+      entityType: "department",
+      entityId: dept.id,
+      description: `부서 생성: ${body.name}`,
+    });
     return reply.status(201).send(dept);
   });
 
@@ -64,6 +72,13 @@ export async function departmentRoutes(
     if (body.sortOrder !== undefined) updateData.sortOrder = body.sortOrder;
     if (body.isActive !== undefined) updateData.isActive = body.isActive;
     const dept = await svc.update(id, updateData);
+    publishActivity({
+      action: "dept.updated",
+      userId: (req as any).userId ?? "system",
+      entityType: "department",
+      entityId: id,
+      description: `부서 수정: ${dept.name}`,
+    });
     return reply.send(dept);
   });
 
@@ -71,6 +86,13 @@ export async function departmentRoutes(
   fastify.delete("/:id", async (req, reply) => {
     const { id } = req.params as { id: string };
     await svc.delete(id);
+    publishActivity({
+      action: "dept.deleted",
+      userId: (req as any).userId ?? "system",
+      entityType: "department",
+      entityId: id,
+      description: `부서 삭제: ${id}`,
+    });
     return reply.status(204).send();
   });
 

@@ -360,7 +360,8 @@ function MemberRow({ member, days, viewMode }: { member: Member; days: string[];
               {dayEntries.map((e) => {
                 const timeStr = e.startTime && e.endTime
                   ? `${e.startTime}~${e.endTime}`
-                  : e.startTime ? `${e.startTime}~` : "";
+                  : e.startTime ? `${e.startTime}~`
+                  : e.endTime ? `~${e.endTime}` : "";
                 if (viewMode === "month") {
                   return (
                     <span key={e.id} className={`text-[10px] px-0.5 py-px rounded whitespace-nowrap ${ENTRY_COLORS[e.entryType] ?? "bg-gray-100 text-gray-600"}`}

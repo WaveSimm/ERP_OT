@@ -276,22 +276,46 @@ export class IssueDetectorService {
     windowEnd: Date,
     threshold: number,
   ): { resourceId: string; allocationPercent: number }[] {
-    const resourceAllocMap = new Map<string, number>();
+    // 자원별 → 날짜별 배정률을 계산하여 기간 겹침 반영
+    const resourceDayMap = new Map<string, Map<string, number>>(); // resourceId → { "YYYY-MM-DD" → totalPct }
 
     for (const task of tasks) {
       for (const seg of task.segments) {
-        const start = new Date(seg.startDate);
-        const end = new Date(seg.endDate);
-        if (start > windowEnd || end < windowStart) continue;
+        const segStart = new Date(seg.startDate);
+        const segEnd = new Date(seg.endDate);
+        if (segStart > windowEnd || segEnd < windowStart) continue;
+
+        const overlapStart = segStart > windowStart ? segStart : windowStart;
+        const overlapEnd = segEnd < windowEnd ? segEnd : windowEnd;
+
         for (const a of seg.assignments) {
           const pct = a.allocationPercent ?? 0;
-          resourceAllocMap.set(a.resourceId, (resourceAllocMap.get(a.resourceId) ?? 0) + pct);
+          if (pct === 0) continue;
+
+          if (!resourceDayMap.has(a.resourceId)) {
+            resourceDayMap.set(a.resourceId, new Map());
+          }
+          const dayMap = resourceDayMap.get(a.resourceId)!;
+
+          const d = new Date(overlapStart);
+          while (d <= overlapEnd) {
+            const key = d.toISOString().slice(0, 10);
+            dayMap.set(key, (dayMap.get(key) ?? 0) + pct);
+            d.setDate(d.getDate() + 1);
+          }
         }
       }
     }
 
-    return Array.from(resourceAllocMap.entries())
-      .filter(([, total]) => total >= threshold)
-      .map(([id, allocationPercent]) => ({ resourceId: id, allocationPercent }));
+    // 각 자원의 최대 일별 배정률로 초과 판단
+    return Array.from(resourceDayMap.entries())
+      .map(([id, dayMap]) => {
+        let maxPct = 0;
+        for (const pct of dayMap.values()) {
+          if (pct > maxPct) maxPct = pct;
+        }
+        return { resourceId: id, allocationPercent: maxPct };
+      })
+      .filter(({ allocationPercent }) => allocationPercent >= threshold);
   }
 }

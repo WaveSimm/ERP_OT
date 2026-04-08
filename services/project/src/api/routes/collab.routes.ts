@@ -102,4 +102,47 @@ export async function collabRoutes(fastify: FastifyInstance) {
     const pageSize = q.pageSize ? Math.min(parseInt(q.pageSize, 10), 100) : 20;
     return reply.send(await service.listActivities(projectId, page, pageSize));
   });
+
+  // GET /api/v1/activities — 전체 이력 조회 (ADMIN 전용)
+  const allActivityQuerySchema = z.object({
+    page: z.string().regex(/^\d+$/).optional(),
+    pageSize: z.string().regex(/^\d+$/).optional(),
+    action: z.string().optional(),
+    userId: z.string().optional(),
+    search: z.string().optional(),
+  });
+
+  fastify.get("/activities", {
+    preHandler: requireRole("ADMIN"),
+  }, async (req, reply) => {
+    const q = allActivityQuerySchema.parse(req.query);
+    const page = q.page ? parseInt(q.page, 10) : 1;
+    const pageSize = q.pageSize ? Math.min(parseInt(q.pageSize, 10), 100) : 30;
+
+    const where: any = {};
+    if (q.action) where.action = q.action;
+    if (q.userId) where.userId = q.userId;
+    if (q.search) where.description = { contains: q.search, mode: "insensitive" };
+
+    const [items, total] = await Promise.all([
+      fastify.prisma.activityLog.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          project: { select: { id: true, name: true } },
+        },
+      }),
+      fastify.prisma.activityLog.count({ where }),
+    ]);
+
+    return reply.send({
+      items,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    });
+  });
 }

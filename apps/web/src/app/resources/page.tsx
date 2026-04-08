@@ -6,6 +6,7 @@ import { resourceApi, resourceGroupApi, taskApi, userManagementApi, getUser } fr
 import AppLayout from "@/components/AppLayout";
 import UserAccountsTab from "@/components/UserAccountsTab";
 import AttendanceOverview from "@/components/AttendanceOverview";
+import OrgChart from "@/components/OrgChart";
 
 const TYPE_LABELS: Record<string, string> = {
   PERSON: "👤 인력",
@@ -113,7 +114,7 @@ function DropLine() {
 
 // ─── 메인 컴포넌트 ────────────────────────────────────────────────────────────
 
-type ResourceTab = "dashboard" | "people" | "equipment" | "attendance";
+type ResourceTab = "dashboard" | "people" | "equipment" | "attendance" | "orgchart";
 
 export default function ResourcesPage() {
   const router = useRouter();
@@ -128,6 +129,7 @@ export default function ResourcesPage() {
         urlTab === "users" || urlTab === "list" || urlTab === "people" ? "people"
         : urlTab === "equipment" ? "equipment"
         : urlTab === "attendance" ? "attendance"
+        : urlTab === "orgchart" ? "orgchart"
         : urlTab === "dashboard" ? "dashboard" : "dashboard";
       setResourceTab(resolved);
       try { sessionStorage.setItem(TAB_KEY, resolved); } catch {}
@@ -138,6 +140,7 @@ export default function ResourcesPage() {
         if (saved === "list" || saved === "users" || saved === "people") setResourceTab("people");
         else if (saved === "equipment") setResourceTab("equipment");
         else if (saved === "attendance") setResourceTab("attendance");
+        else if (saved === "orgchart") setResourceTab("orgchart");
         else if (saved === "dashboard") setResourceTab("dashboard");
       } catch {}
     }
@@ -801,6 +804,7 @@ export default function ResourcesPage() {
             { key: "people",     label: "인력자원" },
             { key: "equipment",  label: "비인력 자원" },
             { key: "attendance", label: "근태현황" },
+            { key: "orgchart",  label: "조직도" },
           ] as { key: ResourceTab; label: string }[]).map((t) => (
             <button key={t.key}
               onClick={() => { setResourceTab(t.key); try { sessionStorage.setItem(TAB_KEY, t.key); } catch {} }}
@@ -841,7 +845,7 @@ export default function ResourcesPage() {
                   <Fragment key={group.id}>
                     {dnd.dropIndicator?.targetId === group.id && dnd.dropIndicator.position === "before" && <DropLine />}
                     <GroupNode
-                      group={group} expanded={expanded} resourceMap={nonPersonResourceMap} dnd={dnd}
+                      group={group} expanded={expanded} resourceMap={resourceMap} dnd={dnd}
                       onToggle={toggleExpand} onToggleActive={handleToggleActive}
                       onDelete={handleDeleteGroup} onRename={openRenameGroup}
                       onEditMembers={openMemberModal} onEditUserId={undefined}
@@ -980,6 +984,11 @@ export default function ResourcesPage() {
         {/* 근태현황 탭 */}
         {resourceTab === "attendance" && (
           <AttendanceOverview />
+        )}
+
+        {/* 조직도 탭 */}
+        {resourceTab === "orgchart" && (
+          <OrgChart />
         )}
 
       </div>

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ApprovalLineService } from "../../application/approval-line.service.js";
 import { AuthService } from "../../application/auth.service.js";
 import { createAuthHook } from "../middleware/auth.middleware.js";
+import { publishActivity } from "../../infrastructure/event-publisher";
 
 export async function approvalLineRoutes(
   fastify: FastifyInstance,
@@ -50,6 +51,13 @@ export async function approvalLineRoutes(
     if (body.delegateId !== undefined) upsertData.delegateId = body.delegateId;
     if (body.delegateUntil !== undefined) upsertData.delegateUntil = body.delegateUntil;
     const line = await svc.upsert(upsertData);
+    publishActivity({
+      action: "approval.updated",
+      userId: (req as any).userId ?? "system",
+      entityType: "approval_line",
+      entityId: body.userId,
+      description: `결재라인 설정: ${body.userId}`,
+    });
     return reply.status(201).send(line);
   });
 
@@ -57,6 +65,13 @@ export async function approvalLineRoutes(
   fastify.delete("/:userId", async (req, reply) => {
     const { userId } = req.params as { userId: string };
     await svc.remove(userId);
+    publishActivity({
+      action: "approval.deleted",
+      userId: (req as any).userId ?? "system",
+      entityType: "approval_line",
+      entityId: userId,
+      description: `결재라인 삭제: ${userId}`,
+    });
     return reply.status(204).send();
   });
 
@@ -64,12 +79,26 @@ export async function approvalLineRoutes(
   fastify.post("/bulk-by-department", async (req, reply) => {
     const body = z.object({ departmentId: z.string() }).parse(req.body);
     await svc.bulkSetByDepartment(body.departmentId);
+    publishActivity({
+      action: "approval.bulk_set",
+      userId: (req as any).userId ?? "system",
+      entityType: "approval_line",
+      entityId: body.departmentId,
+      description: `결재라인 부서별 일괄 설정: ${body.departmentId}`,
+    });
     return reply.status(204).send();
   });
 
   // POST /api/v1/approval-lines/bulk-all (전사 일괄 설정)
-  fastify.post("/bulk-all", async (_req, reply) => {
+  fastify.post("/bulk-all", async (req, reply) => {
     await svc.bulkSetAll();
+    publishActivity({
+      action: "approval.bulk_set",
+      userId: (req as any).userId ?? "system",
+      entityType: "approval_line",
+      entityId: "all",
+      description: "결재라인 전사 일괄 설정",
+    });
     return reply.status(204).send();
   });
 }

@@ -17,8 +17,8 @@ export class StatsService {
       where: {
         equipmentId: { not: null },
         type: "PROJECT",
-        startDate: { lt: end },
-        endDate: { gt: start },
+        startDate: { lte: end },
+        endDate: { gte: start },
       },
     });
 

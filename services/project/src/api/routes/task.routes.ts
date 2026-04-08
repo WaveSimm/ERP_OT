@@ -1,8 +1,8 @@
-import { FastifyInstance } from "fastify";
+import { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { TaskService } from "../../application/task.service.js";
 import { CpmService } from "../../application/cpm.service.js";
-import { requireRole, requireManager, requireSelfOrManager } from "../middleware/auth.middleware.js";
+import { requireRole, requireManager, requireOperator, requireSelfOrManager } from "../middleware/auth.middleware.js";
 import { TaskStatus, DependencyType, AllocationMode } from "@prisma/client";
 
 const createTaskSchema = z.object({
@@ -55,6 +55,25 @@ const addDependencySchema = z.object({
   lagDays: z.number().int().default(0),
 });
 
+/** OPERATOR가 해당 태스크의 생성자이거나 세그먼트에 배정된 멤버인지 확인 */
+async function isTaskMember(fastify: FastifyInstance, taskId: string, req: FastifyRequest): Promise<boolean> {
+  const task = await fastify.prisma.task.findUnique({
+    where: { id: taskId },
+    select: {
+      createdBy: true,
+      segments: { select: { assignments: { select: { resourceId: true } } } },
+    },
+  });
+  if (!task) return false;
+  if (task.createdBy === req.userId) return true;
+  const ownResource = await fastify.prisma.resource.findFirst({
+    where: { userId: req.userEmail },
+    select: { id: true },
+  });
+  if (!ownResource) return false;
+  return task.segments.some(s => s.assignments.some(a => a.resourceId === ownResource.id));
+}
+
 export async function taskRoutes(fastify: FastifyInstance) {
   const taskService: TaskService = fastify.taskService;
   const cpmService: CpmService = fastify.cpmService;
@@ -67,8 +86,9 @@ export async function taskRoutes(fastify: FastifyInstance) {
   });
 
   // POST /api/v1/projects/:projectId/tasks
+  // OPERATOR 이상 허용 (OPERATOR는 본인이 포함된 태스크 생성)
   fastify.post("/", {
-    preHandler: requireManager(),
+    preHandler: requireOperator(),
   }, async (req, reply) => {
     const { projectId } = req.params as { projectId: string };
     const dto = createTaskSchema.parse(req.body);
@@ -98,7 +118,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
   // PATCH /api/v1/projects/:projectId/tasks/:taskId
   // MANAGER 이상: 모든 필드 수정 가능
-  // OPERATOR: 본인 태스크의 overallProgress/status만 수정 가능
+  // OPERATOR: 본인이 생성했거나 배정된 태스크면 모든 필드 수정 가능
   fastify.patch("/:taskId", async (req, reply) => {
     const { taskId } = req.params as { projectId: string; taskId: string };
     const dto = updateTaskSchema.parse(req.body);
@@ -108,23 +128,13 @@ export async function taskRoutes(fastify: FastifyInstance) {
       return reply.send(task);
     }
 
-    // OPERATOR: 본인 태스크 여부 확인 (createdBy 기준 — Task 스키마에 assigneeId 없음)
-    const existing = await fastify.prisma.task.findUnique({
-      where: { id: taskId },
-      select: { createdBy: true },
-    });
-    if (!existing) {
-      return reply.status(404).send({ code: "TASK_NOT_FOUND", message: "태스크를 찾을 수 없습니다." });
-    }
-    if (!requireSelfOrManager(req, existing.createdBy)) {
-      return reply.status(403).send({ code: "FORBIDDEN", message: "본인 태스크만 수정할 수 있습니다." });
+    // OPERATOR: 본인이 생성했거나 세그먼트에 배정된 태스크인지 확인
+    const isAllowed = await isTaskMember(fastify, taskId, req);
+    if (!isAllowed) {
+      return reply.status(403).send({ code: "FORBIDDEN", message: "본인이 배정된 태스크만 수정할 수 있습니다." });
     }
 
-    // 허용 필드만 (진행률만 허용)
-    const allowed: { overallProgress?: number } = {};
-    if (dto.overallProgress !== undefined) allowed.overallProgress = dto.overallProgress;
-
-    const task = await taskService.updateTask(taskId, allowed as any, req.userId);
+    const task = await taskService.updateTask(taskId, dto as any, req.userId);
     return reply.send(task);
   });
 
@@ -140,19 +150,38 @@ export async function taskRoutes(fastify: FastifyInstance) {
   // ─── Segments ─────────────────────────────────────────────────────────────
 
   // POST /api/v1/projects/:projectId/tasks/:taskId/segments
+  // OPERATOR 이상: 본인이 생성했거나 배정된 태스크에 세그먼트 추가 가능
   fastify.post("/:taskId/segments", {
-    preHandler: requireManager(),
+    preHandler: requireOperator(),
   }, async (req, reply) => {
     const { taskId } = req.params as { projectId: string; taskId: string };
+
+    if (req.userRole === "OPERATOR") {
+      const isAllowed = await isTaskMember(fastify, taskId, req);
+      if (!isAllowed) {
+        return reply.status(403).send({ code: "FORBIDDEN", message: "본인이 배정된 태스크만 수정할 수 있습니다." });
+      }
+    }
+
     const dto = createSegmentSchema.parse(req.body);
     const segment = await taskService.createSegment(taskId, dto as any, req.userId);
     return reply.status(201).send(segment);
   });
 
   // PATCH /api/v1/projects/:projectId/tasks/:taskId/segments/:segmentId
+  // OPERATOR 이상: 본인이 생성했거나 배정된 태스크의 세그먼트 수정 가능
   fastify.patch("/:taskId/segments/:segmentId", {
-    preHandler: requireManager(),
+    preHandler: requireOperator(),
   }, async (req, reply) => {
+    const { taskId } = req.params as { projectId: string; taskId: string };
+
+    if (req.userRole === "OPERATOR") {
+      const isAllowed = await isTaskMember(fastify, taskId, req);
+      if (!isAllowed) {
+        return reply.status(403).send({ code: "FORBIDDEN", message: "본인이 배정된 태스크만 수정할 수 있습니다." });
+      }
+    }
+
     const { segmentId } = req.params as { projectId: string; taskId: string; segmentId: string };
     const dto = updateSegmentSchema.parse(req.body);
     const segment = await taskService.updateSegment(segmentId, dto as any, req.userId);
@@ -217,16 +246,14 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
   // PUT /api/v1/projects/:projectId/tasks/:taskId/segments/:segmentId/assignments
   fastify.put("/:taskId/segments/:segmentId/assignments", async (req, reply) => {
-    const { segmentId } = req.params as any;
+    const { taskId, segmentId } = req.params as any;
     const dto = upsertAssignmentSchema.parse(req.body);
 
-    // OPERATOR는 본인 resource의 배당율만 수정 가능
+    // OPERATOR: 본인이 생성했거나 배정된 태스크면 다른 인력도 배정 가능
     if (!["ADMIN", "MANAGER"].includes(req.userRole)) {
-      const ownResource = await fastify.prisma.resource.findFirst({
-        where: { userId: req.userEmail },
-      });
-      if (!ownResource || ownResource.id !== dto.resourceId) {
-        return reply.status(403).send({ code: "FORBIDDEN", message: "본인 배당율만 수정할 수 있습니다." });
+      const allowed = await isTaskMember(fastify, taskId, req);
+      if (!allowed) {
+        return reply.status(403).send({ code: "FORBIDDEN", message: "본인이 배정된 태스크만 수정할 수 있습니다." });
       }
     }
 

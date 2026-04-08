@@ -121,9 +121,9 @@ export class ApprovalLineService {
   }
 
   // 부서 일괄 설정
-  // - 팀원: 1차=팀장, 2차=총괄이사(상위부서장), 3차=대표이사(그위부서장)
-  // - 팀장: 1차=총괄이사(상위부서장), 2차=대표이사(그위부서장) / 직속팀이면 1차=대표이사
-  // - 총괄이사: 1차=대표이사
+  // - 팀원: 1차=팀장, 2차=이사(상위부서장), 3차=대표이사(그위부서장)
+  // - 팀장: 1차=이사(상위부서장), 2차=대표이사(그위부서장) / 직속팀이면 1차=대표이사
+  // - 이사: 1차=대표이사
   // - 대표이사: 결재자 없음 (상위부서장 없으면 설정 안 함)
   async bulkSetByDepartment(departmentId: string) {
     const dept = await this.prisma.department.findUnique({
@@ -141,7 +141,7 @@ export class ApprovalLineService {
     const soukwalHead = (dept as any).soukwalUserId ?? parentHead;
     const daepyoHead = (dept as any).daepyoUserId ?? grandParentHead;
 
-    // 팀장 본인 결재라인: 1차=총괄이사, 2차=대표이사
+    // 팀장 본인 결재라인: 1차=이사, 2차=대표이사
     if (soukwalHead) {
       await this.upsert({
         userId: headUserId,
@@ -151,7 +151,7 @@ export class ApprovalLineService {
       });
     }
 
-    // 일반 팀원 결재라인: 1차=팀장, 2차=총괄이사, 3차=대표이사
+    // 일반 팀원 결재라인: 1차=팀장, 2차=이사, 3차=대표이사
     const members = await this.prisma.userProfile.findMany({ where: { departmentId } });
     for (const m of members) {
       if (m.userId === headUserId) continue;
@@ -179,7 +179,7 @@ export class ApprovalLineService {
       const soukwalHead = (dept as any).soukwalUserId ?? parentHead;
       const daepyoHead = (dept as any).daepyoUserId ?? grandParentHead;
 
-      // 부서장 본인 결재라인: 1차=총괄이사, 2차=대표이사
+      // 부서장 본인 결재라인: 1차=이사, 2차=대표이사
       if (soukwalHead) {
         await this.upsert({
           userId: dept.headUserId,
@@ -189,7 +189,7 @@ export class ApprovalLineService {
         });
       }
 
-      // 일반 부서원 결재라인: 1차=팀장, 2차=총괄이사, 3차=대표이사
+      // 일반 부서원 결재라인: 1차=팀장, 2차=이사, 3차=대표이사
       const members = await this.prisma.userProfile.findMany({ where: { departmentId: dept.id } });
       for (const m of members) {
         if (m.userId === dept.headUserId) continue;

@@ -6,11 +6,12 @@ import { clearToken, getUser, setUser, myProfileApi, notificationApi, attendance
 import clsx from "clsx";
 
 const NAV = [
+  { href: "/me/dashboard",   label: "내 대시보드", icon: "🗂", managerOnly: false },
   { href: "/dashboard",      label: "지휘센터",   icon: "🎯", managerOnly: false },
   { href: "/projects",       label: "프로젝트",   icon: "📋", managerOnly: false },
   { href: "/resources",      label: "자원 관리",  icon: "👥", managerOnly: true  },
   { href: "/equipment",      label: "장비 관리",  icon: "🔧", managerOnly: false },
-  { href: "/me/dashboard",   label: "내 대시보드", icon: "🗂", managerOnly: false },
+  { href: "/repair",         label: "수리 관리",  icon: "🛠", managerOnly: false },
 ];
 
 const STORAGE_KEY = "erp_last_path";
@@ -347,8 +348,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     <button onClick={() => { router.push("/admin/approval-lines"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
                       결재라인
                     </button>
-                    <button onClick={() => { router.push("/admin/org-chart"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                      조직도
+                    <button onClick={() => { router.push("/admin/activity-logs"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                      시스템 이력
                     </button>
                   </div>
                 )}

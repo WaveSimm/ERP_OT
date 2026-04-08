@@ -7,8 +7,8 @@ import { useRouter } from "next/navigation";
 ────────────────────────────────────────────────────────────────── */
 const V_CEO_BAR  = 28;  // CEO → 가로바 거리
 const V_BAR_ROW2 = 20;  // 가로바 → ROW2 박스 거리
-const ROW2_H     = 62;  // ROW2 박스 고정 높이 (직속팀 & 총괄이사 동일)
-const V_ROW2_BAR = 22;  // 총괄이사 → 가로바 거리
+const ROW2_H     = 62;  // ROW2 박스 고정 높이 (직속팀 & 이사 동일)
+const V_ROW2_BAR = 22;  // 이사 → 가로바 거리
 const V_BAR_ROW3 = 18;  // 가로바 → ROW3 박스 거리
 const TEAM_H     = 52;  // ROW3 팀 박스 고정 높이
 
@@ -32,21 +32,21 @@ const COLS: CeoCol[] = [
     name: "문홍배",
     cls: { ceo: "bg-blue-600 border-blue-700 text-white", exec: "bg-blue-50 border-blue-300 text-blue-900", team: "bg-sky-50 border-sky-300 text-sky-900", line: "#93c5fd" },
     directTeams: [{ dept: "영업1팀", head: "하선종" }, { dept: "영업2팀", head: "강성화" }],
-    execs: [{ name: "모태준", title: "총괄이사", teams: [{ dept: "무인사업1팀", head: "모태준" }, { dept: "무인사업2팀", head: "이수현" }] }],
+    execs: [{ name: "모태준", title: "이사", teams: [{ dept: "무인사업1팀", head: "모태준" }, { dept: "무인사업2팀", head: "이수현" }] }],
   },
   {
     name: "신용은",
     cls: { ceo: "bg-emerald-600 border-emerald-700 text-white", exec: "bg-emerald-50 border-emerald-300 text-emerald-900", team: "bg-teal-50 border-teal-300 text-teal-900", line: "#6ee7b7" },
     directTeams: [{ dept: "사업1팀", head: "고태호" }, { dept: "사업2팀", head: "황규하" }],
-    execs: [{ name: "문기돈", title: "총괄이사", teams: [{ dept: "사업3팀", head: "유정연" }] }],
+    execs: [{ name: "문기돈", title: "이사", teams: [{ dept: "사업3팀", head: "유정연" }] }],
   },
   {
     name: "조혁만",
     cls: { ceo: "bg-violet-600 border-violet-700 text-white", exec: "bg-violet-50 border-violet-300 text-violet-900", team: "bg-purple-50 border-purple-300 text-purple-900", line: "#c4b5fd" },
     directTeams: [{ dept: "재무팀", head: "박고은" }],
     execs: [
-      { name: "심윤송", title: "총괄이사", teams: [{ dept: "기술팀", head: "최창영" }] },
-      { name: "김대현", title: "총괄이사", teams: [{ dept: "경영지원팀", head: "홍아름" }] },
+      { name: "심윤송", title: "이사", teams: [{ dept: "기술팀", head: "최창영" }] },
+      { name: "김대현", title: "이사", teams: [{ dept: "경영지원팀", head: "홍아름" }] },
     ],
   },
 ];
@@ -110,11 +110,11 @@ function TeamBox({ dept, head, cls }: { dept: string; head: string; cls: string 
   );
 }
 
-/* ─── 총괄이사 박스 + 아래 팀들 (ROW2 + ROW3) ──────────────────── */
+/* ─── 이사 박스 + 아래 팀들 (ROW2 + ROW3) ──────────────────── */
 function ExecGroup({ exec, cls }: { exec: ExecNode; cls: CeoCol["cls"] }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-      {/* 총괄이사 박스 */}
+      {/* 이사 박스 */}
       <div className={`border-2 rounded-xl text-center flex flex-col items-center justify-center shadow-sm ${cls.exec}`}
         style={{ minWidth: 92, height: ROW2_H, padding: "0 12px" }}>
         <div className="text-[10px] font-semibold opacity-50 mb-0.5">{exec.title}</div>

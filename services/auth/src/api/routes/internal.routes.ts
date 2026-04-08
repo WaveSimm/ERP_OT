@@ -63,7 +63,7 @@ export async function internalRoutes(
   fastify.get("/users/under/:userId", async (req, reply) => {
     const { userId } = req.params as { userId: string };
 
-    // 이 사용자가 팀장, 총괄이사, 대표이사인 부서 찾기
+    // 이 사용자가 팀장, 이사, 대표이사인 부서 찾기
     const headDepts = await prisma.department.findMany({
       where: {
         isActive: true,

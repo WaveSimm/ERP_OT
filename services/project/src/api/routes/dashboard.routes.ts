@@ -24,6 +24,17 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
     return reply.send(result);
   });
 
+  // ─── GET /api/v1/dashboard/summary/details?type=projects|issues|starting|ending
+  fastify.get("/summary/details", async (req, reply) => {
+    const { date, type } = req.query as { date?: string; type?: string };
+    if (!type || !["projects", "issues", "starting", "ending"].includes(type)) {
+      return reply.status(400).send({ code: "INVALID_TYPE", message: "type은 projects|issues|starting|ending 중 하나여야 합니다." });
+    }
+    const d = date ? new Date(date) : new Date();
+    const result = await service.getSummaryDetails(d, type);
+    return reply.send(result);
+  });
+
   // ─── GET /api/v1/dashboard/groups/:groupId/rollup ─────────────────────────
   fastify.get("/groups/:groupId/rollup", async (req, reply) => {
     const { groupId } = req.params as { groupId: string };

@@ -4,6 +4,7 @@ import type { UserService } from "../../application/user.service";
 import type { AuthService } from "../../application/auth.service";
 import { createAuthHook, requireRole } from "../middleware/auth.middleware";
 import { AuthError } from "../../application/auth.service";
+import { publishActivity } from "../../infrastructure/event-publisher";
 
 export async function userRoutes(
   app: FastifyInstance,
@@ -38,6 +39,14 @@ export async function userRoutes(
 
     try {
       const user = await userService.create(body.data);
+      publishActivity({
+        action: "user.created",
+        userId: req.userId,
+        entityType: "user",
+        entityId: user.id,
+        description: `사용자 생성: ${body.data.name} (${body.data.email})`,
+        metadata: { targetName: body.data.name, targetEmail: body.data.email, role: body.data.role },
+      });
       return reply.code(201).send(user);
     } catch (e) {
       if (e instanceof AuthError) {
@@ -57,6 +66,18 @@ export async function userRoutes(
 
     try {
       const user = await userService.update(id, body.data, req.userId);
+      const changes: string[] = [];
+      if (body.data.role) changes.push(`역할→${body.data.role}`);
+      if (body.data.name) changes.push(`이름→${body.data.name}`);
+      if (body.data.isActive !== undefined) changes.push(body.data.isActive ? "활성화" : "비활성화");
+      publishActivity({
+        action: body.data.role ? "user.role_changed" : "user.updated",
+        userId: req.userId,
+        entityType: "user",
+        entityId: id,
+        description: `사용자 수정: ${user.name} (${changes.join(", ")})`,
+        metadata: { targetId: id, targetName: user.name, ...body.data },
+      });
       return reply.code(200).send(user);
     } catch (e) {
       if (e instanceof AuthError) {
@@ -76,6 +97,13 @@ export async function userRoutes(
 
     try {
       await userService.resetPassword(id, body.data.newPassword);
+      publishActivity({
+        action: "user.password_reset",
+        userId: req.userId,
+        entityType: "user",
+        entityId: id,
+        description: `비밀번호 초기화: 사용자 ${id}`,
+      });
       return reply.code(204).send();
     } catch (e) {
       if (e instanceof AuthError) {
@@ -93,6 +121,13 @@ export async function userRoutes(
     }
     try {
       await userService.delete(id);
+      publishActivity({
+        action: "user.deleted",
+        userId: req.userId,
+        entityType: "user",
+        entityId: id,
+        description: `사용자 삭제: ${id}`,
+      });
       return reply.code(204).send();
     } catch (e) {
       if (e instanceof AuthError) {

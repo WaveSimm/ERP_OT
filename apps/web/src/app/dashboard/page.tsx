@@ -377,54 +377,302 @@ function GroupAccordion({ group, date, onPin }: { group: DashboardGroup; date: s
   );
 }
 
+// ─── 요약 카드 상세 팝업 ─────────────────────────────────────────────────────
+
+const RAG_LABEL: Record<string, { text: string; cls: string }> = {
+  GREEN: { text: "정상", cls: "bg-green-100 text-green-700" },
+  AMBER: { text: "경고", cls: "bg-yellow-100 text-yellow-700" },
+  RED: { text: "위험", cls: "bg-red-100 text-red-700" },
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  PLANNING: "계획", IN_PROGRESS: "진행", ON_HOLD: "보류", COMPLETED: "완료", CANCELLED: "취소",
+};
+
+const SEV_STYLE: Record<string, string> = {
+  CRITICAL: "border-red-200 bg-red-50 text-red-800",
+  WARNING: "border-yellow-200 bg-yellow-50 text-yellow-800",
+  INFO: "border-blue-200 bg-blue-50 text-blue-800",
+};
+
+function SummaryDetailPopup({ type, date, onClose }: { type: string; date: string; onClose: () => void }) {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    dashboardApi.getSummaryDetails(type, date)
+      .then(setData)
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, [type, date]);
+
+  const TITLE: Record<string, string> = {
+    projects: "전체 프로젝트",
+    issues: "전체 이슈",
+    starting: "이번 주 시작 세그먼트",
+    ending: "이번 주 완료 / 마일스톤",
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-3 border-b">
+          <h3 className="font-semibold text-gray-900">{TITLE[type] ?? type}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl leading-none">&times;</button>
+        </div>
+        <div className="overflow-y-auto flex-1 p-4">
+          {loading && <p className="text-sm text-gray-400 text-center py-8">로딩 중...</p>}
+          {!loading && !data && <p className="text-sm text-gray-400 text-center py-8">데이터 없음</p>}
+
+          {/* 전체 프로젝트 */}
+          {!loading && type === "projects" && Array.isArray(data) && (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-xs text-gray-500">
+                  <th className="py-1.5 text-left px-2">상태</th>
+                  <th className="py-1.5 text-left px-2">프로젝트</th>
+                  <th className="py-1.5 text-right px-2">진행률</th>
+                  <th className="py-1.5 text-right px-2">이슈</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.map((p: any) => {
+                  const rag = RAG_LABEL[p.ragStatus] ?? RAG_LABEL.GREEN;
+                  return (
+                    <tr key={p.id} className="border-b hover:bg-gray-50">
+                      <td className="py-2 px-2">
+                        <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${rag.cls}`}>{rag.text}</span>
+                      </td>
+                      <td className="py-2 px-2">
+                        <Link href={`/projects/${p.id}`} className="text-blue-600 hover:underline" onClick={onClose}>
+                          {p.name}
+                        </Link>
+                        <span className="ml-2 text-xs text-gray-400">{STATUS_LABEL[p.status] ?? p.status}</span>
+                      </td>
+                      <td className="py-2 px-2 text-right">{p.overallProgress}%</td>
+                      <td className="py-2 px-2 text-right">
+                        {p.issueCount.critical > 0 && <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded mr-1">{p.issueCount.critical}</span>}
+                        {p.issueCount.warning > 0 && <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded mr-1">{p.issueCount.warning}</span>}
+                        {p.issueCount.info > 0 && <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{p.issueCount.info}</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+
+          {/* 전체 이슈 */}
+          {!loading && type === "issues" && Array.isArray(data) && (
+            <div className="space-y-4">
+              {data.length === 0 && <p className="text-sm text-gray-400 text-center py-6">이슈 없음</p>}
+              {(() => {
+                const SEV_ORDER: Record<string, number> = { CRITICAL: 0, WARNING: 1, INFO: 2 };
+                const grouped = new Map<string, { projectId: string; projectName: string; items: any[] }>();
+                for (const item of data) {
+                  const key = item.projectId ?? "unknown";
+                  if (!grouped.has(key)) grouped.set(key, { projectId: key, projectName: item.projectName ?? key, items: [] });
+                  grouped.get(key)!.items.push(item);
+                }
+                for (const g of grouped.values()) {
+                  g.items.sort((a: any, b: any) => (SEV_ORDER[a.issue.severity] ?? 9) - (SEV_ORDER[b.issue.severity] ?? 9));
+                }
+                return Array.from(grouped.values()).map((group) => (
+                  <div key={group.projectId}>
+                    <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-gray-200">
+                      <Link href={`/projects/${group.projectId}`} className="text-sm font-bold text-gray-800 hover:text-blue-600" onClick={onClose}>
+                        {group.projectName}
+                      </Link>
+                      <span className="text-[11px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">{group.items.length}건</span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {group.items.map((item: any, idx: number) => {
+                        const taskNames: string[] = item.issue.taskName
+                          ? [item.issue.taskName]
+                          : (item.issue.metadata?.tasks as any[])?.map((t: any) => t.name).filter(Boolean) ?? [];
+                        return (
+                          <div key={idx} className={`border rounded-lg px-4 py-2.5 text-sm ${SEV_STYLE[item.issue.severity] ?? ""}`}>
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium">{item.issue.title}</span>
+                              <span className="text-[11px] opacity-70">{item.issue.severity}</span>
+                            </div>
+                            <div className="text-xs opacity-80 mt-0.5">{item.issue.description}</div>
+                            {taskNames.length > 0 && (
+                              <div className="text-xs opacity-60 mt-1">태스크: {taskNames.join(", ")}</div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          )}
+
+          {/* 이번 주 시작 */}
+          {!loading && type === "starting" && Array.isArray(data) && (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-xs text-gray-500">
+                  <th className="py-1.5 text-left px-2">시작일</th>
+                  <th className="py-1.5 text-left px-2">프로젝트</th>
+                  <th className="py-1.5 text-left px-2">태스크 / 세그먼트</th>
+                  <th className="py-1.5 text-left px-2">담당</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.length === 0 && (
+                  <tr><td colSpan={4} className="text-center py-6 text-gray-400">이번 주 시작 세그먼트 없음</td></tr>
+                )}
+                {data.map((s: any) => (
+                  <tr key={s.segmentId} className="border-b hover:bg-gray-50">
+                    <td className="py-2 px-2 text-xs whitespace-nowrap">{s.startDate}</td>
+                    <td className="py-2 px-2">
+                      <Link href={`/projects/${s.projectId}`} className="text-blue-600 hover:underline text-xs" onClick={onClose}>
+                        {s.projectName}
+                      </Link>
+                    </td>
+                    <td className="py-2 px-2">
+                      <div className="text-xs">{s.taskName}</div>
+                      <div className="text-[11px] text-gray-400">{s.segmentName}</div>
+                    </td>
+                    <td className="py-2 px-2 text-xs text-gray-500">{s.assignees?.join(", ") || "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          {/* 이번 주 완료/마일스톤 */}
+          {!loading && type === "ending" && data && (
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">완료 예정 세그먼트</h4>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-xs text-gray-500">
+                      <th className="py-1.5 text-left px-2">완료일</th>
+                      <th className="py-1.5 text-left px-2">프로젝트</th>
+                      <th className="py-1.5 text-left px-2">태스크 / 세그먼트</th>
+                      <th className="py-1.5 text-right px-2">진행률</th>
+                      <th className="py-1.5 text-left px-2">담당</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(!data.endingSegments || data.endingSegments.length === 0) && (
+                      <tr><td colSpan={5} className="text-center py-4 text-gray-400 text-xs">완료 예정 없음</td></tr>
+                    )}
+                    {data.endingSegments?.map((s: any) => (
+                      <tr key={s.segmentId} className="border-b hover:bg-gray-50">
+                        <td className="py-2 px-2 text-xs whitespace-nowrap">{s.endDate}</td>
+                        <td className="py-2 px-2">
+                          <Link href={`/projects/${s.projectId}`} className="text-blue-600 hover:underline text-xs" onClick={onClose}>
+                            {s.projectName}
+                          </Link>
+                        </td>
+                        <td className="py-2 px-2">
+                          <div className="text-xs">{s.taskName}</div>
+                          <div className="text-[11px] text-gray-400">{s.segmentName}</div>
+                        </td>
+                        <td className="py-2 px-2 text-xs text-right">
+                          <span className={s.progressPercent < 50 ? "text-red-600 font-medium" : ""}>{s.progressPercent}%</span>
+                        </td>
+                        <td className="py-2 px-2 text-xs text-gray-500">{s.assignees?.join(", ") || "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {data.milestones && data.milestones.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">마일스톤</h4>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-xs text-gray-500">
+                        <th className="py-1.5 text-left px-2">기한</th>
+                        <th className="py-1.5 text-left px-2">프로젝트</th>
+                        <th className="py-1.5 text-left px-2">마일스톤</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.milestones.map((m: any) => (
+                        <tr key={m.taskId} className="border-b hover:bg-gray-50">
+                          <td className="py-2 px-2 text-xs whitespace-nowrap">{m.dueDate}</td>
+                          <td className="py-2 px-2">
+                            <Link href={`/projects/${m.projectId}`} className="text-blue-600 hover:underline text-xs" onClick={onClose}>
+                              {m.projectName}
+                            </Link>
+                          </td>
+                          <td className="py-2 px-2 text-xs">{m.taskName}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── 전체 요약 카드 ───────────────────────────────────────────────────────────
 
-function GlobalSummaryCards({ summary }: { summary: GlobalSummary }) {
+function GlobalSummaryCards({ summary, date }: { summary: GlobalSummary; date: string }) {
   const sc = summary.statusCount;
   const ic = summary.issueCount;
   const we = summary.thisWeekEvents;
+  const [detailType, setDetailType] = useState<string | null>(null);
+
+  const cardCls = "bg-white rounded-xl border shadow-sm p-4 cursor-pointer hover:ring-2 hover:ring-blue-200 transition-all";
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-      {/* 프로젝트 현황 */}
-      <div className="bg-white rounded-xl border shadow-sm p-4">
-        <div className="text-xs text-gray-500 mb-1">전체 프로젝트</div>
-        <div className="text-2xl font-bold text-gray-900">{summary.totalProjects}</div>
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">{sc.onTrack} 정상</span>
-          {sc.warning > 0 && <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">{sc.warning} 경고</span>}
-          {sc.critical > 0 && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">{sc.critical} 위험</span>}
-          {sc.completed > 0 && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{sc.completed} 완료</span>}
-          {sc.onHold > 0 && <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{sc.onHold} 보류</span>}
+    <>
+      {detailType && <SummaryDetailPopup type={detailType} date={date} onClose={() => setDetailType(null)} />}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        {/* 프로젝트 현황 */}
+        <div className={cardCls} onClick={() => setDetailType("projects")}>
+          <div className="text-xs text-gray-500 mb-1">전체 프로젝트</div>
+          <div className="text-2xl font-bold text-gray-900">{summary.totalProjects}</div>
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {sc.critical > 0 && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">{sc.critical} 위험</span>}
+            {sc.warning > 0 && <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">{sc.warning} 경고</span>}
+            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">{sc.onTrack} 정상</span>
+            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{sc.completed} 완료</span>
+            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{sc.onHold} 보류</span>
+          </div>
+        </div>
+
+        {/* 이슈 현황 */}
+        <div className={cardCls} onClick={() => setDetailType("issues")}>
+          <div className="text-xs text-gray-500 mb-1">전체 이슈</div>
+          <div className="text-2xl font-bold text-gray-900">{ic.critical + ic.warning + ic.info}</div>
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {ic.critical > 0 && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">{ic.critical} 위험</span>}
+            {ic.warning > 0 && <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">{ic.warning} 경고</span>}
+            {ic.info > 0 && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{ic.info} 정보</span>}
+            {ic.critical + ic.warning + ic.info === 0 && <span className="text-xs text-gray-400">이슈 없음</span>}
+          </div>
+        </div>
+
+        {/* 이번 주 시작 */}
+        <div className={cardCls} onClick={() => setDetailType("starting")}>
+          <div className="text-xs text-gray-500 mb-1">이번 주 시작</div>
+          <div className="text-2xl font-bold text-blue-600">{we.starting}</div>
+          <div className="text-xs text-gray-400 mt-2">세그먼트 시작 예정</div>
+        </div>
+
+        {/* 이번 주 완료 & 마일스톤 */}
+        <div className={cardCls} onClick={() => setDetailType("ending")}>
+          <div className="text-xs text-gray-500 mb-1">이번 주 완료 / 마일스톤</div>
+          <div className="text-2xl font-bold text-purple-600">{we.ending} <span className="text-lg font-normal text-gray-400">/ {we.milestones}</span></div>
+          <div className="text-xs text-gray-400 mt-2">완료 예정 / 마일스톤 도달</div>
         </div>
       </div>
-
-      {/* 이슈 현황 */}
-      <div className="bg-white rounded-xl border shadow-sm p-4">
-        <div className="text-xs text-gray-500 mb-1">전체 이슈</div>
-        <div className="text-2xl font-bold text-gray-900">{ic.critical + ic.warning + ic.info}</div>
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          {ic.critical > 0 && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">{ic.critical} 위험</span>}
-          {ic.warning > 0 && <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">{ic.warning} 경고</span>}
-          {ic.info > 0 && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{ic.info} 정보</span>}
-          {ic.critical + ic.warning + ic.info === 0 && <span className="text-xs text-gray-400">이슈 없음</span>}
-        </div>
-      </div>
-
-      {/* 이번 주 시작 */}
-      <div className="bg-white rounded-xl border shadow-sm p-4">
-        <div className="text-xs text-gray-500 mb-1">이번 주 시작</div>
-        <div className="text-2xl font-bold text-blue-600">{we.starting}</div>
-        <div className="text-xs text-gray-400 mt-2">세그먼트 시작 예정</div>
-      </div>
-
-      {/* 이번 주 완료 & 마일스톤 */}
-      <div className="bg-white rounded-xl border shadow-sm p-4">
-        <div className="text-xs text-gray-500 mb-1">이번 주 완료 / 마일스톤</div>
-        <div className="text-2xl font-bold text-purple-600">{we.ending} <span className="text-lg font-normal text-gray-400">/ {we.milestones}</span></div>
-        <div className="text-xs text-gray-400 mt-2">완료 예정 / 마일스톤 도달</div>
-      </div>
-    </div>
+    </>
   );
 }
 
@@ -594,7 +842,7 @@ export default function CommandCenterDashboard() {
       {!loading && data && (
         <>
           {/* 전체 요약 카드 */}
-          <GlobalSummaryCards summary={data.globalSummary} />
+          <GlobalSummaryCards summary={data.globalSummary} date={date} />
 
           {/* 그룹 Accordion */}
           {data.groups.length > 0 && (

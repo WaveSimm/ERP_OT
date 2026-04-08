@@ -4,6 +4,7 @@ import type { AuthService } from "../../application/auth.service";
 import type { IUserRepository } from "../../domain/repositories/user.repository";
 import { createAuthHook } from "../middleware/auth.middleware";
 import { AuthError } from "../../application/auth.service";
+import { publishActivity } from "../../infrastructure/event-publisher";
 
 export async function authRoutes(app: FastifyInstance, opts: { authService: AuthService; userRepo: IUserRepository }) {
   const { authService, userRepo } = opts;
@@ -27,12 +28,27 @@ export async function authRoutes(app: FastifyInstance, opts: { authService: Auth
         secure: process.env.NODE_ENV === "production",
       });
 
+      publishActivity({
+        action: "auth.login",
+        userId: result.user.id,
+        entityType: "user",
+        entityId: result.user.id,
+        description: `${result.user.name} 로그인`,
+      });
+
       return reply.code(200).send({
         accessToken: result.accessToken,
         user: result.user,
       });
     } catch (e) {
       if (e instanceof AuthError) {
+        publishActivity({
+          action: "auth.login_failed",
+          userId: body.data.email,
+          entityType: "user",
+          entityId: body.data.email,
+          description: `로그인 실패: ${body.data.email}`,
+        });
         return reply.code(e.statusCode).send({ error: e.message });
       }
       throw e;
@@ -70,6 +86,13 @@ export async function authRoutes(app: FastifyInstance, opts: { authService: Auth
   app.post("/logout", { preHandler: [authenticate] }, async (req, reply) => {
     await authService.logout(req.userId);
     reply.clearCookie("refreshToken", { path: "/api/auth/refresh" });
+    publishActivity({
+      action: "auth.logout",
+      userId: req.userId,
+      entityType: "user",
+      entityId: req.userId,
+      description: "로그아웃",
+    });
     return reply.code(204).send();
   });
 
@@ -106,6 +129,13 @@ export async function authRoutes(app: FastifyInstance, opts: { authService: Auth
 
     try {
       await authService.changePassword(req.userId, body.data.currentPassword, body.data.newPassword);
+      publishActivity({
+        action: "auth.password_changed",
+        userId: req.userId,
+        entityType: "user",
+        entityId: req.userId,
+        description: "비밀번호 변경",
+      });
       return reply.code(204).send();
     } catch (e) {
       if (e instanceof AuthError) {

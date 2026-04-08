@@ -474,6 +474,11 @@ export const dashboardApi = {
   },
   getSummary: (date?: string) =>
     request<any>(`/dashboard/summary${date ? `?date=${date}` : ""}`),
+  getSummaryDetails: (type: string, date?: string) => {
+    const params = new URLSearchParams({ type });
+    if (date) params.set("date", date);
+    return request<any>(`/dashboard/summary/details?${params}`);
+  },
   getProjectIssues: (projectId: string) =>
     request<any[]>(`/dashboard/projects/${projectId}/issues`),
   getProjectTimeline: (projectId: string, date?: string) =>
@@ -488,6 +493,19 @@ export const dashboardApi = {
     request<any>(`/dashboard/projects/${projectId}/refresh`, { method: "POST", body: "{}" }),
   refreshAll: () =>
     request<any>("/dashboard/refresh-all", { method: "POST", body: "{}" }),
+};
+
+// ─── Activity Logs (전체 이력) ─────────────────────────────────────────────────
+
+export const activityLogApi = {
+  list: (params?: { page?: number; pageSize?: number; action?: string; userId?: string; search?: string }) => {
+    const q = params ? new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== "").map(([k, v]) => [k, String(v)]))
+    ).toString() : "";
+    return request<{ items: any[]; total: number; page: number; pageSize: number; totalPages: number }>(
+      `/activities${q ? `?${q}` : ""}`,
+    );
+  },
 };
 
 // ─── Equipment (장비 관리) ────────────────────────────────────────────────────
@@ -653,6 +671,70 @@ export const compatibilityApi = {
   create: (data: { equipmentId: string; sensorId: string; notes?: string }) =>
     request<any>("/compatibility", { method: "POST", body: JSON.stringify(data) }),
   remove: (id: string) => request<void>(`/compatibility/${id}`, { method: "DELETE" }),
+};
+
+// ─── Repair/AS Management API ────────────────────────────────────────────
+
+export const repairApi = {
+  // 고객
+  getCustomers: (params?: { search?: string; page?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.search) q.set("search", params.search);
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    const qs = q.toString();
+    return request<any>(`/customers${qs ? `?${qs}` : ""}`);
+  },
+  createCustomer: (data: any) =>
+    request<any>("/customers", { method: "POST", body: JSON.stringify(data) }),
+  getCustomer: (id: string) => request<any>(`/customers/${id}`),
+  updateCustomer: (id: string, data: any) =>
+    request<any>(`/customers/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteCustomer: (id: string) =>
+    request<void>(`/customers/${id}`, { method: "DELETE" }),
+
+  // 고객 자산
+  getCustomerAssets: (params?: { customerId?: string; search?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.customerId) q.set("customerId", params.customerId);
+    if (params?.search) q.set("search", params.search);
+    const qs = q.toString();
+    return request<any>(`/customer-assets${qs ? `?${qs}` : ""}`);
+  },
+  getCustomerAsset: (id: string) => request<any>(`/customer-assets/${id}`),
+  createCustomerAsset: (data: any) =>
+    request<any>("/customer-assets", { method: "POST", body: JSON.stringify(data) }),
+  updateCustomerAsset: (id: string, data: any) =>
+    request<any>(`/customer-assets/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteCustomerAsset: (id: string) =>
+    request<void>(`/customer-assets/${id}`, { method: "DELETE" }),
+
+  // 수리 접수
+  getRepairOrders: (params?: { status?: string; statusGroup?: string; customerId?: string; search?: string; page?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set("status", params.status);
+    if (params?.statusGroup) q.set("statusGroup", params.statusGroup);
+    if (params?.customerId) q.set("customerId", params.customerId);
+    if (params?.search) q.set("search", params.search);
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    const qs = q.toString();
+    return request<any>(`/repair-orders${qs ? `?${qs}` : ""}`);
+  },
+  createRepairOrder: (data: any) =>
+    request<any>("/repair-orders", { method: "POST", body: JSON.stringify(data) }),
+  getRepairOrder: (id: string) => request<any>(`/repair-orders/${id}`),
+  updateRepairOrder: (id: string, data: any) =>
+    request<any>(`/repair-orders/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  changeStatus: (id: string, data: { status: string }) =>
+    request<any>(`/repair-orders/${id}/status`, { method: "PATCH", body: JSON.stringify(data) }),
+  updateTechStatus: (id: string, data: { techStatus: string }) =>
+    request<any>(`/repair-orders/${id}/tech-status`, { method: "PATCH", body: JSON.stringify(data) }),
+  updateSalesStatus: (id: string, data: { salesStatus: string }) =>
+    request<any>(`/repair-orders/${id}/sales-status`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteRepairOrder: (id: string) =>
+    request<void>(`/repair-orders/${id}`, { method: "DELETE" }),
+  getTransitions: (id: string) => request<any>(`/repair-orders/${id}/transitions`),
 };
 
 /** @deprecated Use authApi.login instead */

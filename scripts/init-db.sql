@@ -22,6 +22,12 @@ GRANT ALL ON SCHEMA attendance TO erp_user;
 GRANT ALL ON SCHEMA equipment TO erp_user;
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- Repair/AS Management sequences
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE SEQUENCE IF NOT EXISTS equipment.repair_order_seq START 1;
+CREATE SEQUENCE IF NOT EXISTS equipment.purchase_order_seq START 1;
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- Attendance default policy (attendance-service baseline)
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Note: Attendance tables are created by Prisma migrations.

@@ -478,5 +478,44 @@ export class TaskService {
         ...(newStatus !== undefined && { status: newStatus as any }),
       },
     });
+
+    // 프로젝트 상태 자동 동기화
+    await this.syncProjectStatus(task.projectId);
+  }
+
+  private async syncProjectStatus(projectId: string): Promise<void> {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        tasks: {
+          select: { id: true, parentId: true, isMilestone: true, segments: { select: { progressPercent: true } } },
+        },
+      },
+    });
+    if (!project) return;
+
+    // ON_HOLD / CANCELLED는 수동 상태이므로 유지
+    if (project.status === "ON_HOLD" || project.status === "CANCELLED") return;
+
+    const parentIds = new Set(project.tasks.map((t) => t.parentId).filter(Boolean));
+    const leafSegments = project.tasks
+      .filter((t) => !parentIds.has(t.id) && !t.isMilestone)
+      .flatMap((t) => t.segments);
+
+    if (leafSegments.length === 0) return;
+
+    const avgProgress = leafSegments.reduce((s, seg) => s + seg.progressPercent, 0) / leafSegments.length;
+
+    let newStatus: string;
+    if (avgProgress >= 100) newStatus = "COMPLETED";
+    else if (avgProgress > 0) newStatus = "IN_PROGRESS";
+    else newStatus = "PLANNING";
+
+    if (newStatus !== project.status) {
+      await this.prisma.project.update({
+        where: { id: projectId },
+        data: { status: newStatus as any },
+      });
+    }
   }
 }

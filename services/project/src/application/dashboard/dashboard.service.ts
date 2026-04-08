@@ -204,6 +204,133 @@ export class DashboardService {
     });
   }
 
+  async getSummaryDetails(date: Date, type: string) {
+    const today = new Date(date);
+    today.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(today);
+    weekEnd.setDate(today.getDate() + 7);
+
+    if (type === "projects") {
+      const projects = await this.prisma.project.findMany({
+        where: { status: { notIn: ["CANCELLED"] } },
+        select: { id: true, name: true, status: true, updatedAt: true },
+        orderBy: { name: "asc" },
+      });
+      const results: any[] = [];
+      for (const p of projects) {
+        const summary = await this.getProjectSummary(p.id, date);
+        const issues = await this.getProjectIssues(p.id);
+        results.push({
+          id: p.id,
+          name: p.name,
+          status: p.status,
+          ragStatus: determineRAG(issues),
+          overallProgress: summary.overallProgress,
+          issueCount: countIssues(issues),
+        });
+      }
+      return results;
+    }
+
+    if (type === "issues") {
+      const projects = await this.prisma.project.findMany({
+        where: { status: { notIn: ["CANCELLED"] } },
+        select: { id: true, name: true },
+      });
+      const result: { projectId: string; projectName: string; issue: DashboardIssue }[] = [];
+      for (const p of projects) {
+        const issues = await this.getProjectIssues(p.id);
+        for (const iss of issues) {
+          result.push({ projectId: p.id, projectName: p.name, issue: iss });
+        }
+      }
+      // severity 순서: CRITICAL → WARNING → INFO
+      const sevOrder: Record<string, number> = { CRITICAL: 0, WARNING: 1, INFO: 2 };
+      result.sort((a, b) => (sevOrder[a.issue.severity] ?? 9) - (sevOrder[b.issue.severity] ?? 9));
+      return result;
+    }
+
+    if (type === "starting") {
+      const segments: any[] = await this.prisma.taskSegment.findMany({
+        where: { startDate: { gte: today, lte: weekEnd } },
+        include: {
+          task: { include: { project: { select: { id: true, name: true } } } },
+          assignments: { select: { resourceId: true } },
+        },
+        orderBy: { startDate: "asc" },
+      });
+      const resourceIds = [...new Set(segments.flatMap((s: any) => s.assignments.map((a: any) => a.resourceId)))];
+      const resources = await this.prisma.resource.findMany({
+        where: { id: { in: resourceIds } },
+        select: { id: true, name: true },
+      });
+      const resMap = new Map(resources.map((r) => [r.id, r.name]));
+      return segments.map((s: any) => ({
+        segmentId: s.id,
+        segmentName: s.name,
+        startDate: s.startDate.toISOString().slice(0, 10),
+        endDate: s.endDate.toISOString().slice(0, 10),
+        progressPercent: s.progressPercent,
+        taskId: s.task.id,
+        taskName: s.task.name,
+        projectId: s.task.project.id,
+        projectName: s.task.project.name,
+        assignees: s.assignments.map((a: any) => resMap.get(a.resourceId) ?? "-"),
+      }));
+    }
+
+    if (type === "ending") {
+      const segments: any[] = await this.prisma.taskSegment.findMany({
+        where: { endDate: { gte: today, lte: weekEnd }, progressPercent: { lt: 100 } },
+        include: {
+          task: { include: { project: { select: { id: true, name: true } } } },
+          assignments: { select: { resourceId: true } },
+        },
+        orderBy: { endDate: "asc" },
+      });
+      const resourceIds = [...new Set(segments.flatMap((s: any) => s.assignments.map((a: any) => a.resourceId)))];
+      const resources = await this.prisma.resource.findMany({
+        where: { id: { in: resourceIds } },
+        select: { id: true, name: true },
+      });
+      const resMap = new Map(resources.map((r) => [r.id, r.name]));
+      const milestones: any[] = await this.prisma.task.findMany({
+        where: {
+          isMilestone: true,
+          status: { not: "DONE" },
+          segments: { some: { endDate: { gte: today, lte: weekEnd } } },
+        },
+        include: {
+          project: { select: { id: true, name: true } },
+          segments: { select: { endDate: true }, orderBy: { endDate: "asc" }, take: 1 },
+        },
+      });
+      return {
+        endingSegments: segments.map((s: any) => ({
+          segmentId: s.id,
+          segmentName: s.name,
+          startDate: s.startDate.toISOString().slice(0, 10),
+          endDate: s.endDate.toISOString().slice(0, 10),
+          progressPercent: s.progressPercent,
+          taskId: s.task.id,
+          taskName: s.task.name,
+          projectId: s.task.project.id,
+          projectName: s.task.project.name,
+          assignees: s.assignments.map((a: any) => resMap.get(a.resourceId) ?? "-"),
+        })),
+        milestones: milestones.map((m: any) => ({
+          taskId: m.id,
+          taskName: m.name,
+          projectId: m.project.id,
+          projectName: m.project.name,
+          dueDate: m.segments[0]?.endDate?.toISOString().slice(0, 10) ?? "",
+        })),
+      };
+    }
+
+    return [];
+  }
+
   async getDashboard(userId: string, options: {
     groupBy?: string;
     date?: string;

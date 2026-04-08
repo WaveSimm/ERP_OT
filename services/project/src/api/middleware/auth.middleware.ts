@@ -59,3 +59,8 @@ export function requireSelfOrManager(req: FastifyRequest, ownerId: string): bool
   if (role === "ADMIN" || role === "MANAGER") return true;
   return req.userId === ownerId;
 }
+
+/** OPERATOR 이상 (OPERATOR + MANAGER + ADMIN) */
+export function requireOperator() {
+  return requireRole("ADMIN", "MANAGER", "OPERATOR");
+}

@@ -22,8 +22,14 @@ import { DeploymentService } from "./application/deployment.service.js";
 import { CompatibilityService } from "./application/compatibility.service.js";
 import { StatsService } from "./application/stats.service.js";
 import { TemplateService } from "./application/template.service.js";
+import { CustomerService } from "./application/customer.service.js";
+import { CustomerAssetService } from "./application/customer-asset.service.js";
+import { RepairOrderService } from "./application/repair-order.service.js";
 import { statsRoutes } from "./api/routes/stats.routes.js";
 import { templateRoutes } from "./api/routes/template.routes.js";
+import { customerRoutes } from "./api/routes/customer.routes.js";
+import { customerAssetRoutes } from "./api/routes/customer-asset.routes.js";
+import { repairOrderRoutes } from "./api/routes/repair-order.routes.js";
 
 // ─── Env 검증 ──────────────────────────────────────────────────────────────
 const envSchema = z.object({
@@ -54,6 +60,9 @@ const deploymentService = new DeploymentService(prisma);
 const compatibilityService = new CompatibilityService(prisma);
 const statsService = new StatsService(prisma);
 const templateService = new TemplateService(prisma);
+const customerService = new CustomerService(prisma);
+const customerAssetService = new CustomerAssetService(prisma);
+const repairOrderService = new RepairOrderService(prisma);
 
 // ─── Type declarations ─────────────────────────────────────────────────────
 declare module "fastify" {
@@ -67,6 +76,9 @@ declare module "fastify" {
     compatibilityService: CompatibilityService;
     statsService: StatsService;
     templateService: TemplateService;
+    customerService: CustomerService;
+    customerAssetService: CustomerAssetService;
+    repairOrderService: RepairOrderService;
     prisma: PrismaClient;
   }
 }
@@ -87,6 +99,9 @@ async function buildApp() {
   app.decorate("compatibilityService", compatibilityService);
   app.decorate("statsService", statsService);
   app.decorate("templateService", templateService);
+  app.decorate("customerService", customerService);
+  app.decorate("customerAssetService", customerAssetService);
+  app.decorate("repairOrderService", repairOrderService);
   app.decorate("prisma", prisma);
 
   await app.register(authMiddleware);
@@ -121,6 +136,9 @@ async function buildApp() {
   app.register(compatibilityRoutes, { prefix: "/api/v1/compatibility" });
   app.register(statsRoutes, { prefix: "/api/v1/stats" });
   app.register(templateRoutes, { prefix: "/api/v1/deployment-templates" });
+  app.register(customerRoutes, { prefix: "/api/v1/customers" });
+  app.register(customerAssetRoutes, { prefix: "/api/v1/customer-assets" });
+  app.register(repairOrderRoutes, { prefix: "/api/v1/repair-orders" });
 
   return app;
 }

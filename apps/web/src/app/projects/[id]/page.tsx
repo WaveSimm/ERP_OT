@@ -68,7 +68,7 @@ export default function ProjectDetailPage() {
   const router = useRouter();
   const params = useParams();
   const projectId = params.id as string;
-  const { isManager } = usePermission();
+  const { isManager, isOperator } = usePermission();
 
   const [ganttData, setGanttData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -1041,7 +1041,7 @@ export default function ProjectDetailPage() {
             >
               템플릿 저장
             </button>
-            {isManager && (
+            {isOperator && (
               <button
                 onClick={() => setShowAddTask(true)}
                 className="bg-blue-600 text-white px-4 py-1 rounded-lg text-sm font-semibold hover:bg-blue-700"
@@ -1485,31 +1485,79 @@ export default function ProjectDetailPage() {
                   const st = statusMap[d.status] ?? { label: d.status, color: "bg-gray-100" };
                   return (
                     <div key={d.id} className="bg-white border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg">🔧</span>
-                          <span className="font-semibold">{d.equipment?.name ?? "장비"}</span>
-                          <span className="text-xs text-gray-400">{d.equipment?.category?.name}</span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${st.color}`}>{st.label}</span>
-                        </div>
-                        <span className="text-sm text-gray-500">
-                          {new Date(d.startDate).toLocaleDateString()} ~ {d.endDate ? new Date(d.endDate).toLocaleDateString() : "미정"}
-                        </span>
-                      </div>
-                      {d.sensors?.length > 0 && (
-                        <div className="mt-2 pl-7">
-                          <div className="text-xs text-gray-500 mb-1">장착 센서:</div>
-                          <div className="flex flex-wrap gap-2">
-                            {d.sensors.map((ds: any) => (
-                              <div key={ds.id} className="flex items-center gap-1 bg-gray-50 border rounded px-2 py-1 text-xs">
-                                <span>📡</span>
-                                <span className="font-medium">{ds.sensor?.name}</span>
-                                <span className="text-gray-400">{ds.sensor?.category?.name}</span>
-                                {ds.notes && <span className="text-gray-400 ml-1">({ds.notes})</span>}
-                              </div>
-                            ))}
+                      {d.equipment ? (
+                        <>
+                          {/* 장비 투입 */}
+                          <div className="flex items-center justify-between mb-2 cursor-pointer hover:bg-gray-50 rounded -m-1 p-1 transition-colors"
+                            onClick={() => router.push(`/equipment/${d.equipment.id}?tab=schedules`)}>
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">🔧</span>
+                              <span className="font-semibold text-blue-600 hover:underline">{d.equipment.name}</span>
+                              <span className="text-xs text-gray-400">{d.equipment.category?.name}</span>
+                              {d.equipment.model && <span className="text-xs text-gray-400">· {d.equipment.model}</span>}
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${st.color}`}>{st.label}</span>
+                            </div>
+                            <span className="text-sm text-gray-500">
+                              {new Date(d.startDate).toLocaleDateString()} ~ {d.endDate ? new Date(d.endDate).toLocaleDateString() : "미정"}
+                            </span>
                           </div>
-                        </div>
+                          {d.sensors?.length > 0 && (
+                            <div className="mt-2 pl-7">
+                              <div className="text-xs text-gray-500 mb-1">장착 센서:</div>
+                              <div className="flex flex-wrap gap-2">
+                                {d.sensors.map((ds: any) => (
+                                  <div key={ds.id} className="flex items-center gap-1 bg-gray-50 border rounded px-2 py-1 text-xs cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition-colors"
+                                    onClick={() => router.push(`/equipment/sensors/${ds.sensor?.id}?tab=schedules`)}>
+                                    <span>📡</span>
+                                    <span className="font-medium text-blue-600">{ds.sensor?.name}</span>
+                                    <span className="text-gray-400">{ds.sensor?.model}</span>
+                                    <span className="text-gray-400">SN: {ds.sensor?.serialNumber}</span>
+                                    {ds.notes && <span className="text-gray-400 ml-1">({ds.notes})</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          {/* 센서 단독 투입 */}
+                          <div className="flex items-center justify-between mb-2 cursor-pointer hover:bg-gray-50 rounded -m-1 p-1 transition-colors"
+                            onClick={() => d.sensors?.length === 1 && router.push(`/equipment/sensors/${d.sensors[0].sensor?.id}?tab=schedules`)}>
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">📡</span>
+                              {d.sensors?.length === 1 ? (
+                                <>
+                                  <span className="font-semibold text-blue-600 hover:underline">{d.sensors[0].sensor?.name}</span>
+                                  <span className="text-xs text-gray-400">{d.sensors[0].sensor?.model}</span>
+                                  <span className="text-xs text-gray-400">SN: {d.sensors[0].sensor?.serialNumber}</span>
+                                </>
+                              ) : (
+                                <span className="font-semibold">센서 {d.sensors?.length ?? 0}개</span>
+                              )}
+                              <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">센서 단독</span>
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${st.color}`}>{st.label}</span>
+                            </div>
+                            <span className="text-sm text-gray-500">
+                              {new Date(d.startDate).toLocaleDateString()} ~ {d.endDate ? new Date(d.endDate).toLocaleDateString() : "미정"}
+                            </span>
+                          </div>
+                          {d.sensors?.length > 1 && (
+                            <div className="mt-2 pl-7">
+                              <div className="flex flex-wrap gap-2">
+                                {d.sensors.map((ds: any) => (
+                                  <div key={ds.id} className="flex items-center gap-1 bg-gray-50 border rounded px-2 py-1 text-xs cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition-colors"
+                                    onClick={() => router.push(`/equipment/sensors/${ds.sensor?.id}?tab=schedules`)}>
+                                    <span>📡</span>
+                                    <span className="font-medium text-blue-600">{ds.sensor?.name}</span>
+                                    <span className="text-gray-400">{ds.sensor?.model}</span>
+                                    <span className="text-gray-400">SN: {ds.sensor?.serialNumber}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
                       )}
                       {d.notes && <div className="mt-2 pl-7 text-xs text-gray-500">{d.notes}</div>}
                     </div>

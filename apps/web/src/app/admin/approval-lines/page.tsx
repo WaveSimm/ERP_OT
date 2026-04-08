@@ -54,7 +54,9 @@ export default function ApprovalLinesPage() {
 
       const flatten = (nodes: any[]): any[] =>
         nodes.flatMap((n) => [n, ...flatten(n.children ?? [])]);
-      setDepartments(flatten(depts).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)));
+      const flatDepts = flatten(depts).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+      const deptOrderMap = new Map(flatDepts.map((d: any) => [d.id, d.sortOrder ?? 9999]));
+      setDepartments(flatDepts);
       setAllUsers(users);
 
       const built: UserRow[] = users
@@ -73,7 +75,11 @@ export default function ApprovalLinesPage() {
             },
           };
         })
-        .sort((a, b) => a.deptName.localeCompare(b.deptName) || a.name.localeCompare(b.name));
+        .sort((a, b) => {
+          const orderA = deptOrderMap.get(a.deptId ?? "") ?? 9999;
+          const orderB = deptOrderMap.get(b.deptId ?? "") ?? 9999;
+          return orderA - orderB || a.name.localeCompare(b.name);
+        });
 
       rowsRef.current = built;
       setRows(built);
@@ -248,7 +254,7 @@ export default function ApprovalLinesPage() {
                         )}
                         {chain.soukwal && (
                           <span className="text-xs bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full">
-                            총괄: {chain.soukwal}
+                            이사: {chain.soukwal}
                           </span>
                         )}
                         {chain.daepyo && (

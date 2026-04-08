@@ -389,7 +389,7 @@ model Attachment {
 
 model ActivityLog {
   id          String   @id @default(cuid())
-  projectId   String
+  projectId   String?
   userId      String
   action      String
   entityType  String
@@ -398,9 +398,10 @@ model ActivityLog {
   metadata    Json?
   createdAt   DateTime @default(now())
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, createdAt(sort: Desc)])
+  @@index([action, createdAt(sort: Desc)])
   @@map("activity_logs")
   @@schema("project")
 }

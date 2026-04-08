@@ -13,7 +13,7 @@ export async function teamRoutes(fastify: FastifyInstance) {
     const start = new Date(year, month - 1, 1);
     const end = new Date(year, month, 0);
 
-    // 조직도 직책(팀장/총괄이사/대표이사) 기준으로 관할 부서 멤버 조회
+    // 조직도 직책(팀장/이사/대표이사) 기준으로 관할 부서 멤버 조회
     const teamMembers = await fastify.authClient.getUsersUnder(req.userId);
     if (teamMembers.length === 0) {
       return reply.send([]);

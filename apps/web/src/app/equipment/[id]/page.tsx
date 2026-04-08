@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { equipmentApi, maintenanceApi, compatibilityApi, sensorApi, deploymentApi, projectApi, equipmentScheduleApi } from "@/lib/api";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { equipmentApi, maintenanceApi, compatibilityApi, sensorApi, deploymentApi, projectApi, taskApi, equipmentScheduleApi } from "@/lib/api";
+import ScheduleTimeline from "@/components/ScheduleTimeline";
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   AVAILABLE: { label: "가용", color: "bg-green-100 text-green-800" },
@@ -22,8 +24,10 @@ type Tab = "info" | "history" | "maintenance" | "schedules" | "sensors";
 export default function EquipmentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [equipment, setEquipment] = useState<any>(null);
-  const [tab, setTab] = useState<Tab>("info");
+  const initialTab = (searchParams.get("tab") as Tab) || "info";
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [maintenance, setMaintenance] = useState<any[]>([]);
   const [schedules, setSchedules] = useState<any[]>([]);
   const [compatSensors, setCompatSensors] = useState<any[]>([]);
@@ -46,7 +50,8 @@ export default function EquipmentDetailPage() {
 
   // Maintenance form
   const [showMaintForm, setShowMaintForm] = useState(false);
-  const [maintForm, setMaintForm] = useState({ type: "PREVENTIVE", title: "", description: "", performedBy: "", performedAt: new Date().toISOString().slice(0, 10), cost: "" });
+  const [maintFormType, setMaintFormType] = useState(""); // 어떤 버튼으로 열었는지
+  const [maintForm, setMaintForm] = useState({ type: "PREVENTIVE", title: "", description: "", performedBy: "", performedAt: new Date().toISOString().slice(0, 10), cost: "", startDate: new Date().toISOString().slice(0, 10), endDate: new Date().toISOString().slice(0, 10) });
 
   // Schedule form
   const [showSchedForm, setShowSchedForm] = useState(false);
@@ -56,8 +61,9 @@ export default function EquipmentDetailPage() {
   const [showDeployForm, setShowDeployForm] = useState(false);
   const [projects, setProjects] = useState<any[]>([]);
   const [availableSensors, setAvailableSensors] = useState<any[]>([]);
-  const [deployForm, setDeployForm] = useState({ projectId: "", projectName: "", startDate: new Date().toISOString().slice(0, 10), endDate: "", selectedSensors: [] as { sensorId: string; name: string; notes: string }[] });
+  const [deployForm, setDeployForm] = useState({ projectId: "", projectName: "", taskId: "", taskName: "", startDate: new Date().toISOString().slice(0, 10), endDate: "", selectedSensors: [] as { sensorId: string; name: string; notes: string }[] });
   const [deploySubmitting, setDeploySubmitting] = useState(false);
+  const [projectTasks, setProjectTasks] = useState<any[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -68,7 +74,7 @@ export default function EquipmentDetailPage() {
   useEffect(() => {
     if (!id) return;
     if (tab === "maintenance" || tab === "history") equipmentApi.getMaintenance(id).then((r) => setMaintenance(r.items ?? [])).catch(() => {});
-    if (tab === "schedules" || tab === "history") {
+    if (tab === "schedules" || tab === "history" || tab === "maintenance") {
       equipmentApi.getSchedules(id).then(setSchedules).catch(() => {});
       equipmentApi.getDeployments(id).then((r) => setDeployments(r.items ?? [])).catch(() => {});
     }
@@ -109,16 +115,24 @@ export default function EquipmentDetailPage() {
       ]);
       setProjects(projRes.items ?? []);
       setAvailableSensors(sensorRes ?? []);
-      setDeployForm({ projectId: "", projectName: "", startDate: defaultStart, endDate: "", selectedSensors: [] });
+      setDeployForm({ projectId: "", projectName: "", taskId: "", taskName: "", startDate: defaultStart, endDate: "", selectedSensors: [] });
+      setProjectTasks([]);
       setShowDeployForm(true);
     } catch { alert("데이터 로드 실패"); }
   };
 
-  const handleProjectSelect = (projectId: string) => {
+  const handleProjectSelect = async (projectId: string) => {
     const project = projects.find((p) => p.id === projectId);
     const start = project?.startDate?.slice(0, 10) ?? deployForm.startDate;
     const end = project?.endDate?.slice(0, 10) ?? deployForm.endDate;
-    setDeployForm({ ...deployForm, projectId, projectName: project?.name ?? "", startDate: start, endDate: end, selectedSensors: [] });
+    setDeployForm({ ...deployForm, projectId, projectName: project?.name ?? "", taskId: "", taskName: "", startDate: start, endDate: end, selectedSensors: [] });
+    setProjectTasks([]);
+    if (projectId) {
+      try {
+        const tasks = await taskApi.list(projectId);
+        setProjectTasks(Array.isArray(tasks) ? tasks : []);
+      } catch {}
+    }
     if (start) loadAvailableSensors(start, end);
   };
 
@@ -140,6 +154,8 @@ export default function EquipmentDetailPage() {
         equipmentId: id,
         projectId: deployForm.projectId,
         projectName: deployForm.projectName,
+        ...(deployForm.taskId && { taskId: deployForm.taskId }),
+        ...(deployForm.taskName && { taskName: deployForm.taskName }),
         startDate: deployForm.startDate,
         ...(deployForm.endDate && { endDate: deployForm.endDate }),
         ...(deployForm.selectedSensors.length > 0 && {
@@ -191,13 +207,14 @@ export default function EquipmentDetailPage() {
           <div><span className="text-gray-500">SN:</span> {equipment.serialNumber}</div>
           <div><span className="text-gray-500">제조사:</span> {equipment.manufacturer ?? "-"}</div>
           <div><span className="text-gray-500">모델:</span> {equipment.model ?? "-"}</div>
+          <div><span className="text-gray-500">현재 위치:</span> {equipment.currentLocation ?? "창고"}</div>
           {equipment.acquiredAt && <div><span className="text-gray-500">취득일:</span> {new Date(equipment.acquiredAt).toLocaleDateString()}</div>}
           {equipment.description && <div className="col-span-2"><span className="text-gray-500">설명:</span> {equipment.description}</div>}
         </div>
 
         {/* Tabs */}
         <div className="flex gap-1 border-b mb-4">
-          {([["info", "기본정보"], ["history", "전체 이력"], ["schedules", "운영일정"], ["maintenance", "정비이력"], ["sensors", "호환센서"]] as [Tab, string][]).map(
+          {([["info", "기본정보"], ["history", "전체 이력"], ["schedules", "운영일정"], ["maintenance", "기타일정"], ["sensors", "호환센서"]] as [Tab, string][]).map(
             ([k, label]) => (
               <button key={k} onClick={() => setTab(k)}
                 className={`px-4 py-2 text-sm border-b-2 ${tab === k ? "border-blue-600 text-blue-600 font-semibold" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
@@ -219,6 +236,7 @@ export default function EquipmentDetailPage() {
                 <div><span className="text-gray-500">제조사:</span> {equipment.manufacturer ?? "-"}</div>
                 <div><span className="text-gray-500">모델:</span> {equipment.model ?? "-"}</div>
                 <div><span className="text-gray-500">상태:</span> <span className={`px-2 py-0.5 rounded-full text-xs ${st.color}`}>{st.label}</span></div>
+                <div><span className="text-gray-500">현재 위치:</span> {equipment.currentLocation ?? "창고"}</div>
                 {equipment.acquiredAt && <div><span className="text-gray-500">취득일:</span> {new Date(equipment.acquiredAt).toLocaleDateString()}</div>}
                 <div><span className="text-gray-500">등록일:</span> {new Date(equipment.createdAt).toLocaleDateString()}</div>
               </div>
@@ -333,33 +351,35 @@ export default function EquipmentDetailPage() {
             CORRECTIVE: { label: "수리 정비", color: "bg-orange-100 text-orange-700" },
             UPGRADE: { label: "업그레이드", color: "bg-teal-100 text-teal-700" },
           };
-          const combined: { date: string; typeKey: string; label: string; color: string; title: string; detail: string }[] = [];
+          const combined: { typeKey: string; label: string; color: string; title: string; startDate: string; endDate: string; detail: string; projectId?: string }[] = [];
           for (const m of maintenance) {
             const h = HIST_LABELS[m.type] ?? { label: m.type, color: "bg-gray-100 text-gray-600" };
             combined.push({
-              date: m.performedAt,
-              typeKey: m.type,
-              label: h.label,
-              color: h.color,
-              title: m.title,
-              detail: [m.performedBy, m.cost ? `${Number(m.cost).toLocaleString()}원` : null].filter(Boolean).join(" / ") || "-",
+              typeKey: m.type, label: h.label, color: h.color, title: m.title,
+              startDate: m.performedAt,
+              endDate: m.completedAt || m.performedAt,
+              detail: [m.performedBy, m.cost ? `${Number(m.cost).toLocaleString()}원` : null, m.description].filter(Boolean).join(" / ") || "-",
             });
           }
-          for (const s of schedules) {
+          for (const s of schedules.filter((s) => s.type === "PROJECT")) {
             const h = HIST_LABELS[s.type] ?? { label: s.type, color: "bg-gray-100 text-gray-600" };
             combined.push({
-              date: s.startDate,
-              typeKey: s.type,
-              label: h.label,
-              color: h.color,
-              title: s.title,
-              detail: `${new Date(s.startDate).toLocaleDateString()} ~ ${new Date(s.endDate).toLocaleDateString()}`,
+              typeKey: s.type, label: h.label, color: h.color,
+              title: s.projectName || s.title,
+              startDate: s.startDate,
+              endDate: s.endDate,
+              detail: s.description || "-",
+              projectId: s.projectId,
             });
           }
-          combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          combined.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
           const filtered = historyFilter === "ALL" ? combined : combined.filter((r) => r.typeKey === historyFilter);
           return (
             <div className="space-y-3">
+              <ScheduleTimeline schedules={[
+                ...schedules,
+                ...maintenance.map((m: any) => ({ id: m.id, type: m.type, title: m.title, startDate: m.performedAt, endDate: m.completedAt || m.performedAt })),
+              ]} />
               <div>
                 <select value={historyFilter} onChange={(e) => setHistoryFilter(e.target.value)} className="border rounded px-3 py-1.5 text-sm">
                   <option value="ALL">전체</option>
@@ -381,7 +401,8 @@ export default function EquipmentDetailPage() {
                     <tr>
                       <th className="p-2 text-left">구분</th>
                       <th className="p-2 text-left">제목</th>
-                      <th className="p-2 text-left">날짜</th>
+                      <th className="p-2 text-left">시작일</th>
+                      <th className="p-2 text-left">종료일</th>
                       <th className="p-2 text-left">상세</th>
                     </tr>
                   </thead>
@@ -389,8 +410,9 @@ export default function EquipmentDetailPage() {
                     {filtered.map((row, i) => (
                       <tr key={i} className="border-t hover:bg-gray-50">
                         <td className="p-2"><span className={`text-xs px-2 py-0.5 rounded-full ${row.color}`}>{row.label}</span></td>
-                        <td className="p-2">{row.title}</td>
-                        <td className="p-2">{new Date(row.date).toLocaleDateString()}</td>
+                        <td className="p-2">{row.projectId ? <Link href={`/projects/${row.projectId}`} className="text-blue-600 hover:underline">{row.title}</Link> : row.title}</td>
+                        <td className="p-2">{new Date(row.startDate).toLocaleDateString()}</td>
+                        <td className="p-2">{new Date(row.endDate).toLocaleDateString()}</td>
                         <td className="p-2 text-gray-500">{row.detail}</td>
                       </tr>
                     ))}
@@ -401,136 +423,286 @@ export default function EquipmentDetailPage() {
           );
         })()}
 
-        {tab === "maintenance" && (
+        {tab === "maintenance" && (() => {
+          const TYPE_INFO: Record<string, { label: string; color: string; btnColor: string }> = {
+            PREVENTIVE:  { label: "정비", color: "bg-yellow-100 text-yellow-700", btnColor: "bg-yellow-600" },
+            CORRECTIVE:  { label: "수리", color: "bg-orange-100 text-orange-700", btnColor: "bg-orange-600" },
+            CALIBRATION: { label: "교정", color: "bg-purple-100 text-purple-700", btnColor: "bg-purple-600" },
+            TRAINING:    { label: "교육", color: "bg-green-100 text-green-700", btnColor: "bg-green-600" },
+            STANDBY:     { label: "대기", color: "bg-gray-100 text-gray-600", btnColor: "bg-gray-600" },
+          };
+          const maintSchedules = maintenance.map((m: any) => ({
+            id: m.id, type: m.type, title: m.title,
+            startDate: new Date(m.performedAt).toISOString().slice(0, 10),
+            endDate: m.completedAt ? new Date(m.completedAt).toISOString().slice(0, 10) : new Date(m.performedAt).toISOString().slice(0, 10),
+          }));
+          const records = maintenance.map((m: any) => ({
+            id: m.id, type: m.type, title: m.title,
+            startDate: new Date(m.performedAt).toISOString().slice(0, 10),
+            endDate: m.completedAt ? new Date(m.completedAt).toISOString().slice(0, 10) : new Date(m.performedAt).toISOString().slice(0, 10),
+            performedBy: m.performedBy, cost: m.cost, description: m.description, completedAt: m.completedAt,
+          })).sort((a: any, b: any) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+
+          const reload = () => {
+            equipmentApi.getMaintenance(id).then((r) => setMaintenance(r.items ?? []));
+            equipmentApi.getSchedules(id).then(setSchedules);
+          };
+
+          const checkOverlap = (rid: string, newStart: string, newEnd: string): string | null => {
+            if (newStart > newEnd) return "시작일이 종료일보다 늦을 수 없습니다.";
+            const s1 = new Date(newStart + "T00:00:00").getTime();
+            const e1 = new Date(newEnd + "T00:00:00").getTime();
+            // 같은 장비의 다른 정비 기록과 비교
+            for (const m of records) {
+              if (m.id === rid) continue;
+              const s2 = new Date(m.startDate + "T00:00:00").getTime();
+              const e2 = new Date(m.endDate + "T00:00:00").getTime();
+              if (s1 <= e2 && e1 >= s2) {
+                const info = TYPE_INFO[m.type] ?? { label: m.type };
+                return `[${info.label}] ${m.title} (${m.startDate} ~ ${m.endDate})과 일정이 겹칩니다.`;
+              }
+            }
+            for (const s of schedules) {
+              if (s.type !== "PROJECT") continue;
+              const sd = s.startDate?.slice(0, 10);
+              const ed = s.endDate?.slice(0, 10);
+              if (!sd || !ed) continue;
+              const s2 = new Date(sd + "T00:00:00").getTime();
+              const e2 = new Date(ed + "T00:00:00").getTime();
+              if (s1 <= e2 && e1 >= s2) return `[운영일정] ${s.title} (${sd} ~ ${ed})과 일정이 겹칩니다.`;
+            }
+            return null;
+          };
+
+          const handleDateChange = async (rid: string, field: "startDate" | "endDate", value: string) => {
+            const rec = records.find((r: any) => r.id === rid);
+            if (!rec) return;
+            const newStart = field === "startDate" ? value : rec.startDate;
+            const newEnd = field === "endDate" ? value : rec.endDate;
+            const overlap = checkOverlap(rid, newStart, newEnd);
+            if (overlap && !confirm(`${overlap}\n그래도 변경하시겠습니까?`)) return;
+            try {
+              const data: any = {};
+              if (field === "startDate") data.performedAt = value;
+              else data.completedAt = value;
+              await maintenanceApi.update(rid, data);
+              reload();
+            } catch (err: any) { alert(err.message); }
+          };
+
+          const handleComplete = async (rid: string) => {
+            const rec = records.find((r: any) => r.id === rid);
+            if (!rec) return;
+            if (!confirm(`완료 후에는 수정할 수 없습니다.\n(${rec.startDate} ~ ${rec.endDate}) 완료하시겠습니까?`)) return;
+            const endDate = rec.endDate || new Date().toISOString().slice(0, 10);
+            const overlap = checkOverlap(rid, rec.startDate, endDate);
+            if (overlap && !confirm(`${overlap}\n그래도 완료하시겠습니까?`)) return;
+            try {
+              await maintenanceApi.update(rid, { completedAt: endDate });
+              reload();
+            } catch (err: any) { alert(err.message); }
+          };
+
+          const handleCancel = async (r: any) => {
+            if (!confirm("이 기록을 삭제하시겠습니까?")) return;
+            try {
+              await maintenanceApi.remove(r.id);
+              reload();
+            } catch (err: any) { alert(err.message); }
+          };
+
+          const openForm = (type: string) => {
+            const today = new Date().toISOString().slice(0, 10);
+            setMaintFormType(type);
+            setMaintForm({ type, title: "", description: "", performedBy: "", performedAt: today, cost: "", startDate: today, endDate: today });
+            setShowMaintForm(true);
+          };
+
+          return (
           <div className="space-y-3">
-            <div className="flex justify-end">
-              <button onClick={() => setShowMaintForm(!showMaintForm)} className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm">+ 정비 기록</button>
+            <ScheduleTimeline schedules={maintSchedules} />
+            <div className="flex gap-2 flex-wrap">
+              {Object.entries(TYPE_INFO).map(([key, info]) => (
+                <button key={key} onClick={() => openForm(key)}
+                  className={`px-3 py-1.5 ${info.btnColor} text-white rounded text-sm hover:opacity-90`}>+ {info.label}</button>
+              ))}
             </div>
+
             {showMaintForm && (
               <div className="bg-white border rounded-lg p-4 space-y-3">
+                <div className="text-sm font-semibold text-gray-700">{TYPE_INFO[maintFormType]?.label ?? maintFormType} 등록</div>
                 <div className="grid grid-cols-2 gap-3">
-                  <select value={maintForm.type} onChange={(e) => setMaintForm({ ...maintForm, type: e.target.value })} className="border rounded px-3 py-2 text-sm">
-                    {Object.entries(MAINT_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                  </select>
                   <input placeholder="제목 *" value={maintForm.title} onChange={(e) => setMaintForm({ ...maintForm, title: e.target.value })} className="border rounded px-3 py-2 text-sm" />
-                  <input type="date" value={maintForm.performedAt} onChange={(e) => setMaintForm({ ...maintForm, performedAt: e.target.value })} className="border rounded px-3 py-2 text-sm" />
                   <input placeholder="수행자" value={maintForm.performedBy} onChange={(e) => setMaintForm({ ...maintForm, performedBy: e.target.value })} className="border rounded px-3 py-2 text-sm" />
+                  <input type="date" value={maintForm.startDate} onChange={(e) => setMaintForm({ ...maintForm, startDate: e.target.value, performedAt: e.target.value })} className="border rounded px-3 py-2 text-sm" />
+                  <input type="date" value={maintForm.endDate} onChange={(e) => setMaintForm({ ...maintForm, endDate: e.target.value })} className="border rounded px-3 py-2 text-sm" />
                   <input placeholder="비용 (원)" value={maintForm.cost} onChange={(e) => setMaintForm({ ...maintForm, cost: e.target.value })} className="border rounded px-3 py-2 text-sm" />
-                  <input placeholder="설명" value={maintForm.description} onChange={(e) => setMaintForm({ ...maintForm, description: e.target.value })} className="border rounded px-3 py-2 text-sm" />
+                  <input placeholder="설명 (선택)" value={maintForm.description} onChange={(e) => setMaintForm({ ...maintForm, description: e.target.value })} className="border rounded px-3 py-2 text-sm" />
                 </div>
                 <div className="flex gap-2 justify-end">
                   <button onClick={() => setShowMaintForm(false)} className="px-3 py-1.5 border rounded text-sm">취소</button>
-                  <button onClick={handleAddMaintenance} className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm">저장</button>
+                  <button onClick={async () => {
+                    if (!maintForm.title || !maintForm.startDate) return alert("제목과 시작일은 필수입니다.");
+                    const end = maintForm.endDate || maintForm.startDate;
+                    const overlap = checkOverlap("", maintForm.startDate, end);
+                    if (overlap && !confirm(`${overlap}\n그래도 등록하시겠습니까?`)) return;
+                    try {
+                      await maintenanceApi.create({ ...maintForm, equipmentId: id, performedAt: maintForm.startDate, completedAt: end !== maintForm.startDate ? end : undefined, cost: maintForm.cost ? parseFloat(maintForm.cost) : undefined });
+                      setShowMaintForm(false);
+                      reload();
+                    } catch (err: any) { alert(err.message); }
+                  }} className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm">저장</button>
                 </div>
               </div>
             )}
-            {maintenance.length === 0 ? (
-              <div className="text-center py-8 text-gray-400 text-sm">정비 이력이 없습니다.</div>
+
+            {records.length === 0 ? (
+              <div className="text-center py-8 text-gray-400 text-sm">기타 일정이 없습니다.</div>
             ) : (
               <table className="w-full text-sm border">
                 <thead className="bg-gray-50">
-                  <tr><th className="p-2 text-left">유형</th><th className="p-2 text-left">제목</th><th className="p-2 text-left">수행일</th><th className="p-2 text-left">수행자</th><th className="p-2 text-right">비용</th></tr>
+                  <tr>
+                    <th className="p-2 text-left">타입</th>
+                    <th className="p-2 text-left">제목</th>
+                    <th className="p-2 text-left">시작일</th>
+                    <th className="p-2 text-left">종료일</th>
+                    <th className="p-2 text-left">수행자</th>
+                    <th className="p-2 text-right">비용</th>
+                    <th className="p-2 text-center">액션</th>
+                  </tr>
                 </thead>
                 <tbody>
-                  {maintenance.map((m) => (
-                    <tr key={m.id} className="border-t hover:bg-gray-50">
-                      <td className="p-2">{MAINT_TYPE_LABELS[m.type] ?? m.type}</td>
-                      <td className="p-2">{m.title}</td>
-                      <td className="p-2">{new Date(m.performedAt).toLocaleDateString()}</td>
-                      <td className="p-2">{m.performedBy ?? "-"}</td>
-                      <td className="p-2 text-right">{m.cost ? Number(m.cost).toLocaleString() + "원" : "-"}</td>
-                    </tr>
-                  ))}
+                  {records.map((r: any) => {
+                    const info = TYPE_INFO[r.type] ?? { label: r.type, color: "bg-gray-100 text-gray-600" };
+                    const isCompleted = !!r.completedAt;
+                    return (
+                      <tr key={r.id} className="border-t hover:bg-gray-50">
+                        <td className="p-2"><span className={`text-xs px-2 py-0.5 rounded-full ${info.color}`}>{info.label}</span></td>
+                        <td className="p-2">{r.title}{r.description && <span className="text-gray-400 ml-1">- {r.description}</span>}</td>
+                        <td className="p-2">
+                          {isCompleted ? new Date(r.startDate).toLocaleDateString() : (
+                            <input type="date" defaultValue={r.startDate} onBlur={(e) => { if (e.target.value !== r.startDate) handleDateChange(r.id, "startDate", e.target.value); }}
+                              className="border rounded px-1.5 py-0.5 text-xs w-[120px]" />
+                          )}
+                        </td>
+                        <td className="p-2">
+                          {isCompleted ? new Date(r.endDate).toLocaleDateString() : (
+                            <input type="date" defaultValue={r.endDate} onBlur={(e) => { if (e.target.value !== r.endDate) handleDateChange(r.id, "endDate", e.target.value); }}
+                              className="border rounded px-1.5 py-0.5 text-xs w-[120px]" />
+                          )}
+                        </td>
+                        <td className="p-2">{r.performedBy ?? "-"}</td>
+                        <td className="p-2 text-right">{r.cost ? Number(r.cost).toLocaleString() + "원" : "-"}</td>
+                        <td className="p-2 text-center">
+                          {isCompleted ? (
+                            <span className="text-xs text-gray-400">완료됨</span>
+                          ) : (
+                            <div className="flex gap-1 justify-center">
+                              <button onClick={() => handleComplete(r.id)} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">완료</button>
+                              <button onClick={() => handleCancel(r)} className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200">취소</button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {tab === "schedules" && (() => {
-          const SCHED_TYPE_LABELS: Record<string, { label: string; color: string }> = {
-            PROJECT: { label: "프로젝트 투입", color: "bg-blue-100 text-blue-700" },
-            MAINTENANCE: { label: "정비", color: "bg-yellow-100 text-yellow-700" },
-            CALIBRATION: { label: "교정", color: "bg-purple-100 text-purple-700" },
-            TRAINING: { label: "교육", color: "bg-green-100 text-green-700" },
-            STANDBY: { label: "대기", color: "bg-gray-100 text-gray-600" },
+          const projectSchedules = schedules.filter((s) => s.type === "PROJECT");
+
+          const reloadSchedules = () => {
+            equipmentApi.getSchedules(id).then(setSchedules).catch(() => {});
+            equipmentApi.getDeployments(id).then((r) => setDeployments(r.items ?? []));
+            equipmentApi.get(id).then(setEquipment);
           };
+
+          const handleSchedDateChange = async (schedId: string, field: "startDate" | "endDate", value: string) => {
+            try {
+              await equipmentScheduleApi.update(schedId, { [field]: value });
+              reloadSchedules();
+            } catch (err: any) { alert(err.message); }
+          };
+
+          const handleSchedComplete = async (s: any) => {
+            const sd = s.startDate?.slice(0, 10) ?? new Date(s.startDate).toISOString().slice(0, 10);
+            const ed = s.endDate?.slice(0, 10) ?? new Date(s.endDate).toISOString().slice(0, 10);
+            if (!confirm(`완료 후에는 수정할 수 없습니다.\n(${sd} ~ ${ed}) 완료하시겠습니까?`)) return;
+            try {
+              if (s.deploymentId) {
+                const dep = deployments.find((d) => d.id === s.deploymentId);
+                if (dep?.status === "PLANNED") await deploymentApi.activate(dep.id);
+                if (dep?.status === "PLANNED" || dep?.status === "ACTIVE") await deploymentApi.complete(s.deploymentId);
+              }
+              reloadSchedules();
+            } catch (err: any) { alert(err.message); }
+          };
+
+          const handleSchedCancel = async (s: any) => {
+            if (!confirm("이 일정을 삭제하시겠습니까?")) return;
+            try {
+              if (s.deploymentId) await deploymentApi.cancel(s.deploymentId);
+              else await equipmentScheduleApi.remove(s.id);
+              reloadSchedules();
+            } catch (err: any) { alert(err.message); }
+          };
+
           return (
             <div className="space-y-3">
+              <ScheduleTimeline schedules={projectSchedules} />
               <div className="flex gap-2">
                 {(equipment.status === "AVAILABLE" || equipment.status === "IN_OPERATION") && (
                   <button onClick={openDeployForm} className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm">+ 프로젝트에 투입</button>
                 )}
-                <button onClick={() => setShowSchedForm(!showSchedForm)} className="px-3 py-1.5 bg-gray-600 text-white rounded text-sm">+ 기타 일정등록</button>
               </div>
-              {showSchedForm && (
-                <div className="bg-white border rounded-lg p-4 space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <select value={schedForm.type} onChange={(e) => setSchedForm({ ...schedForm, type: e.target.value })} className="border rounded px-3 py-2 text-sm">
-                      <option value="CALIBRATION">교정</option>
-                      <option value="TRAINING">교육</option>
-                      <option value="STANDBY">대기</option>
-                    </select>
-                    <input placeholder="제목 *" value={schedForm.title} onChange={(e) => setSchedForm({ ...schedForm, title: e.target.value })} className="border rounded px-3 py-2 text-sm" />
-                    <input type="date" value={schedForm.startDate} onChange={(e) => setSchedForm({ ...schedForm, startDate: e.target.value })} className="border rounded px-3 py-2 text-sm" />
-                    <input type="date" value={schedForm.endDate} onChange={(e) => setSchedForm({ ...schedForm, endDate: e.target.value })} className="border rounded px-3 py-2 text-sm" />
-                    <input placeholder="설명 (선택)" value={schedForm.description} onChange={(e) => setSchedForm({ ...schedForm, description: e.target.value })} className="col-span-2 border rounded px-3 py-2 text-sm" />
-                  </div>
-                  <div className="flex gap-2 justify-end">
-                    <button onClick={() => setShowSchedForm(false)} className="px-3 py-1.5 border rounded text-sm">취소</button>
-                    <button onClick={handleAddSchedule} className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm">저장</button>
-                  </div>
-                </div>
-              )}
-              {schedules.length === 0 ? (
-                <div className="text-center py-8 text-gray-400 text-sm">운영 일정이 없습니다.</div>
+              {projectSchedules.length === 0 ? (
+                <div className="text-center py-8 text-gray-400 text-sm">프로젝트 투입 이력이 없습니다.</div>
               ) : (
                 <table className="w-full text-sm border">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="p-2 text-left">타입</th>
-                      <th className="p-2 text-left">제목</th>
+                      <th className="p-2 text-left">프로젝트</th>
+                      <th className="p-2 text-left">태스크</th>
                       <th className="p-2 text-left">시작일</th>
                       <th className="p-2 text-left">종료일</th>
                       <th className="p-2 text-center">액션</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {schedules.map((s) => {
-                      const sType = SCHED_TYPE_LABELS[s.type] ?? { label: s.type, color: "bg-gray-100" };
+                    {projectSchedules.map((s) => {
+                      const dep = s.deploymentId ? deployments.find((d) => d.id === s.deploymentId) : null;
+                      const isCompleted = dep?.status === "COMPLETED";
+                      const sd = new Date(s.startDate).toISOString().slice(0, 10);
+                      const ed = new Date(s.endDate).toISOString().slice(0, 10);
                       return (
                       <tr key={s.id} className="border-t hover:bg-gray-50">
-                        <td className="p-2"><span className={`text-xs px-2 py-0.5 rounded-full ${sType.color}`}>{sType.label}</span></td>
-                        <td className="p-2">{s.title}{s.description && <span className="text-gray-400 ml-1">- {s.description}</span>}</td>
-                        <td className="p-2">{new Date(s.startDate).toLocaleDateString()}</td>
-                        <td className="p-2">{new Date(s.endDate).toLocaleDateString()}</td>
+                        <td className="p-2">{s.projectId ? <Link href={`/projects/${s.projectId}`} className="text-blue-600 hover:underline">{s.projectName || s.title}</Link> : s.title}</td>
+                        <td className="p-2 text-gray-600">{dep?.taskName || s.description || "-"}</td>
+                        <td className="p-2">
+                          {isCompleted ? new Date(s.startDate).toLocaleDateString() : (
+                            <input type="date" defaultValue={sd} onBlur={(e) => { if (e.target.value !== sd) handleSchedDateChange(s.id, "startDate", e.target.value); }}
+                              className="border rounded px-1.5 py-0.5 text-xs w-[120px]" />
+                          )}
+                        </td>
+                        <td className="p-2">
+                          {isCompleted ? new Date(s.endDate).toLocaleDateString() : (
+                            <input type="date" defaultValue={ed} onBlur={(e) => { if (e.target.value !== ed) handleSchedDateChange(s.id, "endDate", e.target.value); }}
+                              className="border rounded px-1.5 py-0.5 text-xs w-[120px]" />
+                          )}
+                        </td>
                         <td className="p-2 text-center">
-                          {s.deploymentId ? (() => {
-                            const dep = deployments.find((d) => d.id === s.deploymentId);
-                            if (!dep) return null;
-                            const reload = () => {
-                              equipmentApi.getSchedules(id).then(setSchedules).catch(() => {});
-                              equipmentApi.getDeployments(id).then((r) => setDeployments(r.items ?? []));
-                              equipmentApi.get(id).then(setEquipment);
-                            };
-                            return (
-                              <div className="flex gap-1 justify-center">
-                                {dep.status === "PLANNED" && (
-                                  <>
-                                    <button onClick={async () => { await deploymentApi.activate(dep.id); reload(); }}
-                                      className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200">시작</button>
-                                    <button onClick={async () => { if (!confirm("투입을 취소하시겠습니까?")) return; await deploymentApi.cancel(dep.id); reload(); }}
-                                      className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200">취소</button>
-                                  </>
-                                )}
-                                {dep.status === "ACTIVE" && (
-                                  <button onClick={async () => { if (!confirm("투입을 완료하시겠습니까? 센서가 반납됩니다.")) return; await deploymentApi.complete(dep.id); reload(); }}
-                                    className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">완료 (반납)</button>
-                                )}
-                              </div>
-                            );
-                          })() : (
-                            <button onClick={() => handleDeleteSchedule(s.id)} className="text-xs text-red-500 hover:text-red-700">삭제</button>
+                          {isCompleted ? (
+                            <span className="text-xs text-gray-400">완료됨</span>
+                          ) : (
+                            <div className="flex gap-1 justify-center">
+                              <button onClick={() => handleSchedComplete(s)} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">완료</button>
+                              <button onClick={() => handleSchedCancel(s)} className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200">취소</button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -630,6 +802,26 @@ export default function EquipmentDetailPage() {
                     ))}
                   </select>
                 </div>
+
+                {/* 태스크 선택 */}
+                {deployForm.projectId && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">태스크 (선택)</label>
+                    <select value={deployForm.taskId} onChange={(e) => {
+                        const task = projectTasks.find((t: any) => t.id === e.target.value);
+                        const startDate = task?.effectiveStartDate?.slice(0, 10) || task?.segments?.[0]?.startDate?.slice(0, 10) || deployForm.startDate;
+                        const endDate = task?.effectiveEndDate?.slice(0, 10) || task?.segments?.at(-1)?.endDate?.slice(0, 10) || deployForm.endDate;
+                        setDeployForm({ ...deployForm, taskId: e.target.value, taskName: task?.name ?? "", startDate, endDate });
+                        if (startDate) loadAvailableSensors(startDate, endDate);
+                      }}
+                      className="w-full border rounded px-3 py-2 text-sm">
+                      <option value="">-- 태스크 선택 (선택사항) --</option>
+                      {projectTasks.map((t: any) => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 {/* 기간 */}
                 <div className="grid grid-cols-2 gap-3">

@@ -80,8 +80,8 @@ export class DeploymentService {
       const conflicts = await this.prisma.assetSchedule.findMany({
         where: {
           equipmentId: data.equipmentId,
-          startDate: { lt: endDt },
-          endDate: { gt: startDt },
+          startDate: { lte: endDt },
+          endDate: { gte: startDt },
         },
       });
       if (conflicts.length > 0) {
@@ -95,8 +95,8 @@ export class DeploymentService {
       const sensorConflicts = await this.prisma.assetSchedule.findMany({
         where: {
           sensorId: s.sensorId,
-          startDate: { lt: endDt },
-          endDate: { gt: startDt },
+          startDate: { lte: endDt },
+          endDate: { gte: startDt },
         },
       });
       if (sensorConflicts.length > 0) {
@@ -118,7 +118,7 @@ export class DeploymentService {
           ...(data.taskId != null && { taskId: data.taskId }),
           ...(data.taskName != null && { taskName: data.taskName }),
           startDate: startDt,
-          ...(data.endDate != null && { endDate: endDt }),
+          endDate: endDt,
           ...(data.configParams != null && { configParams: data.configParams }),
           ...(data.notes != null && { notes: data.notes }),
           createdBy: userId,
