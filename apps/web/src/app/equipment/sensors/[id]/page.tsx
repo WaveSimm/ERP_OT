@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import AppLayout from "@/components/AppLayout";
 import { sensorApi, maintenanceApi, equipmentScheduleApi, deploymentApi, projectApi, compatibilityApi } from "@/lib/api";
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -136,17 +135,16 @@ export default function SensorDetailPage() {
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
-  if (loading || !sensor) return <AppLayout><div className="text-center py-12 text-gray-400">불러오는 중...</div></AppLayout>;
+  if (loading || !sensor) return <div className="text-center py-12 text-gray-400">불러오는 중...</div>;
 
   const st = STATUS_LABELS[sensor.status] ?? { label: sensor.status, color: "bg-gray-100" };
 
   return (
-    <AppLayout>
-      <div className="max-w-5xl mx-auto">
+    <>
+      <div>
         {/* Header */}
         <div className="flex items-center gap-2 mb-4">
-          <button onClick={() => router.push("/equipment/sensors")} className="text-gray-400 hover:text-gray-600">&larr;</button>
-          <h1 className="text-2xl font-bold">{sensor.name}</h1>
+          <h1 className="text-xl font-bold">{sensor.name}</h1>
           <span className={`text-xs px-2 py-0.5 rounded-full ${st.color}`}>{st.label}</span>
         </div>
 
@@ -534,6 +532,6 @@ export default function SensorDetailPage() {
           </div>
         )}
       </div>
-    </AppLayout>
+    </>
   );
 }

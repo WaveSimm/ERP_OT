@@ -19,7 +19,7 @@ export async function compatibilityRoutes(fastify: FastifyInstance) {
   });
 
   // 호환성 삭제
-  fastify.delete("/:id", { preHandler: requireRole("ADMIN") }, async (request, reply) => {
+  fastify.delete("/:id", { preHandler: requireRole("ADMIN", "MANAGER") }, async (request, reply) => {
     await fastify.compatibilityService.remove((request.params as any).id);
     return reply.status(204).send();
   });

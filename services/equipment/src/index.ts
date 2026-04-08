@@ -93,6 +93,7 @@ async function buildApp() {
 
   // 에러 핸들러
   app.setErrorHandler((error, _req, reply) => {
+    app.log.error({ err: error, url: _req.url, method: _req.method }, "Request error");
     if (error.message.includes("찾을 수 없습니다") || error.message.includes("허용되지 않습니다") ||
         error.message.includes("사용할 수 없습니다") || error.message.includes("호환되지 않습니다") ||
         error.message.includes("일정 충돌") || error.message.includes("삭제할 수 없습니다") ||
@@ -102,7 +103,6 @@ async function buildApp() {
     if (error.name === "ZodError") {
       return reply.status(400).send({ code: "VALIDATION_ERROR", message: "요청 데이터가 올바르지 않습니다." });
     }
-    app.log.error(error);
     return reply.status(500).send({ code: "INTERNAL_ERROR", message: "서버 내부 오류가 발생했습니다." });
   });
 

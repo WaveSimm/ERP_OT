@@ -65,6 +65,24 @@ export class AuthClient {
     return result ?? {};
   }
 
+  async getUsersUnder(userId: string): Promise<{ id: string; name: string; email: string }[]> {
+    const result = await this.get<{ id: string; name: string; email: string }[]>(
+      `/internal/users/under/${userId}`,
+      `users_under:${userId}`,
+      300,
+    );
+    return result ?? [];
+  }
+
+  async getAllUsers(): Promise<{ id: string; name: string; email: string }[]> {
+    const result = await this.get<{ id: string; name: string; email: string }[]>(
+      "/internal/users/all",
+      "all_users",
+      300,
+    );
+    return result ?? [];
+  }
+
   // 캐시 무효화 (결재라인 변경 시 호출)
   async invalidateApprover(userId: string) {
     await this.redis.del(`approver:${userId}`);

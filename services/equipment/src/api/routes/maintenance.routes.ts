@@ -29,7 +29,7 @@ export async function maintenanceRoutes(fastify: FastifyInstance) {
   });
 
   // 정비 기록 삭제
-  fastify.delete("/:id", { preHandler: requireRole("ADMIN") }, async (request, reply) => {
+  fastify.delete("/:id", { preHandler: requireRole("ADMIN", "MANAGER") }, async (request, reply) => {
     await fastify.maintenanceService.remove((request.params as any).id);
     return reply.status(204).send();
   });

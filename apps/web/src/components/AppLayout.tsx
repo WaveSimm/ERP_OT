@@ -309,18 +309,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               )}
             </button>
 
-            {/* 팀 관리 (Manager/Admin) */}
-            {currentUser && ["ADMIN", "MANAGER"].includes(currentUser.role) && (
-              <button
-                onClick={() => router.push("/me/team")}
-                className={clsx(
-                  "text-sm font-medium px-2.5 py-1.5 rounded-lg transition-colors",
-                  pathname.startsWith("/me/team") ? "bg-blue-50 text-blue-700" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100",
-                )}
-              >
-                팀 관리
-              </button>
-            )}
+            {/* 팀 관리 (조직도 직책 기준) */}
+            <button
+              onClick={() => router.push("/me/team")}
+              className={clsx(
+                "text-sm font-medium px-2.5 py-1.5 rounded-lg transition-colors",
+                pathname.startsWith("/me/team") ? "bg-blue-50 text-blue-700" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100",
+              )}
+            >
+              팀 관리
+            </button>
 
             {currentUser && (
               <button onClick={openProfile} className="text-sm text-gray-600 hover:text-blue-600 transition-colors">

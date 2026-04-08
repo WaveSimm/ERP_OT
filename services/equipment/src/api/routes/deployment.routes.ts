@@ -23,6 +23,7 @@ export async function deploymentRoutes(fastify: FastifyInstance) {
   });
 
   fastify.post("/", { preHandler: requireRole("ADMIN", "MANAGER") }, async (request, reply) => {
+    fastify.log.info({ body: request.body, userId: request.userId }, "POST /deployments request");
     const result = await fastify.deploymentService.create(request.body as any, request.userId);
     return reply.status(201).send(result);
   });
@@ -37,5 +38,10 @@ export async function deploymentRoutes(fastify: FastifyInstance) {
 
   fastify.post("/:id/cancel", { preHandler: requireRole("ADMIN", "MANAGER") }, async (request) => {
     return fastify.deploymentService.cancel((request.params as any).id);
+  });
+
+  fastify.delete("/:id", { preHandler: requireRole("ADMIN", "MANAGER") }, async (request, reply) => {
+    await fastify.deploymentService.remove((request.params as any).id);
+    return reply.status(204).send();
   });
 }

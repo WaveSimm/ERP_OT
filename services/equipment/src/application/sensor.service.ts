@@ -59,16 +59,17 @@ export class SensorService {
     });
 
     // 날짜가 지정되면 해당 기간에 일정 충돌이 없는 센서만 반환
-    if (startDate && endDate) {
+    if (startDate) {
       const start = new Date(startDate);
-      const end = new Date(endDate);
+      // endDate 없으면 startDate 다음날까지 (하루 단위)
+      const end = endDate ? new Date(endDate) : new Date(start.getTime() + 24 * 60 * 60 * 1000);
       const sensorIds = sensors.map((s) => s.id);
       if (sensorIds.length === 0) return [];
       const conflicts = await this.prisma.assetSchedule.findMany({
         where: {
           sensorId: { in: sensorIds },
-          startDate: { lt: end },
-          endDate: { gt: start },
+          startDate: { lte: end },
+          endDate: { gte: start },
         },
         select: { sensorId: true },
       });

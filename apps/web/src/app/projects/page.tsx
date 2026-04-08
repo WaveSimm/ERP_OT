@@ -606,9 +606,17 @@ export default function ProjectsPage() {
 
         {/* Children */}
         {isOpen && (
-          <div>
+          <div
+            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDropTarget(folder.id); setDropGap(null); }}
+            onDrop={(e) => onFolderDrop(e, folder)}
+          >
             {childFolders.map(cf => renderFolder(cf, depth + 1))}
             {childProjects.map(p => renderProject(p, depth + 1, folder.id))}
+            {childFolders.length === 0 && childProjects.length === 0 && (
+              <div className="h-8 flex items-center text-xs text-gray-300 italic" style={{ paddingLeft: 28 + (depth + 1) * 18 }}>
+                드래그하여 프로젝트 추가
+              </div>
+            )}
           </div>
         )}
       </div>

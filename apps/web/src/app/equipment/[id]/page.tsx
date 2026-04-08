@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import AppLayout from "@/components/AppLayout";
 import { equipmentApi, maintenanceApi, compatibilityApi, sensorApi, deploymentApi, projectApi, equipmentScheduleApi } from "@/lib/api";
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -117,7 +116,10 @@ export default function EquipmentDetailPage() {
 
   const handleProjectSelect = (projectId: string) => {
     const project = projects.find((p) => p.id === projectId);
-    setDeployForm({ ...deployForm, projectId, projectName: project?.name ?? "" });
+    const start = project?.startDate?.slice(0, 10) ?? deployForm.startDate;
+    const end = project?.endDate?.slice(0, 10) ?? deployForm.endDate;
+    setDeployForm({ ...deployForm, projectId, projectName: project?.name ?? "", startDate: start, endDate: end, selectedSensors: [] });
+    if (start) loadAvailableSensors(start, end);
   };
 
   const toggleSensor = (sensor: any) => {
@@ -152,6 +154,7 @@ export default function EquipmentDetailPage() {
       // 데이터 새로고침
       equipmentApi.get(id).then(setEquipment);
       equipmentApi.getDeployments(id).then((r) => setDeployments(r.items ?? []));
+      equipmentApi.getSchedules(id).then(setSchedules).catch(() => {});
     } catch (err: any) {
       alert(err.message || "투입 생성 실패");
     } finally {
@@ -169,17 +172,16 @@ export default function EquipmentDetailPage() {
     } catch (err: any) { alert(err.message); }
   };
 
-  if (loading || !equipment) return <AppLayout><div className="text-center py-12 text-gray-400">불러오는 중...</div></AppLayout>;
+  if (loading || !equipment) return <div className="text-center py-12 text-gray-400">불러오는 중...</div>;
 
   const st = STATUS_LABELS[equipment.status] ?? { label: equipment.status, color: "bg-gray-100" };
 
   return (
-    <AppLayout>
-      <div className="max-w-5xl mx-auto">
+    <>
+      <div>
         {/* Header */}
         <div className="flex items-center gap-2 mb-4">
-          <button onClick={() => router.push("/equipment")} className="text-gray-400 hover:text-gray-600">&larr;</button>
-          <h1 className="text-2xl font-bold">{equipment.name}</h1>
+          <h1 className="text-xl font-bold">{equipment.name}</h1>
           <span className={`text-xs px-2 py-0.5 rounded-full ${st.color}`}>{st.label}</span>
         </div>
 
@@ -706,6 +708,6 @@ export default function EquipmentDetailPage() {
           </div>
         )}
       </div>
-    </AppLayout>
+    </>
   );
 }

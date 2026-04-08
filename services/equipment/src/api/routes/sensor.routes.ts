@@ -38,7 +38,7 @@ export async function sensorRoutes(fastify: FastifyInstance) {
     return fastify.sensorService.changeStatus(id, status);
   });
 
-  fastify.delete("/:id", { preHandler: requireRole("ADMIN") }, async (request, reply) => {
+  fastify.delete("/:id", { preHandler: requireRole("ADMIN", "MANAGER") }, async (request, reply) => {
     await fastify.sensorService.remove((request.params as any).id);
     return reply.status(204).send();
   });

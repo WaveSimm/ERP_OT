@@ -35,7 +35,7 @@ export async function scheduleRoutes(fastify: FastifyInstance) {
   });
 
   // 일정 삭제
-  fastify.delete("/:id", { preHandler: requireRole("ADMIN") }, async (request, reply) => {
+  fastify.delete("/:id", { preHandler: requireRole("ADMIN", "MANAGER") }, async (request, reply) => {
     await fastify.scheduleService.remove((request.params as any).id);
     return reply.status(204).send();
   });

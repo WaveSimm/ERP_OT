@@ -12,7 +12,7 @@ export async function policyRoutes(fastify: FastifyInstance) {
 
   // PUT /api/v1/policy
   fastify.put("/", {
-    preHandler: requireRole("ADMIN"),
+    preHandler: requireRole("ADMIN", "MANAGER"),
   }, async (req, reply) => {
     const raw = z.object({
       workStartTime: z.string().optional(),
@@ -36,7 +36,7 @@ export async function policyRoutes(fastify: FastifyInstance) {
 
   // GET /api/v1/policy/work-schedule/:userId  (ADMIN)
   fastify.get("/work-schedule/:userId", {
-    preHandler: requireRole("ADMIN"),
+    preHandler: requireRole("ADMIN", "MANAGER"),
   }, async (req, reply) => {
     const { userId } = req.params as { userId: string };
     const schedule = await fastify.prisma.userWorkSchedule.findUnique({ where: { userId } });
@@ -45,7 +45,7 @@ export async function policyRoutes(fastify: FastifyInstance) {
 
   // PUT /api/v1/policy/work-schedule/:userId  (ADMIN)
   fastify.put("/work-schedule/:userId", {
-    preHandler: requireRole("ADMIN"),
+    preHandler: requireRole("ADMIN", "MANAGER"),
   }, async (req, reply) => {
     const { userId } = req.params as { userId: string };
     const body = z.object({
@@ -63,7 +63,7 @@ export async function policyRoutes(fastify: FastifyInstance) {
 
   // DELETE /api/v1/policy/work-schedule/:userId  (ADMIN) — 개인 설정 제거 → 기본값 복원
   fastify.delete("/work-schedule/:userId", {
-    preHandler: requireRole("ADMIN"),
+    preHandler: requireRole("ADMIN", "MANAGER"),
   }, async (req, reply) => {
     const { userId } = req.params as { userId: string };
     await fastify.prisma.userWorkSchedule.deleteMany({ where: { userId } });
@@ -72,7 +72,7 @@ export async function policyRoutes(fastify: FastifyInstance) {
 
   // GET /api/v1/policy/work-schedules  (ADMIN) — 전체 목록
   fastify.get("/work-schedules", {
-    preHandler: requireRole("ADMIN"),
+    preHandler: requireRole("ADMIN", "MANAGER"),
   }, async (_req, reply) => {
     return reply.send(await fastify.prisma.userWorkSchedule.findMany());
   });
@@ -86,7 +86,7 @@ export async function policyRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/holidays
   fastify.post("/holidays", {
-    preHandler: requireRole("ADMIN"),
+    preHandler: requireRole("ADMIN", "MANAGER"),
   }, async (req, reply) => {
     const body = z.object({ date: z.string(), name: z.string().min(1) }).parse(req.body);
     return reply.status(201).send(await svc.createHoliday(body.date, body.name));
@@ -94,7 +94,7 @@ export async function policyRoutes(fastify: FastifyInstance) {
 
   // DELETE /api/v1/holidays/:id
   fastify.delete("/holidays/:id", {
-    preHandler: requireRole("ADMIN"),
+    preHandler: requireRole("ADMIN", "MANAGER"),
   }, async (req, reply) => {
     const { id } = req.params as { id: string };
     await svc.deleteHoliday(id);

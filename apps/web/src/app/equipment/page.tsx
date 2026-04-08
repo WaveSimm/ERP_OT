@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
-import AppLayout from "@/components/AppLayout";
+import { useRouter, useSearchParams } from "next/navigation";
 import { equipmentApi, sensorApi, equipmentCategoryApi, equipmentScheduleApi } from "@/lib/api";
 
 const EQ_STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -22,59 +21,18 @@ const SN_STATUS_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 type EquipmentTab = "equipment" | "sensors" | "schedule";
-const TAB_KEY = "erp_tab_equipment";
 
 export default function EquipmentPage() {
-  const router = useRouter();
-  const [tab, setTab] = useState<EquipmentTab>("equipment");
-
-  // 탭 복원 (hydration-safe)
-  useEffect(() => {
-    const urlTab = new URLSearchParams(window.location.search).get("tab");
-    if (urlTab === "sensors" || urlTab === "schedule") {
-      setTab(urlTab as EquipmentTab);
-      try { sessionStorage.setItem(TAB_KEY, urlTab); } catch {}
-      window.history.replaceState(null, "", window.location.pathname);
-    } else if (!urlTab) {
-      try {
-        const saved = sessionStorage.getItem(TAB_KEY);
-        if (saved === "sensors" || saved === "schedule") setTab(saved as EquipmentTab);
-      } catch {}
-    }
-  }, []);
-
-  const switchTab = (t: EquipmentTab) => {
-    setTab(t);
-    try { sessionStorage.setItem(TAB_KEY, t); } catch {}
-  };
+  const searchParams = useSearchParams();
+  const urlTab = searchParams.get("tab");
+  const tab: EquipmentTab = (urlTab === "sensors" || urlTab === "schedule") ? urlTab : "equipment";
 
   return (
-    <AppLayout>
-      <div className={tab === "schedule" ? "max-w-7xl mx-auto" : "max-w-6xl mx-auto"}>
-        <h1 className="text-2xl font-bold mb-4">장비 관리</h1>
-
-        {/* 탭 */}
-        <div className="flex gap-1 border-b border-gray-200 mb-6">
-          {([
-            { key: "equipment" as const, label: "장비 관리" },
-            { key: "sensors" as const, label: "센서 관리" },
-            { key: "schedule" as const, label: "전체 일정" },
-          ]).map((t) => (
-            <button key={t.key}
-              onClick={() => switchTab(t.key)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                tab === t.key ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        {tab === "equipment" && <EquipmentListTab />}
-        {tab === "sensors" && <SensorListTab />}
-        {tab === "schedule" && <ScheduleTab />}
-      </div>
-    </AppLayout>
+    <>
+      {tab === "equipment" && <EquipmentListTab />}
+      {tab === "sensors" && <SensorListTab />}
+      {tab === "schedule" && <ScheduleTab />}
+    </>
   );
 }
 

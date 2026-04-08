@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, Fragment } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { projectApi, taskApi, resourceApi, baselineApi, commentApi, templateApi, deploymentApi } from "@/lib/api";
+import { projectApi, taskApi, resourceApi, baselineApi, commentApi, templateApi, deploymentApi, userManagementApi } from "@/lib/api";
 import dynamic from "next/dynamic";
 import { usePermission } from "@/hooks/usePermission";
 import AddTaskModal from "@/components/AddTaskModal";
@@ -105,6 +105,7 @@ export default function ProjectDetailPage() {
   };
   const [activities, setActivities] = useState<any[]>([]);
   const [activityTick, setActivityTick] = useState(0);
+  const [userMap, setUserMap] = useState<Record<string, string>>({});
   const [runningCpm, setRunningCpm] = useState(false);
   const [cpmResult, setCpmResult] = useState<any>(null);
 
@@ -171,6 +172,11 @@ export default function ProjectDetailPage() {
     if (!token) { router.push("/login"); return; }
     load();
     projectApi.list().then((r: any) => setAllProjects(r.items ?? [])).catch(() => {});
+    userManagementApi.members(true).then((list) => {
+      const map: Record<string, string> = {};
+      for (const u of list) map[u.id] = u.name;
+      setUserMap(map);
+    }).catch(() => {});
     try {
       const fRaw = localStorage.getItem("erp_folders_v1");
       const rawFolders = fRaw ? JSON.parse(fRaw) : [];
@@ -214,10 +220,10 @@ export default function ProjectDetailPage() {
 
   // 장비 투입 목록 로딩
   useEffect(() => {
-    if (activeTab !== "equipment") return;
+    if (activeTab !== "equipment" && activeTab !== "activity") return;
     setDeploymentsLoading(true);
     deploymentApi.list({ projectId }).then((r) => {
-      setProjectDeployments(r.items ?? []);
+      setProjectDeployments((r.items ?? []).filter((d: any) => d.status !== "CANCELLED"));
     }).catch(() => {}).finally(() => setDeploymentsLoading(false));
   }, [activeTab, projectId]);
 
@@ -1534,6 +1540,10 @@ export default function ProjectDetailPage() {
             COMMENT_DELETED:        { icon: "💬", label: "댓글 삭제",      bg: "bg-cyan-100",   text: "text-cyan-700" },
             ATTACHMENT_UPLOADED:    { icon: "📎", label: "파일 첨부",      bg: "bg-orange-100", text: "text-orange-700" },
             ATTACHMENT_DELETED:     { icon: "📎", label: "파일 삭제",      bg: "bg-orange-100", text: "text-orange-700" },
+            DEPLOY_CREATED:        { icon: "🔧", label: "장비 투입",      bg: "bg-emerald-100", text: "text-emerald-700" },
+            DEPLOY_ACTIVATED:      { icon: "🔧", label: "장비 가동",      bg: "bg-blue-100",   text: "text-blue-700" },
+            DEPLOY_COMPLETED:      { icon: "🔧", label: "장비 회수",      bg: "bg-green-100",  text: "text-green-700" },
+            DEPLOY_CANCELLED:      { icon: "🔧", label: "장비 투입 취소", bg: "bg-red-100",    text: "text-red-700" },
           };
 
           const timeAgo = (iso: string) => {
@@ -1548,9 +1558,31 @@ export default function ProjectDetailPage() {
             return new Date(iso).toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
           };
 
+          // 장비 투입 이벤트를 활동 피드에 합치기
+          const deployActivities = projectDeployments.map((d: any) => {
+            const statusAction: Record<string, string> = {
+              PLANNED: "DEPLOY_CREATED", ACTIVE: "DEPLOY_ACTIVATED",
+              COMPLETED: "DEPLOY_COMPLETED", CANCELLED: "DEPLOY_CANCELLED",
+            };
+            const sensorNames = d.sensors?.map((ds: any) => ds.sensor?.name).filter(Boolean).join(", ");
+            const period = `${new Date(d.startDate).toLocaleDateString()} ~ ${d.endDate ? new Date(d.endDate).toLocaleDateString() : "미정"}`;
+            return {
+              id: `deploy-${d.id}`,
+              action: statusAction[d.status] ?? "DEPLOY_CREATED",
+              createdAt: d.createdAt,
+              userId: d.createdBy,
+              description: `${d.equipment?.name ?? "장비"} (${period})${sensorNames ? ` · 센서: ${sensorNames}` : ""}`,
+              metadata: { equipmentName: d.equipment?.name },
+            };
+          });
+
+          const allActivities = [...activities, ...deployActivities].sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+
           // 날짜별 그룹
           const grouped: { date: string; items: any[] }[] = [];
-          for (const a of activities) {
+          for (const a of allActivities) {
             const date = new Date(a.createdAt).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" });
             const last = grouped[grouped.length - 1];
             if (last?.date === date) last.items.push(a);
@@ -1560,11 +1592,11 @@ export default function ProjectDetailPage() {
           return (
             <div className="max-w-2xl">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-gray-400">최근 활동 {activities.length}건</span>
+                <span className="text-xs text-gray-400">최근 활동 {allActivities.length}건</span>
                 <button onClick={loadActivities} className="text-xs text-blue-500 hover:underline">새로고침</button>
               </div>
 
-              {activities.length === 0 ? (
+              {allActivities.length === 0 ? (
                 <div className="text-center py-16 text-gray-400 bg-white rounded-xl border border-dashed border-gray-200">
                   <div className="text-3xl mb-2">🕐</div>
                   <p className="text-sm">활동 내역이 없습니다.</p>
@@ -1596,7 +1628,7 @@ export default function ProjectDetailPage() {
                                     {cfg.label}
                                   </span>
                                   <span className="text-[11px] text-gray-500">
-                                    <span className="font-medium text-gray-600">{a.userId}</span>
+                                    <span className="font-medium text-gray-600">{userMap[a.userId] ?? a.userId}</span>
                                     {" · "}{timeAgo(a.createdAt)}
                                   </span>
                                   {meta.taskName && (

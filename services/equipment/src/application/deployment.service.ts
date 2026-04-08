@@ -59,17 +59,17 @@ export class DeploymentService {
   }, userId: string) {
     const sensors = data.sensors ?? [];
 
-    // 1. 센서 가용 여부 확인
+    const startDt = new Date(data.startDate);
+    const endDt = data.endDate ? new Date(data.endDate) : new Date(data.startDate);
+
+    // 1. 센서 가용 여부 확인 (AVAILABLE/DEPLOYED 허용, 일정 충돌만 검사)
     for (const s of sensors) {
       const sensor = await this.prisma.sensor.findUnique({ where: { id: s.sensorId } });
       if (!sensor) throw new Error(`센서 ${s.sensorId}를 찾을 수 없습니다.`);
-      if (sensor.status !== "AVAILABLE") {
+      if (!["AVAILABLE", "DEPLOYED"].includes(sensor.status)) {
         throw new Error(`센서 ${sensor.name}은(는) 현재 ${sensor.status} 상태로 사용할 수 없습니다.`);
       }
     }
-
-    const startDt = new Date(data.startDate);
-    const endDt = data.endDate ? new Date(data.endDate) : new Date(data.startDate);
 
     // 2. 장비 일정 충돌 확인 (equipmentId 존재 시)
     let equipment: any = null;
@@ -320,6 +320,51 @@ export class DeploymentService {
       }
 
       return updated;
+    });
+  }
+
+  async remove(id: string) {
+    const deployment = await this.prisma.deployment.findUnique({
+      where: { id },
+      include: { sensors: true },
+    });
+    if (!deployment) throw new Error("투입 구성을 찾을 수 없습니다.");
+
+    return this.prisma.$transaction(async (tx) => {
+      // 센서 복원
+      for (const ds of deployment.sensors) {
+        await tx.sensor.update({
+          where: { id: ds.sensorId },
+          data: {
+            status: "AVAILABLE",
+            currentEquipmentId: null,
+            currentDeploymentId: null,
+            currentLocation: "창고",
+          },
+        });
+      }
+
+      // 일정 삭제
+      await tx.assetSchedule.deleteMany({ where: { deploymentId: id } });
+
+      // 장비 상태 복원
+      if (deployment.equipmentId) {
+        const otherActive = await tx.deployment.count({
+          where: { equipmentId: deployment.equipmentId, status: "ACTIVE", id: { not: id } },
+        });
+        if (otherActive === 0) {
+          await tx.equipment.update({
+            where: { id: deployment.equipmentId },
+            data: { status: "AVAILABLE" },
+          });
+        }
+      }
+
+      // 센서 배정 레코드 삭제
+      await tx.deploymentSensor.deleteMany({ where: { deploymentId: id } });
+
+      // deployment 레코드 삭제
+      await tx.deployment.delete({ where: { id } });
     });
   }
 }

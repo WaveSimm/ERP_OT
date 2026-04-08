@@ -35,7 +35,7 @@ export async function baselineRoutes(fastify: FastifyInstance) {
 
   // DELETE /api/v1/projects/:projectId/baselines/:baselineId
   fastify.delete("/:projectId/baselines/:baselineId", {
-    preHandler: requireRole("ADMIN"),
+    preHandler: requireRole("ADMIN", "MANAGER"),
   }, async (req, reply) => {
     const { baselineId } = req.params as { projectId: string; baselineId: string };
     await service.deleteBaseline(baselineId);

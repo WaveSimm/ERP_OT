@@ -239,18 +239,7 @@ function TeamAttendanceTable() {
 export default function TeamPage() {
   const router = useRouter();
   const user = getUser();
-  const [activeTab, setActiveTab] = useState<"pending" | "attendance">("pending");
-
-  if (!user || !["ADMIN", "MANAGER"].includes(user.role)) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3">
-        <div className="text-gray-400">접근 권한이 없습니다.</div>
-        <button onClick={() => router.push("/me/dashboard")} className="text-sm text-blue-600 hover:underline">
-          대시보드로 이동
-        </button>
-      </div>
-    );
-  }
+  const [activeTab, setActiveTab] = useState<"pending" | "attendance">("attendance");
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">

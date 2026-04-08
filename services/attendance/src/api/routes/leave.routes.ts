@@ -127,9 +127,9 @@ export async function leaveRoutes(fastify: FastifyInstance) {
     return reply.send(updated);
   });
 
-  // Admin: 연차 수동 조정
+  // 연차 수동 조정 (ADMIN/MANAGER)
   fastify.post("/balance/adjust", {
-    preHandler: requireRole("ADMIN"),
+    preHandler: requireRole("ADMIN", "MANAGER"),
   }, async (req, reply) => {
     const body = z.object({
       userId: z.string(),

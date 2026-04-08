@@ -599,6 +599,8 @@ export const deploymentApi = {
     request<any>(`/deployments/${id}/complete`, { method: "POST", body: "{}" }),
   cancel: (id: string) =>
     request<any>(`/deployments/${id}/cancel`, { method: "POST", body: "{}" }),
+  remove: (id: string) =>
+    request<void>(`/deployments/${id}`, { method: "DELETE" }),
 };
 
 export const equipmentStatsApi = {

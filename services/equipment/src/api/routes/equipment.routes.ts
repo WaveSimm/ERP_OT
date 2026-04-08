@@ -40,7 +40,7 @@ export async function equipmentRoutes(fastify: FastifyInstance) {
   });
 
   // DELETE /equipment/:id — 장비 퇴역
-  fastify.delete("/:id", { preHandler: requireRole("ADMIN") }, async (request, reply) => {
+  fastify.delete("/:id", { preHandler: requireRole("ADMIN", "MANAGER") }, async (request, reply) => {
     await fastify.equipmentService.remove((request.params as any).id);
     return reply.status(204).send();
   });
@@ -67,7 +67,7 @@ export async function equipmentRoutes(fastify: FastifyInstance) {
   });
 
   // DELETE /equipment/components/:compId
-  fastify.delete("/components/:compId", { preHandler: requireRole("ADMIN") }, async (request, reply) => {
+  fastify.delete("/components/:compId", { preHandler: requireRole("ADMIN", "MANAGER") }, async (request, reply) => {
     await fastify.equipmentService.removeComponent((request.params as any).compId);
     return reply.status(204).send();
   });

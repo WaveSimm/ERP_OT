@@ -1141,11 +1141,11 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
                           "bg-gray-100 text-gray-600"
                         }`}>{d.status === "PLANNED" ? "계획" : d.status === "ACTIVE" ? "진행중" : d.status === "COMPLETED" ? "완료" : "취소"}</span>
                       </div>
-                      {(d.status === "PLANNED" || d.status === "ACTIVE") && (
+                      {d.status !== "COMPLETED" && (
                         <button onClick={async () => {
-                          if (!confirm(`${d.equipment?.name} 배정을 해제하시겠습니까?${d.sensors?.length > 0 ? " 센서도 반납됩니다." : ""}`)) return;
+                          if (!confirm(`${d.equipment?.name} 배정을 해제하시겠습니까?${d.sensors?.length > 0 ? " 센서도 반납됩니다." : ""} 기록이 삭제됩니다.`)) return;
                           try {
-                            await deploymentApi.cancel(d.id);
+                            await deploymentApi.remove(d.id);
                             await loadTaskDeployments();
                             onRefresh();
                           } catch (e: any) { alert(e.message || "해제 실패"); }

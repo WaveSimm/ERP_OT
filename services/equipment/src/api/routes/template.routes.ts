@@ -23,7 +23,7 @@ export async function templateRoutes(fastify: FastifyInstance) {
     return fastify.templateService.update((request.params as any).id, request.body as any);
   });
 
-  fastify.delete("/:id", { preHandler: requireRole("ADMIN") }, async (request, reply) => {
+  fastify.delete("/:id", { preHandler: requireRole("ADMIN", "MANAGER") }, async (request, reply) => {
     await fastify.templateService.remove((request.params as any).id);
     return reply.status(204).send();
   });

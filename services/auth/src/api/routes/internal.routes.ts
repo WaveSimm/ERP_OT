@@ -51,6 +51,62 @@ export async function internalRoutes(
     return reply.send(subs);
   });
 
+  // GET /internal/users/all — 전체 사용자 ID+이름 목록
+  fastify.get("/users/all", async (req, reply) => {
+    const users = await prisma.user.findMany({
+      select: { id: true, name: true, email: true },
+    });
+    return reply.send(users);
+  });
+
+  // GET /internal/users/under/:userId — 해당 사용자가 팀장/총괄/대표인 부서 + 하위 부서 전체 멤버
+  fastify.get("/users/under/:userId", async (req, reply) => {
+    const { userId } = req.params as { userId: string };
+
+    // 이 사용자가 팀장, 총괄이사, 대표이사인 부서 찾기
+    const headDepts = await prisma.department.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { headUserId: userId },
+          { soukwalUserId: userId },
+          { daepyoUserId: userId },
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (headDepts.length === 0) {
+      return reply.send([]);
+    }
+
+    // 하위 부서 재귀 탐색
+    const allDeptIds = new Set(headDepts.map((d) => d.id));
+    const queue = [...allDeptIds];
+    while (queue.length > 0) {
+      const parentId = queue.shift()!;
+      const children = await prisma.department.findMany({
+        where: { parentId, isActive: true },
+        select: { id: true },
+      });
+      for (const c of children) {
+        if (!allDeptIds.has(c.id)) {
+          allDeptIds.add(c.id);
+          queue.push(c.id);
+        }
+      }
+    }
+
+    // 해당 부서들의 모든 멤버 조회
+    const profiles = await prisma.userProfile.findMany({
+      where: { departmentId: { in: Array.from(allDeptIds) } },
+      select: { userId: true, user: { select: { id: true, name: true, email: true } } },
+    });
+
+    const users = profiles.map((p) => ({ id: p.user.id, name: p.user.name, email: p.user.email }));
+    return reply.send(users);
+  });
+
   // GET /internal/departments/:id/members
   fastify.get("/departments/:id/members", async (req, reply) => {
     const { id } = req.params as { id: string };

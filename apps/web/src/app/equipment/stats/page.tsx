@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AppLayout from "@/components/AppLayout";
 import { equipmentStatsApi } from "@/lib/api";
 
 const SEVERITY_LABELS: Record<string, { label: string; color: string }> = {
@@ -42,9 +41,8 @@ export default function EquipmentStatsPage() {
   const sTotal = summary ? Object.values(summary.sensors as Record<string, number>).reduce((a, b) => a + b, 0) : 0;
 
   return (
-    <AppLayout>
-      <div className="max-w-6xl mx-auto space-y-6">
-        <h1 className="text-2xl font-bold">장비/센서 통계</h1>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold">장비/센서 통계</h1>
 
         {/* 요약 카드 */}
         {summary && (
@@ -224,8 +222,7 @@ export default function EquipmentStatsPage() {
             </table>
           )}
         </div>
-      </div>
-    </AppLayout>
+    </div>
   );
 }
 
