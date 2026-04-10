@@ -46,7 +46,7 @@ export class RiskDetectionService {
     const tasks = await this.prisma.task.findMany({
       where: {
         isCritical: true,
-        status: { notIn: ["DONE", "CANCELLED"] as any },
+        status: { notIn: ["DONE", "CANCELLED"] },
         project: { status: "IN_PROGRESS" },
         segments: {
           some: { endDate: { lt: today } },

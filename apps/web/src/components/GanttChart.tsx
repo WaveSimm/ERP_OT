@@ -82,7 +82,7 @@ function shiftDate(isoDate: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTaskClick, baselineSegments, allResources, onRefresh, projectId, inlineTaskName, onInlineTaskNameChange, inlineAdding, onInlineTaskCreate, selected, onToggleSelect, onToggleAll, dragIds, dropGap, onDragStart, onDragOver, onDrop, onDragEnd, onIndent, onOutdent }: {
+export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTaskClick, baselineSegments, allResources, onRefresh, pushUndo, projectId, inlineTaskName, onInlineTaskNameChange, inlineAdding, onInlineTaskCreate, selected, onToggleSelect, onToggleAll, dragIds, dropGap, onDragStart, onDragOver, onDrop, onDragEnd, onIndent, onOutdent }: {
   data: GanttData;
   flatItems?: FlatItem[];
   viewStart?: string;
@@ -91,6 +91,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
   baselineSegments?: BaselineSegment[];
   allResources?: any[];
   onRefresh?: () => void;
+  pushUndo?: (action: { label: string; undo: () => Promise<void>; redo: () => Promise<void> }) => void;
   projectId?: string;
   inlineTaskName?: string;
   onInlineTaskNameChange?: (v: string) => void;
@@ -263,21 +264,29 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
       // Optimistic update: 즉시 React 상태에 새 날짜 적용 → 바가 새 위치에 고정
       setSegDateOverrides((prev) => ({ ...prev, [drag.segId]: { startDate: newStart, endDate: newEnd } }));
 
-      taskApi.updateSegment(projectId!, drag.taskId, drag.segId, {
+      const origStart = drag.origStartDate;
+      const origEnd = drag.origEndDate;
+      const tId = drag.taskId;
+      const sId = drag.segId;
+      taskApi.updateSegment(projectId!, tId, sId, {
         startDate: newStart,
         endDate: newEnd,
         changeReason: "드래그 이동",
       }).then(() => {
+        pushUndo?.({
+          label: `구간 드래그 이동`,
+          undo: async () => { await taskApi.updateSegment(projectId!, tId, sId, { startDate: origStart, endDate: origEnd, changeReason: "undo" }); },
+          redo: async () => { await taskApi.updateSegment(projectId!, tId, sId, { startDate: newStart, endDate: newEnd, changeReason: "redo" }); },
+        });
         onRefresh?.();
       }).catch(() => {
-        // 실패: override 롤백 → 원래 위치로 복귀
         setSegDateOverrides((prev) => { const n = { ...prev }; delete n[drag.segId]; return n; });
       });
     };
 
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
-  }, [projectId, onRefresh]);
+  }, [projectId, onRefresh, pushUndo]);
 
   // Collapse state for parent tasks
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());

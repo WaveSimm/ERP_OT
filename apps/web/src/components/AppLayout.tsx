@@ -96,18 +96,18 @@ function CheckInWidget() {
 
       {/* 액션 버튼 */}
       {state === "NOT_STARTED" && (
-        <button onClick={() => act(() => attendanceApi.checkIn({ workType: "OFFICE" }))} disabled={saving}
+        <button onClick={() => { if (confirm("출근 처리하시겠습니까?")) act(() => attendanceApi.checkIn({ workType: "OFFICE" })); }} disabled={saving}
           className="px-3 py-1.5 text-xs font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors">
           🟢 출근
         </button>
       )}
       {state === "CHECKED_IN" && (
         <>
-          <button onClick={() => act(() => attendanceApi.breakOut())} disabled={saving}
+          <button onClick={() => { if (confirm("외출 처리하시겠습니까?")) act(() => attendanceApi.breakOut()); }} disabled={saving}
             className="px-2.5 py-1.5 text-xs font-semibold border border-orange-300 text-orange-600 rounded-lg hover:bg-orange-50 disabled:opacity-50 transition-colors">
             🟡 외출
           </button>
-          <button onClick={() => act(() => attendanceApi.checkOut())} disabled={saving}
+          <button onClick={() => { if (confirm("퇴근 처리하시겠습니까?\n퇴근 후에는 되돌릴 수 없습니다.")) act(() => attendanceApi.checkOut()); }} disabled={saving}
             className="px-2.5 py-1.5 text-xs font-semibold bg-gray-700 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors">
             🔴 퇴근
           </button>
@@ -116,7 +116,7 @@ function CheckInWidget() {
       {state === "ON_BREAK" && (
         <>
           <span className="text-xs text-orange-500 font-medium">🟡 외출중</span>
-          <button onClick={() => act(() => attendanceApi.breakIn())} disabled={saving}
+          <button onClick={() => { if (confirm("복귀 처리하시겠습니까?")) act(() => attendanceApi.breakIn()); }} disabled={saving}
             className="px-2.5 py-1.5 text-xs font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors">
             🟢 복귀
           </button>

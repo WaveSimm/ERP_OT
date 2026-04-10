@@ -86,6 +86,24 @@ export interface HeatmapResponse {
   cells: HeatmapCell[][];
 }
 
+// ─── 마이그레이션 타입 ────────────────────────────────────────────────────────
+
+export interface MigrationPreviewItem {
+  resourceId: string;
+  resourceName: string;
+  currentUserId: string | null;
+  matchedUserId: string | null;
+  matchedUserName: string | null;
+  matchedUserEmail: string | null;
+  matchType: "exact" | "none" | "already_linked";
+}
+
+export interface MigrationApplyResult {
+  updated: number;
+  skipped: number;
+  details: { resourceId: string; resourceName: string; userId: string }[];
+}
+
 const MS_PER_DAY = 86_400_000;
 
 export class ResourceService {
@@ -93,6 +111,92 @@ export class ResourceService {
     private readonly prisma: PrismaClient,
     private readonly cache: ProjectCacheService,
   ) {}
+
+  // ─── userId 마이그레이션 ──────────────────────────────────────────────────
+
+  async migratePreview(): Promise<MigrationPreviewItem[]> {
+    const authUrl = process.env.AUTH_SERVICE_URL ?? "http://auth-service:3001";
+    const token = process.env.INTERNAL_API_TOKEN ?? "";
+
+    // auth-service에서 전체 사용자 가져오기
+    const res = await fetch(`${authUrl}/internal/users/all`, {
+      headers: { "x-internal-token": token },
+    });
+    if (!res.ok) throw new AppError(502, "AUTH_SERVICE_ERROR", "사용자 목록을 가져올 수 없습니다.");
+    const authUsers = (await res.json()) as { id: string; name: string; email: string }[];
+
+    // 이름 → User 맵 (동명이인 시 첫 번째만)
+    const nameMap = new Map<string, typeof authUsers[0]>();
+    for (const u of authUsers) {
+      const key = u.name.trim().toLowerCase();
+      if (!nameMap.has(key)) nameMap.set(key, u);
+    }
+
+    // 모든 PERSON 자원 조회
+    const resources = await this.prisma.resource.findMany({
+      where: { type: "PERSON" },
+      orderBy: { name: "asc" },
+    });
+
+    return resources.map((r) => {
+      // 이미 실제 사용자와 연결된 경우
+      if (r.userId && !r.userId.startsWith("user-")) {
+        const matched = authUsers.find((u) => u.id === r.userId);
+        return {
+          resourceId: r.id,
+          resourceName: r.name,
+          currentUserId: r.userId,
+          matchedUserId: r.userId,
+          matchedUserName: matched?.name ?? null,
+          matchedUserEmail: matched?.email ?? null,
+          matchType: "already_linked" as const,
+        };
+      }
+
+      // 이름 매칭 시도
+      const key = r.name.trim().toLowerCase();
+      const matched = nameMap.get(key);
+
+      return {
+        resourceId: r.id,
+        resourceName: r.name,
+        currentUserId: r.userId,
+        matchedUserId: matched?.id ?? null,
+        matchedUserName: matched?.name ?? null,
+        matchedUserEmail: matched?.email ?? null,
+        matchType: matched ? "exact" as const : "none" as const,
+      };
+    });
+  }
+
+  async migrateApply(
+    mappings: { resourceId: string; userId: string }[],
+  ): Promise<MigrationApplyResult> {
+    let updated = 0;
+    let skipped = 0;
+    const details: MigrationApplyResult["details"] = [];
+
+    for (const { resourceId, userId } of mappings) {
+      const resource = await this.prisma.resource.findUnique({ where: { id: resourceId } });
+      if (!resource) { skipped++; continue; }
+
+      // 이미 동일한 userId면 스킵
+      if (resource.userId === userId) { skipped++; continue; }
+
+      // userId 중복 체크 (unique 제약)
+      const existing = await this.prisma.resource.findUnique({ where: { userId } });
+      if (existing && existing.id !== resourceId) { skipped++; continue; }
+
+      await this.prisma.resource.update({
+        where: { id: resourceId },
+        data: { userId },
+      });
+      updated++;
+      details.push({ resourceId, resourceName: resource.name, userId });
+    }
+
+    return { updated, skipped, details };
+  }
 
   // ─── Resource Group CRUD ──────────────────────────────────────────────────
 

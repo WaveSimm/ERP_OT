@@ -18,6 +18,8 @@ export default function CustomerDetailPage() {
   const [customer, setCustomer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showAssetForm, setShowAssetForm] = useState(false);
+  const [showContactForm, setShowContactForm] = useState(false);
+  const [editingContact, setEditingContact] = useState<any>(null);
 
   const load = useCallback(async () => {
     try {
@@ -33,96 +35,395 @@ export default function CustomerDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* 뒤로가기 */}
       <button onClick={() => router.push("/repair/customers")} className="text-sm text-gray-500 hover:text-gray-700">&larr; 고객 목록</button>
 
-      {/* 기본 정보 */}
-      <div className="bg-white border border-gray-200 rounded-lg p-5">
-        <h2 className="text-xl font-bold text-gray-900 mb-3">{customer.name}</h2>
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <div><span className="text-gray-500">담당자: </span>{customer.contactPerson || "-"}{customer.department ? ` (${customer.department})` : ""}</div>
-          <div><span className="text-gray-500">전화: </span>{customer.phone || "-"}</div>
-          <div><span className="text-gray-500">이메일: </span>{customer.email || "-"}</div>
-          <div><span className="text-gray-500">주소: </span>{customer.address || "-"}</div>
-        </div>
-      </div>
+      {/* 회사 대표정보 */}
+      <CompanyInfoSection customer={customer} onReload={load} />
+
+      {/* 담당자 */}
+      <ContactsSection
+        contacts={customer.contacts || []}
+        onAdd={() => { setEditingContact(null); setShowContactForm(true); }}
+        onEdit={(c: any) => { setEditingContact(c); setShowContactForm(true); }}
+        onDelete={async (contactId: string) => {
+          if (!confirm("담당자를 삭제하시겠습니까?")) return;
+          try { await repairApi.deleteContact(contactId); load(); } catch {}
+        }}
+      />
 
       {/* 보유 자산 */}
-      <div className="bg-white border border-gray-200 rounded-lg p-5">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-gray-800">보유 자산 ({customer.assets?.length || 0})</h3>
-          <button onClick={() => setShowAssetForm(true)}
-            className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-            + 자산 추가
-          </button>
-        </div>
-        {customer.assets?.length > 0 ? (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-2 text-xs text-gray-500">유형</th>
-                <th className="text-left py-2 text-xs text-gray-500">이름</th>
-                <th className="text-left py-2 text-xs text-gray-500">제작사</th>
-                <th className="text-left py-2 text-xs text-gray-500">S.N</th>
-                <th className="text-left py-2 text-xs text-gray-500">OT재고NO</th>
-              </tr>
-            </thead>
-            <tbody>
-              {customer.assets.map((a: any) => (
-                <tr key={a.id} className="border-t border-gray-100">
-                  <td className="py-2">{a.assetType === "EQUIPMENT" ? "장비" : "센서"}</td>
-                  <td className="py-2 font-medium">{a.name}</td>
-                  <td className="py-2 text-gray-600">{a.manufacturer || "-"}</td>
-                  <td className="py-2 text-gray-500">{a.serialNumber || "-"}</td>
-                  <td className="py-2 text-gray-500">{a.otInventoryNo || "-"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <p className="text-sm text-gray-400">등록된 자산이 없습니다.</p>
-        )}
-      </div>
+      <AssetsSection customer={customer} onAdd={() => setShowAssetForm(true)} />
 
       {/* AS 이력 */}
-      <div className="bg-white border border-gray-200 rounded-lg p-5">
-        <h3 className="font-semibold text-gray-800 mb-3">AS 이력 ({customer.repairOrders?.length || 0})</h3>
-        {customer.repairOrders?.length > 0 ? (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-2 text-xs text-gray-500">접수번호</th>
-                <th className="text-left py-2 text-xs text-gray-500">장비</th>
-                <th className="text-left py-2 text-xs text-gray-500">증상</th>
-                <th className="text-center py-2 text-xs text-gray-500">상태</th>
-                <th className="text-center py-2 text-xs text-gray-500">접수일</th>
-              </tr>
-            </thead>
-            <tbody>
-              {customer.repairOrders.map((o: any) => (
-                <tr key={o.id} className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer"
-                  onClick={() => router.push(`/repair/${o.id}`)}>
-                  <td className="py-2 text-blue-600 font-medium">{o.orderNumber}</td>
-                  <td className="py-2">{o.customerAsset?.name || "-"}</td>
-                  <td className="py-2 text-gray-600 truncate max-w-[200px]">{o.symptom || "-"}</td>
-                  <td className="py-2 text-center text-xs">{STATUS_LABELS[o.status] || o.status}</td>
-                  <td className="py-2 text-center text-xs text-gray-500">{new Date(o.receivedAt).toLocaleDateString("ko-KR")}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <p className="text-sm text-gray-400">AS 이력이 없습니다.</p>
-        )}
-      </div>
+      <RepairHistorySection customer={customer} />
 
-      {/* 자산 추가 폼 */}
+      {/* 자산 추가 모달 */}
       {showAssetForm && (
         <AssetForm customerId={id} onClose={() => setShowAssetForm(false)} onSaved={() => { setShowAssetForm(false); load(); }} />
+      )}
+
+      {/* 담당자 추가/수정 모달 */}
+      {showContactForm && (
+        <ContactForm
+          customerId={id}
+          contact={editingContact}
+          onClose={() => setShowContactForm(false)}
+          onSaved={() => { setShowContactForm(false); load(); }}
+        />
       )}
     </div>
   );
 }
+
+// ─── 회사 대표정보 ──────────────────────────────────────────────────────
+
+function CompanyInfoSection({ customer, onReload }: { customer: any; onReload: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({
+    name: customer.name || "",
+    businessNo: customer.businessNo || "",
+    phone: customer.phone || "",
+    address: customer.address || "",
+    address2: customer.address2 || "",
+    notes: customer.notes || "",
+  });
+  const [saving, setSaving] = useState(false);
+
+  const set = (f: string, v: string) => setForm((prev) => ({ ...prev, [f]: v }));
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await repairApi.updateCustomer(customer.id, {
+        name: form.name,
+        businessNo: form.businessNo || null,
+        phone: form.phone || null,
+        address: form.address || null,
+        address2: form.address2 || null,
+        notes: form.notes || null,
+      });
+      setEditing(false);
+      onReload();
+    } catch (e: any) {
+      alert(e.message || "저장 실패");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const cancel = () => {
+    setForm({
+      name: customer.name || "",
+      businessNo: customer.businessNo || "",
+      phone: customer.phone || "",
+      address: customer.address || "",
+      address2: customer.address2 || "",
+      notes: customer.notes || "",
+    });
+    setEditing(false);
+  };
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold text-gray-800">회사 대표정보</h3>
+        {!editing ? (
+          <button onClick={() => setEditing(true)} className="text-xs text-blue-600 hover:text-blue-800 font-medium">수정</button>
+        ) : (
+          <div className="flex gap-2">
+            <button onClick={cancel} className="text-xs text-gray-500 hover:text-gray-700">취소</button>
+            <button onClick={save} disabled={saving} className="text-xs text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50">
+              {saving ? "저장 중..." : "저장"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {!editing ? (
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div><span className="text-gray-500">회사명: </span><span className="font-medium">{customer.name}</span></div>
+          <div><span className="text-gray-500">사업자등록번호: </span>{customer.businessNo || "-"}</div>
+          <div><span className="text-gray-500">대표전화: </span>{customer.phone || "-"}</div>
+          <div className="col-span-2"><span className="text-gray-500">대표주소: </span>{customer.address || "-"}</div>
+          <div className="col-span-2"><span className="text-gray-500">2차 주소: </span>{customer.address2 || "-"}</div>
+          {customer.notes && <div className="col-span-2"><span className="text-gray-500">비고: </span>{customer.notes}</div>}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">회사명 *</label>
+            <input type="text" value={form.name} onChange={(e) => set("name", e.target.value)}
+              className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" required />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">사업자등록번호</label>
+            <input type="text" value={form.businessNo} onChange={(e) => set("businessNo", e.target.value)}
+              className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" placeholder="000-00-00000" />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">대표전화번호</label>
+            <input type="text" value={form.phone} onChange={(e) => set("phone", e.target.value)}
+              className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+          </div>
+          <div />
+          <div className="col-span-2">
+            <label className="block text-xs text-gray-500 mb-1">대표주소</label>
+            <input type="text" value={form.address} onChange={(e) => set("address", e.target.value)}
+              className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+          </div>
+          <div className="col-span-2">
+            <label className="block text-xs text-gray-500 mb-1">2차 주소</label>
+            <input type="text" value={form.address2} onChange={(e) => set("address2", e.target.value)}
+              className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+          </div>
+          <div className="col-span-2">
+            <label className="block text-xs text-gray-500 mb-1">비고</label>
+            <textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2}
+              className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm resize-none" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── 담당자 영역 ────────────────────────────────────────────────────────
+
+function ContactsSection({ contacts, onAdd, onEdit, onDelete }: {
+  contacts: any[];
+  onAdd: () => void;
+  onEdit: (c: any) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-5">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-semibold text-gray-800">담당자 ({contacts.length})</h3>
+        <button onClick={onAdd}
+          className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          + 담당자 추가
+        </button>
+      </div>
+      {contacts.length > 0 ? (
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-200">
+              <th className="text-left py-2 text-xs text-gray-500">이름</th>
+              <th className="text-left py-2 text-xs text-gray-500">부서</th>
+              <th className="text-left py-2 text-xs text-gray-500">직위</th>
+              <th className="text-left py-2 text-xs text-gray-500">전화</th>
+              <th className="text-left py-2 text-xs text-gray-500">이메일</th>
+              <th className="text-center py-2 text-xs text-gray-500">주담당</th>
+              <th className="text-right py-2 text-xs text-gray-500"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {contacts.map((c: any) => (
+              <tr key={c.id} className="border-t border-gray-100">
+                <td className="py-2 font-medium">{c.name}</td>
+                <td className="py-2 text-gray-600">{c.department || "-"}</td>
+                <td className="py-2 text-gray-600">{c.position || "-"}</td>
+                <td className="py-2 text-gray-600">{c.phone || "-"}</td>
+                <td className="py-2 text-gray-600">{c.email || "-"}</td>
+                <td className="py-2 text-center">
+                  {c.isPrimary && <span className="inline-block px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[10px] rounded font-medium">주담당</span>}
+                </td>
+                <td className="py-2 text-right">
+                  <button onClick={() => onEdit(c)} className="text-xs text-gray-400 hover:text-blue-600 mr-2">수정</button>
+                  <button onClick={() => onDelete(c.id)} className="text-xs text-gray-400 hover:text-red-600">삭제</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p className="text-sm text-gray-400">등록된 담당자가 없습니다.</p>
+      )}
+    </div>
+  );
+}
+
+// ─── 담당자 추가/수정 모달 ──────────────────────────────────────────────
+
+function ContactForm({ customerId, contact, onClose, onSaved }: {
+  customerId: string;
+  contact: any | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const isEdit = !!contact;
+  const [form, setForm] = useState({
+    name: contact?.name || "",
+    department: contact?.department || "",
+    position: contact?.position || "",
+    phone: contact?.phone || "",
+    email: contact?.email || "",
+    isPrimary: contact?.isPrimary || false,
+    notes: contact?.notes || "",
+  });
+  const [saving, setSaving] = useState(false);
+
+  const set = (f: string, v: any) => setForm((prev) => ({ ...prev, [f]: v }));
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name.trim()) return;
+    setSaving(true);
+    try {
+      if (isEdit) {
+        await repairApi.updateContact(contact.id, form);
+      } else {
+        await repairApi.createContact(customerId, form);
+      }
+      onSaved();
+    } catch (e: any) {
+      alert(e.message || "저장 실패");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <h3 className="font-semibold text-gray-900">{isEdit ? "담당자 수정" : "담당자 추가"}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        </div>
+        <form onSubmit={submit} className="p-6 space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">이름 *</label>
+            <input type="text" value={form.name} onChange={(e) => set("name", e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">부서</label>
+              <input type="text" value={form.department} onChange={(e) => set("department", e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">직위</label>
+              <input type="text" value={form.position} onChange={(e) => set("position", e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">전화</label>
+              <input type="text" value={form.phone} onChange={(e) => set("phone", e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">이메일</label>
+              <input type="email" value={form.email} onChange={(e) => set("email", e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="checkbox" checked={form.isPrimary} onChange={(e) => set("isPrimary", e.target.checked)}
+              className="rounded border-gray-300" id="isPrimary" />
+            <label htmlFor="isPrimary" className="text-sm text-gray-700">주담당자</label>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">비고</label>
+            <textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none" />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">취소</button>
+            <button type="submit" disabled={saving} className="flex-1 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
+              {saving ? "저장 중..." : isEdit ? "수정" : "추가"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── 보유 자산 ──────────────────────────────────────────────────────────
+
+function AssetsSection({ customer, onAdd }: { customer: any; onAdd: () => void }) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-5">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-semibold text-gray-800">보유 자산 ({customer.assets?.length || 0})</h3>
+        <button onClick={onAdd}
+          className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          + 자산 추가
+        </button>
+      </div>
+      {customer.assets?.length > 0 ? (
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-200">
+              <th className="text-left py-2 text-xs text-gray-500">유형</th>
+              <th className="text-left py-2 text-xs text-gray-500">이름</th>
+              <th className="text-left py-2 text-xs text-gray-500">제작사</th>
+              <th className="text-left py-2 text-xs text-gray-500">S.N</th>
+              <th className="text-left py-2 text-xs text-gray-500">OT재고NO</th>
+            </tr>
+          </thead>
+          <tbody>
+            {customer.assets.map((a: any) => (
+              <tr key={a.id} className="border-t border-gray-100">
+                <td className="py-2">{a.assetType === "EQUIPMENT" ? "장비" : "센서"}</td>
+                <td className="py-2 font-medium">{a.name}</td>
+                <td className="py-2 text-gray-600">{a.manufacturer || "-"}</td>
+                <td className="py-2 text-gray-500">{a.serialNumber || "-"}</td>
+                <td className="py-2 text-gray-500">{a.otInventoryNo || "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p className="text-sm text-gray-400">등록된 자산이 없습니다.</p>
+      )}
+    </div>
+  );
+}
+
+// ─── AS 이력 ────────────────────────────────────────────────────────────
+
+function RepairHistorySection({ customer }: { customer: any }) {
+  const router = useRouter();
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-5">
+      <h3 className="font-semibold text-gray-800 mb-3">AS 이력 ({customer.repairOrders?.length || 0})</h3>
+      {customer.repairOrders?.length > 0 ? (
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-200">
+              <th className="text-left py-2 text-xs text-gray-500">접수번호</th>
+              <th className="text-left py-2 text-xs text-gray-500">장비</th>
+              <th className="text-left py-2 text-xs text-gray-500">증상</th>
+              <th className="text-center py-2 text-xs text-gray-500">상태</th>
+              <th className="text-center py-2 text-xs text-gray-500">접수일</th>
+            </tr>
+          </thead>
+          <tbody>
+            {customer.repairOrders.map((o: any) => (
+              <tr key={o.id} className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer"
+                onClick={() => router.push(`/repair/${o.id}`)}>
+                <td className="py-2 text-blue-600 font-medium">{o.orderNumber}</td>
+                <td className="py-2">{o.customerAsset?.name || "-"}</td>
+                <td className="py-2 text-gray-600 truncate max-w-[200px]">{o.symptom || "-"}</td>
+                <td className="py-2 text-center text-xs">{STATUS_LABELS[o.status] || o.status}</td>
+                <td className="py-2 text-center text-xs text-gray-500">{new Date(o.receivedAt).toLocaleDateString("ko-KR")}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p className="text-sm text-gray-400">AS 이력이 없습니다.</p>
+      )}
+    </div>
+  );
+}
+
+// ─── 자산 추가 모달 ─────────────────────────────────────────────────────
 
 function AssetForm({ customerId, onClose, onSaved }: { customerId: string; onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState({

@@ -29,6 +29,7 @@ enum TaskStatus {
   ON_HOLD
   DONE
   BLOCKED
+  CANCELLED
 
   @@schema("project")
 }
@@ -566,5 +567,39 @@ model IssueThresholdConfig {
   updatedAt               DateTime @updatedAt
 
   @@map("issue_threshold_configs")
+  @@schema("project")
+}
+
+// ─────────────────────────────────────────────
+// 프로젝트 폴더 (트리 구조)
+// ─────────────────────────────────────────────
+
+model ProjectFolder {
+  id        String   @id @default(cuid())
+  name      String
+  parentId  String?
+  sortOrder Int      @default(0)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent   ProjectFolder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children ProjectFolder[] @relation("FolderTree")
+  projects ProjectFolderItem[]
+
+  @@map("project_folders")
+  @@schema("project")
+}
+
+model ProjectFolderItem {
+  id        String @id @default(cuid())
+  folderId  String
+  projectId String
+  sortOrder Int    @default(0)
+
+  folder ProjectFolder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@unique([folderId, projectId])
+  @@map("project_folder_items")
   @@schema("project")
 }

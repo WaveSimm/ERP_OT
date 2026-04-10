@@ -1,12 +1,12 @@
 {
-  "sessionCount": 89,
+  "sessionCount": 98,
   "lastSession": {
-    "startedAt": "2026-04-08T14:50:01.826Z",
+    "startedAt": "2026-04-10T06:14:50.776Z",
     "platform": "claude",
     "level": "Enterprise"
   },
-  "currentFeature": "수리관리",
-  "currentPhase": "check",
-  "matchRate": 97,
-  "lastUpdated": "2026-04-08T06:00:00.000Z"
+  "currentFeature": "해외구매-재고관리",
+  "currentPhase": "design",
+  "matchRate": null,
+  "lastUpdated": "2026-04-10T12:00:00.000Z"
 }

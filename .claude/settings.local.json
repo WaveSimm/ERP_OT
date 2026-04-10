@@ -206,7 +206,23 @@
       "Bash(git stash:*)",
       "Bash(npx next:*)",
       "Bash(npx -y tsc --noEmit --project apps/web/tsconfig.json)",
-      "Bash(timeout 15 bash -c 'until curl -s http://localhost:3000 > /dev/null 2>&1; do sleep 2; done; echo \"Web is up\"')"
+      "Bash(timeout 15 bash -c 'until curl -s http://localhost:3000 > /dev/null 2>&1; do sleep 2; done; echo \"Web is up\"')",
+      "Bash(npm ls:*)",
+      "Bash(mkdir -p /tmp/xlsx-reader)",
+      "Read(//tmp/**)",
+      "Bash(npm init:*)",
+      "Bash(DATABASE_URL=\"postgresql://erp_user:erp_password@localhost:5432/erp_ot\" npx prisma:*)",
+      "Bash(NODE_PATH=/tmp/xlsx-reader/node_modules node /e/claude/ERP_OT/scripts/import-as-excel.js)",
+      "Bash(EXCEL_PATH=\"E:/claude/ERP_OT/AS관리_2022_V10.xlsx\" NODE_PATH=/tmp/xlsx-reader/node_modules node /e/claude/ERP_OT/scripts/import-as-excel.js)",
+      "Bash(wc -l E:/claude/ERP_OT/apps/web/src/app/repair/page.tsx E:/claude/ERP_OT/apps/web/src/app/repair/layout.tsx E:/claude/ERP_OT/apps/web/src/app/repair/customers/page.tsx E:/claude/ERP_OT/apps/web/src/app/repair/customers/*/page.tsx E:/claude/ERP_OT/apps/web/src/app/repair/*/page.tsx E:/claude/ERP_OT/apps/web/src/app/repair/[id]/page.tsx)",
+      "Bash(wmic computersystem:*)",
+      "Bash(wmic cpu:*)",
+      "Bash(wmic diskdrive:*)",
+      "Bash(docker system:*)",
+      "Bash(grep -rn \"as any\" services/*/src/**/*.ts --include=\"*.ts\")",
+      "Bash(grep -rn \"TODO\\\\|FIXME\\\\|HACK\\\\|XXX\\\\|TEMP\" services/*/src/ apps/web/src/ --include=\"*.ts\" --include=\"*.tsx\")",
+      "Bash(grep -rn \"catch {\" services/*/src/ apps/web/src/ --include=\"*.ts\" --include=\"*.tsx\")",
+      "Bash(grep -rn \"console\\\\.\\\\\\(log\\\\|error\\\\|warn\\\\\\)\" services/*/src/ --include=\"*.ts\")"
     ]
   }
 }

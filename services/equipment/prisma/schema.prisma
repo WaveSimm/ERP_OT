@@ -414,19 +414,44 @@ enum PurchaseOrderStatus {
 model Customer {
   id            String   @id @default(cuid())
   name          String
-  contactPerson String?
+  businessNo    String?                          // 사업자등록번호
+  contactPerson String?                          // (레거시) 단일 담당자 — contacts로 이전
   department    String?
-  phone         String?
+  phone         String?                          // 대표전화번호
   email         String?
-  address       String?
+  address       String?                          // 대표주소
+  address2      String?                          // 2차 주소
   notes         String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   assets       CustomerAsset[]
   repairOrders RepairOrder[]
+  contacts     CustomerContact[]
 
   @@map("customers")
+  @@schema("equipment")
+}
+
+// ─── R-1b. CustomerContact (고객 담당자) ──────
+
+model CustomerContact {
+  id           String   @id @default(cuid())
+  customerId   String
+  name         String                            // 담당자 이름
+  department   String?                           // 부서
+  position     String?                           // 직위
+  phone        String?
+  email        String?
+  isPrimary    Boolean  @default(false)           // 주담당자 여부
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("customer_contacts")
   @@schema("equipment")
 }
 
@@ -466,10 +491,12 @@ model RepairOrder {
   status           RepairOrderStatus @default(RECEIVED)
   priority         RepairPriority    @default(NORMAL)
 
-  customerId       String?
-  customerAssetId  String?
-  equipmentId      String?
-  sensorId         String?
+  customerId           String?
+  customerAssetId      String?
+  customerContactName  String?                    // 고객사 담당자 이름
+  customerContactPhone String?                    // 고객사 담당자 연락처
+  equipmentId          String?
+  sensorId             String?
 
   techStatus       String?
   salesStatus      String?
@@ -495,11 +522,19 @@ model RepairOrder {
   receivedBy       String?
   assigneeId       String?
   assigneeName     String?
+  assigneePhone    String?
 
   receivedAt       DateTime         @default(now())
+  requestedDate    DateTime?
   estimatedDays    Int?
   completedAt      DateTime?
   closedAt         DateTime?
+
+  laborDays        Decimal?         @db.Decimal(6, 1)
+  directCost       Decimal?         @db.Decimal(12, 2)
+  overseasShipDate DateTime?
+  returnDate       DateTime?
+  linkUrl          String?
 
   notes            String?
   createdAt        DateTime         @default(now())

@@ -102,27 +102,41 @@ export default function RepairOrdersPage() {
       {/* 목록 테이블 */}
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm table-fixed">
+            <colgroup>
+              <col className="w-[88px]" />   {/* 접수번호: max12자 */}
+              <col className="w-[140px]" />  {/* 고객: 20자 */}
+              <col className="w-[200px]" />  {/* 장비: 30자 */}
+              <col className="w-[140px]" />  {/* S.N: 20자 */}
+              <col className="w-[72px]" />   {/* 상태 */}
+              <col className="w-[96px]" />   {/* 점검상황 */}
+              <col className="w-[72px]" />   {/* 영업상황 */}
+              <col className="w-[52px]" />   {/* 우선도 */}
+              <col className="w-[56px]" />   {/* 담당자: 3자 */}
+              <col className="w-[60px]" />   {/* 접수일 */}
+              <col className="w-[48px]" />   {/* 경과 */}
+            </colgroup>
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">접수번호</th>
-                <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">고객</th>
-                <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">장비</th>
-                <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">S.N</th>
-                <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-500">상태</th>
-                <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">점검상황</th>
-                <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">영업상황</th>
-                <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-500">우선도</th>
-                <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-500">접수일</th>
-                <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-500">경과</th>
+                <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500">접수번호</th>
+                <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500">고객</th>
+                <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500">장비</th>
+                <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500">S.N</th>
+                <th className="px-2 py-2.5 text-center text-xs font-semibold text-gray-500">상태</th>
+                <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500">점검상황</th>
+                <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500">영업상황</th>
+                <th className="px-2 py-2.5 text-center text-xs font-semibold text-gray-500">우선도</th>
+                <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500">담당자</th>
+                <th className="px-2 py-2.5 text-center text-xs font-semibold text-gray-500">접수일</th>
+                <th className="px-2 py-2.5 text-center text-xs font-semibold text-gray-500">경과</th>
               </tr>
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={10} className="text-center py-8 text-gray-400">불러오는 중...</td></tr>
+                <tr><td colSpan={11} className="text-center py-8 text-gray-400">불러오는 중...</td></tr>
               )}
               {!loading && orders.length === 0 && (
-                <tr><td colSpan={10} className="text-center py-8 text-gray-400">AS 접수 내역이 없습니다.</td></tr>
+                <tr><td colSpan={11} className="text-center py-8 text-gray-400">AS 접수 내역이 없습니다.</td></tr>
               )}
               {!loading && orders.map((o) => {
                 const assetName = o.customerAsset?.name || o.equipment?.name || o.sensor?.name || "-";
@@ -130,24 +144,25 @@ export default function RepairOrdersPage() {
                 return (
                   <tr key={o.id} onClick={() => router.push(`/repair/${o.id}`)}
                     className="border-t border-gray-100 hover:bg-blue-50/50 cursor-pointer">
-                    <td className="px-3 py-2 font-medium text-blue-600">{o.orderNumber}</td>
-                    <td className="px-3 py-2 text-gray-800">{o.customer?.name || "-"}</td>
-                    <td className="px-3 py-2 text-gray-700">{assetName}</td>
-                    <td className="px-3 py-2 text-gray-500 text-xs">{serialNumber}</td>
-                    <td className="px-3 py-2 text-center">
-                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[o.status] || "bg-gray-100"}`}>
+                    <td className="px-2 py-2 font-medium text-blue-600 truncate">{o.orderNumber}</td>
+                    <td className="px-2 py-2 text-gray-800 truncate" title={o.customer?.name}>{o.customer?.name || "-"}</td>
+                    <td className="px-2 py-2 text-gray-700 truncate" title={assetName}>{assetName}</td>
+                    <td className="px-2 py-2 text-gray-500 text-xs truncate" title={serialNumber}>{serialNumber}</td>
+                    <td className="px-2 py-2 text-center">
+                      <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium whitespace-nowrap ${STATUS_COLORS[o.status] || "bg-gray-100"}`}>
                         {STATUS_LABELS[o.status] || o.status}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-gray-600 text-xs">{o.techStatus || "-"}</td>
-                    <td className="px-3 py-2 text-gray-600 text-xs">{o.salesStatus || "-"}</td>
-                    <td className={`px-3 py-2 text-center text-xs font-medium ${PRIORITY_COLORS[o.priority]}`}>
+                    <td className="px-2 py-2 text-gray-600 text-xs truncate" title={o.techStatus}>{o.techStatus || "-"}</td>
+                    <td className="px-2 py-2 text-gray-600 text-xs truncate">{o.salesStatus || "-"}</td>
+                    <td className={`px-2 py-2 text-center text-xs font-medium ${PRIORITY_COLORS[o.priority]}`}>
                       {PRIORITY_LABELS[o.priority]}
                     </td>
-                    <td className="px-3 py-2 text-center text-gray-500 text-xs">
+                    <td className="px-2 py-2 text-gray-700 text-xs">{o.assigneeName || "-"}</td>
+                    <td className="px-2 py-2 text-center text-gray-500 text-xs whitespace-nowrap">
                       {new Date(o.receivedAt).toLocaleDateString("ko-KR", { month: "2-digit", day: "2-digit" })}
                     </td>
-                    <td className="px-3 py-2 text-center text-gray-500 text-xs">
+                    <td className="px-2 py-2 text-center text-gray-500 text-xs whitespace-nowrap">
                       {o.status !== "CLOSED" && o.status !== "CANCELLED" ? `${daysSince(o.receivedAt)}일` : "-"}
                     </td>
                   </tr>

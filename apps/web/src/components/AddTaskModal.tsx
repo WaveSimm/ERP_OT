@@ -7,7 +7,7 @@ interface Props {
   projectId: string;
   defaultParentId?: string | null;
   defaultSortOrder?: number;
-  onSuccess: () => void;
+  onSuccess: (taskId?: string, taskName?: string) => void;
   onClose: () => void;
 }
 
@@ -73,7 +73,7 @@ export default function AddTaskModal({ projectId, defaultParentId, defaultSortOr
         await taskApi.upsertAssignment(projectId, task.id, segment.id, payload);
       }
 
-      onSuccess();
+      onSuccess(task.id, name.trim());
       onClose();
     } catch (e: any) {
       setError(e.message ?? "저장 실패");

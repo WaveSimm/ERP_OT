@@ -3,9 +3,11 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { projectApi, userManagementApi } from "@/lib/api";
+import { projectApi, userManagementApi, folderApi } from "@/lib/api";
 import AppLayout from "@/components/AppLayout";
+import UndoRedoControls from "@/components/UndoRedoControls";
 import { usePermission } from "@/hooks/usePermission";
+import { useUndoRedo } from "@/hooks/useUndoRedo";
 import clsx from "clsx";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -39,12 +41,9 @@ const STATUS_CFG: Record<string, { label: string; dot: string; text: string }> =
   CANCELLED:   { label: "취소",   dot: "bg-red-400",    text: "text-red-500" },
 };
 
-// ─── localStorage helpers ─────────────────────────────────────────────────────
+// ─── localStorage helpers (UI preferences only) ──────────────────────────────
 
-const LS_FOLDERS          = "erp_folders_v1";
-const LS_PROJ_FOLDER      = "erp_proj_folder_v2"; // v2: string[] per project
-const LS_FOLDER_OPEN      = "erp_folder_open_v1";
-const LS_FOLDER_PROJ_ORDER = "erp_folder_proj_order_v1"; // folderId → projectId[]
+const LS_FOLDER_OPEN = "erp_folder_open_v1";
 
 function lsGet<T>(key: string, fallback: T): T {
   try { return JSON.parse(localStorage.getItem(key) ?? "null") ?? fallback; }
@@ -54,15 +53,26 @@ function lsSet(key: string, val: unknown) {
   try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
 }
 
-// 구버전(string|null) → 신버전(string[]) 자동 마이그레이션
-function loadProjFolderMap(): Record<string, string[]> {
-  const raw = lsGet<Record<string, unknown>>(LS_PROJ_FOLDER, {});
-  const result: Record<string, string[]> = {};
-  Object.entries(raw).forEach(([k, v]) => {
-    if (Array.isArray(v)) result[k] = v;
-    else if (typeof v === "string") result[k] = [v];
-  });
-  return result;
+/** API 응답에서 projFolderMap (projectId → folderId[]) 구축 */
+function buildProjFolderMap(apiFolders: any[]): Record<string, string[]> {
+  const map: Record<string, string[]> = {};
+  for (const f of apiFolders) {
+    for (const item of f.projects ?? []) {
+      if (!map[item.projectId]) map[item.projectId] = [];
+      map[item.projectId].push(f.id);
+    }
+  }
+  return map;
+}
+
+/** API 응답에서 folderProjOrder (folderId → projectId[]) 구축 */
+function buildFolderProjOrder(apiFolders: any[]): Record<string, string[]> {
+  const order: Record<string, string[]> = {};
+  for (const f of apiFolders) {
+    const sorted = [...(f.projects ?? [])].sort((a: any, b: any) => a.sortOrder - b.sortOrder);
+    order[f.id] = sorted.map((item: any) => item.projectId);
+  }
+  return order;
 }
 
 function fmtDate(s?: string | null) {
@@ -83,7 +93,7 @@ export default function ProjectsPage() {
   const [loading, setLoading]   = useState(true);
   const [search, setSearch]     = useState("");
 
-  // Tree state (localStorage)
+  // Tree state (DB-backed, openFolders is UI-only localStorage)
   const [folders, setFolders]             = useState<Folder[]>([]);
   const [projFolderMap, setProjFolderMap] = useState<Record<string, string[]>>({});
   const [openFolders, setOpenFolders]     = useState<Record<string, boolean>>({});
@@ -121,17 +131,27 @@ export default function ProjectsPage() {
   const [pickerSearch, setPickerSearch]     = useState("");
   const [pickerSelected, setPickerSelected] = useState<Set<string>>(new Set());
 
-  // Init localStorage
-  useEffect(() => {
-    setFolders(lsGet<Folder[]>(LS_FOLDERS, []));
-    setProjFolderMap(loadProjFolderMap());
-    setOpenFolders(lsGet<Record<string, boolean>>(LS_FOLDER_OPEN, {}));
-    setFolderProjOrder(lsGet<Record<string, string[]>>(LS_FOLDER_PROJ_ORDER, {}));
+  // Load folders from DB
+  const loadFolders = useCallback(async () => {
+    try {
+      const apiFolders = await folderApi.list();
+      setFolders(apiFolders.map((f: any) => ({ id: f.id, name: f.name, parentId: f.parentId ?? null })));
+      setProjFolderMap(buildProjFolderMap(apiFolders));
+      setFolderProjOrder(buildFolderProjOrder(apiFolders));
+    } catch { /* ignore — folders just won't show */ }
   }, []);
 
-  // Persist helpers
-  const updateFolders = (f: Folder[]) => { setFolders(f); lsSet(LS_FOLDERS, f); };
-  const updateMap = (m: Record<string, string[]>) => { setProjFolderMap(m); lsSet(LS_PROJ_FOLDER, m); };
+  // Undo / Redo (shared hook) — onError에서 loadFolders/load를 ref로 참조
+  const loadRef = useRef<() => void>(() => {});
+  const loadFoldersRef = useRef<() => void>(() => {});
+  const { push: pushUndo, undo: handleUndo, redo: handleRedo, undoCount, redoCount, undoLabel, redoLabel, toast } =
+    useUndoRedo({ onError: () => { loadFoldersRef.current(); loadRef.current(); } });
+
+  // Init
+  useEffect(() => {
+    setOpenFolders(lsGet<Record<string, boolean>>(LS_FOLDER_OPEN, {}));
+  }, []);
+
   const toggleOpen = (id: string) => {
     setOpenFolders(prev => {
       const next = { ...prev, [id]: !(prev[id] !== false) };
@@ -154,12 +174,17 @@ export default function ProjectsPage() {
     }
   }, []);
 
+  // Ref 업데이트 (useUndoRedo onError 콜백용)
+  loadRef.current = load;
+  loadFoldersRef.current = loadFolders;
+
   useEffect(() => {
     const token = localStorage.getItem("erp_token");
     if (!token) { router.push("/login"); return; }
     load();
+    loadFolders();
     userManagementApi.members(true).then(setAllEmployees).catch(() => {});
-  }, [load, router]);
+  }, [load, loadFolders, router]);
 
   // owner 드롭다운 외부 클릭 시 닫기
   useEffect(() => {
@@ -176,14 +201,28 @@ export default function ProjectsPage() {
   }, [ownerEditId]);
 
   const handleOwnerChange = async (projectId: string, newOwnerId: string, newOwnerName: string) => {
+    const proj = projects.find(p => p.id === projectId);
+    const oldOwnerId = proj?.ownerId;
+    const oldOwnerName = proj?.ownerName ?? null;
     setProjects(prev => prev.map(p => p.id === projectId ? { ...p, ownerId: newOwnerId, ownerName: newOwnerName } : p));
     setOwnerEditId(null);
     setOwnerDropPos(null);
     setOwnerSearch("");
     try {
       await projectApi.update(projectId, { ownerId: newOwnerId });
+      pushUndo({
+        label: `소유자 "${oldOwnerName ?? "없음"}" → "${newOwnerName}"`,
+        undo: async () => {
+          await projectApi.update(projectId, { ownerId: oldOwnerId ?? null });
+          setProjects(prev => prev.map(p => p.id === projectId ? { ...p, ownerId: oldOwnerId, ownerName: oldOwnerName } : p));
+        },
+        redo: async () => {
+          await projectApi.update(projectId, { ownerId: newOwnerId });
+          setProjects(prev => prev.map(p => p.id === projectId ? { ...p, ownerId: newOwnerId, ownerName: newOwnerName } : p));
+        },
+      });
     } catch {
-      load(); // 실패 시 원복
+      load();
     }
   };
 
@@ -192,22 +231,58 @@ export default function ProjectsPage() {
     e.preventDefault();
     setCreating(true);
     try {
-      const p = await projectApi.create({ name: newName, description: newDesc || undefined });
+      const name = newName.trim();
+      const desc = newDesc || undefined;
+      const p = await projectApi.create({ name, description: desc });
       setShowCreate(false);
       setNewName(""); setNewDesc("");
+      pushUndo({
+        label: `프로젝트 "${name}" 생성`,
+        undo: async () => {
+          await projectApi.delete(p.id);
+          load();
+        },
+        redo: async () => {
+          await projectApi.create({ name, description: desc });
+          load();
+        },
+      });
       router.push(`/projects/${p.id}`);
     } catch (e: any) { alert(e.message ?? "생성 실패"); }
     finally { setCreating(false); }
   };
 
   // Create folder
-  const handleCreateFolder = () => {
+  const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
-    const f: Folder = { id: `f_${Date.now()}`, name: newFolderName.trim(), parentId: newFolderParent };
-    updateFolders([...folders, f]);
-    if (newFolderParent) {
-      setOpenFolders(prev => { const n = { ...prev, [newFolderParent!]: true }; lsSet(LS_FOLDER_OPEN, n); return n; });
-    }
+    const name = newFolderName.trim();
+    const parentId = newFolderParent;
+    try {
+      const created = await folderApi.create({ name, parentId: parentId ?? undefined });
+      const folder: Folder = { id: created.id, name: created.name, parentId: created.parentId ?? null };
+      setFolders(prev => [...prev, folder]);
+      if (parentId) {
+        setOpenFolders(prev => { const n = { ...prev, [parentId]: true }; lsSet(LS_FOLDER_OPEN, n); return n; });
+      }
+      pushUndo({
+        label: `폴더 "${name}" 생성`,
+        undo: async () => {
+          await folderApi.remove(folder.id);
+          setFolders(prev => prev.filter(f => f.id !== folder.id));
+          setProjFolderMap(prev => {
+            const n = { ...prev };
+            Object.keys(n).forEach(pid => { n[pid] = n[pid].filter(fid => fid !== folder.id); });
+            return n;
+          });
+        },
+        redo: async () => {
+          const re = await folderApi.create({ name, parentId: parentId ?? undefined });
+          // id가 달라지므로 갱신
+          folder.id = re.id;
+          setFolders(prev => [...prev, { id: re.id, name, parentId: parentId }]);
+        },
+      });
+    } catch { /* ignore */ }
     setNewFolderName(""); setShowNewFolder(false);
   };
 
@@ -217,29 +292,57 @@ export default function ProjectsPage() {
     if (!confirm(`"${p.name}" 프로젝트를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
     try {
       await projectApi.delete(p.id);
-      // 폴더 맵에서도 제거
-      const newMap = { ...projFolderMap };
-      delete newMap[p.id];
-      updateMap(newMap);
+      // 폴더 맵에서도 제거 (DB cascade 가 처리하지만 UI 즉시 반영)
+      setProjFolderMap(prev => { const n = { ...prev }; delete n[p.id]; return n; });
       load();
     } catch (err: any) {
       alert(err.message ?? "삭제 실패");
     }
   };
 
-  // Delete folder (move children up, remove from project map)
-  const handleDeleteFolder = (id: string) => {
-    if (!confirm("폴더를 삭제하시겠습니까? 하위 항목은 상위로 이동됩니다.")) return;
-    const folder = folders.find(f => f.id === id)!;
-    updateFolders(
-      folders.filter(f => f.id !== id)
-             .map(f => f.parentId === id ? { ...f, parentId: folder.parentId } : f)
-    );
-    const newMap = { ...projFolderMap };
-    Object.keys(newMap).forEach(pid => {
-      newMap[pid] = newMap[pid].filter(fid => fid !== id);
+  // Delete folder (cascade delete in DB removes children + items)
+  const handleDeleteFolder = async (id: string) => {
+    if (!confirm("폴더를 삭제하시겠습니까? 하위 폴더와 프로젝트 매핑도 함께 삭제됩니다.")) return;
+    // 삭제 전 스냅샷 저장 (undo 복원용)
+    const snapshot = folders.find(f => f.id === id);
+    if (!snapshot) return;
+    const childFolders = folders.filter(f => f.parentId === id);
+    const mappedProjects: { projectId: string }[] = [];
+    Object.entries(projFolderMap).forEach(([pid, fids]) => {
+      if (fids.includes(id)) mappedProjects.push({ projectId: pid });
     });
-    updateMap(newMap);
+
+    try {
+      await folderApi.remove(id);
+      setFolders(prev => prev.filter(f => f.id !== id && f.parentId !== id));
+      setProjFolderMap(prev => {
+        const n = { ...prev };
+        Object.keys(n).forEach(pid => { n[pid] = n[pid].filter(fid => fid !== id); });
+        return n;
+      });
+      pushUndo({
+        label: `폴더 "${snapshot.name}" 삭제`,
+        undo: async () => {
+          // 폴더 재생성
+          const re = await folderApi.create({ name: snapshot.name, parentId: snapshot.parentId ?? undefined });
+          const newId = re.id;
+          setFolders(prev => [...prev, { id: newId, name: snapshot.name, parentId: snapshot.parentId }]);
+          // 프로젝트 매핑 복원
+          for (const mp of mappedProjects) {
+            await folderApi.addProject(newId, mp.projectId);
+          }
+          await loadFolders();
+        },
+        redo: async () => {
+          // 현재 폴더 목록에서 해당 이름 찾아 삭제
+          const cur = folders.find(f => f.name === snapshot.name);
+          if (cur) {
+            await folderApi.remove(cur.id);
+            await loadFolders();
+          }
+        },
+      });
+    } catch { loadFolders(); }
   };
 
   // Open folder project picker
@@ -252,26 +355,86 @@ export default function ProjectsPage() {
     setPickerFolderId(folderId);
   };
 
-  const confirmPicker = () => {
+  const confirmPicker = async () => {
     if (!pickerFolderId) return;
+    const fid = pickerFolderId;
+    const folderName = folders.find(f => f.id === fid)?.name ?? fid;
+    const promises: Promise<any>[] = [];
     const newMap = { ...projFolderMap };
+    const added: string[] = [];
+    const removed: string[] = [];
+
     projects.forEach(p => {
       const current = newMap[p.id] ?? [];
-      const hasFolder = current.includes(pickerFolderId);
+      const hasFolder = current.includes(fid);
       const shouldHave = pickerSelected.has(p.id);
-      if (shouldHave && !hasFolder) newMap[p.id] = [...current, pickerFolderId];
-      if (!shouldHave && hasFolder)  newMap[p.id] = current.filter(fid => fid !== pickerFolderId);
+      if (shouldHave && !hasFolder) {
+        newMap[p.id] = [...current, fid];
+        promises.push(folderApi.addProject(fid, p.id));
+        added.push(p.id);
+      }
+      if (!shouldHave && hasFolder) {
+        newMap[p.id] = current.filter(f => f !== fid);
+        promises.push(folderApi.removeProject(fid, p.id));
+        removed.push(p.id);
+      }
     });
-    updateMap(newMap);
-    // open the folder so added projects are visible
-    setOpenFolders(prev => { const n = { ...prev, [pickerFolderId]: true }; lsSet(LS_FOLDER_OPEN, n); return n; });
+
+    setProjFolderMap(newMap);
+    setOpenFolders(prev => { const n = { ...prev, [fid]: true }; lsSet(LS_FOLDER_OPEN, n); return n; });
     setPickerFolderId(null);
+
+    try {
+      await Promise.all(promises);
+      if (added.length || removed.length) {
+        pushUndo({
+          label: `"${folderName}" 프로젝트 변경 (${added.length}추가, ${removed.length}제거)`,
+          undo: async () => {
+            const ops: Promise<any>[] = [];
+            added.forEach(pid => ops.push(folderApi.removeProject(fid, pid)));
+            removed.forEach(pid => ops.push(folderApi.addProject(fid, pid)));
+            await Promise.all(ops);
+            await loadFolders();
+          },
+          redo: async () => {
+            const ops: Promise<any>[] = [];
+            added.forEach(pid => ops.push(folderApi.addProject(fid, pid)));
+            removed.forEach(pid => ops.push(folderApi.removeProject(fid, pid)));
+            await Promise.all(ops);
+            await loadFolders();
+          },
+        });
+      }
+    } catch { loadFolders(); }
   };
 
   // Remove project from a specific folder
-  const removeFromFolder = (projectId: string, folderId: string) => {
-    const current = projFolderMap[projectId] ?? [];
-    updateMap({ ...projFolderMap, [projectId]: current.filter(fid => fid !== folderId) });
+  const removeFromFolder = async (projectId: string, folderId: string, skipUndo = false) => {
+    setProjFolderMap(prev => {
+      const current = prev[projectId] ?? [];
+      return { ...prev, [projectId]: current.filter(fid => fid !== folderId) };
+    });
+    try {
+      await folderApi.removeProject(folderId, projectId);
+      if (!skipUndo) {
+        const projName = projects.find(p => p.id === projectId)?.name ?? projectId;
+        const folderName = folders.find(f => f.id === folderId)?.name ?? folderId;
+        pushUndo({
+          label: `"${projName}" → "${folderName}" 제거`,
+          undo: async () => {
+            await folderApi.addProject(folderId, projectId);
+            setProjFolderMap(prev => ({ ...prev, [projectId]: [...(prev[projectId] ?? []), folderId] }));
+          },
+          redo: async () => {
+            await folderApi.removeProject(folderId, projectId);
+            setProjFolderMap(prev => ({
+              ...prev,
+              [projectId]: (prev[projectId] ?? []).filter(fid => fid !== folderId),
+            }));
+          },
+        });
+      }
+    } catch { loadFolders(); }
   };
 
   // Drag & drop
@@ -303,29 +466,60 @@ export default function ProjectsPage() {
     return isDesc(checkId, folders.find(f => f.id === targetId)?.parentId ?? null);
   };
 
-  const onFolderDrop = (e: React.DragEvent, folder: Folder) => {
+  const onFolderDrop = async (e: React.DragEvent, folder: Folder) => {
     e.preventDefault(); e.stopPropagation();
     if (!dragging) { clearDrag(); return; }
 
     if (dragging.type === "project") {
-      const current = projFolderMap[dragging.id] ?? [];
+      const pid = dragging.id;
+      const current = projFolderMap[pid] ?? [];
       if (!current.includes(folder.id)) {
-        updateMap({ ...projFolderMap, [dragging.id]: [...current, folder.id] });
+        setProjFolderMap(prev => ({ ...prev, [pid]: [...(prev[pid] ?? []), folder.id] }));
+        folderApi.addProject(folder.id, pid).catch(() => loadFolders());
+        const projName = projects.find(p => p.id === pid)?.name ?? pid;
+        pushUndo({
+          label: `"${projName}" → "${folder.name}" 추가`,
+          undo: async () => {
+            await folderApi.removeProject(folder.id, pid);
+            setProjFolderMap(prev => ({ ...prev, [pid]: (prev[pid] ?? []).filter(fid => fid !== folder.id) }));
+          },
+          redo: async () => {
+            await folderApi.addProject(folder.id, pid);
+            setProjFolderMap(prev => ({ ...prev, [pid]: [...(prev[pid] ?? []), folder.id] }));
+          },
+        });
       }
     } else if (dragging.type === "folder" && dragging.id !== folder.id) {
       if (dropGap) {
-        // 갭 드롭: 같은 레벨로 이동 후 순서 조정
         if (isDesc(dragging.id, folder.id)) { clearDrag(); return; }
         const without = folders.filter(f => f.id !== dragging.id);
         const targetIdx = without.findIndex(f => f.id === dropGap.id);
         const insertIdx = dropGap.pos === "before" ? targetIdx : targetIdx + 1;
         const moved = { ...folders.find(f => f.id === dragging.id)!, parentId: folder.parentId };
         without.splice(insertIdx, 0, moved);
-        updateFolders(without);
+        setFolders(without);
+        // Update parent + reorder via API
+        folderApi.update(dragging.id, { parentId: folder.parentId ?? "" }).catch(() => loadFolders());
+        const siblings = without.filter(f => f.parentId === folder.parentId).map(f => f.id);
+        folderApi.reorderFolders(siblings).catch(() => {});
       } else {
-        // 중간 드롭: 자식으로 이동
         if (!isDesc(dragging.id, folder.id)) {
-          updateFolders(folders.map(f => f.id === dragging.id ? { ...f, parentId: folder.id } : f));
+          const oldParentId = folders.find(f => f.id === dragging.id)?.parentId ?? null;
+          const movedId = dragging.id;
+          const movedName = folders.find(f => f.id === movedId)?.name ?? movedId;
+          setFolders(prev => prev.map(f => f.id === movedId ? { ...f, parentId: folder.id } : f));
+          folderApi.update(movedId, { parentId: folder.id }).catch(() => loadFolders());
+          pushUndo({
+            label: `폴더 "${movedName}" 이동`,
+            undo: async () => {
+              await folderApi.update(movedId, { parentId: oldParentId ?? "" });
+              setFolders(prev => prev.map(f => f.id === movedId ? { ...f, parentId: oldParentId } : f));
+            },
+            redo: async () => {
+              await folderApi.update(movedId, { parentId: folder.id });
+              setFolders(prev => prev.map(f => f.id === movedId ? { ...f, parentId: folder.id } : f));
+            },
+          });
         }
       }
     }
@@ -341,7 +535,8 @@ export default function ProjectsPage() {
         removeFromFolder(dragging.id, dragging.fromFolderId);
       }
     } else {
-      updateFolders(folders.map(f => f.id === dragging.id ? { ...f, parentId: null } : f));
+      setFolders(prev => prev.map(f => f.id === dragging.id ? { ...f, parentId: null } : f));
+      folderApi.update(dragging.id, { parentId: "" }).catch(() => loadFolders()); // empty string → null in backend
     }
     dropHandledRef.current = true;
     clearDrag();
@@ -391,11 +586,8 @@ export default function ProjectsPage() {
     const insertIdx = projGap.pos === "before" ? adjustedRef : adjustedRef + 1;
     newOrder.splice(Math.max(0, insertIdx), 0, dragging.id);
 
-    setFolderProjOrder(prev => {
-      const next = { ...prev, [folderId]: newOrder };
-      lsSet(LS_FOLDER_PROJ_ORDER, next);
-      return next;
-    });
+    setFolderProjOrder(prev => ({ ...prev, [folderId]: newOrder }));
+    folderApi.reorderProjects(folderId, newOrder).catch(() => loadFolders());
     dropHandledRef.current = true;
     clearDrag();
   };
@@ -549,7 +741,24 @@ export default function ProjectsPage() {
               value={renameVal}
               onChange={e => setRenameVal(e.target.value)}
               onBlur={() => {
-                if (renameVal.trim()) updateFolders(folders.map(f => f.id === folder.id ? { ...f, name: renameVal.trim() } : f));
+                const newName = renameVal.trim();
+                if (newName && newName !== folder.name) {
+                  const oldName = folder.name;
+                  const fid = folder.id;
+                  setFolders(prev => prev.map(f => f.id === fid ? { ...f, name: newName } : f));
+                  folderApi.update(fid, { name: newName }).catch(() => loadFolders());
+                  pushUndo({
+                    label: `"${oldName}" → "${newName}" 이름 변경`,
+                    undo: async () => {
+                      await folderApi.update(fid, { name: oldName });
+                      setFolders(prev => prev.map(f => f.id === fid ? { ...f, name: oldName } : f));
+                    },
+                    redo: async () => {
+                      await folderApi.update(fid, { name: newName });
+                      setFolders(prev => prev.map(f => f.id === fid ? { ...f, name: newName } : f));
+                    },
+                  });
+                }
                 setRenamingId(null);
               }}
               onKeyDown={e => {
@@ -647,6 +856,10 @@ export default function ProjectsPage() {
           <div className="flex items-center gap-2">
             <h2 className="text-base font-bold text-gray-900">프로젝트</h2>
             <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{displayTotal}</span>
+            {/* Undo / Redo */}
+            <div className="ml-2">
+              <UndoRedoControls undoCount={undoCount} redoCount={redoCount} undoLabel={undoLabel} redoLabel={redoLabel} toast={null} onUndo={handleUndo} onRedo={handleRedo} />
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <input
@@ -955,6 +1168,12 @@ export default function ProjectsPage() {
           </ul>
         </div>,
         document.body
+      )}
+      {/* ── Undo/Redo toast ────────────────────────────────────────────── */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] bg-gray-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg">
+          {toast}
+        </div>
       )}
     </AppLayout>
   );

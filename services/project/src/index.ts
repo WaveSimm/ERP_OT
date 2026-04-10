@@ -22,6 +22,7 @@ import { notificationRoutes } from "./api/routes/notification.routes.js";
 import { myTasksRoutes } from "./api/routes/my-tasks.routes.js";
 import { meRoutes } from "./api/routes/me.routes.js";
 import { dashboardRoutes } from "./api/routes/dashboard.routes.js";
+import { folderRoutes } from "./api/routes/folder.routes.js";
 
 import { ProjectService } from "./application/project.service.js";
 import { TaskService } from "./application/task.service.js";
@@ -38,6 +39,7 @@ import { ProjectGateway } from "./infrastructure/websocket/project.gateway.js";
 import { RiskDetectionService } from "./application/risk-detection.service.js";
 import { DashboardService } from "./application/dashboard/dashboard.service.js";
 import { ActivityEventConsumer } from "./infrastructure/event-consumer.js";
+import { FolderService } from "./application/folder.service.js";
 
 // ─── Env 검증 ─────────────────────────────────────────────────────────────────
 const envSchema = z.object({
@@ -48,6 +50,7 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error"]).default("info"),
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
   INTERNAL_API_TOKEN: z.string().min(16),
+  AUTH_SERVICE_URL: z.string().default("http://auth-service:3001"),
   STORAGE_PATH: z.string().default("/app/storage"),
 });
 
@@ -78,6 +81,7 @@ const resourceService = new ResourceService(prisma, cache);
 const collabService = new CollabService(prisma, gateway, env.STORAGE_PATH);
 const riskDetectionService = new RiskDetectionService(prisma, gateway);
 const dashboardService = new DashboardService(prisma, redis);
+const folderService = new FolderService(prisma);
 
 // ─── Fastify + Socket.io Setup ────────────────────────────────────────────────
 declare module "fastify" {
@@ -91,6 +95,7 @@ declare module "fastify" {
     templateService: TemplateService;
     resourceService: ResourceService;
     collabService: CollabService;
+    folderService: FolderService;
     prisma: PrismaClient;
     redis: Redis;
   }
@@ -127,6 +132,7 @@ async function buildApp() {
   app.decorate("templateService", templateService);
   app.decorate("resourceService", resourceService);
   app.decorate("collabService", collabService);
+  app.decorate("folderService", folderService);
   app.decorate("prisma", prisma);
   app.decorate("redis", redis);
 
@@ -176,6 +182,7 @@ async function buildApp() {
   app.register(myTasksRoutes, { prefix: "/api/v1/tasks" });
   app.register(meRoutes, { prefix: "/api/v1/me" });
   app.register(dashboardRoutes, { prefix: "/api/v1/dashboard" });
+  app.register(folderRoutes, { prefix: "/api/v1/folders" });
   app.register(
     async (instance) => {
       instance.register(taskRoutes, { prefix: "/:projectId/tasks" });

@@ -172,8 +172,16 @@ export default function ResourcesPage() {
 
   // 계정 연결 모달
   const [userIdModal, setUserIdModal] = useState<Resource | null>(null);
-  const [userIdInput, setUserIdInput] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [userSearchQuery, setUserSearchQuery] = useState("");
   const [savingUserId, setSavingUserId] = useState(false);
+  const [authUsers, setAuthUsers] = useState<{ id: string; email: string; name: string }[]>([]);
+
+  // 일괄 매핑 모달
+  const [migrateModal, setMigrateModal] = useState(false);
+  const [migratePreview, setMigratePreview] = useState<any[]>([]);
+  const [migrateLoading, setMigrateLoading] = useState(false);
+  const [migrateSelected, setMigrateSelected] = useState<Set<string>>(new Set());
 
   // Dashboard
   const [startDate, setStartDate] = useState<string>(addMonths(todayStr(), -1));
@@ -236,6 +244,7 @@ export default function ResourcesPage() {
         const usersData = await userManagementApi.list();
         // 배열 또는 { items: [] } 모두 처리
         users = Array.isArray(usersData) ? usersData : ((usersData as any).items ?? []);
+        setAuthUsers(users.map((u: any) => ({ id: u.id, email: u.email, name: u.name })));
       } catch { /* ADMIN 아닌 유저는 빈 배열 사용 */ }
 
       // ── 3. 유저를 자원으로 자동 등록 ─────────────────────────────────────
@@ -570,7 +579,8 @@ export default function ResourcesPage() {
 
   const handleOpenUserIdModal = (resource: Resource) => {
     setUserIdModal(resource);
-    setUserIdInput(resource.userId ?? "");
+    setSelectedUserId(resource.userId ?? "");
+    setUserSearchQuery("");
   };
 
   const handleSaveUserId = async (e: React.FormEvent) => {
@@ -578,13 +588,52 @@ export default function ResourcesPage() {
     if (!userIdModal) return;
     setSavingUserId(true);
     try {
-      await resourceApi.update(userIdModal.id, { userId: userIdInput.trim() || null });
+      await resourceApi.update(userIdModal.id, { userId: selectedUserId.trim() || null });
       await load();
       setUserIdModal(null);
     } catch (err: any) {
       alert(err.message);
     } finally {
       setSavingUserId(false);
+    }
+  };
+
+  // 일괄 매핑
+  const handleOpenMigrate = async () => {
+    setMigrateModal(true);
+    setMigrateLoading(true);
+    try {
+      const preview = await resourceApi.migratePreview();
+      setMigratePreview(preview);
+      // 자동 매칭된 항목은 기본 선택
+      const autoSelected = new Set(
+        preview.filter((p: any) => p.matchType === "exact").map((p: any) => p.resourceId)
+      );
+      setMigrateSelected(autoSelected);
+    } catch (err: any) {
+      alert("미리보기 실패: " + err.message);
+      setMigrateModal(false);
+    } finally {
+      setMigrateLoading(false);
+    }
+  };
+
+  const handleApplyMigrate = async () => {
+    const mappings = migratePreview
+      .filter((p: any) => migrateSelected.has(p.resourceId) && p.matchedUserId)
+      .map((p: any) => ({ resourceId: p.resourceId, userId: p.matchedUserId }));
+    if (mappings.length === 0) { alert("적용할 매핑이 없습니다."); return; }
+    if (!confirm(`${mappings.length}건의 계정 연결을 적용할까요?`)) return;
+    setMigrateLoading(true);
+    try {
+      const result = await resourceApi.migrateApply(mappings);
+      alert(`완료: ${result.updated}건 연결, ${result.skipped}건 스킵`);
+      setMigrateModal(false);
+      await load();
+    } catch (err: any) {
+      alert("적용 실패: " + err.message);
+    } finally {
+      setMigrateLoading(false);
     }
   };
 
@@ -783,18 +832,26 @@ export default function ResourcesPage() {
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-gray-900">자원관리</h2>
-          {resourceTab === "equipment" && isAdmin && (
-            <div className="flex gap-2">
-              <button onClick={() => openCreateGroup()}
-                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors">
-                + 그룹 추가
+          <div className="flex gap-2">
+            {isAdmin && (
+              <button onClick={handleOpenMigrate}
+                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-green-50 hover:border-green-300 hover:text-green-600 transition-colors">
+                일괄 계정 매핑
               </button>
-              <button onClick={() => setShowCreateResource(true)}
-                className="px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors">
-                + 자원 추가
-              </button>
-            </div>
-          )}
+            )}
+            {resourceTab === "equipment" && isAdmin && (
+              <>
+                <button onClick={() => openCreateGroup()}
+                  className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors">
+                  + 그룹 추가
+                </button>
+                <button onClick={() => setShowCreateResource(true)}
+                  className="px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors">
+                  + 자원 추가
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* 탭 */}
@@ -1132,36 +1189,135 @@ export default function ResourcesPage() {
       )}
 
       {/* ── 계정 연결 모달 ───────────────────────────────────────────────────── */}
-      {userIdModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900">계정 연결 — {userIdModal.name}</h3>
-              <button onClick={() => setUserIdModal(null)} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
+      {userIdModal && (() => {
+        const linkedUserIds = new Set(resources.filter((r) => r.userId && r.id !== userIdModal.id).map((r) => r.userId));
+        const filteredUsers = authUsers.filter((u) => {
+          if (linkedUserIds.has(u.email)) return false;
+          if (!userSearchQuery) return true;
+          const q = userSearchQuery.toLowerCase();
+          return u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+        });
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h3 className="font-semibold text-gray-900">계정 연결 — {userIdModal.name}</h3>
+                <button onClick={() => setUserIdModal(null)} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
+              </div>
+              <form onSubmit={handleSaveUserId} className="p-6 space-y-4">
+                <p className="text-xs text-gray-500">연결할 사용자 계정을 선택하세요.</p>
+                <div>
+                  <input
+                    type="text" value={userSearchQuery}
+                    onChange={(e) => setUserSearchQuery(e.target.value)}
+                    placeholder="이름 또는 이메일로 검색..."
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm mb-2"
+                  />
+                  <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
+                    {/* 연결 해제 옵션 */}
+                    <label className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50 border-b border-gray-100 ${!selectedUserId ? "bg-blue-50" : ""}`}>
+                      <input type="radio" name="userId" value="" checked={!selectedUserId}
+                        onChange={() => setSelectedUserId("")} className="text-blue-600" />
+                      <span className="text-sm text-gray-400">연결 해제</span>
+                    </label>
+                    {filteredUsers.map((u) => (
+                      <label key={u.id} className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50 ${selectedUserId === u.email ? "bg-blue-50" : ""}`}>
+                        <input type="radio" name="userId" value={u.email} checked={selectedUserId === u.email}
+                          onChange={() => setSelectedUserId(u.email)} className="text-blue-600" />
+                        <div className="text-sm">
+                          <span className="font-medium text-gray-900">{u.name}</span>
+                          <span className="text-gray-400 ml-2">{u.email}</span>
+                        </div>
+                      </label>
+                    ))}
+                    {filteredUsers.length === 0 && (
+                      <div className="px-3 py-4 text-center text-sm text-gray-400">검색 결과 없음</div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button type="button" onClick={() => setUserIdModal(null)}
+                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">취소</button>
+                  <button type="submit" disabled={savingUserId}
+                    className="flex-1 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
+                    {savingUserId ? "저장 중..." : "저장"}
+                  </button>
+                </div>
+              </form>
             </div>
-            <form onSubmit={handleSaveUserId} className="p-6 space-y-4">
-              <p className="text-xs text-gray-500">
-                로그인 이메일 주소를 입력하세요.<br/>
-                예: <code className="bg-gray-100 px-1 rounded">hong@company.com</code>
-              </p>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">로그인 이메일</label>
-                <input
-                  type="email" value={userIdInput}
-                  onChange={(e) => setUserIdInput(e.target.value)}
-                  placeholder="hong@company.com"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setUserIdModal(null)}
-                  className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">취소</button>
-                <button type="submit" disabled={savingUserId}
-                  className="flex-1 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
-                  {savingUserId ? "저장 중..." : "저장"}
-                </button>
-              </div>
-            </form>
+          </div>
+        );
+      })()}
+
+      {/* ── 일괄 매핑 모달 ────────────────────────────────────────────────────── */}
+      {migrateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between shrink-0">
+              <h3 className="font-semibold text-gray-900">일괄 계정 매핑</h3>
+              <button onClick={() => setMigrateModal(false)} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1">
+              {migrateLoading ? (
+                <div className="text-center py-8 text-gray-400">분석 중...</div>
+              ) : (
+                <>
+                  <p className="text-xs text-gray-500 mb-4">
+                    자원 이름과 사용자 이름이 일치하는 항목을 자동으로 매칭합니다. 체크된 항목만 적용됩니다.
+                  </p>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200 text-left text-gray-500">
+                        <th className="pb-2 w-8"></th>
+                        <th className="pb-2">자원</th>
+                        <th className="pb-2">현재 연결</th>
+                        <th className="pb-2">매칭 결과</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {migratePreview.map((item: any) => (
+                        <tr key={item.resourceId} className="border-b border-gray-100">
+                          <td className="py-2">
+                            {item.matchType === "exact" && (
+                              <input type="checkbox" checked={migrateSelected.has(item.resourceId)}
+                                onChange={(e) => {
+                                  const next = new Set(migrateSelected);
+                                  e.target.checked ? next.add(item.resourceId) : next.delete(item.resourceId);
+                                  setMigrateSelected(next);
+                                }} className="text-blue-600" />
+                            )}
+                          </td>
+                          <td className="py-2 font-medium text-gray-900">{item.resourceName}</td>
+                          <td className="py-2 text-gray-400 text-xs font-mono">{item.currentUserId ?? "—"}</td>
+                          <td className="py-2">
+                            {item.matchType === "already_linked" && (
+                              <span className="text-green-600 text-xs">연결됨</span>
+                            )}
+                            {item.matchType === "exact" && (
+                              <span className="text-blue-600 text-xs">{item.matchedUserName} ({item.matchedUserEmail})</span>
+                            )}
+                            {item.matchType === "none" && (
+                              <span className="text-gray-400 text-xs">매칭 없음</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {migratePreview.filter((p: any) => p.matchType === "exact").length === 0 && (
+                    <div className="text-center py-4 text-gray-400 text-sm">자동 매칭 가능한 항목이 없습니다.</div>
+                  )}
+                </>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex gap-3 shrink-0">
+              <button onClick={() => setMigrateModal(false)}
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">닫기</button>
+              <button onClick={handleApplyMigrate} disabled={migrateLoading || migrateSelected.size === 0}
+                className="flex-1 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
+                {migrateSelected.size}건 적용
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -7,18 +7,13 @@ export class AttendanceService {
   // 오늘 출퇴근 현황 조회 (없으면 생성)
   async getToday(userId: string) {
     const today = this.todayDate();
-    let record = await this.prisma.attendanceRecord.findUnique({
+    const status = await this.resolveTodayStatus(userId, today);
+    const record = await this.prisma.attendanceRecord.upsert({
       where: { userId_date: { userId, date: today } },
+      update: {},
+      create: { userId, date: today, status, checkState: "NOT_STARTED" },
       include: { breakRecords: { orderBy: { breakOut: "desc" }, take: 1 } },
     });
-    if (!record) {
-      // 공휴일·휴가 여부 확인
-      const status = await this.resolveTodayStatus(userId, today);
-      record = await this.prisma.attendanceRecord.create({
-        data: { userId, date: today, status, checkState: "NOT_STARTED" },
-        include: { breakRecords: { orderBy: { breakOut: "desc" }, take: 1 } },
-      });
-    }
     return this.formatTodayResponse(record);
   }
 
@@ -205,13 +200,11 @@ export class AttendanceService {
   // ─── Private helpers ───────────────────────────────────────────────────────
 
   private async getOrCreateRecord(userId: string, date: Date) {
-    const existing = await this.prisma.attendanceRecord.findUnique({
-      where: { userId_date: { userId, date } },
-    });
-    if (existing) return existing;
     const status = await this.resolveTodayStatus(userId, date);
-    return this.prisma.attendanceRecord.create({
-      data: { userId, date, status, checkState: "NOT_STARTED" },
+    return this.prisma.attendanceRecord.upsert({
+      where: { userId_date: { userId, date } },
+      update: {},
+      create: { userId, date, status, checkState: "NOT_STARTED" },
     });
   }
 

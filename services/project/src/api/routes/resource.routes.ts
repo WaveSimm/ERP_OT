@@ -112,6 +112,29 @@ export async function resourceRoutes(fastify: FastifyInstance) {
     return reply.send(await service.updateResource(resourceId, dto as any));
   });
 
+  // ─── 마이그레이션 ─────────────────────────────────────────────────────────
+
+  // GET /api/v1/resources/migrate/preview — 자동 매핑 미리보기
+  fastify.get("/migrate/preview", {
+    preHandler: requireRole("ADMIN"),
+  }, async (_req, reply) => {
+    return reply.send(await service.migratePreview());
+  });
+
+  // POST /api/v1/resources/migrate/apply — 선택된 매핑 적용
+  fastify.post("/migrate/apply", {
+    preHandler: requireRole("ADMIN"),
+  }, async (req, reply) => {
+    const schema = z.object({
+      mappings: z.array(z.object({
+        resourceId: z.string(),
+        userId: z.string(),
+      })),
+    });
+    const { mappings } = schema.parse(req.body);
+    return reply.send(await service.migrateApply(mappings));
+  });
+
   // ─── #27 운영 현황 대시보드 ──────────────────────────────────────────────
   // 주의: /dashboard는 /:resourceId보다 먼저 등록
 

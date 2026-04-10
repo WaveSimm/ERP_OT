@@ -177,7 +177,7 @@ export default function RepairOrderDetailPage() {
       </div>
 
       {/* 탭 내용 */}
-      {tab === "info" && <InfoTab order={order} onUpdate={updateField} />}
+      {tab === "info" && <InfoTab order={order} onReload={load} />}
       {tab === "inspection" && <InspectionTab order={order} onUpdate={updateField} onReload={load} />}
       {tab === "report" && <ReportTab order={order} onReload={load} />}
       {tab === "cost" && <CostTab order={order} onReload={load} />}
@@ -221,36 +221,164 @@ function DualStatusField({ label, value, onSave }: { label: string; value: strin
 
 // ─── 기본정보 탭 ─────────────────────────────────────────────────────────
 
-function InfoTab({ order, onUpdate }: { order: any; onUpdate: (f: string, v: any) => void }) {
+function InfoTab({ order, onReload }: { order: any; onReload: () => Promise<void> }) {
+  const [form, setForm] = useState({
+    orderType: order.orderType || "REPAIR",
+    priority: order.priority || "NORMAL",
+    currentLocation: order.currentLocation || "",
+    isWarranty: order.isWarranty || false,
+    receivedBy: order.receivedBy || "",
+    customerContactName: order.customerContactName || "",
+    customerContactPhone: order.customerContactPhone || "",
+    assigneeName: order.assigneeName || "",
+    estimatedDays: order.estimatedDays ?? "",
+    symptom: order.symptom || "",
+    notes: order.notes || "",
+    otInventoryNo: order.otInventoryNo || "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
+  const set = (field: string, value: any) => {
+    setForm((f) => ({ ...f, [field]: value }));
+    setDirty(true);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await repairApi.updateRepairOrder(order.id, {
+        orderType: form.orderType,
+        priority: form.priority,
+        currentLocation: form.currentLocation || null,
+        isWarranty: form.isWarranty,
+        receivedBy: form.receivedBy || null,
+        customerContactName: form.customerContactName || null,
+        customerContactPhone: form.customerContactPhone || null,
+        assigneeName: form.assigneeName || null,
+        estimatedDays: form.estimatedDays !== "" ? Number(form.estimatedDays) : null,
+        symptom: form.symptom || null,
+        notes: form.notes || null,
+        otInventoryNo: form.otInventoryNo || null,
+      });
+      setDirty(false);
+      await onReload();
+    } catch (e: any) {
+      alert(e.message || "저장 실패");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const assetDisplay =
+    (order.customerAsset?.name || order.equipment?.name || order.sensor?.name || "-") +
+    (order.customerAsset?.manufacturer ? ` (${order.customerAsset.manufacturer})` : "");
+  const serialDisplay = order.customerAsset?.serialNumber || order.equipment?.serialNumber || order.sensor?.serialNumber || "-";
+
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
       <div className="grid grid-cols-2 gap-4">
-        <Field label="접수 종류" value={order.orderType === "REPAIR" ? "수리" : "납품 점검"} />
-        <Field label="우선도" value={{ LOW: "낮음", NORMAL: "보통", HIGH: "높음", URGENT: "긴급" }[order.priority as string] || order.priority} />
-        <Field label="고객" value={order.customer?.name || "자사 장비"} />
-        <Field label="장비/센서" value={
-          (order.customerAsset?.name || order.equipment?.name || order.sensor?.name || "-") +
-          (order.customerAsset?.manufacturer ? ` (${order.customerAsset.manufacturer})` : "")
-        } />
-        <Field label="시리얼 번호" value={order.customerAsset?.serialNumber || order.equipment?.serialNumber || order.sensor?.serialNumber || "-"} />
-        <Field label="OT재고NO" value={order.otInventoryNo || "-"} />
-        <Field label="현재 위치" value={order.currentLocation || "-"} />
-        <Field label="무상 수리" value={order.isWarranty ? "예" : "아니오"} />
-        <Field label="접수자" value={order.receivedBy || "-"} />
-        <Field label="접수일" value={new Date(order.receivedAt).toLocaleDateString("ko-KR")} />
-        <Field label="담당자" value={order.assigneeName || "-"} />
-        <Field label="예상 수리 기간" value={order.estimatedDays ? `${order.estimatedDays}일` : "-"} />
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">접수 증상</label>
-        <p className="text-sm text-gray-800 bg-gray-50 rounded-lg p-3 whitespace-pre-wrap">{order.symptom || "-"}</p>
-      </div>
-      {order.notes && (
+        {/* 접수 종류 */}
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">비고</label>
-          <p className="text-sm text-gray-700 whitespace-pre-wrap">{order.notes}</p>
+          <label className="block text-xs text-gray-500 mb-1">접수 종류</label>
+          <select value={form.orderType} onChange={(e) => set("orderType", e.target.value)}
+            className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm">
+            <option value="REPAIR">수리</option>
+            <option value="DELIVERY">납품 점검</option>
+          </select>
         </div>
-      )}
+        {/* 우선도 */}
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">우선도</label>
+          <select value={form.priority} onChange={(e) => set("priority", e.target.value)}
+            className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm">
+            <option value="LOW">낮음</option>
+            <option value="NORMAL">보통</option>
+            <option value="HIGH">높음</option>
+            <option value="URGENT">긴급</option>
+          </select>
+        </div>
+        {/* 고객 (읽기전용) */}
+        <Field label="고객" value={order.customer?.name || "자사 장비"} />
+        {/* 장비/센서 (읽기전용) */}
+        <Field label="장비/센서" value={assetDisplay} />
+        {/* 고객사 담당자 */}
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">고객사 담당자</label>
+          <input type="text" value={form.customerContactName} onChange={(e) => set("customerContactName", e.target.value)}
+            className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+        </div>
+        {/* 고객사 담당자 연락처 */}
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">고객사 연락처</label>
+          <input type="text" value={form.customerContactPhone} onChange={(e) => set("customerContactPhone", e.target.value)}
+            className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+        </div>
+        {/* 시리얼 (읽기전용) */}
+        <Field label="시리얼 번호" value={serialDisplay} />
+        {/* OT재고NO */}
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">OT재고NO</label>
+          <input type="text" value={form.otInventoryNo} onChange={(e) => set("otInventoryNo", e.target.value)}
+            className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+        </div>
+        {/* 현재 위치 */}
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">현재 위치</label>
+          <input type="text" value={form.currentLocation} onChange={(e) => set("currentLocation", e.target.value)}
+            className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+        </div>
+        {/* 무상 수리 */}
+        <div className="flex items-end pb-1">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={form.isWarranty} onChange={(e) => set("isWarranty", e.target.checked)}
+              className="rounded border-gray-300" />
+            무상 수리
+          </label>
+        </div>
+        {/* 접수자 */}
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">접수자</label>
+          <input type="text" value={form.receivedBy} onChange={(e) => set("receivedBy", e.target.value)}
+            className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+        </div>
+        {/* 접수일 (읽기전용) */}
+        <Field label="접수일" value={new Date(order.receivedAt).toLocaleDateString("ko-KR")} />
+        {/* 담당자 */}
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">담당자</label>
+          <input type="text" value={form.assigneeName} onChange={(e) => set("assigneeName", e.target.value)}
+            className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+        </div>
+        {/* 예상 수리 기간 */}
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">예상 수리 기간 (일)</label>
+          <input type="number" value={form.estimatedDays} onChange={(e) => set("estimatedDays", e.target.value)}
+            className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" min={0} />
+        </div>
+      </div>
+
+      {/* 접수 증상 */}
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">접수 증상</label>
+        <textarea value={form.symptom} onChange={(e) => set("symptom", e.target.value)} rows={3}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none" />
+      </div>
+
+      {/* 비고 */}
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">비고</label>
+        <textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none" />
+      </div>
+
+      {/* 저장 버튼 */}
+      <div className="flex justify-end">
+        <button onClick={save} disabled={saving || !dirty}
+          className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-40">
+          {saving ? "저장 중..." : "저장"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -259,7 +387,7 @@ function Field({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <span className="text-xs text-gray-500">{label}</span>
-      <p className="text-sm font-medium text-gray-800">{value}</p>
+      <p className="text-sm font-medium text-gray-800 mt-1">{value}</p>
     </div>
   );
 }

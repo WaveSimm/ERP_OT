@@ -75,6 +75,25 @@ export const projectApi = {
     request<any>(`/projects/${id}/activities?page=${page}&pageSize=20`),
 };
 
+// ─── Folders ─────────────────────────────────────────────────────────────────
+
+export const folderApi = {
+  list: () => request<any[]>("/folders"),
+  create: (data: { name: string; parentId?: string; sortOrder?: number }) =>
+    request<any>("/folders", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: { name?: string; parentId?: string; sortOrder?: number }) =>
+    request<any>(`/folders/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  remove: (id: string) => request<void>(`/folders/${id}`, { method: "DELETE" }),
+  addProject: (folderId: string, projectId: string, sortOrder?: number) =>
+    request<any>(`/folders/${folderId}/projects`, { method: "POST", body: JSON.stringify({ projectId, sortOrder }) }),
+  removeProject: (folderId: string, projectId: string) =>
+    request<void>(`/folders/${folderId}/projects/${projectId}`, { method: "DELETE" }),
+  reorderProjects: (folderId: string, projectIds: string[]) =>
+    request<any>(`/folders/${folderId}/reorder`, { method: "PATCH", body: JSON.stringify({ projectIds }) }),
+  reorderFolders: (folderIds: string[]) =>
+    request<any>("/folders/reorder", { method: "PATCH", body: JSON.stringify({ folderIds }) }),
+};
+
 // ─── Milestones ───────────────────────────────────────────────────────────────
 
 export const milestoneApi = {
@@ -213,6 +232,16 @@ export const resourceApi = {
     request<any[]>(`/resources/dashboard?startDate=${startDate}&endDate=${endDate}`),
   heatmap: (startDate: string, endDate: string, granularity = "week") =>
     request<any>(`/resources/heatmap?startDate=${startDate}&endDate=${endDate}&granularity=${granularity}`),
+  migratePreview: () =>
+    request<{
+      resourceId: string; resourceName: string; currentUserId: string | null;
+      matchedUserId: string | null; matchedUserName: string | null; matchedUserEmail: string | null;
+      matchType: "exact" | "none" | "already_linked";
+    }[]>("/resources/migrate/preview"),
+  migrateApply: (mappings: { resourceId: string; userId: string }[]) =>
+    request<{ updated: number; skipped: number; details: any[] }>("/resources/migrate/apply", {
+      method: "POST", body: JSON.stringify({ mappings }),
+    }),
 };
 
 // ─── Baselines ───────────────────────────────────────────────────────────────
@@ -692,6 +721,16 @@ export const repairApi = {
     request<any>(`/customers/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteCustomer: (id: string) =>
     request<void>(`/customers/${id}`, { method: "DELETE" }),
+
+  // 고객 담당자
+  getContacts: (customerId: string) =>
+    request<any[]>(`/customers/${customerId}/contacts`),
+  createContact: (customerId: string, data: any) =>
+    request<any>(`/customers/${customerId}/contacts`, { method: "POST", body: JSON.stringify(data) }),
+  updateContact: (contactId: string, data: any) =>
+    request<any>(`/customers/contacts/${contactId}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteContact: (contactId: string) =>
+    request<void>(`/customers/contacts/${contactId}`, { method: "DELETE" }),
 
   // 고객 자산
   getCustomerAssets: (params?: { customerId?: string; search?: string }) => {

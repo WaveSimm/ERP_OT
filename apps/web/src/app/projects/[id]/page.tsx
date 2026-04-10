@@ -5,6 +5,8 @@ import { useRouter, useParams } from "next/navigation";
 import { projectApi, taskApi, resourceApi, baselineApi, commentApi, templateApi, deploymentApi, userManagementApi } from "@/lib/api";
 import dynamic from "next/dynamic";
 import { usePermission } from "@/hooks/usePermission";
+import { useUndoRedo } from "@/hooks/useUndoRedo";
+import UndoRedoControls from "@/components/UndoRedoControls";
 import AddTaskModal from "@/components/AddTaskModal";
 import TaskDrawer from "@/components/TaskDrawer";
 import DateInput from "@/components/DateInput";
@@ -127,6 +129,25 @@ export default function ProjectDetailPage() {
   // Comment content map: commentId → content (for activity feed)
   const [commentContentMap, setCommentContentMap] = useState<Record<string, string>>({});
 
+  // Undo / Redo — undo/redo 실행 후 열린 Drawer도 갱신
+  const selectedTaskRef = useRef<any>(null);
+  selectedTaskRef.current = selectedTask;
+  const [drawerRefreshKey, setDrawerRefreshKey] = useState(0);
+  const refreshAfterUndoRedo = useCallback(async () => {
+    try {
+      const data = await projectApi.gantt(projectId);
+      setGanttData(data);
+      setActivityTick((n) => n + 1);
+      setDrawerRefreshKey((k) => k + 1);
+      if (selectedTaskRef.current) {
+        const fresh = (data as any).tasks?.find((t: any) => t.id === selectedTaskRef.current.id);
+        if (fresh) setSelectedTask(fresh);
+        else setSelectedTask(null);
+      }
+    } catch { /* ignore */ }
+  }, [projectId]);
+  const { push: pushUndo, undo: handleUndo, redo: handleRedo, undoCount, redoCount, undoLabel, redoLabel, toast } =
+    useUndoRedo({ onAfterAction: refreshAfterUndoRedo });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -271,8 +292,14 @@ export default function ProjectDetailPage() {
   }, [projectId, activeBaselineId]);
 
   const handleStatusChange = async (status: string) => {
+    const oldStatus = ganttData?.project?.status ?? "PLANNING";
     try {
       await projectApi.update(projectId, { status });
+      pushUndo({
+        label: `프로젝트 상태 "${oldStatus}" → "${status}"`,
+        undo: async () => { await projectApi.update(projectId, { status: oldStatus }); },
+        redo: async () => { await projectApi.update(projectId, { status }); },
+      });
       await load();
       refreshActivities();
     } catch (e: any) {
@@ -282,8 +309,23 @@ export default function ProjectDetailPage() {
 
   const handleDeleteTask = async (taskId: string, taskName: string) => {
     if (!confirm(`"${taskName}" 태스크를 삭제하시겠습니까?`)) return;
+    // 삭제 전 태스크 데이터 스냅샷
+    const taskData = (ganttData?.tasks ?? []).find((t: any) => t.id === taskId);
     try {
       await taskApi.delete(projectId, taskId);
+      if (taskData) {
+        pushUndo({
+          label: `태스크 "${taskName}" 삭제`,
+          undo: async () => {
+            // 태스크 재생성 (세그먼트 포함)
+            const t = await taskApi.create(projectId, { name: taskData.name, parentId: taskData.parentId, sortOrder: taskData.sortOrder, description: taskData.description });
+            for (const seg of (taskData.segments ?? [])) {
+              await taskApi.createSegment(projectId, t.id, { name: seg.name, startDate: seg.startDate, endDate: seg.endDate });
+            }
+          },
+          redo: async () => { await taskApi.delete(projectId, taskId).catch(() => {}); },
+        });
+      }
       await load();
       refreshActivities();
     } catch (e: any) {
@@ -293,9 +335,16 @@ export default function ProjectDetailPage() {
 
   const handleDeleteSelected = async () => {
     if (selected.size === 0) return;
-    if (!confirm(`선택한 ${selected.size}개 태스크를 삭제하시겠습니까?`)) return;
+    const count = selected.size;
+    if (!confirm(`선택한 ${count}개 태스크를 삭제하시겠습니까?`)) return;
+    const ids = Array.from(selected);
     try {
-      await Promise.all(Array.from(selected).map((id) => taskApi.delete(projectId, id)));
+      await Promise.all(ids.map((id) => taskApi.delete(projectId, id)));
+      pushUndo({
+        label: `${count}개 태스크 일괄 삭제`,
+        undo: async () => {}, // 일괄 복원은 복잡하므로 reload만
+        redo: async () => {},
+      });
       setSelected(new Set());
       await load();
       refreshActivities();
@@ -406,8 +455,16 @@ export default function ProjectDetailPage() {
   const cancelEdit = () => { setEditingCell(null); setEditVal(null); };
 
   const saveStatus = async (taskId: string, status: string) => {
+    const task = (ganttData?.tasks ?? []).find((t: any) => t.id === taskId);
+    const oldStatus = task?.status ?? "TODO";
+    const taskName = task?.name ?? taskId;
     cancelEdit();
     await taskApi.update(projectId, taskId, { status }).catch(() => {});
+    pushUndo({
+      label: `"${taskName}" 상태 → ${status}`,
+      undo: async () => { await taskApi.update(projectId, taskId, { status: oldStatus }); },
+      redo: async () => { await taskApi.update(projectId, taskId, { status }); },
+    });
     await load();
   };
 
@@ -415,8 +472,10 @@ export default function ProjectDetailPage() {
     if (progressSavingRef.current) return;
     progressSavingRef.current = true;
     const rounded = Math.round(progress);
+    const task = (ganttData?.tasks ?? []).find((t: any) => t.id === taskId);
+    const oldProgress = task?.overallProgress ?? 0;
+    const taskName = task?.name ?? taskId;
     cancelEdit();
-    // 낙관적 업데이트: API 완료 전에 로컬 상태 즉시 반영
     setGanttData((prev: any) => prev ? {
       ...prev,
       tasks: (prev.tasks ?? []).map((t: any) =>
@@ -424,6 +483,11 @@ export default function ProjectDetailPage() {
       ),
     } : prev);
     await taskApi.update(projectId, taskId, { overallProgress: rounded, isManualProgress: true }).catch(() => {});
+    pushUndo({
+      label: `"${taskName}" 진행률 ${oldProgress}% → ${rounded}%`,
+      undo: async () => { await taskApi.update(projectId, taskId, { overallProgress: oldProgress, isManualProgress: true }); },
+      redo: async () => { await taskApi.update(projectId, taskId, { overallProgress: rounded, isManualProgress: true }); },
+    });
     progressSavingRef.current = false;
     await loadSilent();
   };
@@ -435,7 +499,6 @@ export default function ProjectDetailPage() {
     try {
       const today = new Date().toISOString().slice(0, 10);
       const end = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
-      // 마지막 태스크 기준: 같은 레벨(parentId)의 sortOrder 최대값 + 1
       const allTasks: any[] = ganttData?.tasks ?? [];
       const lastVisible = flatItems[flatItems.length - 1];
       const parentId = lastVisible?.task?.parentId ?? null;
@@ -443,6 +506,14 @@ export default function ProjectDetailPage() {
       const maxOrder = siblings.reduce((m: number, t: any) => Math.max(m, t.sortOrder ?? 0), 0);
       const task = await taskApi.create(projectId, { name, parentId: parentId ?? undefined, sortOrder: maxOrder + 1 });
       await taskApi.createSegment(projectId, task.id, { name, startDate: today, endDate: end });
+      pushUndo({
+        label: `태스크 "${name}" 생성`,
+        undo: async () => { await taskApi.delete(projectId, task.id); },
+        redo: async () => {
+          const t = await taskApi.create(projectId, { name, parentId: parentId ?? undefined, sortOrder: maxOrder + 1 });
+          await taskApi.createSegment(projectId, t.id, { name, startDate: today, endDate: end });
+        },
+      });
       setInlineTaskName("");
       await load();
     } catch { /* ignore */ }
@@ -450,8 +521,17 @@ export default function ProjectDetailPage() {
   };
 
   const saveNote = async (taskId: string, note: string) => {
+    const task = (ganttData?.tasks ?? []).find((t: any) => t.id === taskId);
+    const oldNote = task?.description ?? "";
+    const taskName = task?.name ?? taskId;
+    const newNote = note.trim() || null;
     cancelEdit();
-    await taskApi.update(projectId, taskId, { description: note.trim() || null }).catch(() => {});
+    await taskApi.update(projectId, taskId, { description: newNote }).catch(() => {});
+    pushUndo({
+      label: `"${taskName}" 비고 수정`,
+      undo: async () => { await taskApi.update(projectId, taskId, { description: oldNote || null }); },
+      redo: async () => { await taskApi.update(projectId, taskId, { description: newNote }); },
+    });
     await load();
   };
 
@@ -459,6 +539,9 @@ export default function ProjectDetailPage() {
     if (!start || !end || start > end) { cancelEdit(); return; }
     const segs: any[] = task.segments ?? [];
     if (segs.length === 0) { cancelEdit(); return; }
+    const oldStart = task.effectiveStartDate ?? segs[0]?.startDate;
+    const oldEnd = task.effectiveEndDate ?? segs[segs.length - 1]?.endDate;
+    const taskName = task.name ?? task.id;
     cancelEdit();
     const cr = "인라인 수정";
     if (segs.length === 1) {
@@ -469,6 +552,33 @@ export default function ProjectDetailPage() {
         taskApi.updateSegment(projectId, task.id, sorted[0].id, { startDate: start, changeReason: cr }).catch(() => {}),
         taskApi.updateSegment(projectId, task.id, sorted.at(-1).id, { endDate: end, changeReason: cr }).catch(() => {}),
       ]);
+    }
+    if (oldStart !== start || oldEnd !== end) {
+      pushUndo({
+        label: `"${taskName}" 기간 변경`,
+        undo: async () => {
+          if (segs.length === 1) {
+            await taskApi.updateSegment(projectId, task.id, segs[0].id, { startDate: oldStart, endDate: oldEnd, changeReason: "undo" });
+          } else {
+            const sorted = [...segs].sort((a: any, b: any) => a.startDate < b.startDate ? -1 : 1);
+            await Promise.all([
+              taskApi.updateSegment(projectId, task.id, sorted[0].id, { startDate: oldStart, changeReason: "undo" }),
+              taskApi.updateSegment(projectId, task.id, sorted.at(-1).id, { endDate: oldEnd, changeReason: "undo" }),
+            ]);
+          }
+        },
+        redo: async () => {
+          if (segs.length === 1) {
+            await taskApi.updateSegment(projectId, task.id, segs[0].id, { startDate: start, endDate: end, changeReason: cr });
+          } else {
+            const sorted = [...segs].sort((a: any, b: any) => a.startDate < b.startDate ? -1 : 1);
+            await Promise.all([
+              taskApi.updateSegment(projectId, task.id, sorted[0].id, { startDate: start, changeReason: cr }),
+              taskApi.updateSegment(projectId, task.id, sorted.at(-1).id, { endDate: end, changeReason: cr }),
+            ]);
+          }
+        },
+      });
     }
     await load();
   };
@@ -487,9 +597,14 @@ export default function ProjectDetailPage() {
     const newOrder = [...withoutDragged];
     newOrder.splice(insertAt, 0, ...draggedInOrder);
 
-    // 드롭 대상의 parentId를 따라가 → 계층이 자동으로 결정됨
     const targetTask = flatItems.find((fi) => fi.task.id === dropGap.taskId)?.task;
     const newParentId: string | null = targetTask?.parentId ?? null;
+
+    // 이전 sortOrder/parentId 기록
+    const oldState = allIds.map(id => {
+      const t = (ganttData?.tasks ?? []).find((t: any) => t.id === id);
+      return { id, sortOrder: t?.sortOrder ?? 0, parentId: t?.parentId ?? null };
+    });
 
     clearDragState();
     await Promise.all(
@@ -499,6 +614,17 @@ export default function ProjectDetailPage() {
         return taskApi.update(projectId, id, updates).catch(() => {});
       }),
     );
+    pushUndo({
+      label: `태스크 순서 변경`,
+      undo: async () => { await Promise.all(oldState.map(o => taskApi.update(projectId, o.id, { sortOrder: o.sortOrder, parentId: o.parentId }).catch(() => {}))); },
+      redo: async () => {
+        await Promise.all(newOrder.map((id, idx) => {
+          const updates: Record<string, unknown> = { sortOrder: (idx + 1) * 10 };
+          if (draggedInOrder.includes(id)) updates.parentId = newParentId;
+          return taskApi.update(projectId, id, updates).catch(() => {});
+        }));
+      },
+    });
     setSelected(new Set(draggedInOrder));
     await load();
   };
@@ -689,15 +815,24 @@ export default function ProjectDetailPage() {
     const selInOrder = flatIds.filter((id) => selected.has(id));
     if (selInOrder.length === 0) return;
 
-    // 첫 선택 항목 바로 위 = 공통 부모
     const firstIdx = flatIds.indexOf(selInOrder[0]);
     if (firstIdx <= 0) return;
     const newParentId = flatItems[firstIdx - 1].task.id;
 
-    // 선택된 모든 태스크를 동일한 부모로 일괄 처리
+    // 이전 parentId 기록
+    const oldParents = selInOrder.map(id => {
+      const t = (ganttData?.tasks ?? []).find((t: any) => t.id === id);
+      return { id, parentId: t?.parentId ?? null };
+    });
+
     await Promise.all(
       selInOrder.map((id) => taskApi.update(projectId, id, { parentId: newParentId }).catch(() => {}))
     );
+    pushUndo({
+      label: `${selInOrder.length}개 태스크 들여쓰기`,
+      undo: async () => { await Promise.all(oldParents.map(o => taskApi.update(projectId, o.id, { parentId: o.parentId }).catch(() => {}))); },
+      redo: async () => { await Promise.all(selInOrder.map(id => taskApi.update(projectId, id, { parentId: newParentId }).catch(() => {}))); },
+    });
     await load();
     setSelected(new Set());
   };
@@ -709,15 +844,25 @@ export default function ProjectDetailPage() {
     const selInOrder = flatIds.filter((id) => selected.has(id));
     if (selInOrder.length === 0) return;
 
-    // 첫 선택 태스크의 부모 → 그 부모의 부모를 공통 목표로
     const firstTask = taskMap.get(selInOrder[0]) as any;
     const newParentId = firstTask?.parentId
       ? ((taskMap.get(firstTask.parentId) as any)?.parentId ?? null)
       : null;
 
+    // 이전 parentId 기록
+    const oldParents = selInOrder.map(id => {
+      const t = taskMap.get(id) as any;
+      return { id, parentId: t?.parentId ?? null };
+    });
+
     await Promise.all(
       selInOrder.map((id) => taskApi.update(projectId, id, { parentId: newParentId }).catch(() => {}))
     );
+    pushUndo({
+      label: `${selInOrder.length}개 태스크 내어쓰기`,
+      undo: async () => { await Promise.all(oldParents.map(o => taskApi.update(projectId, o.id, { parentId: o.parentId }).catch(() => {}))); },
+      redo: async () => { await Promise.all(selInOrder.map(id => taskApi.update(projectId, id, { parentId: newParentId }).catch(() => {}))); },
+    });
     await load();
     setSelected(new Set());
   };
@@ -923,6 +1068,9 @@ export default function ProjectDetailPage() {
           </div>
           {st && <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${st.color}`}>{st.label}</span>}
 
+          {/* Undo / Redo */}
+          <UndoRedoControls undoCount={undoCount} redoCount={redoCount} undoLabel={undoLabel} redoLabel={redoLabel} toast={null} onUndo={handleUndo} onRedo={handleRedo} />
+
           {/* 구분 */}
           <div className="h-4 w-px bg-gray-200 shrink-0" />
 
@@ -1123,6 +1271,7 @@ export default function ProjectDetailPage() {
                 baselineSegments={baselineSegments.length > 0 ? baselineSegments : undefined}
                 allResources={resources}
                 onRefresh={loadSilent}
+                pushUndo={pushUndo}
                 projectId={projectId}
                 inlineTaskName={inlineTaskName}
                 onInlineTaskNameChange={setInlineTaskName}
@@ -1762,7 +1911,16 @@ export default function ProjectDetailPage() {
             const siblings = allTasks.filter((t: any) => (t.parentId ?? null) === parentId);
             return siblings.reduce((m: number, t: any) => Math.max(m, t.sortOrder ?? 0), 0) + 1;
           })()}
-          onSuccess={async () => { await load(); refreshActivities(); }}
+          onSuccess={async (taskId?: string, taskName?: string) => {
+            if (taskId && taskName) {
+              pushUndo({
+                label: `태스크 "${taskName}" 추가`,
+                undo: async () => { await taskApi.delete(projectId, taskId); },
+                redo: async () => {},
+              });
+            }
+            await load(); refreshActivities();
+          }}
           onClose={() => setShowAddTask(false)}
         />
       )}
@@ -1784,6 +1942,15 @@ export default function ProjectDetailPage() {
             const freshTask = (fresh as any).tasks?.find((t: any) => t.id === selectedTask.id);
             if (freshTask) setSelectedTask(freshTask);
           }}
+          pushUndo={pushUndo}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          undoCount={undoCount}
+          redoCount={redoCount}
+          undoLabel={undoLabel}
+          redoLabel={redoLabel}
+          toast={toast}
+          refreshKey={drawerRefreshKey}
         />
       )}
 
@@ -1884,6 +2051,12 @@ export default function ProjectDetailPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {/* Undo/Redo toast */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] bg-gray-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg">
+          {toast}
         </div>
       )}
     </AppLayout>

@@ -174,17 +174,17 @@ function CheckInWidget({ today, onAction }: { today: TodayRecord | null; onActio
             className="px-2 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-500">
             {WORK_ENTRY_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
-          <button onClick={handleCheckIn} disabled={loading}
+          <button onClick={() => { if (confirm("출근 처리하시겠습니까?")) handleCheckIn(); }} disabled={loading}
             className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 disabled:opacity-50">출근</button>
         </>)}
         {state === "CHECKED_IN" && (<>
-          <button onClick={() => doAction(() => attendanceApi.breakOut())} disabled={loading}
+          <button onClick={() => { if (confirm("외출 처리하시겠습니까?")) doAction(() => attendanceApi.breakOut()); }} disabled={loading}
             className="flex-1 bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-orange-600 disabled:opacity-50">외출</button>
-          <button onClick={() => doAction(() => attendanceApi.checkOut())} disabled={loading}
+          <button onClick={() => { if (confirm("퇴근 처리하시겠습니까?\n퇴근 후에는 되돌릴 수 없습니다.")) doAction(() => attendanceApi.checkOut()); }} disabled={loading}
             className="flex-1 bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800 disabled:opacity-50">퇴근</button>
         </>)}
         {state === "ON_BREAK" && (
-          <button onClick={() => doAction(() => attendanceApi.breakIn())} disabled={loading}
+          <button onClick={() => { if (confirm("복귀 처리하시겠습니까?")) doAction(() => attendanceApi.breakIn()); }} disabled={loading}
             className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">복귀</button>
         )}
         {state === "CHECKED_OUT" && (

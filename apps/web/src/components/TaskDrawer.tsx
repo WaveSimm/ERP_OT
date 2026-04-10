@@ -28,18 +28,29 @@ interface Props {
   onToggleSeg?: (segId: string) => void;
   onClose: () => void;
   onRefresh: () => void;
+  pushUndo?: (action: { label: string; undo: () => Promise<void>; redo: () => Promise<void> }) => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  undoCount?: number;
+  redoCount?: number;
+  undoLabel?: string | null;
+  redoLabel?: string | null;
+  toast?: string | null;
+  refreshKey?: number;
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 function SegmentCard({
-  seg, projectId, taskId, saving, setSaving, onRefresh, onDelete, readonly = false,
-  isHidden, onToggleVisibility,
+  seg, projectId, taskId, taskName, saving, setSaving, onRefresh, onDelete, readonly = false,
+  isHidden, onToggleVisibility, pushUndo, refreshKey = 0,
 }: {
-  seg: any; projectId: string; taskId: string;
+  seg: any; projectId: string; taskId: string; taskName?: string;
   saving: string | null; setSaving: (s: string | null) => void;
   onRefresh: () => void; onDelete: (segId: string) => void; readonly?: boolean;
   isHidden?: boolean; onToggleVisibility?: () => void;
+  pushUndo?: (action: { label: string; undo: () => Promise<void>; redo: () => Promise<void> }) => void;
+  refreshKey?: number;
 }) {
   const [assignments, setAssignments] = useState<any[]>([]);
   const [resources, setResources] = useState<any[]>([]);
@@ -72,19 +83,41 @@ function SegmentCard({
     resourceApi.list({ isActive: true }).then(setResources).catch(() => {});
   }, [seg.id]);
 
+  // undo/redo 후 로컬 상태 + assignments 강제 갱신
+  useEffect(() => {
+    if (refreshKey > 0) {
+      setName(seg.name);
+      setStartDate(seg.startDate);
+      setEndDate(seg.endDate);
+      setProgress(seg.progressPercent);
+      latestDates.current = { startDate: seg.startDate, endDate: seg.endDate };
+      savedRef.current = { name: seg.name, startDate: seg.startDate, endDate: seg.endDate, progress: seg.progressPercent };
+      loadAssignments();
+    }
+  }, [refreshKey]);
+
   const loadAssignments = async () => {
     try { setAssignments(await taskApi.listAssignments(projectId, taskId, seg.id)); }
     catch { setAssignments([]); }
   };
 
   const saveSegField = async (fields: Record<string, any>) => {
+    const oldValues: Record<string, any> = {};
+    if ("name" in fields) oldValues.name = savedRef.current.name;
+    if ("progressPercent" in fields) oldValues.progressPercent = savedRef.current.progress;
+    if ("startDate" in fields) { oldValues.startDate = savedRef.current.startDate; oldValues.endDate = savedRef.current.endDate; }
     setSaving("seg-" + seg.id);
     try {
       await taskApi.updateSegment(projectId, taskId, seg.id, { ...fields, changeReason: "일정 수정" });
-      // 성공 시 savedRef 갱신
       if ("name" in fields) savedRef.current.name = fields.name;
       if ("progressPercent" in fields) savedRef.current.progress = fields.progressPercent;
       if ("startDate" in fields) { savedRef.current.startDate = fields.startDate; savedRef.current.endDate = fields.endDate; }
+      const fieldLabel = "name" in fields ? "이름" : "progressPercent" in fields ? "진행률" : "일정";
+      pushUndo?.({
+        label: `"${taskName ?? taskId}" 구간 ${fieldLabel} 수정`,
+        undo: async () => { await taskApi.updateSegment(projectId, taskId, seg.id, { ...oldValues, changeReason: "undo" }); },
+        redo: async () => { await taskApi.updateSegment(projectId, taskId, seg.id, { ...fields, changeReason: "redo" }); },
+      });
       onRefresh();
     } catch (e: any) {
       revertSegFields();
@@ -94,13 +127,29 @@ function SegmentCard({
   };
 
   const saveAssignAlloc = async (resourceId: string, mode: string, val: number) => {
+    const oldAssign = assignments.find(a => a.resourceId === resourceId);
+    const oldPayload: any = oldAssign ? { resourceId, allocationMode: oldAssign.allocationMode ?? "PERCENT" } : null;
+    if (oldPayload) {
+      if (oldPayload.allocationMode === "PERCENT") oldPayload.allocationPercent = oldAssign.allocationPercent ?? 100;
+      else oldPayload.allocationHoursPerDay = oldAssign.allocationHoursPerDay ?? 8;
+    }
     const payload: any = { resourceId, allocationMode: mode };
     if (mode === "PERCENT") payload.allocationPercent = val;
     else payload.allocationHoursPerDay = val;
-    try { await taskApi.upsertAssignment(projectId, taskId, seg.id, payload); }
+    try {
+      await taskApi.upsertAssignment(projectId, taskId, seg.id, payload);
+      if (oldPayload) {
+        const resName = resources.find(r => r.id === resourceId)?.name ?? resourceId;
+        pushUndo?.({
+          label: `"${taskName ?? taskId}" 자원 "${resName}" 배당율 변경`,
+          undo: async () => { await taskApi.upsertAssignment(projectId, taskId, seg.id, oldPayload); },
+          redo: async () => { await taskApi.upsertAssignment(projectId, taskId, seg.id, payload); },
+        });
+      }
+    }
     catch (e: any) {
       await loadAssignments();
-      setErrorPopup({ message: e.message, onDismiss: () => setErrorPopup(null) });
+      setErrorPopup({ message: e.message });
     }
   };
 
@@ -112,22 +161,44 @@ function SegmentCard({
       const payload: any = { resourceId: newAssign.resourceId, allocationMode: newAssign.allocationMode };
       if (newAssign.allocationMode === "PERCENT") payload.allocationPercent = newAssign.allocationPercent;
       else payload.allocationHoursPerDay = newAssign.allocationHoursPerDay;
+      const resId = newAssign.resourceId;
+      const resName = resources.find(r => r.id === resId)?.name ?? resId;
       await taskApi.upsertAssignment(projectId, taskId, seg.id, payload);
+      pushUndo?.({
+        label: `"${taskName ?? taskId}" 자원 "${resName}" 배정`,
+        undo: async () => { await taskApi.removeAssignment(projectId, taskId, seg.id, resId); },
+        redo: async () => { await taskApi.upsertAssignment(projectId, taskId, seg.id, payload); },
+      });
       setShowAddAssign(false);
       setAssignSearch("");
       setNewAssign({ resourceId: "", allocationMode: "PERCENT", allocationPercent: 100, allocationHoursPerDay: 8 });
       await loadAssignments();
       onRefresh();
     } catch (e: any) {
-      setErrorPopup({ message: e.message, onDismiss: () => setErrorPopup(null) });
+      setErrorPopup({ message: e.message });
     }
     finally { setSaving(null); }
   };
 
   const handleRemoveAssign = async (resourceId: string) => {
     if (!confirm("이 자원 배정을 삭제하시겠습니까?")) return;
-    try { await taskApi.removeAssignment(projectId, taskId, seg.id, resourceId); await loadAssignments(); onRefresh(); }
-    catch (e: any) { alert(e.message); }
+    const assign = assignments.find(a => a.resourceId === resourceId);
+    const resName = resources.find(r => r.id === resourceId)?.name ?? resourceId;
+    try {
+      await taskApi.removeAssignment(projectId, taskId, seg.id, resourceId);
+      if (assign) {
+        const payload: any = { resourceId, allocationMode: assign.allocationMode ?? "PERCENT" };
+        if (assign.allocationMode === "PERCENT") payload.allocationPercent = assign.allocationPercent ?? 100;
+        else payload.allocationHoursPerDay = assign.allocationHoursPerDay ?? 8;
+        pushUndo?.({
+          label: `"${taskName ?? taskId}" 자원 "${resName}" 제거`,
+          undo: async () => { await taskApi.upsertAssignment(projectId, taskId, seg.id, payload); },
+          redo: async () => { await taskApi.removeAssignment(projectId, taskId, seg.id, resourceId); },
+        });
+      }
+      await loadAssignments();
+      onRefresh();
+    } catch (e: any) { alert(e.message); }
   };
 
   const unusedResources = resources.filter((r) => !assignments.some((a) => a.resourceId === r.id));
@@ -348,7 +419,7 @@ function SegmentCard({
 
 // ─── TaskDrawer ───────────────────────────────────────────────────────────────
 
-export default function TaskDrawer({ task, projectId, isParent = false, hiddenSegIds, onToggleSeg, onClose, onRefresh }: Props) {
+export default function TaskDrawer({ task, projectId, isParent = false, hiddenSegIds, onToggleSeg, onClose, onRefresh, pushUndo, onUndo, onRedo, undoCount = 0, redoCount = 0, undoLabel, redoLabel, toast, refreshKey = 0 }: Props) {
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState("");
   const [postingComment, setPostingComment] = useState(false);
@@ -437,19 +508,38 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
       const payload: any = { resourceId: newParentRes.resourceId, allocationMode: newParentRes.allocationMode };
       if (newParentRes.allocationMode === "PERCENT") payload.allocationPercent = newParentRes.allocationPercent;
       else payload.allocationHoursPerDay = newParentRes.allocationHoursPerDay;
-      await taskApi.upsertAssignment(projectId, task.id, parentSegId, payload);
+      const resId = newParentRes.resourceId;
+      const segId = parentSegId;
+      await taskApi.upsertAssignment(projectId, task.id, segId, payload);
+      pushUndo?.({
+        label: `"${task.name}" 부모 자원 배정`,
+        undo: async () => { await taskApi.removeAssignment(projectId, task.id, segId, resId); },
+        redo: async () => { await taskApi.upsertAssignment(projectId, task.id, segId, payload); },
+      });
       setShowAddParentRes(false);
       setParentResSearch("");
       setNewParentRes({ resourceId: "", allocationMode: "PERCENT", allocationPercent: 100, allocationHoursPerDay: 8 });
-      setParentSegAssignments(await taskApi.listAssignments(projectId, task.id, parentSegId));
+      setParentSegAssignments(await taskApi.listAssignments(projectId, task.id, segId));
     } catch (e: any) { alert(e.message); }
     finally { setSaving(null); }
   };
 
   const handleRemoveParentRes = async (resourceId: string) => {
     if (!parentSegId) return;
+    const assign = parentSegAssignments.find(a => a.resourceId === resourceId);
+    const segId = parentSegId;
     try {
-      await taskApi.removeAssignment(projectId, task.id, parentSegId, resourceId);
+      await taskApi.removeAssignment(projectId, task.id, segId, resourceId);
+      if (assign) {
+        const payload: any = { resourceId, allocationMode: assign.allocationMode ?? "PERCENT" };
+        if (assign.allocationMode === "PERCENT") payload.allocationPercent = assign.allocationPercent ?? 100;
+        else payload.allocationHoursPerDay = assign.allocationHoursPerDay ?? 8;
+        pushUndo?.({
+          label: `"${task.name}" 부모 자원 제거`,
+          undo: async () => { await taskApi.upsertAssignment(projectId, task.id, segId, payload); },
+          redo: async () => { await taskApi.removeAssignment(projectId, task.id, segId, resourceId); },
+        });
+      }
       setParentSegAssignments((prev) => prev.filter((a) => a.resourceId !== resourceId));
     } catch (e: any) { alert(e.message); }
   };
@@ -472,6 +562,13 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
   };
 
   useEffect(() => { loadComments(); loadDeps(); loadTaskDeployments(); }, [task.id]);
+  // undo/redo 후 drawer 내부 데이터 강제 갱신
+  useEffect(() => {
+    if (refreshKey > 0) {
+      loadDeps();
+      if (parentSegId) taskApi.listAssignments(projectId, task.id, parentSegId).then(setParentSegAssignments).catch(() => {});
+    }
+  }, [refreshKey]);
 
   useEffect(() => {
     if (!showHistory) return;
@@ -491,9 +588,15 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
   };
 
   const handleStatusChange = async (status: string) => {
+    const oldStatus = task.status;
     setSaving("status");
     try {
       await taskApi.update(projectId, task.id, { status });
+      pushUndo?.({
+        label: `"${task.name}" 상태 → ${status}`,
+        undo: async () => { await taskApi.update(projectId, task.id, { status: oldStatus }); },
+        redo: async () => { await taskApi.update(projectId, task.id, { status }); },
+      });
       onRefresh();
     } catch (e: any) { alert(e.message); }
     finally { setSaving(null); }
@@ -501,8 +604,16 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
 
   const handleDeleteSegment = async (segId: string) => {
     if (!confirm("이 구간을 삭제하시겠습니까?")) return;
+    const segData = (task.segments ?? []).find((s: any) => s.id === segId);
     try {
       await taskApi.deleteSegment(projectId, task.id, segId);
+      if (segData) {
+        pushUndo?.({
+          label: `"${task.name}" 구간 "${segData.name}" 삭제`,
+          undo: async () => { await taskApi.createSegment(projectId, task.id, { name: segData.name, startDate: segData.startDate, endDate: segData.endDate }); },
+          redo: async () => { await taskApi.deleteSegment(projectId, task.id, segId).catch(() => {}); },
+        });
+      }
       onRefresh();
     } catch (e: any) { alert(e.message); }
   };
@@ -512,13 +623,17 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
     setSaving("seg");
     try {
       const segment = await taskApi.createSegment(projectId, task.id, newSeg);
-      // 자원 배정
       for (const a of segFormAssigns) {
         const payload: any = { resourceId: a.resourceId, allocationMode: a.allocationMode };
         if (a.allocationMode === "PERCENT") payload.allocationPercent = a.allocationPercent;
         else payload.allocationHoursPerDay = a.allocationHoursPerDay;
         await taskApi.upsertAssignment(projectId, task.id, segment.id, payload);
       }
+      pushUndo?.({
+        label: `"${task.name}" 구간 "${newSeg.name}" 추가`,
+        undo: async () => { await taskApi.deleteSegment(projectId, task.id, segment.id); },
+        redo: async () => { await taskApi.createSegment(projectId, task.id, newSeg); },
+      });
       const addedEndDate = newSeg.endDate;
       setShowAddSeg(false);
       onRefresh();
@@ -532,9 +647,15 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
   const handleAddDep = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDep.predecessorId) return;
+    const depData = { ...newDep };
     setSaving("dep");
     try {
-      await taskApi.addDependency(projectId, task.id, newDep);
+      await taskApi.addDependency(projectId, task.id, depData);
+      pushUndo?.({
+        label: `"${task.name}" 의존관계 추가`,
+        undo: async () => { await taskApi.removeDependency(projectId, task.id, depData.predecessorId); },
+        redo: async () => { await taskApi.addDependency(projectId, task.id, depData); },
+      });
       setShowAddDep(false);
       setNewDep({ predecessorId: "", type: "FS", lagDays: 0 });
       await loadDeps();
@@ -545,8 +666,17 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
 
   const handleRemoveDep = async (predecessorId: string) => {
     if (!confirm("이 의존 관계를 삭제하시겠습니까?")) return;
+    // 삭제 전 데이터 보존
+    const depInfo = deps?.predecessors?.find((d: any) => d.predecessorId === predecessorId);
     try {
       await taskApi.removeDependency(projectId, task.id, predecessorId);
+      if (depInfo) {
+        pushUndo?.({
+          label: `"${task.name}" 의존관계 삭제`,
+          undo: async () => { await taskApi.addDependency(projectId, task.id, { predecessorId, type: depInfo.type, lagDays: depInfo.lagDays }); },
+          redo: async () => { await taskApi.removeDependency(projectId, task.id, predecessorId); },
+        });
+      }
       await loadDeps();
       onRefresh();
     } catch (e: any) { alert(e.message); }
@@ -656,6 +786,21 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
               <p className="text-xs text-gray-500 mt-0.5">📌 {task.milestoneName}</p>
             )}
           </div>
+          {/* Undo / Redo */}
+          {onUndo && onRedo && (
+            <div className="flex items-center gap-0.5 shrink-0">
+              <button onClick={onUndo} disabled={undoCount === 0}
+                className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+                title={`실행취소 (Ctrl+Z)${undoLabel ? ` · ${undoLabel}` : ""}`}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+              </button>
+              <button onClick={onRedo} disabled={redoCount === 0}
+                className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+                title={`다시실행 (Ctrl+Y)${redoLabel ? ` · ${redoLabel}` : ""}`}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              </button>
+            </div>
+          )}
           <button
             onClick={async () => {
               setShowHistory(true);
@@ -975,6 +1120,9 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
                       seg={seg}
                       projectId={projectId}
                       taskId={task.id}
+                      taskName={task.name}
+                      pushUndo={pushUndo}
+                      refreshKey={refreshKey}
                       saving={saving}
                       setSaving={setSaving}
                       onRefresh={onRefresh}
@@ -1041,8 +1189,16 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
                       onBlur={async (e) => {
                         const newType = e.target.value;
                         if (newType === p.type) return;
-                        await taskApi.removeDependency(projectId, task.id, p.predecessorId);
-                        await taskApi.addDependency(projectId, task.id, { predecessorId: p.predecessorId, type: newType, lagDays: p.lagDays });
+                        const oldType = p.type;
+                        const predId = p.predecessorId;
+                        const lag = p.lagDays;
+                        await taskApi.removeDependency(projectId, task.id, predId);
+                        await taskApi.addDependency(projectId, task.id, { predecessorId: predId, type: newType, lagDays: lag });
+                        pushUndo?.({
+                          label: `"${task.name}" 의존관계 유형 ${oldType} → ${newType}`,
+                          undo: async () => { await taskApi.removeDependency(projectId, task.id, predId); await taskApi.addDependency(projectId, task.id, { predecessorId: predId, type: oldType, lagDays: lag }); },
+                          redo: async () => { await taskApi.removeDependency(projectId, task.id, predId); await taskApi.addDependency(projectId, task.id, { predecessorId: predId, type: newType, lagDays: lag }); },
+                        });
                         await loadDeps(); onRefresh();
                       }}
                       className="text-xs border border-orange-200 rounded px-1 py-0.5 bg-white focus:outline-none"
@@ -1056,8 +1212,16 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
                       onBlur={async (e) => {
                         const newLag = Number(e.target.value);
                         if (newLag === p.lagDays) return;
-                        await taskApi.removeDependency(projectId, task.id, p.predecessorId);
-                        await taskApi.addDependency(projectId, task.id, { predecessorId: p.predecessorId, type: p.type, lagDays: newLag });
+                        const oldLag = p.lagDays;
+                        const predId = p.predecessorId;
+                        const type = p.type;
+                        await taskApi.removeDependency(projectId, task.id, predId);
+                        await taskApi.addDependency(projectId, task.id, { predecessorId: predId, type, lagDays: newLag });
+                        pushUndo?.({
+                          label: `"${task.name}" 의존관계 lag ${oldLag} → ${newLag}일`,
+                          undo: async () => { await taskApi.removeDependency(projectId, task.id, predId); await taskApi.addDependency(projectId, task.id, { predecessorId: predId, type, lagDays: oldLag }); },
+                          redo: async () => { await taskApi.removeDependency(projectId, task.id, predId); await taskApi.addDependency(projectId, task.id, { predecessorId: predId, type, lagDays: newLag }); },
+                        });
                         await loadDeps(); onRefresh();
                       }}
                       className="w-14 text-xs border border-orange-200 rounded px-1.5 py-0.5 text-right bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
