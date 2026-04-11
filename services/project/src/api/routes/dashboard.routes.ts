@@ -65,7 +65,7 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
   });
 
   // ─── PUT /api/v1/dashboard/config ─────────────────────────────────────────
-  fastify.put("/config", async (req, reply) => {
+  fastify.put("/config", { preHandler: requireManager() }, async (req, reply) => {
     const data = req.body as {
       pinnedProjectIds?: string[];
       issueFilter?: string;

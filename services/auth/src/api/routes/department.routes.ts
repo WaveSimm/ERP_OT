@@ -1,13 +1,17 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { DepartmentService } from "../../application/department.service.js";
+import { AuthService } from "../../application/auth.service.js";
+import { createAuthHook, requireRole } from "../middleware/auth.middleware.js";
 import { publishActivity } from "../../infrastructure/event-publisher";
 
 export async function departmentRoutes(
   fastify: FastifyInstance,
-  opts: { deptService: DepartmentService },
+  opts: { deptService: DepartmentService; authService: AuthService },
 ) {
   const svc = opts.deptService;
+  const authenticate = createAuthHook(opts.authService);
+  const adminOnly = requireRole("ADMIN");
 
   // GET /api/v1/departments
   fastify.get("/", async (_req, reply) => {
@@ -23,7 +27,7 @@ export async function departmentRoutes(
   });
 
   // POST /api/v1/departments
-  fastify.post("/", async (req, reply) => {
+  fastify.post("/", { preHandler: [authenticate, adminOnly] }, async (req, reply) => {
     const body = z.object({
       name: z.string().min(1),
       code: z.string().min(1).regex(/^[A-Z0-9_-]+$/),
@@ -40,7 +44,7 @@ export async function departmentRoutes(
     });
     publishActivity({
       action: "dept.created",
-      userId: (req as any).userId ?? "system",
+      userId: req.userId,
       entityType: "department",
       entityId: dept.id,
       description: `부서 생성: ${body.name}`,
@@ -49,7 +53,7 @@ export async function departmentRoutes(
   });
 
   // PATCH /api/v1/departments/:id
-  fastify.patch("/:id", async (req, reply) => {
+  fastify.patch("/:id", { preHandler: [authenticate, adminOnly] }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = z.object({
       name: z.string().min(1).optional(),
@@ -74,7 +78,7 @@ export async function departmentRoutes(
     const dept = await svc.update(id, updateData);
     publishActivity({
       action: "dept.updated",
-      userId: (req as any).userId ?? "system",
+      userId: req.userId,
       entityType: "department",
       entityId: id,
       description: `부서 수정: ${dept.name}`,
@@ -83,12 +87,12 @@ export async function departmentRoutes(
   });
 
   // DELETE /api/v1/departments/:id
-  fastify.delete("/:id", async (req, reply) => {
+  fastify.delete("/:id", { preHandler: [authenticate, adminOnly] }, async (req, reply) => {
     const { id } = req.params as { id: string };
     await svc.delete(id);
     publishActivity({
       action: "dept.deleted",
-      userId: (req as any).userId ?? "system",
+      userId: req.userId,
       entityType: "department",
       entityId: id,
       description: `부서 삭제: ${id}`,
@@ -97,7 +101,7 @@ export async function departmentRoutes(
   });
 
   // POST /api/v1/departments/:id/assign-user
-  fastify.post("/:id/assign-user", async (req, reply) => {
+  fastify.post("/:id/assign-user", { preHandler: [authenticate, adminOnly] }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = z.object({ userId: z.string() }).parse(req.body);
     await svc.assignUser(body.userId, id);
@@ -105,7 +109,7 @@ export async function departmentRoutes(
   });
 
   // DELETE /api/v1/departments/:id/members/:userId
-  fastify.delete("/:id/members/:userId", async (req, reply) => {
+  fastify.delete("/:id/members/:userId", { preHandler: [authenticate, adminOnly] }, async (req, reply) => {
     const { userId } = req.params as { id: string; userId: string };
     await svc.assignUser(userId, null);
     return reply.status(204).send();

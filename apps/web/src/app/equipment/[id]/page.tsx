@@ -183,7 +183,7 @@ export default function EquipmentDetailPage() {
     try {
       await maintenanceApi.create({ ...maintForm, equipmentId: id, cost: maintForm.cost ? parseFloat(maintForm.cost) : undefined });
       setShowMaintForm(false);
-      setMaintForm({ type: "PREVENTIVE", title: "", description: "", performedBy: "", performedAt: new Date().toISOString().slice(0, 10), cost: "" });
+      setMaintForm({ type: "PREVENTIVE", title: "", description: "", performedBy: "", performedAt: new Date().toISOString().slice(0, 10), cost: "", startDate: new Date().toISOString().slice(0, 10), endDate: new Date().toISOString().slice(0, 10) });
       equipmentApi.getMaintenance(id).then((r) => setMaintenance(r.items ?? []));
     } catch (err: any) { alert(err.message); }
   };

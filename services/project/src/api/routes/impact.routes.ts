@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { ImpactService } from "../../application/impact.service.js";
+import { requireManager } from "../middleware/auth.middleware.js";
 
 const whatifSchema = z.object({
   taskId: z.string(),
@@ -29,7 +30,7 @@ export async function impactRoutes(fastify: FastifyInstance) {
   });
 
   // POST /api/v1/projects/:projectId/whatif
-  fastify.post("/:projectId/whatif", async (req, reply) => {
+  fastify.post("/:projectId/whatif", { preHandler: requireManager() }, async (req, reply) => {
     const { projectId } = req.params as { projectId: string };
     const { taskId, delayDays } = whatifSchema.parse(req.body);
 

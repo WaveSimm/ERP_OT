@@ -1,4 +1,5 @@
 import { FastifyInstance } from "fastify";
+import { requireRole } from "../middleware/auth.middleware.js";
 
 export async function customerAssetRoutes(fastify: FastifyInstance) {
   fastify.get("/", async (request) => {
@@ -16,17 +17,17 @@ export async function customerAssetRoutes(fastify: FastifyInstance) {
     return fastify.customerAssetService.getById(id);
   });
 
-  fastify.post("/", async (request, reply) => {
+  fastify.post("/", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request, reply) => {
     const result = await fastify.customerAssetService.create(request.body as any);
     return reply.status(201).send(result);
   });
 
-  fastify.patch("/:id", async (request) => {
+  fastify.patch("/:id", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
     const { id } = request.params as any;
     return fastify.customerAssetService.update(id, request.body as any);
   });
 
-  fastify.delete("/:id", async (request, reply) => {
+  fastify.delete("/:id", { preHandler: [requireRole("ADMIN")] }, async (request, reply) => {
     await fastify.customerAssetService.remove((request.params as any).id);
     return reply.status(204).send();
   });

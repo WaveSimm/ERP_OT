@@ -1,4 +1,5 @@
 import { FastifyInstance } from "fastify";
+import { requireRole } from "../middleware/auth.middleware.js";
 
 export async function repairOrderRoutes(fastify: FastifyInstance) {
   // 목록
@@ -27,19 +28,19 @@ export async function repairOrderRoutes(fastify: FastifyInstance) {
   });
 
   // 생성
-  fastify.post("/", async (request, reply) => {
+  fastify.post("/", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request, reply) => {
     const result = await fastify.repairOrderService.create(request.body as any);
     return reply.status(201).send(result);
   });
 
   // 수정
-  fastify.patch("/:id", async (request) => {
+  fastify.patch("/:id", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
     const { id } = request.params as any;
     return fastify.repairOrderService.update(id, request.body as any);
   });
 
   // 상태 변경 (FSM)
-  fastify.patch("/:id/status", async (request) => {
+  fastify.patch("/:id/status", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
     const { id } = request.params as any;
     const { status } = request.body as any;
     const userId = (request as any).user?.id;
@@ -47,21 +48,21 @@ export async function repairOrderRoutes(fastify: FastifyInstance) {
   });
 
   // 점검진행상황 업데이트
-  fastify.patch("/:id/tech-status", async (request) => {
+  fastify.patch("/:id/tech-status", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
     const { id } = request.params as any;
     const { techStatus } = request.body as any;
     return fastify.repairOrderService.updateTechStatus(id, techStatus);
   });
 
   // 영업부진행상황 업데이트
-  fastify.patch("/:id/sales-status", async (request) => {
+  fastify.patch("/:id/sales-status", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
     const { id } = request.params as any;
     const { salesStatus } = request.body as any;
     return fastify.repairOrderService.updateSalesStatus(id, salesStatus);
   });
 
   // 삭제
-  fastify.delete("/:id", async (request, reply) => {
+  fastify.delete("/:id", { preHandler: [requireRole("ADMIN")] }, async (request, reply) => {
     await fastify.repairOrderService.remove((request.params as any).id);
     return reply.status(204).send();
   });

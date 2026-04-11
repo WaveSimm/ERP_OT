@@ -27,7 +27,7 @@ export async function userRoutes(
     const filtered = all === "true"
       ? users.filter((u) => u.isActive)
       : users.filter((u) => u.isActive && (u.role === "MANAGER" || u.role === "ADMIN"));
-    return reply.code(200).send(filtered.map((u) => ({ id: u.id, name: u.name })));
+    return reply.code(200).send(filtered.map((u) => ({ id: u.id, name: u.name, departmentId: u.profile?.departmentId ?? null, departmentName: u.profile?.departmentName ?? null, position: u.profile?.position ?? null })));
   });
 
   // POST /api/v1/users

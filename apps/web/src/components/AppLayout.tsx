@@ -12,6 +12,8 @@ const NAV = [
   { href: "/resources",      label: "자원 관리",  icon: "👥", managerOnly: true  },
   { href: "/equipment",      label: "장비 관리",  icon: "🔧", managerOnly: false },
   { href: "/repair",         label: "수리 관리",  icon: "🛠", managerOnly: false },
+  { href: "/procurement",    label: "구매/회계",  icon: "📦", managerOnly: false },
+  { href: "/approval",       label: "결재",      icon: "📝", managerOnly: false },
 ];
 
 const STORAGE_KEY = "erp_last_path";
@@ -237,10 +239,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (section) saveLastPath(section.href, pathname);
   }, [pathname]);
 
+  // 마지막 위치 기억에서 제외할 섹션 (항상 루트로 이동)
+  const NO_REMEMBER = ["/approval"];
+
   const handleNavClick = (href: string) => {
     if (pathname === href) return; // 이미 섹션 루트
     if (pathname.startsWith(href + "/")) {
       router.push(href); // 하위 페이지 → 섹션 루트로
+      return;
+    }
+    if (NO_REMEMBER.includes(href)) {
+      router.push(href);
       return;
     }
     const last = getLastPaths()[href];

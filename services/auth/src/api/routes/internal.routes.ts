@@ -51,6 +51,28 @@ export async function internalRoutes(
     return reply.send(subs);
   });
 
+  // GET /internal/users/:id/profile — 사용자 상세 (프로필+부서)
+  fastify.get("/users/:id/profile", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, name: true, email: true },
+    });
+    if (!user) return reply.status(404).send({ code: "NOT_FOUND" });
+    const profile = await prisma.userProfile.findUnique({
+      where: { userId: id },
+      include: { department: { select: { id: true, name: true } } },
+    });
+    return reply.send({
+      ...user,
+      profile: profile ? {
+        departmentId: profile.departmentId,
+        departmentName: profile.department?.name ?? null,
+        position: profile.position,
+      } : null,
+    });
+  });
+
   // GET /internal/users/all — 전체 사용자 ID+이름 목록
   fastify.get("/users/all", async (req, reply) => {
     const users = await prisma.user.findMany({

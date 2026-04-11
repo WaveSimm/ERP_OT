@@ -55,6 +55,32 @@ enum DeploymentStatus {
 }
 
 // ─────────────────────────────────────────────
+// 0. StorageLocation (보관위치 — 창고/고객사)
+// ─────────────────────────────────────────────
+
+enum LocationType {
+  WAREHOUSE
+  CUSTOMER
+
+  @@schema("equipment")
+}
+
+model StorageLocation {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  type        LocationType @default(WAREHOUSE)
+  description String?
+  sortOrder   Int          @default(0) @map("sort_order")
+  isActive    Boolean      @default(true) @map("is_active")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  @@index([type])
+  @@map("storage_locations")
+  @@schema("equipment")
+}
+
+// ─────────────────────────────────────────────
 // 1. Category (장비 종류 + 센서 종류 통합)
 // ─────────────────────────────────────────────
 
@@ -498,6 +524,11 @@ model RepairOrder {
   equipmentId          String?
   sensorId             String?
 
+  // 제품 정보 (FK 미연결 시 직접 입력)
+  productName      String?                          // 제품명
+  productMaker     String?                          // 제작사
+  productSerial    String?                          // S/N
+
   techStatus       String?
   salesStatus      String?
 
@@ -759,5 +790,613 @@ model Shipment {
 
   @@index([repairOrderId])
   @@map("shipments")
+  @@schema("equipment")
+}
+
+// ═══════════════════════════════════════════════
+// 구매 · 재고 · 결재 (Phase 1~)
+// ═══════════════════════════════════════════════
+
+// ─── Enums ────────────────────────────────────
+
+// ─── Phase 3: 재고 관련 Enum ──────────────────
+
+enum InventoryCategory {
+  IN_TRANSIT
+  PRODUCT
+  RAW_MATERIAL
+  PREV_PRODUCT
+  PREV_RAW_MATERIAL
+
+  @@schema("equipment")
+}
+
+enum InventoryStatus {
+  IN_STOCK
+  RELEASED
+  IN_REPAIR
+
+  @@schema("equipment")
+}
+
+enum InventoryTrackingMode {
+  INDIVIDUAL
+  BULK
+
+  @@schema("equipment")
+}
+
+enum InventoryTransactionType {
+  PURCHASE
+  TRANSFER
+  RELEASE
+  RETURN
+
+  @@schema("equipment")
+}
+
+enum InventorySourceType {
+  OVERSEAS_ORDER
+  EXPENSE_REQUEST
+
+  @@schema("equipment")
+}
+
+enum AssetCostType {
+  AS
+  UPGRADE
+  PARTS_ADDITION
+  MODULE_ADDITION
+  REPAIR
+  OTHER
+
+  @@schema("equipment")
+}
+
+// ─── Phase 1 Enum ──────────────────────────────
+
+enum OrderCurrency {
+  EUR
+  GBP
+  USD
+  KRW
+
+  @@schema("equipment")
+}
+
+enum OrderStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  ORDERED
+  IN_PRODUCTION
+  SHIPPED
+  CUSTOMS
+  PARTIALLY_RECEIVED
+  ARRIVED
+  CLOSED
+
+  @@schema("equipment")
+}
+
+enum OrderItemReceiptStatus {
+  PENDING
+  PARTIALLY_RECEIVED
+  FULLY_RECEIVED
+
+  @@schema("equipment")
+}
+
+enum OrderType {
+  PURCHASE    // 유환 (일반 발주)
+  DUTY_FREE   // 무환통관 (워런티/샘플/대체품 등)
+
+  @@schema("equipment")
+}
+
+enum ContractStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+
+  @@schema("equipment")
+}
+
+// ─── P-1. ProductMaster (장비 마스터) ──────────
+
+model ProductMaster {
+  id              String         @id @default(cuid())
+  name            String
+  modelName       String         @map("model_name")
+  manufacturer    String
+  defaultCurrency OrderCurrency? @map("default_currency")
+  referencePrice  Decimal?       @map("reference_price") @db.Decimal(12, 2)
+  specs           Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  orderItems     OverseasOrderItem[]
+  inventoryItems InventoryItem[]
+
+  @@unique([manufacturer, modelName], name: "manufacturer_model")
+  @@map("product_masters")
+  @@schema("equipment")
+}
+
+// ─── P-S. Supplier (제조사/공급사) ─────────────
+
+model Supplier {
+  id           String   @id @default(cuid())
+  name         String   @unique                   // 제조사/공급사명
+  country      String?                            // 국가
+  contactName  String?  @map("contact_name")      // 대표 담당자 (legacy)
+  phone        String?
+  email        String?
+  website      String?
+  notes        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  contacts     SupplierContact[]
+
+  @@map("suppliers")
+  @@schema("equipment")
+}
+
+model SupplierContact {
+  id         String   @id @default(cuid())
+  supplierId String   @map("supplier_id")
+  name       String
+  position   String?                              // 직급
+  phone      String?
+  email      String?
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@map("supplier_contacts")
+  @@schema("equipment")
+}
+
+// ─── P-2. Contract (계약) ─────────────────────
+
+model Contract {
+  id              String         @id @default(cuid())
+  contractNumber  String         @unique @map("contract_number") // #YY-NN
+  name            String                                        // 계약건명(품명)
+  client          String                                        // 고객사
+  clientContact   String?        @map("client_contact")          // 담당자
+  manufacturer    String?                                       // 제작사(공급사)
+  category        String         @default("물품")                // 구분: 물품/용역
+  contractType    String         @default("내자") @map("contract_type") // 내자/외자
+  contractDate    DateTime?      @map("contract_date") @db.Date // 계약일자
+  deadline        DateTime?                        @db.Date      // 납기
+  manager         String?                                        // 계약담당
+  status          ContractStatus @default(ACTIVE)
+  notes           String?
+
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  orders OverseasOrder[]
+
+  @@index([status])
+  @@map("contracts")
+  @@schema("equipment")
+}
+
+// ─── P-3. OverseasOrder (해외 발주) ───────────
+
+model OverseasOrder {
+  id                     String        @id @default(cuid())
+  contractId             String        @map("contract_id")
+  orderNumber            String        @unique @map("order_number")
+  manufacturer           String
+  currency               OrderCurrency
+  orderType              OrderType     @default(PURCHASE) @map("order_type")
+  status                 OrderStatus   @default(DRAFT)
+
+  orderDate              DateTime?     @map("order_date") @db.Date
+  estimatedProductionEnd DateTime?     @map("estimated_production_end") @db.Date
+  estimatedShipDate      DateTime?     @map("estimated_ship_date") @db.Date
+  actualShipDate         DateTime?     @map("actual_ship_date") @db.Date
+  customsDate            DateTime?     @map("customs_date") @db.Date
+  arrivalDate            DateTime?     @map("arrival_date") @db.Date
+
+  productionProgress Int     @default(0) @map("production_progress")
+  productionNotes    String? @map("production_notes")
+
+  arrivalLocation String? @map("arrival_location")
+  orderedBy       String  @map("ordered_by")
+  customsHandler  String? @map("customs_handler")
+
+  invoiceNo  String?   @map("invoice_no")
+  dueDate    DateTime? @map("due_date") @db.Date
+  oaNumber   String?   @map("oa_number")
+
+  totalAmount    Decimal  @map("total_amount") @db.Decimal(12, 2)
+  totalAmountKRW Decimal? @map("total_amount_krw") @db.Decimal(14, 0)
+
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  contract        Contract              @relation(fields: [contractId], references: [id])
+  items           OverseasOrderItem[]
+  progressLogs    OrderProgressLog[]
+  costSettlements ImportCostSettlement[]
+
+  @@index([contractId])
+  @@index([status])
+  @@index([orderedBy])
+  @@index([currency])
+  @@map("overseas_orders")
+  @@schema("equipment")
+}
+
+// ─── P-4. OverseasOrderItem (발주 품목) ───────
+
+model OverseasOrderItem {
+  id               String                 @id @default(cuid())
+  orderId          String                 @map("order_id")
+  productMasterId  String?                @map("product_master_id")
+  name             String
+  spec             String?
+  quantity         Int
+  receivedQuantity Int                    @default(0) @map("received_quantity")
+  unitPrice        Decimal                @map("unit_price") @db.Decimal(12, 2)
+  amount           Decimal                @db.Decimal(12, 2)
+  receiptStatus    OrderItemReceiptStatus @default(PENDING) @map("receipt_status")
+  notes            String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  order          OverseasOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productMaster  ProductMaster? @relation(fields: [productMasterId], references: [id])
+  inventoryItems InventoryItem[] @relation("OrderItemInventory")
+  costExtras     CostExtra[]
+
+  @@index([orderId])
+  @@map("overseas_order_items")
+  @@schema("equipment")
+}
+
+// ─── P-5. OrderProgressLog (진행 이력) ────────
+
+model OrderProgressLog {
+  id        String   @id @default(cuid())
+  orderId   String   @map("order_id")
+  progress  Int
+  note      String?
+  updatedBy String   @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  order OverseasOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("order_progress_logs")
+  @@schema("equipment")
+}
+
+// ─── Phase 3: 재고 (InventoryItem) ────────────
+
+model InventoryItem {
+  id                    String                @id @default(cuid())
+  inventoryNo           String                @unique @map("inventory_no")
+  itemName              String?               @map("item_name")
+  manufacturer          String?
+  productMasterId       String?               @map("product_master_id")
+  serialNumber          String?               @map("serial_number")
+  trackingMode          InventoryTrackingMode @default(INDIVIDUAL) @map("tracking_mode")
+  quantity              Int                   @default(1)
+  category              InventoryCategory     @default(PRODUCT)
+  currentLocation       String?               @map("current_location")
+  currentStatus         InventoryStatus       @default(IN_STOCK) @map("current_status")
+
+  unitPrice             Decimal?              @map("unit_price") @db.Decimal(12, 2)
+  supplyAmount          Decimal?              @map("supply_amount") @db.Decimal(14, 0)
+  totalAmount           Decimal?              @map("total_amount") @db.Decimal(14, 0)
+  totalAdditionalCost   Decimal               @default(0) @map("total_additional_cost") @db.Decimal(14, 0)
+  totalCostOfOwnership  Decimal               @default(0) @map("total_cost_of_ownership") @db.Decimal(14, 0)
+
+  projectName           String?               @map("project_name")
+  assigneeName          String?               @map("assignee_name")
+  sourceType            InventorySourceType?  @map("source_type")
+  sourceId              String?               @map("source_id")
+  orderItemId           String?               @map("order_item_id")
+  costSettlementId      String?               @map("cost_settlement_id")
+
+  notes                 String?
+  createdBy             String                @map("created_by")
+  createdAt             DateTime              @default(now()) @map("created_at")
+  updatedAt             DateTime              @updatedAt @map("updated_at")
+
+  productMaster         ProductMaster?        @relation(fields: [productMasterId], references: [id])
+  orderItem             OverseasOrderItem?    @relation("OrderItemInventory", fields: [orderItemId], references: [id])
+  transactions          InventoryTransaction[]
+  costEvents            AssetCostEvent[]
+  auditItems            InventoryAuditItem[]
+
+  @@index([category])
+  @@index([currentLocation])
+  @@index([currentStatus])
+  @@index([sourceType, sourceId])
+  @@map("inventory_items")
+  @@schema("equipment")
+}
+
+// ─── Phase 3: 입출고 이력 (InventoryTransaction) ──
+
+model InventoryTransaction {
+  id              String                    @id @default(cuid())
+  inventoryItemId String                    @map("inventory_item_id")
+  type            InventoryTransactionType
+  date            DateTime                  @db.Date
+  sequenceNo      String?                   @map("sequence_no")
+  quantity        Int                       @default(1)
+  fromLocation    String?                   @map("from_location")
+  toLocation      String?                   @map("to_location")
+  deliveryTo      String?                   @map("delivery_to")
+  supplier        String?
+  projectName     String?                   @map("project_name")
+  assigneeName    String?                   @map("assignee_name")
+  costNumber      String?                   @map("cost_number")
+  notes           String?
+
+  createdBy       String                    @map("created_by")
+  createdAt       DateTime                  @default(now()) @map("created_at")
+
+  inventoryItem   InventoryItem             @relation(fields: [inventoryItemId], references: [id])
+
+  @@index([inventoryItemId])
+  @@index([type])
+  @@index([date])
+  @@map("inventory_transactions")
+  @@schema("equipment")
+}
+
+// ─── Phase 3: 자산 추가비용 (AssetCostEvent) ──────
+
+model AssetCostEvent {
+  id              String        @id @default(cuid())
+  inventoryItemId String        @map("inventory_item_id")
+  type            AssetCostType
+  title           String
+  description     String?
+  vendor          String?
+  cost            Decimal       @db.Decimal(14, 0)
+  currency        OrderCurrency?
+  foreignAmount   Decimal?      @map("foreign_amount") @db.Decimal(12, 2)
+  exchangeRate    Decimal?      @map("exchange_rate") @db.Decimal(10, 4)
+  eventDate       DateTime      @map("event_date") @db.Date
+  performedBy     String?       @map("performed_by")
+  relatedOrderId  String?       @map("related_order_id")
+  notes           String?
+
+  createdBy       String        @map("created_by")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+
+  @@index([inventoryItemId])
+  @@index([type])
+  @@map("asset_cost_events")
+  @@schema("equipment")
+}
+
+// ─── Phase 4: 지출결의서 후속처리 ─────────────
+
+enum ExpenseFollowUpStatus {
+  FINANCE_RECEIVED
+  INVENTORY_DECIDED
+  ARRIVED
+  COMPLETED
+
+  @@schema("equipment")
+}
+
+model ExpenseFollowUp {
+  id                    String                @id @default(cuid())
+  approvalDocumentId    String                @unique @map("approval_document_id")
+  status                ExpenseFollowUpStatus @default(FINANCE_RECEIVED)
+
+  receivedBy            String?               @map("received_by")
+  receivedAt            DateTime?             @map("received_at")
+
+  isInventoryTarget     Boolean?              @map("is_inventory_target")
+  inventoryDecisionBy   String?               @map("inventory_decision_by")
+  inventoryDecisionAt   DateTime?             @map("inventory_decision_at")
+  inventoryDecisionNote String?               @map("inventory_decision_note")
+
+  arrivalDate           DateTime?             @map("arrival_date") @db.Date
+  arrivalLocation       String?               @map("arrival_location")
+  confirmedBy           String?               @map("confirmed_by")
+
+  inventoryItemId       String?               @map("inventory_item_id")
+
+  notes                 String?
+  createdAt             DateTime              @default(now()) @map("created_at")
+  updatedAt             DateTime              @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("expense_follow_ups")
+  @@schema("equipment")
+}
+
+// ─── Phase 5: 수입원가정산 ────────────────────
+
+enum CostDutyType {
+  TARIFF
+  OVERSEAS_FREIGHT
+  DOMESTIC_FREIGHT
+  CUSTOMS_FEE
+  WAREHOUSE_FEE
+  HANDLING_FEE
+
+  @@schema("equipment")
+}
+
+model ImportCostSettlement {
+  id                String   @id @default(cuid())
+  orderId           String?  @map("order_id")
+  declarationNo     String   @unique @map("declaration_no")
+  supplier          String
+  declarationDate   DateTime @map("declaration_date") @db.Date
+  currency          String   @default("USD")
+
+  totalImportCost   Decimal  @map("total_import_cost") @db.Decimal(14, 0)
+  totalExtraCost    Decimal  @default(0) @map("total_extra_cost") @db.Decimal(14, 0)
+  supplyAmount      Decimal  @map("supply_amount") @db.Decimal(14, 0)
+  vat               Decimal  @db.Decimal(14, 0)
+  saleInfo          String?  @map("sale_info")
+
+  notes             String?
+  createdBy         String   @map("created_by")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  order             OverseasOrder? @relation(fields: [orderId], references: [id])
+  remittances       CostRemittance[]
+  duties            CostDuty[]
+  extras            CostExtra[]
+  items             CostItem[]
+
+  @@index([orderId])
+  @@map("import_cost_settlements")
+  @@schema("equipment")
+}
+
+model CostRemittance {
+  id              String   @id @default(cuid())
+  settlementId    String   @map("settlement_id")
+  remittanceDate  DateTime @map("remittance_date") @db.Date
+  foreignAmount   Decimal  @map("foreign_amount") @db.Decimal(12, 2)
+  exchangeRate    Decimal  @map("exchange_rate") @db.Decimal(10, 4)
+  krwAmount       Decimal  @map("krw_amount") @db.Decimal(14, 0)
+  invoiceNo       String?  @map("invoice_no")
+  notes           String?
+
+  settlement      ImportCostSettlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+
+  @@index([settlementId])
+  @@map("cost_remittances")
+  @@schema("equipment")
+}
+
+model CostDuty {
+  id            String       @id @default(cuid())
+  settlementId  String       @map("settlement_id")
+  type          CostDutyType
+  amount        Decimal      @db.Decimal(14, 0)
+  vat           Decimal      @default(0) @db.Decimal(14, 0)
+  awbNo         String?      @map("awb_no")
+  notes         String?
+
+  settlement    ImportCostSettlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+
+  @@index([settlementId])
+  @@map("cost_duties")
+  @@schema("equipment")
+}
+
+model CostExtra {
+  id            String   @id @default(cuid())
+  settlementId  String   @map("settlement_id")
+  targetItemId  String?  @map("target_item_id")
+  name          String
+  amount        Decimal  @db.Decimal(14, 0)
+  notes         String?
+
+  settlement    ImportCostSettlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  targetItem    OverseasOrderItem?  @relation(fields: [targetItemId], references: [id])
+
+  @@index([settlementId])
+  @@map("cost_extras")
+  @@schema("equipment")
+}
+
+model CostItem {
+  id                String  @id @default(cuid())
+  settlementId      String  @map("settlement_id")
+  inventoryNo       String? @map("inventory_no")
+  name              String
+  quantity          Int
+  foreignUnitPrice  Decimal? @map("foreign_unit_price") @db.Decimal(12, 2)
+  foreignAmount     Decimal? @map("foreign_amount") @db.Decimal(12, 2)
+  unitPrice         Decimal @map("unit_price") @db.Decimal(14, 4)
+  amount            Decimal @db.Decimal(14, 4)
+  adjustedUnitPrice Decimal? @map("adjusted_unit_price") @db.Decimal(14, 4)
+
+  settlement        ImportCostSettlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+
+  @@index([settlementId])
+  @@map("cost_items")
+  @@schema("equipment")
+}
+
+// ─── Phase 7: 재고 실사 ───────────────────────
+
+enum AuditStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+
+  @@schema("equipment")
+}
+
+enum AuditItemStatus {
+  PENDING
+  MATCHED
+  MISMATCHED
+  MISSING
+
+  @@schema("equipment")
+}
+
+model InventoryAudit {
+  id           String      @id @default(cuid())
+  name         String
+  status       AuditStatus @default(PLANNED)
+  plannedDate  DateTime    @map("planned_date") @db.Date
+  startedAt    DateTime?   @map("started_at")
+  completedAt  DateTime?   @map("completed_at")
+  notes        String?
+
+  createdBy    String      @map("created_by")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  items        InventoryAuditItem[]
+
+  @@map("inventory_audits")
+  @@schema("equipment")
+}
+
+model InventoryAuditItem {
+  id              String          @id @default(cuid())
+  auditId         String          @map("audit_id")
+  inventoryItemId String          @map("inventory_item_id")
+  systemQuantity  Int             @map("system_quantity")
+  systemLocation  String?         @map("system_location")
+  actualQuantity  Int?            @map("actual_quantity")
+  actualLocation  String?         @map("actual_location")
+  status          AuditItemStatus @default(PENDING)
+  checkedBy       String?         @map("checked_by")
+  checkedAt       DateTime?       @map("checked_at")
+  photoPath       String?         @map("photo_path")
+  notes           String?
+
+  audit           InventoryAudit  @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  inventoryItem   InventoryItem   @relation(fields: [inventoryItemId], references: [id])
+
+  @@index([auditId])
+  @@map("inventory_audit_items")
   @@schema("equipment")
 }

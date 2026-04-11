@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { repairApi } from "@/lib/api";
+import { repairApi, supplierApi } from "@/lib/api";
+import SearchableSelect from "@/components/SearchableSelect";
 
 export default function PartsPage() {
   const [parts, setParts] = useState<any[]>([]);
@@ -151,8 +152,17 @@ export default function PartsPage() {
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">제조사</label>
-              <input value={form.manufacturer} onChange={(e) => setForm({ ...form, manufacturer: e.target.value })}
-                className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm" />
+              <SearchableSelect
+                value={form.manufacturer}
+                onChange={(v) => setForm({ ...form, manufacturer: v })}
+                placeholder="제조사 검색..."
+                allowCustom
+                className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                loadOptions={async (q) => {
+                  const res = await supplierApi.list({ search: q, limit: 20 });
+                  return (res.items || []).map((s: any) => ({ id: s.id, name: s.name, sub: s.country || undefined }));
+                }}
+              />
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">카테고리</label>

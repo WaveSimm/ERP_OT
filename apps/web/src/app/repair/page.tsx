@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { repairApi } from "@/lib/api";
+import { repairApi, getUser } from "@/lib/api";
+import SearchableSelect from "@/components/SearchableSelect";
+import FilterableSelect from "@/components/FilterableSelect";
 
 const STATUS_LABELS: Record<string, string> = {
   RECEIVED: "접수", INSPECTING_1ST: "1차점검", QUOTED: "견적발행",
@@ -139,8 +141,8 @@ export default function RepairOrdersPage() {
                 <tr><td colSpan={11} className="text-center py-8 text-gray-400">AS 접수 내역이 없습니다.</td></tr>
               )}
               {!loading && orders.map((o) => {
-                const assetName = o.customerAsset?.name || o.equipment?.name || o.sensor?.name || "-";
-                const serialNumber = o.customerAsset?.serialNumber || o.equipment?.serialNumber || o.sensor?.serialNumber || "-";
+                const assetName = o.customerAsset?.name || o.equipment?.name || o.sensor?.name || o.productName || "-";
+                const serialNumber = o.customerAsset?.serialNumber || o.equipment?.serialNumber || o.sensor?.serialNumber || o.productSerial || "-";
                 return (
                   <tr key={o.id} onClick={() => router.push(`/repair/${o.id}`)}
                     className="border-t border-gray-100 hover:bg-blue-50/50 cursor-pointer">
@@ -209,21 +211,17 @@ function RepairOrderForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
     symptom: "",
     currentLocation: "",
     isWarranty: false,
-    receivedBy: "",
+    receivedBy: getUser()?.name || "",
     notes: "",
   });
-  const [customers, setCustomers] = useState<any[]>([]);
+  const [customerName, setCustomerName] = useState("");
   const [assets, setAssets] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    repairApi.getCustomers({ limit: 200 }).then((r) => setCustomers(r.items)).catch(() => {});
-  }, []);
-
-  useEffect(() => {
     if (form.customerId) {
-      repairApi.getCustomerAssets({ customerId: form.customerId }).then((r) => setAssets(r.items)).catch(() => {});
+      repairApi.getCustomerAssets({ customerId: form.customerId, limit: 500 }).then((r) => setAssets(r.items)).catch(() => {});
     } else {
       setAssets([]);
     }
@@ -280,24 +278,51 @@ function RepairOrderForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
           {/* 고객 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">고객</label>
-            <select value={form.customerId} onChange={(e) => setForm((f) => ({ ...f, customerId: e.target.value, customerAssetId: "" }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-              <option value="">자사 장비 (고객 없음)</option>
-              {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <SearchableSelect
+                  value={customerName}
+                  onChange={(v) => {
+                    if (!v) {
+                      setCustomerName("");
+                      setForm((f) => ({ ...f, customerId: "", customerAssetId: "" }));
+                    }
+                  }}
+                  onSelect={(opt) => {
+                    if (opt) {
+                      setCustomerName(opt.name);
+                      setForm((f) => ({ ...f, customerId: opt.id, customerAssetId: "" }));
+                    }
+                  }}
+                  placeholder="고객 검색... (비우면 자사 장비)"
+                  loadOptions={async (q) => {
+                    const res = await repairApi.getCustomers({ search: q, limit: 20 });
+                    return (res.items || res).map((c: any) => ({ id: c.id, name: c.name, sub: c.businessNo || undefined }));
+                  }}
+                />
+              </div>
+              {form.customerId && (
+                <button type="button" onClick={() => { setCustomerName(""); setForm((f) => ({ ...f, customerId: "", customerAssetId: "" })); }}
+                  className="px-2 text-gray-400 hover:text-red-500 text-sm">✕</button>
+              )}
+            </div>
+            {!form.customerId && <p className="text-xs text-gray-400 mt-1">자사 장비 (고객 없음)</p>}
           </div>
 
           {/* 고객 자산 */}
           {form.customerId && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">고객 장비/센서</label>
-              <select value={form.customerAssetId} onChange={(e) => setForm((f) => ({ ...f, customerAssetId: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                <option value="">선택...</option>
-                {assets.map((a) => (
-                  <option key={a.id} value={a.id}>{a.name} {a.serialNumber ? `(${a.serialNumber})` : ""} - {a.manufacturer || ""}</option>
-                ))}
-              </select>
+              <FilterableSelect
+                value={form.customerAssetId}
+                onChange={(v) => setForm((f) => ({ ...f, customerAssetId: v }))}
+                options={assets.map((a: any) => ({
+                  value: a.id,
+                  label: `${a.name} ${a.serialNumber ? `(${a.serialNumber})` : ""}`,
+                  sub: a.manufacturer || undefined,
+                }))}
+                placeholder="장비 선택..."
+              />
             </div>
           )}
 

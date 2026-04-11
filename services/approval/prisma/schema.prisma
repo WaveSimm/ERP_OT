@@ -1,0 +1,190 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["approval"]
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────
+
+enum TemplateCategory {
+  GENERAL
+  PROCUREMENT
+  ATTENDANCE
+  HR
+  WELFARE
+
+  @@schema("approval")
+}
+
+enum ApprovalLineRule {
+  DEPARTMENT_LINE
+  FIXED
+  AMOUNT_BASED
+
+  @@schema("approval")
+}
+
+enum PostApprovalAction {
+  FINANCE_FORWARD
+  ORDER_CONFIRM
+  INVENTORY_RELEASE
+  LEAVE_APPROVE
+  OT_APPROVE
+
+  @@schema("approval")
+}
+
+enum ApprovalDocumentStatus {
+  DRAFT
+  AGREEMENT_PENDING
+  SUBMITTED
+  STEP_1_PENDING
+  STEP_2_PENDING
+  STEP_3_PENDING
+  APPROVED
+  REJECTED
+  RETURNED
+
+  @@schema("approval")
+}
+
+enum ApprovalStepStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SKIPPED
+
+  @@schema("approval")
+}
+
+enum AttachmentReferenceType {
+  APPROVAL_DOCUMENT
+  SETTLEMENT
+  ORDER
+  INVENTORY
+
+  @@schema("approval")
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────
+
+model ApprovalTemplate {
+  id                       String              @id @default(cuid())
+  code                     String              @unique
+  name                     String
+  category                 TemplateCategory
+  description              String?
+  fields                   Json                // [{key,label,type,required,options?}]
+  itemsTableConfig         Json?               @map("items_table_config")
+  defaultBody              String?             @map("default_body")
+  footer                   String?
+
+  defaultApprovalLineRule  ApprovalLineRule    @default(DEPARTMENT_LINE) @map("default_approval_line_rule")
+  postApprovalAction       PostApprovalAction? @map("post_approval_action")
+  relatedService           String?             @map("related_service")
+
+  isActive                 Boolean             @default(true) @map("is_active")
+  sortOrder                Int                 @default(0) @map("sort_order")
+  createdAt                DateTime            @default(now()) @map("created_at")
+  updatedAt                DateTime            @updatedAt @map("updated_at")
+
+  documents                ApprovalDocument[]
+
+  @@map("approval_templates")
+  @@schema("approval")
+}
+
+model ApprovalDocument {
+  id                  String                  @id @default(cuid())
+  documentNumber      String                  @unique @map("document_number")
+  templateId          String                  @map("template_id")
+  title               String
+  requestedBy         String                  @map("requested_by")
+  requesterName       String?                 @map("requester_name")
+  department          String
+
+  approvalStepCount   Int                     @map("approval_step_count")
+  status              ApprovalDocumentStatus  @default(DRAFT)
+
+  content             Json?
+  richBody            String?                 @map("rich_body")
+  itemsData           Json?                   @map("items_data")
+  itemsTotal          Decimal?                @map("items_total") @db.Decimal(14, 0)
+  amount              Decimal?                @db.Decimal(14, 0)
+
+  referenceType       String?                 @map("reference_type")
+  referenceId         String?                 @map("reference_id")
+
+  ccUsers             String[]                @map("cc_users")
+  agreementUsers      String[]                @map("agreement_users")
+  referenceDepts      String[]                @map("reference_depts")
+  referencePersons    String[]                @map("reference_persons")
+
+  notes               String?
+  templateFooter      String?                 @map("template_footer")
+  pdfGeneratedAt      DateTime?               @map("pdf_generated_at")
+
+  submittedAt         DateTime?               @map("submitted_at")
+  completedAt         DateTime?               @map("completed_at")
+  forwardedAt         DateTime?               @map("forwarded_at")
+  createdAt           DateTime                @default(now()) @map("created_at")
+  updatedAt           DateTime                @updatedAt @map("updated_at")
+
+  template            ApprovalTemplate        @relation(fields: [templateId], references: [id])
+  steps               ApprovalStep[]
+  attachments         Attachment[]
+
+  @@index([requestedBy])
+  @@index([status])
+  @@index([templateId])
+  @@index([referenceType, referenceId])
+  @@map("approval_documents")
+  @@schema("approval")
+}
+
+model ApprovalStep {
+  id            String             @id @default(cuid())
+  documentId    String             @map("document_id")
+  stepOrder     Int                @map("step_order")
+  roleName      String             @map("role_name")
+  approverId    String             @map("approver_id")
+  approverName  String             @map("approver_name")
+  status        ApprovalStepStatus @default(PENDING)
+  comment       String?
+  actedAt       DateTime?          @map("acted_at")
+  createdAt     DateTime           @default(now()) @map("created_at")
+
+  document      ApprovalDocument   @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([approverId, status])
+  @@map("approval_steps")
+  @@schema("approval")
+}
+
+model Attachment {
+  id              String                   @id @default(cuid())
+  documentId      String?                  @map("document_id")
+  referenceType   AttachmentReferenceType?  @map("reference_type")
+  referenceId     String?                  @map("reference_id")
+  fileName        String                   @map("file_name")
+  storagePath     String                   @map("storage_path")
+  fileSize        Int                      @map("file_size")
+  mimeType        String                   @map("mime_type")
+  isScanned       Boolean                  @default(false) @map("is_scanned")
+  uploadedBy      String                   @map("uploaded_by")
+  createdAt       DateTime                 @default(now()) @map("created_at")
+
+  document        ApprovalDocument?        @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([referenceType, referenceId])
+  @@map("attachments")
+  @@schema("approval")
+}
+

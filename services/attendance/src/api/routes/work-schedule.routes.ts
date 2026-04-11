@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { requireRole } from "../middleware/auth.middleware.js";
 
 export async function workScheduleRoutes(fastify: FastifyInstance) {
   const svc = fastify.workScheduleService;
@@ -14,7 +15,9 @@ export async function workScheduleRoutes(fastify: FastifyInstance) {
   });
 
   // POST /api/v1/work-schedule
-  fastify.post("/", async (req, reply) => {
+  fastify.post("/", {
+    preHandler: requireRole("ADMIN", "MANAGER"),
+  }, async (req, reply) => {
     const body = z.object({
       date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       entryType: z.enum(["WORK", "FIELD", "TRAINING", "BUSINESS_TRIP"]),
@@ -35,7 +38,9 @@ export async function workScheduleRoutes(fastify: FastifyInstance) {
   });
 
   // PATCH /api/v1/work-schedule/:id
-  fastify.patch("/:id", async (req, reply) => {
+  fastify.patch("/:id", {
+    preHandler: requireRole("ADMIN", "MANAGER"),
+  }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = z.object({
       entryType: z.enum(["WORK", "FIELD", "TRAINING", "BUSINESS_TRIP"]).optional(),
@@ -53,14 +58,18 @@ export async function workScheduleRoutes(fastify: FastifyInstance) {
   });
 
   // DELETE /api/v1/work-schedule/:id
-  fastify.delete("/:id", async (req, reply) => {
+  fastify.delete("/:id", {
+    preHandler: requireRole("ADMIN", "MANAGER"),
+  }, async (req, reply) => {
     const { id } = req.params as { id: string };
     await svc.deleteEntry(id, req.userId);
     return reply.status(204).send();
   });
 
   // PATCH /api/v1/work-schedule/group/:groupId
-  fastify.patch("/group/:groupId", async (req, reply) => {
+  fastify.patch("/group/:groupId", {
+    preHandler: requireRole("ADMIN", "MANAGER"),
+  }, async (req, reply) => {
     const { groupId } = req.params as { groupId: string };
     const body = z.object({
       entryType: z.enum(["WORK", "FIELD", "TRAINING", "BUSINESS_TRIP"]).optional(),
@@ -78,7 +87,9 @@ export async function workScheduleRoutes(fastify: FastifyInstance) {
   });
 
   // DELETE /api/v1/work-schedule/group/:groupId
-  fastify.delete("/group/:groupId", async (req, reply) => {
+  fastify.delete("/group/:groupId", {
+    preHandler: requireRole("ADMIN", "MANAGER"),
+  }, async (req, reply) => {
     const { groupId } = req.params as { groupId: string };
     const result = await svc.deleteGroup(groupId, req.userId);
     return reply.send(result);

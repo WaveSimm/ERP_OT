@@ -35,27 +35,52 @@ export class RepairStatsService {
   }
 
   async byEquipment() {
-    const result = await this.prisma.repairOrder.groupBy({
+    // FK 연결된 장비 통계
+    const fkResult = await this.prisma.repairOrder.groupBy({
       by: ["customerAssetId"],
       _count: { id: true },
       orderBy: { _count: { id: "desc" } },
       take: 20,
     });
 
-    const assetIds = result.filter((r) => r.customerAssetId).map((r) => r.customerAssetId!);
+    const assetIds = fkResult.filter((r) => r.customerAssetId).map((r) => r.customerAssetId!);
     const assets = await this.prisma.customerAsset.findMany({
       where: { id: { in: assetIds } },
       select: { id: true, name: true, serialNumber: true },
     });
     const assetMap = new Map(assets.map((a) => [a.id, a]));
 
-    return result
+    const fkItems = fkResult
       .filter((r) => r.customerAssetId)
       .map((r) => ({
         assetId: r.customerAssetId,
         asset: assetMap.get(r.customerAssetId!) || null,
         count: r._count.id,
       }));
+
+    // productName 필드로 집계 (FK 미연결 데이터)
+    if (fkItems.length >= 10) return fkItems;
+
+    const orders = await this.prisma.repairOrder.findMany({
+      where: { customerAssetId: null, productName: { not: null } },
+      select: { productName: true },
+    });
+    const productCounts: Record<string, number> = {};
+    for (const o of orders) {
+      if (o.productName) {
+        productCounts[o.productName] = (productCounts[o.productName] || 0) + 1;
+      }
+    }
+    const noteItems = Object.entries(productCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 20)
+      .map(([name, count]) => ({
+        assetId: null,
+        asset: { id: name, name, serialNumber: null },
+        count,
+      }));
+
+    return [...fkItems, ...noteItems].sort((a, b) => b.count - a.count).slice(0, 20);
   }
 
   async monthly(months = 12) {
@@ -87,6 +112,64 @@ export class RepairStatsService {
     }
 
     return Object.entries(result).map(([month, data]) => ({ month, ...data }));
+  }
+
+  async yearly() {
+    const orders = await this.prisma.repairOrder.findMany({
+      select: { receivedAt: true, completedAt: true },
+    });
+
+    const result: Record<string, { received: number; completed: number }> = {};
+    for (const o of orders) {
+      const yr = String(o.receivedAt.getFullYear());
+      if (!result[yr]) result[yr] = { received: 0, completed: 0 };
+      result[yr].received++;
+      if (o.completedAt) {
+        const cyr = String(o.completedAt.getFullYear());
+        if (!result[cyr]) result[cyr] = { received: 0, completed: 0 };
+        result[cyr].completed++;
+      }
+    }
+
+    return Object.entries(result)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([year, data]) => ({ year, ...data }));
+  }
+
+  async byCustomer() {
+    const orders = await this.prisma.repairOrder.findMany({
+      select: { customerId: true, customer: { select: { name: true } } },
+    });
+
+    const counts: Record<string, { name: string; count: number }> = {};
+    for (const o of orders) {
+      const cid = o.customerId;
+      if (!cid) continue;
+      if (!counts[cid]) {
+        counts[cid] = { name: o.customer?.name || "알 수 없음", count: 0 };
+      }
+      counts[cid].count++;
+    }
+
+    return Object.values(counts).sort((a, b) => b.count - a.count).slice(0, 20);
+  }
+
+  async byHandler() {
+    const orders = await this.prisma.repairOrder.findMany({
+      select: { assigneeName: true, status: true },
+    });
+
+    const counts: Record<string, { total: number; completed: number }> = {};
+    for (const o of orders) {
+      const name = o.assigneeName || "미배정";
+      if (!counts[name]) counts[name] = { total: 0, completed: 0 };
+      counts[name].total++;
+      if (o.status === "COMPLETED" || o.status === "CLOSED") counts[name].completed++;
+    }
+
+    return Object.entries(counts)
+      .sort(([, a], [, b]) => b.total - a.total)
+      .map(([name, data]) => ({ name, ...data }));
   }
 
   async costs() {

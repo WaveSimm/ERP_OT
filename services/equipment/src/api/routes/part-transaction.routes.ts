@@ -1,4 +1,5 @@
 import { FastifyInstance } from "fastify";
+import { requireRole } from "../middleware/auth.middleware.js";
 
 export async function partTransactionRoutes(fastify: FastifyInstance) {
   fastify.get("/", async (request) => {
@@ -11,7 +12,7 @@ export async function partTransactionRoutes(fastify: FastifyInstance) {
     });
   });
 
-  fastify.post("/", async (request, reply) => {
+  fastify.post("/", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request, reply) => {
     const result = await fastify.partService.createTransaction(request.body as any);
     return reply.status(201).send(result);
   });

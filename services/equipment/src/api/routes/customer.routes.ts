@@ -1,4 +1,5 @@
 import { FastifyInstance } from "fastify";
+import { requireRole } from "../middleware/auth.middleware.js";
 
 export async function customerRoutes(fastify: FastifyInstance) {
   // 목록
@@ -18,19 +19,19 @@ export async function customerRoutes(fastify: FastifyInstance) {
   });
 
   // 생성
-  fastify.post("/", async (request, reply) => {
+  fastify.post("/", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request, reply) => {
     const result = await fastify.customerService.create(request.body as any);
     return reply.status(201).send(result);
   });
 
   // 수정
-  fastify.patch("/:id", async (request) => {
+  fastify.patch("/:id", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
     const { id } = request.params as any;
     return fastify.customerService.update(id, request.body as any);
   });
 
   // 삭제
-  fastify.delete("/:id", async (request, reply) => {
+  fastify.delete("/:id", { preHandler: [requireRole("ADMIN")] }, async (request, reply) => {
     await fastify.customerService.remove((request.params as any).id);
     return reply.status(204).send();
   });
@@ -44,20 +45,20 @@ export async function customerRoutes(fastify: FastifyInstance) {
   });
 
   // 담당자 추가
-  fastify.post("/:id/contacts", async (request, reply) => {
+  fastify.post("/:id/contacts", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request, reply) => {
     const { id } = request.params as any;
     const result = await fastify.customerService.createContact(id, request.body as any);
     return reply.status(201).send(result);
   });
 
   // 담당자 수정
-  fastify.patch("/contacts/:contactId", async (request) => {
+  fastify.patch("/contacts/:contactId", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
     const { contactId } = request.params as any;
     return fastify.customerService.updateContact(contactId, request.body as any);
   });
 
   // 담당자 삭제
-  fastify.delete("/contacts/:contactId", async (request, reply) => {
+  fastify.delete("/contacts/:contactId", { preHandler: [requireRole("ADMIN")] }, async (request, reply) => {
     await fastify.customerService.removeContact((request.params as any).contactId);
     return reply.status(204).send();
   });

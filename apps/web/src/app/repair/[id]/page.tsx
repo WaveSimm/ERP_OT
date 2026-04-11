@@ -110,8 +110,8 @@ export default function RepairOrderDetailPage() {
   if (loading) return <div className="py-12 text-center text-gray-400">불러오는 중...</div>;
   if (!order) return <div className="py-12 text-center text-gray-400">AS 접수를 찾을 수 없습니다.</div>;
 
-  const assetName = order.customerAsset?.name || order.equipment?.name || order.sensor?.name || "-";
-  const serialNumber = order.customerAsset?.serialNumber || order.equipment?.serialNumber || order.sensor?.serialNumber || "";
+  const assetName = order.customerAsset?.name || order.equipment?.name || order.sensor?.name || order.productName || "-";
+  const serialNumber = order.customerAsset?.serialNumber || order.equipment?.serialNumber || order.sensor?.serialNumber || order.productSerial || "";
 
   return (
     <div>
@@ -271,9 +271,9 @@ function InfoTab({ order, onReload }: { order: any; onReload: () => Promise<void
   };
 
   const assetDisplay =
-    (order.customerAsset?.name || order.equipment?.name || order.sensor?.name || "-") +
-    (order.customerAsset?.manufacturer ? ` (${order.customerAsset.manufacturer})` : "");
-  const serialDisplay = order.customerAsset?.serialNumber || order.equipment?.serialNumber || order.sensor?.serialNumber || "-";
+    (order.customerAsset?.name || order.equipment?.name || order.sensor?.name || order.productName || "-") +
+    (order.customerAsset?.manufacturer ? ` (${order.customerAsset.manufacturer})` : order.productMaker ? ` (${order.productMaker})` : "");
+  const serialDisplay = order.customerAsset?.serialNumber || order.equipment?.serialNumber || order.sensor?.serialNumber || order.productSerial || "-";
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-5 space-y-4">

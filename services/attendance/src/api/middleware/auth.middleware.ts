@@ -15,7 +15,7 @@ export const authMiddleware = fp(async (fastify: FastifyInstance) => {
   fastify.decorateRequest("userRole", "VIEWER");
 
   fastify.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
-    if (request.url === "/health") return;
+    if (request.url === "/health" || request.url.startsWith("/internal/")) return;
     try {
       await request.jwtVerify();
       const payload = request.user as { sub: string; email: string; role: string };

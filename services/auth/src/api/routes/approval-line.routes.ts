@@ -2,7 +2,7 @@ import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { ApprovalLineService } from "../../application/approval-line.service.js";
 import { AuthService } from "../../application/auth.service.js";
-import { createAuthHook } from "../middleware/auth.middleware.js";
+import { createAuthHook, requireRole } from "../middleware/auth.middleware.js";
 import { publishActivity } from "../../infrastructure/event-publisher";
 
 export async function approvalLineRoutes(
@@ -11,6 +11,7 @@ export async function approvalLineRoutes(
 ) {
   const svc = opts.approvalLineService;
   const authenticate = createAuthHook(opts.authService);
+  const adminOnly = requireRole("ADMIN");
 
   // GET /api/v1/approval-lines/me — 내 결재자 조회 (이름 포함)
   fastify.get("/me", { preHandler: [authenticate] }, async (req, reply) => {
@@ -33,7 +34,7 @@ export async function approvalLineRoutes(
   });
 
   // POST /api/v1/approval-lines (upsert)
-  fastify.post("/", async (req, reply) => {
+  fastify.post("/", { preHandler: [authenticate, adminOnly] }, async (req, reply) => {
     const body = z.object({
       userId: z.string(),
       approverId: z.string(),
@@ -53,7 +54,7 @@ export async function approvalLineRoutes(
     const line = await svc.upsert(upsertData);
     publishActivity({
       action: "approval.updated",
-      userId: (req as any).userId ?? "system",
+      userId: req.userId,
       entityType: "approval_line",
       entityId: body.userId,
       description: `결재라인 설정: ${body.userId}`,
@@ -62,12 +63,12 @@ export async function approvalLineRoutes(
   });
 
   // DELETE /api/v1/approval-lines/:userId
-  fastify.delete("/:userId", async (req, reply) => {
+  fastify.delete("/:userId", { preHandler: [authenticate, adminOnly] }, async (req, reply) => {
     const { userId } = req.params as { userId: string };
     await svc.remove(userId);
     publishActivity({
       action: "approval.deleted",
-      userId: (req as any).userId ?? "system",
+      userId: req.userId,
       entityType: "approval_line",
       entityId: userId,
       description: `결재라인 삭제: ${userId}`,
@@ -76,12 +77,12 @@ export async function approvalLineRoutes(
   });
 
   // POST /api/v1/approval-lines/bulk-by-department
-  fastify.post("/bulk-by-department", async (req, reply) => {
+  fastify.post("/bulk-by-department", { preHandler: [authenticate, adminOnly] }, async (req, reply) => {
     const body = z.object({ departmentId: z.string() }).parse(req.body);
     await svc.bulkSetByDepartment(body.departmentId);
     publishActivity({
       action: "approval.bulk_set",
-      userId: (req as any).userId ?? "system",
+      userId: req.userId,
       entityType: "approval_line",
       entityId: body.departmentId,
       description: `결재라인 부서별 일괄 설정: ${body.departmentId}`,
@@ -90,11 +91,11 @@ export async function approvalLineRoutes(
   });
 
   // POST /api/v1/approval-lines/bulk-all (전사 일괄 설정)
-  fastify.post("/bulk-all", async (req, reply) => {
+  fastify.post("/bulk-all", { preHandler: [authenticate, adminOnly] }, async (req, reply) => {
     await svc.bulkSetAll();
     publishActivity({
       action: "approval.bulk_set",
-      userId: (req as any).userId ?? "system",
+      userId: req.userId,
       entityType: "approval_line",
       entityId: "all",
       description: "결재라인 전사 일괄 설정",

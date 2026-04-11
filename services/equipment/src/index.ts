@@ -32,6 +32,10 @@ import { PartService } from "./application/part.service.js";
 import { PurchaseOrderService } from "./application/purchase-order.service.js";
 import { ShipmentService } from "./application/shipment.service.js";
 import { RepairStatsService } from "./application/repair-stats.service.js";
+import { ProductMasterService } from "./application/product-master.service.js";
+import { ContractService } from "./application/contract.service.js";
+import { OverseasOrderService } from "./application/overseas-order.service.js";
+import { OrderProgressService } from "./application/order-progress.service.js";
 import { statsRoutes } from "./api/routes/stats.routes.js";
 import { templateRoutes } from "./api/routes/template.routes.js";
 import { customerRoutes } from "./api/routes/customer.routes.js";
@@ -45,6 +49,21 @@ import { partTransactionRoutes } from "./api/routes/part-transaction.routes.js";
 import { purchaseOrderRoutes } from "./api/routes/purchase-order.routes.js";
 import { shipmentRoutes as shipmentMgmtRoutes } from "./api/routes/shipment.routes.js";
 import { repairStatsRoutes } from "./api/routes/repair-stats.routes.js";
+import { productMasterRoutes, contractRoutes, overseasOrderRoutes, internalOrderRoutes } from "./api/routes/procurement.routes.js";
+import { inventoryRoutes, inventoryTransactionRoutes, assetCostRoutes } from "./api/routes/inventory.routes.js";
+import { InventoryService } from "./application/inventory.service.js";
+import { InventoryTransactionService } from "./application/inventory-transaction.service.js";
+import { AssetCostService } from "./application/asset-cost.service.js";
+import { ExpenseFollowUpService } from "./application/expense-followup.service.js";
+import { ImportCostService } from "./application/import-cost.service.js";
+import { InventoryAuditService } from "./application/inventory-audit.service.js";
+import { expenseFollowUpRoutes, internalExpenseRoutes } from "./api/routes/expense-followup.routes.js";
+import { importCostRoutes } from "./api/routes/import-cost.routes.js";
+import { inventoryAuditRoutes } from "./api/routes/inventory-audit.routes.js";
+import { SupplierService } from "./application/supplier.service.js";
+import { supplierRoutes } from "./api/routes/supplier.routes.js";
+import { StorageLocationService } from "./application/storage-location.service.js";
+import { storageLocationRoutes } from "./api/routes/storage-location.routes.js";
 
 // ─── Env 검증 ──────────────────────────────────────────────────────────────
 const envSchema = z.object({
@@ -85,6 +104,18 @@ const partService = new PartService(prisma);
 const purchaseOrderService = new PurchaseOrderService(prisma);
 const shipmentService = new ShipmentService(prisma);
 const repairStatsService = new RepairStatsService(prisma);
+const productMasterService = new ProductMasterService(prisma);
+const contractService = new ContractService(prisma);
+const overseasOrderService = new OverseasOrderService(prisma);
+const orderProgressService = new OrderProgressService(prisma);
+const inventoryService = new InventoryService(prisma);
+const inventoryTransactionService = new InventoryTransactionService(prisma);
+const assetCostService = new AssetCostService(prisma);
+const expenseFollowUpService = new ExpenseFollowUpService(prisma);
+const importCostService = new ImportCostService(prisma);
+const inventoryAuditService = new InventoryAuditService(prisma);
+const supplierService = new SupplierService(prisma);
+const storageLocationService = new StorageLocationService(prisma);
 
 // ─── Type declarations ─────────────────────────────────────────────────────
 declare module "fastify" {
@@ -108,6 +139,18 @@ declare module "fastify" {
     purchaseOrderService: PurchaseOrderService;
     shipmentService: ShipmentService;
     repairStatsService: RepairStatsService;
+    productMasterService: ProductMasterService;
+    contractService: ContractService;
+    overseasOrderService: OverseasOrderService;
+    orderProgressService: OrderProgressService;
+    inventoryService: InventoryService;
+    inventoryTransactionService: InventoryTransactionService;
+    assetCostService: AssetCostService;
+    expenseFollowUpService: ExpenseFollowUpService;
+    importCostService: ImportCostService;
+    inventoryAuditService: InventoryAuditService;
+    supplierService: SupplierService;
+    storageLocationService: StorageLocationService;
     prisma: PrismaClient;
   }
 }
@@ -138,6 +181,18 @@ async function buildApp() {
   app.decorate("purchaseOrderService", purchaseOrderService);
   app.decorate("shipmentService", shipmentService);
   app.decorate("repairStatsService", repairStatsService);
+  app.decorate("productMasterService", productMasterService);
+  app.decorate("contractService", contractService);
+  app.decorate("overseasOrderService", overseasOrderService);
+  app.decorate("orderProgressService", orderProgressService);
+  app.decorate("inventoryService", inventoryService);
+  app.decorate("inventoryTransactionService", inventoryTransactionService);
+  app.decorate("assetCostService", assetCostService);
+  app.decorate("expenseFollowUpService", expenseFollowUpService);
+  app.decorate("importCostService", importCostService);
+  app.decorate("inventoryAuditService", inventoryAuditService);
+  app.decorate("supplierService", supplierService);
+  app.decorate("storageLocationService", storageLocationService);
   app.decorate("prisma", prisma);
 
   await app.register(authMiddleware);
@@ -183,6 +238,31 @@ async function buildApp() {
   app.register(purchaseOrderRoutes, { prefix: "/api/v1/purchase-orders" });
   app.register(shipmentMgmtRoutes, { prefix: "/api/v1/shipments" });
   app.register(repairStatsRoutes, { prefix: "/api/v1/repair-stats" });
+
+  // 구매 관리
+  app.register(productMasterRoutes, { prefix: "/api/v1/procurement/products" });
+  app.register(contractRoutes, { prefix: "/api/v1/procurement/contracts" });
+  app.register(supplierRoutes, { prefix: "/api/v1/suppliers" });
+  app.register(overseasOrderRoutes, { prefix: "/api/v1/procurement/orders" });
+  app.register(internalOrderRoutes);
+
+  // 재고 관리
+  app.register(inventoryRoutes, { prefix: "/api/v1/inventory/items" });
+  app.register(inventoryTransactionRoutes, { prefix: "/api/v1/inventory/transactions" });
+  app.register(assetCostRoutes, { prefix: "/api/v1/inventory/costs" });
+
+  // 지출결의 후속처리
+  app.register(expenseFollowUpRoutes, { prefix: "/api/v1/procurement/expenses" });
+  app.register(internalExpenseRoutes);
+
+  // 수입원가정산
+  app.register(importCostRoutes, { prefix: "/api/v1/procurement/settlements" });
+
+  // 재고 실사
+  app.register(inventoryAuditRoutes, { prefix: "/api/v1/inventory/audits" });
+
+  // 보관위치 관리
+  app.register(storageLocationRoutes, { prefix: "/api/v1/inventory/locations" });
 
   return app;
 }

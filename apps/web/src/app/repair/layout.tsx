@@ -5,13 +5,11 @@ import AppLayout from "@/components/AppLayout";
 
 const TABS = [
   { key: "orders", label: "AS 접수", href: "/repair" },
-  { key: "customers", label: "고객 관리", href: "/repair/customers" },
   { key: "parts", label: "부품/재고", href: "/repair/parts" },
   { key: "stats", label: "통계", href: "/repair/stats" },
 ] as const;
 
 function getActiveTab(pathname: string): string {
-  if (pathname.startsWith("/repair/customers")) return "customers";
   if (pathname.startsWith("/repair/parts")) return "parts";
   if (pathname.startsWith("/repair/stats")) return "stats";
   return "orders";
@@ -22,7 +20,6 @@ export default function RepairLayout({ children }: { children: React.ReactNode }
   const router = useRouter();
   const activeTab = getActiveTab(pathname);
   const isDetailPage = pathname !== "/repair" &&
-    !pathname.startsWith("/repair/customers") &&
     !pathname.startsWith("/repair/parts") &&
     !pathname.startsWith("/repair/stats");
 

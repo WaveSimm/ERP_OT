@@ -222,7 +222,20 @@
       "Bash(grep -rn \"as any\" services/*/src/**/*.ts --include=\"*.ts\")",
       "Bash(grep -rn \"TODO\\\\|FIXME\\\\|HACK\\\\|XXX\\\\|TEMP\" services/*/src/ apps/web/src/ --include=\"*.ts\" --include=\"*.tsx\")",
       "Bash(grep -rn \"catch {\" services/*/src/ apps/web/src/ --include=\"*.ts\" --include=\"*.tsx\")",
-      "Bash(grep -rn \"console\\\\.\\\\\\(log\\\\|error\\\\|warn\\\\\\)\" services/*/src/ --include=\"*.ts\")"
+      "Bash(grep -rn \"console\\\\.\\\\\\(log\\\\|error\\\\|warn\\\\\\)\" services/*/src/ --include=\"*.ts\")",
+      "Bash(mkdir -p \"E:/claude/ERP_OT/apps/web/src/app/procurement/orders/[id]\")",
+      "Bash(mkdir -p \"E:/claude/ERP_OT/apps/web/src/app/procurement/contracts/[id]\")",
+      "Bash(pip list:*)",
+      "Bash(npm list:*)",
+      "Bash(grep -v \"warning\\\\|^$\\\\|rows\")",
+      "Bash(node -e \"try { require\\('xlsx'\\); console.log\\('xlsx available'\\); } catch\\(e\\) { console.log\\('xlsx not available'\\); }\")",
+      "Bash(node -e \"try { require\\('exceljs'\\); console.log\\('exceljs available'\\); } catch\\(e\\) { console.log\\('exceljs not available'\\); }\")",
+      "Bash(DATABASE_URL=\"postgresql://erp_user:erp_password@localhost:5432/erp_ot?schema=equipment\" npx prisma db push --accept-data-loss)",
+      "Bash(DATABASE_URL=\"postgresql://erp_user:erp_password@localhost:5432/erp_ot?schema=equipment\" npx tsx prisma/migrate-inventory.ts)",
+      "Bash(npx tsx:*)",
+      "Bash(DATABASE_URL=\"postgresql://erp_user:erp_password@localhost:5432/erp_ot\" npx tsx prisma/migrate-product-master.ts)",
+      "Bash(PGPASSWORD=erp_password psql -h localhost -U erp_user -d erp_ot -c \"DELETE FROM equipment.storage_locations WHERE type = 'CUSTOMER'; SELECT type, count\\(*\\) FROM equipment.storage_locations GROUP BY type;\")",
+      "Bash(export DATABASE_URL=\"postgresql://erp_user:erp_password@localhost:5432/erp_ot?schema=equipment\")"
     ]
   }
 }

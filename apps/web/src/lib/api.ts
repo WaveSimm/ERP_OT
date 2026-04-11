@@ -733,10 +733,11 @@ export const repairApi = {
     request<void>(`/customers/contacts/${contactId}`, { method: "DELETE" }),
 
   // 고객 자산
-  getCustomerAssets: (params?: { customerId?: string; search?: string }) => {
+  getCustomerAssets: (params?: { customerId?: string; search?: string; limit?: number }) => {
     const q = new URLSearchParams();
     if (params?.customerId) q.set("customerId", params.customerId);
     if (params?.search) q.set("search", params.search);
+    if (params?.limit) q.set("limit", String(params.limit));
     const qs = q.toString();
     return request<any>(`/customer-assets${qs ? `?${qs}` : ""}`);
   },
@@ -869,6 +870,294 @@ export const repairApi = {
     request<any>(`/repair-stats/monthly${months ? `?months=${months}` : ""}`),
   getRepairStatsCosts: () => request<any>("/repair-stats/costs"),
   getRepairStatsPartsUsage: () => request<any>("/repair-stats/parts-usage"),
+  getRepairStatsYearly: () => request<any>("/repair-stats/yearly"),
+  getRepairStatsByCustomer: () => request<any>("/repair-stats/by-customer"),
+  getRepairStatsByHandler: () => request<any>("/repair-stats/by-handler"),
+};
+
+// ─── Supplier (제조사/공급사) API ────────────────────────────────────────────
+
+export const supplierApi = {
+  list: (params?: { search?: string; page?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.search) q.set("search", params.search);
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    const qs = q.toString();
+    return request<any>(`/suppliers${qs ? `?${qs}` : ""}`);
+  },
+  get: (id: string) => request<any>(`/suppliers/${id}`),
+  findByName: (name: string) => request<any>(`/suppliers/by-name?name=${encodeURIComponent(name)}`),
+  create: (data: any) =>
+    request<any>("/suppliers", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: any) =>
+    request<any>(`/suppliers/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  delete: (id: string) =>
+    request<void>(`/suppliers/${id}`, { method: "DELETE" }),
+  addContact: (supplierId: string, data: any) =>
+    request<any>(`/suppliers/${supplierId}/contacts`, { method: "POST", body: JSON.stringify(data) }),
+  updateContact: (contactId: string, data: any) =>
+    request<any>(`/suppliers/contacts/${contactId}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteContact: (contactId: string) =>
+    request<void>(`/suppliers/contacts/${contactId}`, { method: "DELETE" }),
+};
+
+// ─── Procurement (구매/재고) API ─────────────────────────────────────────────
+
+export const procurementApi = {
+  // 장비 마스터
+  getProducts: (params?: { search?: string; manufacturer?: string; page?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.search) q.set("search", params.search);
+    if (params?.manufacturer) q.set("manufacturer", params.manufacturer);
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    const qs = q.toString();
+    return request<any>(`/procurement/products${qs ? `?${qs}` : ""}`);
+  },
+  getProduct: (id: string) => request<any>(`/procurement/products/${id}`),
+  createProduct: (data: any) =>
+    request<any>("/procurement/products", { method: "POST", body: JSON.stringify(data) }),
+  updateProduct: (id: string, data: any) =>
+    request<any>(`/procurement/products/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteProduct: (id: string) =>
+    request<void>(`/procurement/products/${id}`, { method: "DELETE" }),
+  getManufacturers: () => request<string[]>("/procurement/products/manufacturers"),
+
+  // 계약
+  getContracts: (params?: { search?: string; status?: string; page?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.search) q.set("search", params.search);
+    if (params?.status) q.set("status", params.status);
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    const qs = q.toString();
+    return request<any>(`/procurement/contracts${qs ? `?${qs}` : ""}`);
+  },
+  getContract: (id: string) => request<any>(`/procurement/contracts/${id}`),
+  createContract: (data: any) =>
+    request<any>("/procurement/contracts", { method: "POST", body: JSON.stringify(data) }),
+  updateContract: (id: string, data: any) =>
+    request<any>(`/procurement/contracts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteContract: (id: string) =>
+    request<void>(`/procurement/contracts/${id}`, { method: "DELETE" }),
+
+  // 해외 발주
+  getOrders: (params?: { search?: string; status?: string; currency?: string; orderType?: string; contractId?: string; page?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.search) q.set("search", params.search);
+    if (params?.status) q.set("status", params.status);
+    if (params?.currency) q.set("currency", params.currency);
+    if (params?.orderType) q.set("orderType", params.orderType);
+    if (params?.contractId) q.set("contractId", params.contractId);
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    const qs = q.toString();
+    return request<any>(`/procurement/orders${qs ? `?${qs}` : ""}`);
+  },
+  getOrder: (id: string) => request<any>(`/procurement/orders/${id}`),
+  createOrder: (data: any) =>
+    request<any>("/procurement/orders", { method: "POST", body: JSON.stringify(data) }),
+  updateOrder: (id: string, data: any) =>
+    request<any>(`/procurement/orders/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteOrder: (id: string) =>
+    request<void>(`/procurement/orders/${id}`, { method: "DELETE" }),
+  transitionOrder: (id: string, status: string) =>
+    request<any>(`/procurement/orders/${id}/transition`, { method: "POST", body: JSON.stringify({ status }) }),
+  getDashboard: () => request<any>("/procurement/orders/dashboard"),
+
+  // 발주 품목
+  addOrderItem: (orderId: string, data: any) =>
+    request<any>(`/procurement/orders/${orderId}/items`, { method: "POST", body: JSON.stringify(data) }),
+  updateOrderItem: (itemId: string, data: any) =>
+    request<any>(`/procurement/orders/items/${itemId}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteOrderItem: (itemId: string) =>
+    request<void>(`/procurement/orders/items/${itemId}`, { method: "DELETE" }),
+
+  // 부분 입고
+  receiveItems: (orderId: string, receipts: Array<{ itemId: string; quantity: number }>) =>
+    request<any>(`/procurement/orders/${orderId}/receive`, { method: "POST", body: JSON.stringify({ receipts }) }),
+
+  // 진행 이력
+  getProgress: (orderId: string) =>
+    request<any>(`/procurement/orders/${orderId}/progress`),
+  addProgress: (orderId: string, data: { progress: number; note?: string }) =>
+    request<any>(`/procurement/orders/${orderId}/progress`, { method: "POST", body: JSON.stringify(data) }),
+  deleteProgress: (logId: string) =>
+    request<void>(`/procurement/orders/progress/${logId}`, { method: "DELETE" }),
+};
+
+// ── Inventory Audit (재고 실사) ──────────────────────────────────────
+export const auditApi = {
+  list: () => request<any[]>("/inventory/audits"),
+  getById: (id: string) => request<any>(`/inventory/audits/${id}`),
+  create: (data: { name: string; plannedDate: string; notes?: string }) =>
+    request<any>("/inventory/audits", { method: "POST", body: JSON.stringify(data) }),
+  start: (id: string) =>
+    request<any>(`/inventory/audits/${id}/start`, { method: "POST" }),
+  complete: (id: string) =>
+    request<any>(`/inventory/audits/${id}/complete`, { method: "POST" }),
+  checkItem: (itemId: string, data: { actualQuantity: number; actualLocation?: string; notes?: string }) =>
+    request<any>(`/inventory/audits/items/${itemId}/check`, { method: "POST", body: JSON.stringify(data) }),
+};
+
+// ── Expense Follow-up (지출결의 후속처리) ──────────────────────────────
+export const expenseApi = {
+  list: (status?: string) => {
+    const q = status ? `?status=${status}` : "";
+    return request<any[]>(`/procurement/expenses${q}`);
+  },
+  getById: (id: string) => request<any>(`/procurement/expenses/${id}`),
+  decide: (id: string, data: { isInventoryTarget: boolean; note?: string; inventoryItems?: number[] }) =>
+    request<any>(`/procurement/expenses/${id}/decide`, { method: "POST", body: JSON.stringify(data) }),
+  confirmArrival: (id: string, data: { arrivalDate: string; arrivalLocation?: string }) =>
+    request<any>(`/procurement/expenses/${id}/confirm-arrival`, { method: "POST", body: JSON.stringify(data) }),
+};
+
+// ── Import Cost Settlement (수입원가정산) ────────────────────────────
+export const settlementApi = {
+  list: () => request<any[]>("/procurement/settlements"),
+  getById: (id: string) => request<any>(`/procurement/settlements/${id}`),
+  create: (data: any) =>
+    request<any>("/procurement/settlements", { method: "POST", body: JSON.stringify(data) }),
+  addExtra: (id: string, data: any) =>
+    request<any>(`/procurement/settlements/${id}/extras`, { method: "POST", body: JSON.stringify(data) }),
+  remove: (id: string) =>
+    request<void>(`/procurement/settlements/${id}`, { method: "DELETE" }),
+};
+
+// ── Inventory (재고) ─────────────────────────────────────────────────────
+export const inventoryApi = {
+  // 재고 목록
+  list: (params?: { category?: string; status?: string; search?: string; page?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.category) q.set("category", params.category);
+    if (params?.status) q.set("status", params.status);
+    if (params?.search) q.set("search", params.search);
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    return request<any>(`/inventory/items?${q.toString()}`);
+  },
+  getStats: () => request<any>("/inventory/items/stats"),
+  getByNo: (inventoryNo: string) => request<any>(`/inventory/items/by-no/${inventoryNo}`),
+  getById: (id: string) => request<any>(`/inventory/items/${id}`),
+  create: (data: any) =>
+    request<any>("/inventory/items", { method: "POST", body: JSON.stringify(data) }),
+  createFromReceipt: (data: { orderItemId: string; serialNumber?: string; currentLocation?: string }) =>
+    request<any>("/inventory/items/from-receipt", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: any) =>
+    request<any>(`/inventory/items/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+
+  // 입출고 이력
+  getTransactions: (itemId: string) => request<any[]>(`/inventory/transactions/item/${itemId}`),
+  getRecentTransactions: (params?: { type?: string; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.type) q.set("type", params.type);
+    if (params?.limit) q.set("limit", String(params.limit));
+    return request<any[]>(`/inventory/transactions/recent?${q.toString()}`);
+  },
+  createTransaction: (data: any) =>
+    request<any>("/inventory/transactions", { method: "POST", body: JSON.stringify(data) }),
+
+  // 비용이력
+  getCostEvents: (itemId: string) => request<any[]>(`/inventory/costs/item/${itemId}`),
+  addCostEvent: (data: any) =>
+    request<any>("/inventory/costs", { method: "POST", body: JSON.stringify(data) }),
+  deleteCostEvent: (id: string) =>
+    request<void>(`/inventory/costs/${id}`, { method: "DELETE" }),
+
+  // 보관위치
+  getLocations: (params?: { type?: string; search?: string; includeInactive?: boolean; page?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.type) q.set("type", params.type);
+    if (params?.search) q.set("search", params.search);
+    if (params?.includeInactive) q.set("includeInactive", "true");
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    return request<{ items: any[]; total: number; page: number; limit: number; totalPages: number }>(`/inventory/locations?${q.toString()}`);
+  },
+  createLocation: (data: any) =>
+    request<any>("/inventory/locations", { method: "POST", body: JSON.stringify(data) }),
+  updateLocation: (id: string, data: any) =>
+    request<any>(`/inventory/locations/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteLocation: (id: string) =>
+    request<void>(`/inventory/locations/${id}`, { method: "DELETE" }),
+};
+
+// ── Approval (결재) ──────────────────────────────────────────────────────
+export const approvalApi = {
+  // 템플릿
+  getTemplates: () => request<any[]>("/approval/templates"),
+  getTemplate: (id: string) => request<any>(`/approval/templates/${id}`),
+
+  // 문서 CRUD
+  createDocument: (data: any) =>
+    request<any>("/approval/documents", { method: "POST", body: JSON.stringify(data) }),
+  getDocument: (id: string) => request<any>(`/approval/documents/${id}`),
+  updateDocument: (id: string, data: any) =>
+    request<any>(`/approval/documents/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+
+  // 결재 액션
+  submitDocument: (id: string) =>
+    request<any>(`/approval/documents/${id}/submit`, { method: "PATCH" }),
+  withdrawDocument: (id: string) =>
+    request<any>(`/approval/documents/${id}/withdraw`, { method: "PATCH" }),
+  approveDocument: (id: string, comment?: string) =>
+    request<any>(`/approval/documents/${id}/approve`, { method: "PATCH", body: JSON.stringify({ comment: comment || "" }) }),
+  rejectDocument: (id: string, comment: string) =>
+    request<any>(`/approval/documents/${id}/reject`, { method: "PATCH", body: JSON.stringify({ comment }) }),
+  agreeDocument: (id: string, comment?: string) =>
+    request<any>(`/approval/documents/${id}/agree`, { method: "PATCH", body: JSON.stringify({ comment: comment || "" }) }),
+
+  // 수신함
+  getPendingDocuments: (page = 1, limit = 20) =>
+    request<any>(`/approval/documents/pending?page=${page}&limit=${limit}`),
+  getSentDocuments: (page = 1, limit = 20) =>
+    request<any>(`/approval/documents/sent?page=${page}&limit=${limit}`),
+  getCcDocuments: (page = 1, limit = 20) =>
+    request<any>(`/approval/documents/cc?page=${page}&limit=${limit}`),
+  getCompletedDocuments: (page = 1, limit = 20) =>
+    request<any>(`/approval/documents/completed?page=${page}&limit=${limit}`),
+
+  // 파일
+  uploadFile: (documentId: string, file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const token = getToken();
+    return fetch(`${API_PREFIX}/approval/files/upload?documentId=${documentId}`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    }).then(r => { if (!r.ok) throw new Error("Upload failed"); return r.json(); });
+  },
+  getDocumentFiles: (documentId: string) =>
+    request<any[]>(`/approval/files/document/${documentId}`),
+  deleteFile: (id: string) =>
+    request<void>(`/approval/files/${id}`, { method: "DELETE" }),
+};
+
+// ── 파일 첨부 (범용 — referenceType 기반) ─────────────────────────────────
+export const fileApi = {
+  upload: (referenceType: string, referenceId: string, file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const token = getToken();
+    return fetch(`${API_PREFIX}/approval/files/upload?referenceType=${referenceType}&referenceId=${referenceId}`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    }).then(r => { if (!r.ok) throw new Error("Upload failed"); return r.json(); });
+  },
+  list: (referenceType: string, referenceId: string) =>
+    request<any[]>(`/approval/files/reference/${referenceType}/${referenceId}`),
+  download: (id: string) => {
+    const token = getToken();
+    return fetch(`${API_PREFIX}/approval/files/${id}/download`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  },
+  remove: (id: string) =>
+    request<void>(`/approval/files/${id}`, { method: "DELETE" }),
 };
 
 /** @deprecated Use authApi.login instead */

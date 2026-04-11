@@ -49,7 +49,7 @@ app.get("/health", async () => {
 // ─── Routes ───────────────────────────────────────────────────────────────────
 app.register(authRoutes, { prefix: "/api/v1/auth", authService, userRepo });
 app.register(userRoutes, { prefix: "/api/v1/users", userService, authService });
-app.register(departmentRoutes, { prefix: "/api/v1/departments", deptService });
+app.register(departmentRoutes, { prefix: "/api/v1/departments", deptService, authService });
 app.register(approvalLineRoutes, { prefix: "/api/v1/approval-lines", approvalLineService, authService });
 app.register(internalRoutes, { prefix: "/internal", approvalLineService, deptService, prisma });
 

@@ -175,6 +175,74 @@ services:
     networks:
       - erp-network
 
+  approval-service:
+    build:
+      context: .
+      dockerfile: services/approval/Dockerfile
+    container_name: erp-ot-approval
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3006
+      DATABASE_URL: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:-erp_password}@postgres:5432/${POSTGRES_DB:-erp_ot}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change_me_in_production}
+      AUTH_SERVICE_URL: http://auth-service:3001
+      EQUIPMENT_SERVICE_URL: http://equipment-service:3005
+      ATTENDANCE_SERVICE_URL: http://attendance-service:3004
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-dev_internal_token_min32chars_change}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+    ports:
+      - "3006:3006"
+    volumes:
+      - approval_uploads:/app/uploads
+    depends_on:
+      - postgres
+      - auth-service
+      - attendance-service
+    networks:
+      - erp-network
+
+  # ─── DB Backup (매일 02:00 자동 백업) ────────────────────────────────────────
+  db-backup:
+    image: postgres:16-alpine
+    container_name: erp-ot-backup
+    restart: unless-stopped
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        echo "DB backup service started. Schedule: daily 02:00"
+        while true; do
+          NEXT=$(date -d "tomorrow 02:00" +%s 2>/dev/null || date -d "02:00" +%s)
+          NOW=$(date +%s)
+          SLEEP=$((NEXT - NOW))
+          if [ $$SLEEP -le 0 ]; then SLEEP=86400; fi
+          echo "Next backup in $$SLEEP seconds"
+          sleep $$SLEEP
+          TIMESTAMP=$$(date +%Y%m%d_%H%M%S)
+          FILE="/backups/erp_ot_$${TIMESTAMP}.sql.gz"
+          echo "[$${TIMESTAMP}] Starting backup..."
+          PGPASSWORD=$${POSTGRES_PASSWORD} pg_dump -h postgres -U $${POSTGRES_USER} -d $${POSTGRES_DB} --no-owner --no-privileges | gzip > "$$FILE"
+          if [ $$? -eq 0 ]; then
+            SIZE=$$(du -h "$$FILE" | cut -f1)
+            echo "[$${TIMESTAMP}] Backup OK: $$FILE ($$SIZE)"
+          else
+            echo "[$${TIMESTAMP}] Backup FAILED"
+            rm -f "$$FILE"
+          fi
+          find /backups -name "erp_ot_*.sql.gz" -mtime +30 -delete 2>/dev/null || true
+        done
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-erp_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-erp_password}
+      POSTGRES_DB: ${POSTGRES_DB:-erp_ot}
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      - postgres
+    networks:
+      - erp-network
+
   # ─── Frontend Apps ──────────────────────────────────────────────────────────
   web:
     image: node:20-alpine
@@ -189,6 +257,7 @@ services:
       AUTH_SERVICE_URL: http://auth-service:3001
       ATTENDANCE_SERVICE_URL: http://attendance-service:3004
       EQUIPMENT_SERVICE_URL: http://equipment-service:3005
+      APPROVAL_SERVICE_URL: http://approval-service:3006
       JWT_SECRET: ${JWT_ACCESS_SECRET:-change_me_in_production}
       WATCHPACK_POLLING: "true"
       CHOKIDAR_USEPOLLING: "true"
@@ -208,6 +277,7 @@ volumes:
   redis_data:
   rabbitmq_data:
   file_storage:
+  approval_uploads:
   web_node_modules:
 
 networks:

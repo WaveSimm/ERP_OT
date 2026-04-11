@@ -14,6 +14,7 @@ import { policyRoutes } from "./api/routes/policy.routes.js";
 import { teamRoutes } from "./api/routes/team.routes.js";
 import { notificationRoutes } from "./api/routes/notification.routes.js";
 import { workScheduleRoutes } from "./api/routes/work-schedule.routes.js";
+import { internalRoutes } from "./api/routes/internal.routes.js";
 
 import { AttendanceService } from "./application/attendance.service.js";
 import { LeaveService } from "./application/leave.service.js";
@@ -112,6 +113,7 @@ async function buildApp() {
   app.register(teamRoutes, { prefix: "/api/v1/team" });
   app.register(notificationRoutes, { prefix: "/api/v1/notifications" });
   app.register(workScheduleRoutes, { prefix: "/api/v1/work-schedule" });
+  app.register(internalRoutes, { prefix: "/internal" });
 
   return app;
 }

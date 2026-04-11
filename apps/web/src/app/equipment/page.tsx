@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { equipmentApi, sensorApi, equipmentCategoryApi, equipmentScheduleApi } from "@/lib/api";
+import { equipmentApi, sensorApi, equipmentCategoryApi, equipmentScheduleApi, supplierApi } from "@/lib/api";
+import SearchableSelect from "@/components/SearchableSelect";
 
 const EQ_STATUS_LABELS: Record<string, { label: string; color: string }> = {
   AVAILABLE: { label: "가용", color: "bg-green-100 text-green-800" },
@@ -162,8 +163,17 @@ function EquipmentListTab() {
               <option value="">카테고리 선택 *</option>
               {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-            <input placeholder="제조사" value={form.manufacturer} onChange={(e) => setForm({ ...form, manufacturer: e.target.value })}
-              className="border rounded px-3 py-2 text-sm" />
+            <SearchableSelect
+              value={form.manufacturer}
+              onChange={(v) => setForm({ ...form, manufacturer: v })}
+              placeholder="제조사 검색..."
+              allowCustom
+              className="border rounded px-3 py-2 text-sm"
+              loadOptions={async (q) => {
+                const res = await supplierApi.list({ search: q, limit: 20 });
+                return (res.items || []).map((s: any) => ({ id: s.id, name: s.name, sub: s.country || undefined }));
+              }}
+            />
             <input placeholder="모델명" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })}
               className="border rounded px-3 py-2 text-sm" />
             <input placeholder="설명" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
@@ -201,8 +211,17 @@ function EquipmentListTab() {
                       <option value="">카테고리 선택</option>
                       {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
-                    <input placeholder="제조사" value={editForm.manufacturer} onChange={(e) => setEditForm({ ...editForm, manufacturer: e.target.value })}
-                      className="border rounded px-3 py-2 text-sm" />
+                    <SearchableSelect
+                      value={editForm.manufacturer}
+                      onChange={(v) => setEditForm({ ...editForm, manufacturer: v })}
+                      placeholder="제조사 검색..."
+                      allowCustom
+                      className="border rounded px-3 py-2 text-sm"
+                      loadOptions={async (q) => {
+                        const res = await supplierApi.list({ search: q, limit: 20 });
+                        return (res.items || []).map((s: any) => ({ id: s.id, name: s.name, sub: s.country || undefined }));
+                      }}
+                    />
                     <input placeholder="모델명" value={editForm.model} onChange={(e) => setEditForm({ ...editForm, model: e.target.value })}
                       className="border rounded px-3 py-2 text-sm" />
                     <select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
@@ -382,7 +401,17 @@ function SensorListTab() {
               <option value="">카테고리 선택 *</option>
               {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-            <input placeholder="제조사" value={form.manufacturer} onChange={(e) => setForm({ ...form, manufacturer: e.target.value })} className="border rounded px-3 py-2 text-sm" />
+            <SearchableSelect
+              value={form.manufacturer}
+              onChange={(v) => setForm({ ...form, manufacturer: v })}
+              placeholder="제조사 검색..."
+              allowCustom
+              className="border rounded px-3 py-2 text-sm"
+              loadOptions={async (q) => {
+                const res = await supplierApi.list({ search: q, limit: 20 });
+                return (res.items || []).map((s: any) => ({ id: s.id, name: s.name, sub: s.country || undefined }));
+              }}
+            />
             <input placeholder="모델명" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className="border rounded px-3 py-2 text-sm" />
             <input placeholder="교정 주기 (일)" type="number" value={form.calibrationIntervalDays}
               onChange={(e) => setForm({ ...form, calibrationIntervalDays: e.target.value })} className="border rounded px-3 py-2 text-sm" />
@@ -419,8 +448,17 @@ function SensorListTab() {
                       <option value="">카테고리 선택</option>
                       {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
-                    <input placeholder="제조사" value={editForm.manufacturer} onChange={(e) => setEditForm({ ...editForm, manufacturer: e.target.value })}
-                      className="border rounded px-3 py-2 text-sm" />
+                    <SearchableSelect
+                      value={editForm.manufacturer}
+                      onChange={(v) => setEditForm({ ...editForm, manufacturer: v })}
+                      placeholder="제조사 검색..."
+                      allowCustom
+                      className="border rounded px-3 py-2 text-sm"
+                      loadOptions={async (q) => {
+                        const res = await supplierApi.list({ search: q, limit: 20 });
+                        return (res.items || []).map((s: any) => ({ id: s.id, name: s.name, sub: s.country || undefined }));
+                      }}
+                    />
                     <input placeholder="모델명" value={editForm.model} onChange={(e) => setEditForm({ ...editForm, model: e.target.value })}
                       className="border rounded px-3 py-2 text-sm" />
                     <input placeholder="교정 주기 (일)" type="number" value={editForm.calibrationIntervalDays}

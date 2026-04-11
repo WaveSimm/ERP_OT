@@ -10,9 +10,12 @@ const COST_LABELS: Record<string, string> = {
 export default function RepairStatsPage() {
   const [summary, setSummary] = useState<any>(null);
   const [monthly, setMonthly] = useState<any[]>([]);
+  const [yearly, setYearly] = useState<any[]>([]);
   const [costs, setCosts] = useState<any>(null);
   const [partsUsage, setPartsUsage] = useState<any[]>([]);
   const [byEquipment, setByEquipment] = useState<any[]>([]);
+  const [byCustomer, setByCustomer] = useState<any[]>([]);
+  const [byHandler, setByHandler] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -22,12 +25,18 @@ export default function RepairStatsPage() {
       repairApi.getRepairStatsCosts(),
       repairApi.getRepairStatsPartsUsage(),
       repairApi.getRepairStatsByEquipment(),
-    ]).then(([s, m, c, p, e]) => {
+      repairApi.getRepairStatsYearly(),
+      repairApi.getRepairStatsByCustomer(),
+      repairApi.getRepairStatsByHandler(),
+    ]).then(([s, m, c, p, e, y, cust, h]) => {
       setSummary(s);
       setMonthly(m);
       setCosts(c);
       setPartsUsage(p);
       setByEquipment(e);
+      setYearly(y);
+      setByCustomer(cust);
+      setByHandler(h);
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
 
@@ -112,10 +121,82 @@ export default function RepairStatsPage() {
         </div>
       </div>
 
+      {/* 연도별 추이 */}
+      {yearly.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-lg p-5">
+          <h3 className="font-semibold text-sm text-gray-800 mb-3">연도별 AS 현황</h3>
+          <div className="flex gap-4">
+            {yearly.map((y) => (
+              <div key={y.year} className="flex-1 text-center p-3 bg-gray-50 rounded-lg">
+                <p className="text-sm font-medium text-gray-600 mb-1">{y.year}년</p>
+                <p className="text-xl font-bold text-gray-800">{y.received}</p>
+                <p className="text-xs text-green-600">완료 {y.completed}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4">
+        {/* 고객별 AS 건수 */}
+        <div className="bg-white border border-gray-200 rounded-lg p-5">
+          <h3 className="font-semibold text-sm text-gray-800 mb-3">고객별 AS 건수 TOP 15</h3>
+          {byCustomer.length > 0 ? (
+            <div className="space-y-1.5">
+              {byCustomer.slice(0, 15).map((c, i) => {
+                const max = byCustomer[0]?.count || 1;
+                return (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="w-28 text-xs text-gray-600 truncate" title={c.name}>{c.name}</span>
+                    <div className="flex-1 bg-gray-100 rounded-full h-4">
+                      <div className="h-4 bg-blue-400 rounded-full text-[9px] text-white flex items-center justify-end pr-1"
+                        style={{ width: `${(c.count / max) * 100}%`, minWidth: 20 }}>
+                        {c.count}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400">데이터가 없습니다.</p>
+          )}
+        </div>
+
+        {/* 담당자별 처리 현황 */}
+        <div className="bg-white border border-gray-200 rounded-lg p-5">
+          <h3 className="font-semibold text-sm text-gray-800 mb-3">담당자별 처리 현황</h3>
+          {byHandler.length > 0 ? (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="py-1.5 text-left text-xs text-gray-500">담당자</th>
+                  <th className="py-1.5 text-right text-xs text-gray-500">전체</th>
+                  <th className="py-1.5 text-right text-xs text-gray-500">완료</th>
+                  <th className="py-1.5 text-right text-xs text-gray-500">완료율</th>
+                </tr>
+              </thead>
+              <tbody>
+                {byHandler.map((h, i) => (
+                  <tr key={i} className="border-t border-gray-100">
+                    <td className="py-1.5 text-gray-700">{h.name}</td>
+                    <td className="py-1.5 text-right font-medium">{h.total}</td>
+                    <td className="py-1.5 text-right text-green-600">{h.completed}</td>
+                    <td className="py-1.5 text-right text-blue-600">{h.total > 0 ? Math.round((h.completed / h.total) * 100) : 0}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="text-sm text-gray-400">데이터가 없습니다.</p>
+          )}
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         {/* 장비별 고장 건수 */}
         <div className="bg-white border border-gray-200 rounded-lg p-5">
-          <h3 className="font-semibold text-sm text-gray-800 mb-3">장비별 AS 건수</h3>
+          <h3 className="font-semibold text-sm text-gray-800 mb-3">제품별 AS 건수 TOP 20</h3>
           {byEquipment.length > 0 ? (
             <div className="space-y-2">
               {byEquipment.slice(0, 10).map((e, i) => {

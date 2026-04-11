@@ -1,4 +1,5 @@
 import { FastifyInstance } from "fastify";
+import { requireRole } from "../middleware/auth.middleware.js";
 
 export async function repairStatsRoutes(fastify: FastifyInstance) {
   fastify.get("/summary", async () => {
@@ -20,5 +21,17 @@ export async function repairStatsRoutes(fastify: FastifyInstance) {
 
   fastify.get("/parts-usage", async () => {
     return fastify.repairStatsService.partsUsage();
+  });
+
+  fastify.get("/yearly", async () => {
+    return fastify.repairStatsService.yearly();
+  });
+
+  fastify.get("/by-customer", async () => {
+    return fastify.repairStatsService.byCustomer();
+  });
+
+  fastify.get("/by-handler", async () => {
+    return fastify.repairStatsService.byHandler();
   });
 }

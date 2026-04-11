@@ -1,4 +1,5 @@
 import { FastifyInstance } from "fastify";
+import { requireRole } from "../middleware/auth.middleware.js";
 
 export async function shipmentRoutes(fastify: FastifyInstance) {
   fastify.get("/", async (request) => {
@@ -12,17 +13,17 @@ export async function shipmentRoutes(fastify: FastifyInstance) {
     return fastify.shipmentService.getById(id);
   });
 
-  fastify.post("/", async (request, reply) => {
+  fastify.post("/", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request, reply) => {
     const result = await fastify.shipmentService.create(request.body as any);
     return reply.status(201).send(result);
   });
 
-  fastify.patch("/:id", async (request) => {
+  fastify.patch("/:id", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
     const { id } = request.params as any;
     return fastify.shipmentService.update(id, request.body as any);
   });
 
-  fastify.patch("/:id/status", async (request) => {
+  fastify.patch("/:id/status", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
     const { id } = request.params as any;
     const { status } = request.body as any;
     return fastify.shipmentService.changeStatus(id, status);
