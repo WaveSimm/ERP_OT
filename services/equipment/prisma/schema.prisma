@@ -934,9 +934,11 @@ model Supplier {
   contactName  String?  @map("contact_name")      // 대표 담당자 (legacy)
   phone        String?
   email        String?
-  website      String?
-  notes        String?
-  createdAt    DateTime @default(now()) @map("created_at")
+  website        String?
+  address        String?
+  businessNumber String?  @map("business_number")  // 사업자등록번호
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   contacts     SupplierContact[]

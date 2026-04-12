@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { approvalApi, approvalLineApi, departmentApi, userManagementApi, projectApi, getUser } from "@/lib/api";
+import { approvalApi, approvalLineApi, departmentApi, userManagementApi, projectApi, fileApi, getUser } from "@/lib/api";
 
 export default function NewApprovalPage() {
   const router = useRouter();
@@ -111,8 +111,37 @@ export default function NewApprovalPage() {
     });
   };
 
-  const addItem = () => setItems((p) => [...p, { description: "", unitPrice: 0, quantity: 1, subtotal: 0, vat: 0 }]);
+  const addItem = () => setItems((p) => [...p, { description: "", unitPrice: 0, quantity: 1, subtotal: 0, vat: 0, attachments: [] as { id: string; fileName: string }[] }]);
   const removeItem = (idx: number) => setItems((p) => p.filter((_, i) => i !== idx));
+
+  // 항목별 파일 첨부
+  const [uploading, setUploading] = useState<number | null>(null);
+  const handleItemFileUpload = async (idx: number, file: File) => {
+    setUploading(idx);
+    try {
+      const itemRef = `expense-item-${Date.now()}-${idx}`;
+      const att = await fileApi.upload("APPROVAL_DOCUMENT", itemRef, file);
+      setItems((prev) => {
+        const next = [...prev];
+        next[idx] = { ...next[idx], attachments: [...(next[idx].attachments || []), { id: att.id, fileName: att.fileName }] };
+        return next;
+      });
+    } catch {
+      alert("파일 업로드 실패");
+    } finally {
+      setUploading(null);
+    }
+  };
+  const removeItemAttachment = async (idx: number, attId: string) => {
+    try {
+      await fileApi.remove(attId);
+    } catch {}
+    setItems((prev) => {
+      const next = [...prev];
+      next[idx] = { ...next[idx], attachments: (next[idx].attachments || []).filter((a: any) => a.id !== attId) };
+      return next;
+    });
+  };
 
   const totalAmount = items.reduce((s, i) => s + (i.subtotal || 0) + (i.vat || 0), 0);
 
@@ -294,6 +323,7 @@ export default function NewApprovalPage() {
                 <th className="px-2 py-1.5 text-right w-16">수량</th>
                 <th className="px-2 py-1.5 text-right w-24">소계</th>
                 <th className="px-2 py-1.5 text-right w-24">부가세</th>
+                <th className="px-2 py-1.5 text-center w-32">증빙</th>
                 <th className="w-10"></th>
               </tr>
             </thead>
@@ -315,6 +345,24 @@ export default function NewApprovalPage() {
                   <td className="px-1 py-1 text-right">{item.subtotal?.toLocaleString()}</td>
                   <td className="px-1 py-1 text-right">{item.vat?.toLocaleString()}</td>
                   <td className="px-1 py-1">
+                    <div className="flex flex-col items-center gap-1">
+                      {(item.attachments || []).map((att: any) => (
+                        <div key={att.id} className="flex items-center gap-1 text-xs text-blue-600 max-w-[120px]">
+                          <span className="truncate" title={att.fileName}>{att.fileName}</span>
+                          <button onClick={() => removeItemAttachment(idx, att.id)} className="text-red-400 hover:text-red-600 shrink-0">✕</button>
+                        </div>
+                      ))}
+                      <label className={`cursor-pointer text-xs px-2 py-0.5 rounded border border-dashed border-gray-300 hover:border-blue-400 hover:text-blue-600 text-gray-400 ${uploading === idx ? "opacity-50 pointer-events-none" : ""}`}>
+                        {uploading === idx ? "..." : "+ 첨부"}
+                        <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleItemFileUpload(idx, f);
+                          e.target.value = "";
+                        }} />
+                      </label>
+                    </div>
+                  </td>
+                  <td className="px-1 py-1">
                     <button onClick={() => removeItem(idx)} className="text-red-400 hover:text-red-600 text-xs">✕</button>
                   </td>
                 </tr>
@@ -324,7 +372,7 @@ export default function NewApprovalPage() {
               <tr>
                 <td colSpan={3} className="px-2 py-1.5 text-right">합계</td>
                 <td colSpan={2} className="px-2 py-1.5 text-right">₩{totalAmount.toLocaleString()}</td>
-                <td></td>
+                <td colSpan={2}></td>
               </tr>
             </tfoot>
           </table>

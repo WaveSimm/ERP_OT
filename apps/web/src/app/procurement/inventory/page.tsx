@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { inventoryApi, procurementApi } from "@/lib/api";
 import LocationSelect from "@/components/LocationSelect";
+import SearchableSelect from "@/components/SearchableSelect";
 
 const STATUS_COLORS: Record<string, string> = {
   IN_STOCK: "bg-green-100 text-green-700",
@@ -32,6 +33,8 @@ export default function InventoryPage() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [status, setStatus] = useState("");
+  const [locationFilter, setLocationFilter] = useState("");
+  const [filterOptions, setFilterOptions] = useState<{ locations: string[]; projects: string[]; assignees: string[] }>({ locations: [], projects: [], assignees: [] });
   const [stats, setStats] = useState<any>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [form, setForm] = useState({
@@ -51,18 +54,19 @@ export default function InventoryPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await inventoryApi.list({ search, category: category || undefined, status: status || undefined, page, limit: PAGE_SIZE });
+      const res = await inventoryApi.list({ search, category: category || undefined, status: status || undefined, location: locationFilter || undefined, page, limit: PAGE_SIZE });
       setItems(res.items || []);
       setTotal(res.total || 0);
     } catch { setItems([]); }
     finally { setLoading(false); }
-  }, [search, category, status, page]);
+  }, [search, category, status, locationFilter, page]);
 
   // 필터 변경 시 첫 페이지로
-  useEffect(() => { setPage(1); }, [search, category, status]);
+  useEffect(() => { setPage(1); }, [search, category, status, locationFilter]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { inventoryApi.getStats().then(setStats).catch(() => {}); }, []);
+  useEffect(() => { inventoryApi.getFilterOptions().then(setFilterOptions).catch(() => {}); }, []);
 
   const searchProductMaster = (q: string) => {
     setPmSearch(q);
@@ -169,6 +173,20 @@ export default function InventoryPage() {
           <option value="">전체 상태</option>
           {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
+        <SearchableSelect
+          value={locationFilter} onChange={setLocationFilter} allowCustom
+          placeholder="위치검색..."
+          className="border rounded-lg px-3 py-2 text-sm w-40"
+          loadOptions={async (q) => {
+            const lq = q.toLowerCase();
+            const all = [
+              ...filterOptions.locations.map(v => ({ id: `loc:${v}`, name: v, sub: "창고" })),
+              ...filterOptions.projects.map(v => ({ id: `prj:${v}`, name: v, sub: "고객사" })),
+              ...filterOptions.assignees.map(v => ({ id: `asn:${v}`, name: v, sub: "사원" })),
+            ];
+            return lq ? all.filter(o => o.name.toLowerCase().includes(lq)) : all;
+          }}
+        />
         <div className="flex-1" />
         <button onClick={() => setShowCreateModal(true)}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">

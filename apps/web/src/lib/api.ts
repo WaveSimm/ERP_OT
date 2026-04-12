@@ -906,9 +906,11 @@ export const supplierApi = {
 
 export const procurementApi = {
   // 장비 마스터
-  getProducts: (params?: { search?: string; manufacturer?: string; page?: number; limit?: number }) => {
+  getProducts: (params?: { search?: string; name?: string; modelName?: string; manufacturer?: string; page?: number; limit?: number }) => {
     const q = new URLSearchParams();
     if (params?.search) q.set("search", params.search);
+    if (params?.name) q.set("name", params.name);
+    if (params?.modelName) q.set("modelName", params.modelName);
     if (params?.manufacturer) q.set("manufacturer", params.manufacturer);
     if (params?.page) q.set("page", String(params.page));
     if (params?.limit) q.set("limit", String(params.limit));
@@ -978,6 +980,12 @@ export const procurementApi = {
   receiveItems: (orderId: string, receipts: Array<{ itemId: string; quantity: number }>) =>
     request<any>(`/procurement/orders/${orderId}/receive`, { method: "POST", body: JSON.stringify({ receipts }) }),
 
+  // 재고 연결
+  linkInventory: (itemId: string, inventoryNo: string) =>
+    request<any>(`/procurement/orders/items/${itemId}/link-inventory`, { method: "POST", body: JSON.stringify({ inventoryNo }) }),
+  unlinkInventory: (itemId: string, inventoryId: string) =>
+    request<any>(`/procurement/orders/items/${itemId}/inventory/${inventoryId}`, { method: "DELETE" }),
+
   // 진행 이력
   getProgress: (orderId: string) =>
     request<any>(`/procurement/orders/${orderId}/progress`),
@@ -999,6 +1007,8 @@ export const auditApi = {
     request<any>(`/inventory/audits/${id}/complete`, { method: "POST" }),
   checkItem: (itemId: string, data: { actualQuantity: number; actualLocation?: string; notes?: string }) =>
     request<any>(`/inventory/audits/items/${itemId}/check`, { method: "POST", body: JSON.stringify(data) }),
+  resetItem: (itemId: string) =>
+    request<any>(`/inventory/audits/items/${itemId}/reset`, { method: "POST" }),
 };
 
 // ── Expense Follow-up (지출결의 후속처리) ──────────────────────────────
@@ -1029,15 +1039,17 @@ export const settlementApi = {
 // ── Inventory (재고) ─────────────────────────────────────────────────────
 export const inventoryApi = {
   // 재고 목록
-  list: (params?: { category?: string; status?: string; search?: string; page?: number; limit?: number }) => {
+  list: (params?: { category?: string; status?: string; location?: string; search?: string; page?: number; limit?: number }) => {
     const q = new URLSearchParams();
     if (params?.category) q.set("category", params.category);
     if (params?.status) q.set("status", params.status);
+    if (params?.location) q.set("location", params.location);
     if (params?.search) q.set("search", params.search);
     if (params?.page) q.set("page", String(params.page));
     if (params?.limit) q.set("limit", String(params.limit));
     return request<any>(`/inventory/items?${q.toString()}`);
   },
+  getFilterOptions: () => request<{ locations: string[]; projects: string[]; assignees: string[] }>("/inventory/items/filter-options"),
   getStats: () => request<any>("/inventory/items/stats"),
   getByNo: (inventoryNo: string) => request<any>(`/inventory/items/by-no/${inventoryNo}`),
   getById: (id: string) => request<any>(`/inventory/items/${id}`),
@@ -1094,6 +1106,8 @@ export const approvalApi = {
   createDocument: (data: any) =>
     request<any>("/approval/documents", { method: "POST", body: JSON.stringify(data) }),
   getDocument: (id: string) => request<any>(`/approval/documents/${id}`),
+  getDocumentByReference: (referenceType: string, referenceId: string) =>
+    request<any>(`/approval/documents/by-reference/${referenceType}/${referenceId}`),
   updateDocument: (id: string, data: any) =>
     request<any>(`/approval/documents/${id}`, { method: "PUT", body: JSON.stringify(data) }),
 

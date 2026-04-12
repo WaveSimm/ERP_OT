@@ -154,9 +154,31 @@ export default function ContractsPage() {
             ) : contracts.map((c) => (
               <tr key={c.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/procurement/contracts/${c.id}`)}>
                 <td className="px-3 py-2.5 font-mono text-blue-600">{c.contractNumber}</td>
-                <td className="px-3 py-2.5">{c.client}</td>
+                <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                  {c.client ? (
+                    <button onClick={async () => {
+                      try {
+                        const res = await repairApi.getCustomers({ search: c.client, limit: 1 });
+                        const list = res.items || res;
+                        const match = list.find((cu: any) => cu.name === c.client);
+                        if (match) router.push(`/repair/customers/${match.id}`);
+                        else router.push(`/repair/customers?search=${encodeURIComponent(c.client)}`);
+                      } catch { router.push(`/repair/customers?search=${encodeURIComponent(c.client)}`); }
+                    }} className="text-blue-600 hover:underline">{c.client}</button>
+                  ) : "-"}
+                </td>
                 <td className="px-3 py-2.5 text-gray-500">{c.clientContact || "-"}</td>
-                <td className="px-3 py-2.5 text-gray-500">{c.manufacturer || "-"}</td>
+                <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                  {c.manufacturer ? (
+                    <button onClick={async () => {
+                      try {
+                        const s = await supplierApi.findByName(c.manufacturer);
+                        if (s?.id) router.push(`/procurement/suppliers/${s.id}`);
+                        else router.push(`/procurement/suppliers?search=${encodeURIComponent(c.manufacturer)}`);
+                      } catch { router.push(`/procurement/suppliers?search=${encodeURIComponent(c.manufacturer)}`); }
+                    }} className="text-gray-500 hover:text-blue-600 hover:underline">{c.manufacturer}</button>
+                  ) : "-"}
+                </td>
                 <td className="px-3 py-2.5">{c.name}</td>
                 <td className="px-3 py-2.5 text-center">
                   <span className={`text-xs ${c.category === "용역" ? "text-purple-600" : "text-gray-600"}`}>{c.category}</span>

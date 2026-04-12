@@ -11,6 +11,9 @@ const CATEGORY_LABELS: Record<string, string> = { IN_TRANSIT: "미착품", PRODU
 const TXN_LABELS: Record<string, string> = { PURCHASE: "입고", TRANSFER: "이동", RELEASE: "출고", RETURN: "반납" };
 const TXN_COLORS: Record<string, string> = { PURCHASE: "bg-green-100 text-green-700", RELEASE: "bg-blue-100 text-blue-700", RETURN: "bg-purple-100 text-purple-700", TRANSFER: "bg-gray-100 text-gray-700" };
 const COST_LABELS: Record<string, string> = { AS: "A/S", UPGRADE: "업그레이드", PARTS_ADDITION: "부품추가", MODULE_ADDITION: "모듈추가", REPAIR: "수리", OTHER: "기타" };
+const AUDIT_ITEM_STATUS_COLORS: Record<string, string> = { PENDING: "bg-gray-100 text-gray-600", MATCHED: "bg-green-100 text-green-700", MISMATCHED: "bg-red-100 text-red-700", MISSING: "bg-orange-100 text-orange-700" };
+const AUDIT_ITEM_STATUS_LABELS: Record<string, string> = { PENDING: "미확인", MATCHED: "일치", MISMATCHED: "불일치", MISSING: "누락" };
+const AUDIT_STATUS_LABELS: Record<string, string> = { PLANNED: "예정", IN_PROGRESS: "진행중", COMPLETED: "완료" };
 
 export default function InventoryDetailPage() {
   const params = useParams();
@@ -307,6 +310,37 @@ export default function InventoryDetailPage() {
           )}
         </div>
       </section>
+
+      {/* ── 4. 재고실사 이력 ────────────────────────── */}
+      {(item.auditItems || []).length > 0 && (
+        <section className="bg-white rounded-lg border">
+          <div className="px-5 py-3 border-b bg-gray-50 rounded-t-lg">
+            <h3 className="font-semibold text-sm">
+              재고실사 이력
+              <span className="ml-2 text-xs text-gray-400 font-normal">{(item.auditItems || []).length}건</span>
+            </h3>
+          </div>
+          <div className="p-5">
+            <div className="space-y-2">
+              {(item.auditItems || []).map((ai: any) => (
+                <div key={ai.id} className="border rounded-lg px-3 py-2 flex items-center gap-3 hover:bg-gray-50 cursor-pointer"
+                  onClick={() => router.push(`/procurement/audits/${ai.audit?.id}`)}>
+                  <span className={`text-xs px-2 py-0.5 rounded whitespace-nowrap ${AUDIT_ITEM_STATUS_COLORS[ai.status]}`}>
+                    {AUDIT_ITEM_STATUS_LABELS[ai.status]}
+                  </span>
+                  <span className="text-sm font-medium truncate">{ai.audit?.name || "-"}</span>
+                  <span className="text-xs text-gray-400 whitespace-nowrap">
+                    {ai.audit?.plannedDate ? new Date(ai.audit.plannedDate).toLocaleDateString("ko-KR") : ""}
+                  </span>
+                  <span className="text-xs text-gray-400 whitespace-nowrap ml-auto">
+                    {ai.systemQuantity}개{ai.actualQuantity !== null && <span className={ai.status === "MATCHED" ? " text-green-600" : " text-red-600"}> → {ai.actualQuantity}개</span>}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── 입출고 모달 ──────────────────────────── */}
       {showTxnModal && (

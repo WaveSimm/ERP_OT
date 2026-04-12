@@ -3,8 +3,8 @@ import { PrismaClient } from "@prisma/client";
 export class ProductMasterService {
   constructor(private prisma: PrismaClient) {}
 
-  async list(params: { search?: string; manufacturer?: string; page?: number; limit?: number } = {}) {
-    const { search, manufacturer, page = 1, limit = 50 } = params;
+  async list(params: { search?: string; name?: string; modelName?: string; manufacturer?: string; page?: number; limit?: number } = {}) {
+    const { search, name, modelName, manufacturer, page = 1, limit = 50 } = params;
     const where: any = {};
 
     if (search) {
@@ -13,6 +13,12 @@ export class ProductMasterService {
         { modelName: { contains: search, mode: "insensitive" } },
         { manufacturer: { contains: search, mode: "insensitive" } },
       ];
+    }
+    if (name) {
+      where.name = { contains: name, mode: "insensitive" };
+    }
+    if (modelName) {
+      where.modelName = { contains: modelName, mode: "insensitive" };
     }
     if (manufacturer) {
       where.manufacturer = { contains: manufacturer, mode: "insensitive" };

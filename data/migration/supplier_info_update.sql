@@ -1,0 +1,12 @@
+UPDATE equipment.suppliers SET address = 'Nesttunbrekka 97, 5221 Nesttun, Bergen, Norway', updated_at = NOW() WHERE name = 'AADI' AND address IS NULL;
+UPDATE equipment.suppliers SET address = '35 Meadowbrook Drive, Milford, NH 03055-4613 USA', updated_at = NOW() WHERE name = 'Airmar-EMEA' AND address IS NULL;
+UPDATE equipment.suppliers SET address = 'Fagernes 4, 5043 Bergen, Norway', updated_at = NOW() WHERE name = 'Allmaritim AS' AND address IS NULL;
+UPDATE equipment.suppliers SET address = 'Bay 2, Endeavour Works, Blyth Riverside Business Park, Blyth, NE24 4RT, UK', updated_at = NOW() WHERE name = 'C-Max' AND address IS NULL;
+UPDATE equipment.suppliers SET address = '34 Rue de la Croix de Fer, 78100 Saint-Germain-en-Laye, France', updated_at = NOW() WHERE name = 'Exail' AND address IS NULL;
+UPDATE equipment.suppliers SET address = '49 Edgerton Drive, North Falmouth, MA 02556, USA', updated_at = NOW() WHERE name = 'Gavia' AND address IS NULL;
+UPDATE equipment.suppliers SET address = '10 Akerley Blvd., Unit 19 Dartmouth, Nova Scotia Canada, B3B 1J4', updated_at = NOW() WHERE name = 'Geospectrum' AND address IS NULL;
+UPDATE equipment.suppliers SET address = 'Via Monte Amiata 10, 20861 Brugherio (MB), Italy', updated_at = NOW() WHERE name = 'Idronaut' AND address IS NULL;
+UPDATE equipment.suppliers SET address = 'Solbraveien 20 PO Box 364 NO-1372 Asker Norway', updated_at = NOW() WHERE name = 'Miros' AND address IS NULL;
+UPDATE equipment.suppliers SET address = 'Fabriksvangen 13, 3550 Slangerup, Denmark', updated_at = NOW() WHERE name = 'RESON' AND address IS NULL;
+UPDATE equipment.suppliers SET address = '25, rue Michel Marion 56850 CAUDAN France', updated_at = NOW() WHERE name = 'RTSYS' AND address IS NULL;
+UPDATE equipment.suppliers SET address = '4415 Commodity Way, Shingle Springs, CA 95682, USA', updated_at = NOW() WHERE name = 'Seafloor Systems' AND address IS NULL;

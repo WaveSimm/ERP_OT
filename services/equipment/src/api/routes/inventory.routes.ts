@@ -15,6 +15,10 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
     });
   });
 
+  fastify.get("/filter-options", async () => {
+    return fastify.inventoryService.getFilterOptions();
+  });
+
   fastify.get("/stats", async () => {
     return fastify.inventoryService.getStats();
   });

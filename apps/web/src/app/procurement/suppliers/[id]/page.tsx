@@ -49,7 +49,7 @@ export default function SupplierDetailPage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
-    name: "", country: "", contactName: "", phone: "", email: "", website: "", notes: "",
+    name: "", country: "", contactName: "", phone: "", email: "", website: "", address: "", businessNumber: "", notes: "",
   });
   const [showContactForm, setShowContactForm] = useState(false);
   const [editingContact, setEditingContact] = useState<any>(null);
@@ -63,7 +63,8 @@ export default function SupplierDetailPage() {
       setForm({
         name: data.name || "", country: data.country || "",
         contactName: data.contactName || "", phone: data.phone || "",
-        email: data.email || "", website: data.website || "", notes: data.notes || "",
+        email: data.email || "", website: data.website || "",
+        address: data.address || "", businessNumber: data.businessNumber || "", notes: data.notes || "",
       });
     } catch {
       router.push("/procurement/suppliers");
@@ -199,6 +200,16 @@ export default function SupplierDetailPage() {
                 className="w-full border rounded-lg px-3 py-2 text-sm" />
             </div>
             <div className="col-span-2">
+              <label className="block text-gray-500 mb-1">주소</label>
+              <input type="text" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })}
+                className="w-full border rounded-lg px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="block text-gray-500 mb-1">사업자등록번호</label>
+              <input type="text" value={form.businessNumber} onChange={(e) => setForm({ ...form, businessNumber: e.target.value })}
+                className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="000-00-00000" />
+            </div>
+            <div className="col-span-2">
               <label className="block text-gray-500 mb-1">비고</label>
               <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })}
                 className="w-full border rounded-lg px-3 py-2 text-sm" rows={2} />
@@ -212,6 +223,8 @@ export default function SupplierDetailPage() {
             <div><span className="text-gray-500">전화:</span> <span className="ml-2">{supplier.phone || "-"}</span></div>
             <div><span className="text-gray-500">이메일:</span> <span className="ml-2">{supplier.email || "-"}</span></div>
             <div><span className="text-gray-500">웹사이트:</span> {supplier.website ? <a href={supplier.website} target="_blank" rel="noopener noreferrer" className="ml-2 text-blue-600 hover:underline">{supplier.website}</a> : <span className="ml-2">-</span>}</div>
+            <div className="col-span-full"><span className="text-gray-500">주소:</span> <span className="ml-2">{supplier.address || "-"}</span></div>
+            <div><span className="text-gray-500">사업자등록번호:</span> <span className="ml-2">{supplier.businessNumber || "-"}</span></div>
             {supplier.notes && (
               <div className="col-span-full"><span className="text-gray-500">비고:</span> <span className="ml-2">{supplier.notes}</span></div>
             )}

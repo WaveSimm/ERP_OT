@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { procurementApi } from "@/lib/api";
+import { procurementApi, supplierApi, repairApi } from "@/lib/api";
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "초안", PENDING_APPROVAL: "승인대기", APPROVED: "승인",
@@ -77,9 +77,27 @@ export default function ContractDetailPage() {
       {/* Contract Info */}
       <div className="bg-white rounded-lg border p-6 mb-6">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-          <div><span className="text-gray-500">고객사:</span> <span className="ml-2">{contract.client || "-"}</span></div>
+          <div><span className="text-gray-500">고객사:</span> {contract.client ? (
+            <button onClick={async () => {
+              try {
+                const res = await repairApi.getCustomers({ search: contract.client, limit: 1 });
+                const list = res.items || res;
+                const match = list.find((c: any) => c.name === contract.client);
+                if (match) router.push(`/repair/customers/${match.id}`);
+                else router.push(`/repair/customers?search=${encodeURIComponent(contract.client)}`);
+              } catch { router.push(`/repair/customers?search=${encodeURIComponent(contract.client)}`); }
+            }} className="ml-2 text-blue-600 hover:underline">{contract.client}</button>
+          ) : <span className="ml-2">-</span>}</div>
           <div><span className="text-gray-500">담당:</span> <span className="ml-2">{contract.clientContact || "-"}</span></div>
-          <div><span className="text-gray-500">제작사:</span> <span className="ml-2">{contract.manufacturer || "-"}</span></div>
+          <div><span className="text-gray-500">제작사:</span> {contract.manufacturer ? (
+            <button onClick={async () => {
+              try {
+                const s = await supplierApi.findByName(contract.manufacturer);
+                if (s?.id) router.push(`/procurement/suppliers/${s.id}`);
+                else router.push(`/procurement/suppliers?search=${encodeURIComponent(contract.manufacturer)}`);
+              } catch { router.push(`/procurement/suppliers?search=${encodeURIComponent(contract.manufacturer)}`); }
+            }} className="ml-2 text-blue-600 hover:underline">{contract.manufacturer}</button>
+          ) : <span className="ml-2">-</span>}</div>
           <div><span className="text-gray-500">구분:</span> <span className="ml-2">{contract.category} / {contract.contractType}</span></div>
           <div><span className="text-gray-500">계약일:</span> <span className="ml-2">{fmtDate(contract.contractDate)}</span></div>
           <div><span className="text-gray-500">납기:</span> <span className="ml-2">{fmtDate(contract.deadline)}</span></div>

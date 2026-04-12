@@ -29,6 +29,10 @@ const RECEIPT_LABELS: Record<string, string> = {
   PENDING: "미입고", PARTIALLY_RECEIVED: "부분입고", FULLY_RECEIVED: "입고완료",
 };
 
+const STEP_STATUS_LABELS: Record<string, string> = {
+  PENDING: "대기", APPROVED: "승인", REJECTED: "반려", SKIPPED: "건너뜀",
+};
+
 const CURRENCY_SYMBOLS: Record<string, string> = {
   EUR: "\u20AC", GBP: "\u00A3", USD: "$", KRW: "\u20A9",
 };
@@ -58,14 +62,30 @@ export default function OrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [transitioning, setTransitioning] = useState(false);
 
+  // Approval
+  const [approvalDoc, setApprovalDoc] = useState<any>(null);
+  const [rejectComment, setRejectComment] = useState("");
+  const [showRejectForm, setShowRejectForm] = useState(false);
+
   // Receive form
   const [showReceive, setShowReceive] = useState(false);
   const [receiveQtys, setReceiveQtys] = useState<Record<string, number>>({});
 
+  // Inventory link
+  const [linkItemId, setLinkItemId] = useState<string | null>(null);
+  const [linkInvNo, setLinkInvNo] = useState("");
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setOrder(await procurementApi.getOrder(id));
+      const o = await procurementApi.getOrder(id);
+      setOrder(o);
+
+      // 결재 문서 조회
+      try {
+        const doc = await approvalApi.getDocumentByReference("ORDER", id);
+        setApprovalDoc(doc || null);
+      } catch { setApprovalDoc(null); }
     } catch {
       router.push("/procurement");
     } finally {
@@ -92,22 +112,18 @@ export default function OrderDetailPage() {
     if (!confirm("결재를 상신하시겠습니까?")) return;
     setTransitioning(true);
     try {
-      // 1. PO 템플릿 찾기
       const templates = await approvalApi.getTemplates();
       const poTemplate = templates.find((t: any) => t.code === "PO");
       if (!poTemplate) throw new Error("구매 발주서 결재 템플릿을 찾을 수 없습니다.");
 
-      // 2. 결재라인 조회
       const line = await approvalLineApi.getMe();
       if (!line) throw new Error("결재라인이 설정되지 않았습니다.");
 
-      // 팀원 기안 → 2단계 (팀장→이사), 팀장 기안 → 1단계 (이사)
       const steps: any[] = [{ stepOrder: 1, roleName: "1차 결재", approverId: line.approverId, approverName: line.approverName || "" }];
       if (line.secondApproverId && line.secondApproverId !== line.approverId) {
         steps.push({ stepOrder: 2, roleName: "2차 결재", approverId: line.secondApproverId, approverName: line.secondApproverName || "" });
       }
 
-      // 3. 결재 문서 생성
       const itemsData = order.items?.map((i: any) => ({
         name: i.name, spec: i.spec || "", quantity: i.quantity,
         unitPrice: Number(i.unitPrice), amount: Number(i.amount),
@@ -133,18 +149,38 @@ export default function OrderDetailPage() {
         steps,
       });
 
-      // 4. 바로 상신
       await approvalApi.submitDocument(doc.id);
-
-      // 5. 발주 상태를 PENDING_APPROVAL로 변경
       await procurementApi.transitionOrder(id, "PENDING_APPROVAL");
-
       await load();
-      alert("결재가 상신되었습니다.");
     } catch (e: any) {
       alert(e.message || "결재 상신 실패");
     } finally {
       setTransitioning(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!approvalDoc || !confirm("승인하시겠습니까?")) return;
+    try {
+      await approvalApi.approveDocument(approvalDoc.id);
+      await load();
+    } catch (e: any) {
+      alert(e.message || "승인 실패");
+    }
+  };
+
+  const handleReject = async () => {
+    if (!approvalDoc || !rejectComment.trim()) {
+      alert("반려 사유를 입력해주세요.");
+      return;
+    }
+    try {
+      await approvalApi.rejectDocument(approvalDoc.id, rejectComment);
+      setShowRejectForm(false);
+      setRejectComment("");
+      await load();
+    } catch (e: any) {
+      alert(e.message || "반려 실패");
     }
   };
 
@@ -163,16 +199,41 @@ export default function OrderDetailPage() {
     }
   };
 
+  const handleLinkInventory = async () => {
+    if (!linkItemId || !linkInvNo.trim()) return;
+    try {
+      await procurementApi.linkInventory(linkItemId, linkInvNo.trim());
+      setLinkItemId(null);
+      setLinkInvNo("");
+      await load();
+    } catch (e: any) {
+      alert(e.message || "재고 연결 실패");
+    }
+  };
+
+  const handleUnlinkInventory = async (itemId: string, inventoryId: string) => {
+    if (!confirm("재고 연결을 해제하시겠습니까?")) return;
+    try {
+      await procurementApi.unlinkInventory(itemId, inventoryId);
+      await load();
+    } catch (e: any) {
+      alert(e.message || "연결 해제 실패");
+    }
+  };
+
   if (loading || !order) {
     return <div className="flex items-center justify-center h-64 text-gray-400">로딩 중...</div>;
   }
 
   const canReceive = ["CUSTOMS", "PARTIALLY_RECEIVED"].includes(order.status);
 
+  // 현재 결재 단계에서 내가 결재자인지 확인
+  const currentPendingStep = approvalDoc?.steps?.find((s: any) => s.status === "PENDING");
+
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-3 mb-4">
         <button onClick={() => router.push("/procurement")} className="text-gray-400 hover:text-gray-600">&larr;</button>
         <div>
           <h1 className="text-xl font-bold">{order.orderNumber}</h1>
@@ -191,7 +252,7 @@ export default function OrderDetailPage() {
               결재 상신
             </button>
           )}
-          {order.status !== "DRAFT" && order.allowedTransitions?.map((t: string) => (
+          {order.status !== "DRAFT" && order.allowedTransitions?.filter((t: string) => !["PENDING_APPROVAL", "APPROVED", "REJECTED"].includes(t)).map((t: string) => (
             <button
               key={t}
               onClick={() => handleTransition(t)}
@@ -212,27 +273,112 @@ export default function OrderDetailPage() {
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-lg border p-4">
-          <div className="text-xs text-gray-500 mb-1">금액</div>
-          <div className="text-lg font-bold font-mono">{fmtAmount(order.totalAmount, order.currency)}</div>
-          {order.totalAmountKRW && (
-            <div className="text-xs text-gray-400 mt-0.5">{fmtAmount(order.totalAmountKRW, "KRW")}</div>
+      {/* 결재 현황 — 상신 이후에만 표시 */}
+      {approvalDoc && (
+        <div className={`rounded-lg border p-4 mb-4 ${
+          approvalDoc.status === "APPROVED" ? "bg-green-50 border-green-200" :
+          approvalDoc.status === "REJECTED" ? "bg-red-50 border-red-200" :
+          approvalDoc.status === "DRAFT" ? "bg-gray-50 border-gray-200" :
+          "bg-yellow-50 border-yellow-200"
+        }`}>
+          <div className="flex items-center gap-4 mb-3">
+            <h3 className="font-medium text-sm">결재 현황</h3>
+            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+              approvalDoc.status === "APPROVED" ? "bg-green-100 text-green-700" :
+              approvalDoc.status === "REJECTED" ? "bg-red-100 text-red-700" :
+              approvalDoc.status === "DRAFT" ? "bg-gray-100 text-gray-600" :
+              "bg-yellow-100 text-yellow-700"
+            }`}>
+              {approvalDoc.status === "APPROVED" ? "승인완료" :
+               approvalDoc.status === "REJECTED" ? "반려" :
+               approvalDoc.status === "DRAFT" ? "초안" :
+               "결재진행중"}
+            </span>
+            {approvalDoc.requesterName && (
+              <span className="text-xs text-gray-500">기안: {approvalDoc.requesterName}</span>
+            )}
+          </div>
+
+          {/* 결재 단계 스텝 표시 */}
+          <div className="flex items-center gap-2 mb-3">
+            {approvalDoc.steps?.map((step: any, idx: number) => (
+              <div key={step.id} className="flex items-center gap-2">
+                {idx > 0 && <span className="text-gray-300">&rarr;</span>}
+                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm ${
+                  step.status === "APPROVED" ? "bg-green-100 text-green-800" :
+                  step.status === "REJECTED" ? "bg-red-100 text-red-800" :
+                  step.status === "PENDING" && idx === approvalDoc.steps.findIndex((s: any) => s.status === "PENDING")
+                    ? "bg-white border-2 border-yellow-400 text-yellow-800 font-medium"
+                    : "bg-gray-100 text-gray-500"
+                }`}>
+                  <span>{step.roleName}</span>
+                  <span className="font-medium">{step.approverName}</span>
+                  {step.status === "APPROVED" && <span className="text-green-600 text-xs">&#10003;</span>}
+                  {step.status === "REJECTED" && <span className="text-red-600 text-xs">&#10007;</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 반려 사유 표시 */}
+          {approvalDoc.status === "REJECTED" && approvalDoc.steps?.some((s: any) => s.status === "REJECTED" && s.comment) && (
+            <div className="text-sm text-red-700 bg-red-100 rounded px-3 py-2 mb-3">
+              <span className="font-medium">반려 사유: </span>
+              {approvalDoc.steps.find((s: any) => s.status === "REJECTED")?.comment}
+            </div>
+          )}
+
+          {/* 결재 액션 — 현재 대기중인 결재자에게만 */}
+          {currentPendingStep && /PENDING/.test(approvalDoc.status) && approvalDoc.status !== "DRAFT" && (
+            <div className="flex items-center gap-2 pt-2 border-t border-yellow-200">
+              <span className="text-sm text-gray-600 mr-2">내 차례:</span>
+              <button
+                onClick={handleApprove}
+                className="px-4 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700"
+              >
+                승인
+              </button>
+              {showRejectForm ? (
+                <div className="flex items-center gap-2 flex-1">
+                  <input
+                    type="text"
+                    value={rejectComment}
+                    onChange={(e) => setRejectComment(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleReject()}
+                    placeholder="반려 사유 입력..."
+                    className="flex-1 border rounded-lg px-3 py-1.5 text-sm"
+                    autoFocus
+                  />
+                  <button onClick={handleReject} className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">반려</button>
+                  <button onClick={() => { setShowRejectForm(false); setRejectComment(""); }} className="text-gray-400 hover:text-gray-600 text-sm">취소</button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowRejectForm(true)}
+                  className="px-4 py-1.5 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50"
+                >
+                  반려
+                </button>
+              )}
+            </div>
           )}
         </div>
-        <div className="bg-white rounded-lg border p-4">
-          <div className="text-xs text-gray-500 mb-1">발주일</div>
-          <div className="font-medium">{fmtDate(order.orderDate)}</div>
+      )}
+
+      {/* Summary */}
+      <div className="flex items-center gap-6 bg-white rounded-lg border px-4 py-2.5 mb-4 text-sm">
+        <div>
+          <span className="text-gray-400 text-xs">금액</span>
+          <div className="font-bold font-mono">{fmtAmount(order.totalAmount, order.currency)}
+            {order.totalAmountKRW && <span className="text-xs text-gray-400 font-normal ml-1">({fmtAmount(order.totalAmountKRW, "KRW")})</span>}
+          </div>
         </div>
-        <div className="bg-white rounded-lg border p-4">
-          <div className="text-xs text-gray-500 mb-1">예상 출하일</div>
-          <div className="font-medium">{fmtDate(order.estimatedShipDate)}</div>
-        </div>
-        <div className="bg-white rounded-lg border p-4">
-          <div className="text-xs text-gray-500 mb-1">입고일</div>
-          <div className="font-medium">{fmtDate(order.arrivalDate)}</div>
-        </div>
+        <div className="h-6 w-px bg-gray-200" />
+        <div><span className="text-gray-400 text-xs">발주일</span><div>{fmtDate(order.orderDate)}</div></div>
+        <div className="h-6 w-px bg-gray-200" />
+        <div><span className="text-gray-400 text-xs">예상 출하일</span><div>{fmtDate(order.estimatedShipDate)}</div></div>
+        <div className="h-6 w-px bg-gray-200" />
+        <div><span className="text-gray-400 text-xs">입고일</span><div>{fmtDate(order.arrivalDate)}</div></div>
       </div>
 
       {/* 상세 정보 */}
@@ -282,6 +428,7 @@ export default function OrderDetailPage() {
               <th className="px-4 py-3 text-right font-medium text-gray-600">단가</th>
               <th className="px-4 py-3 text-right font-medium text-gray-600">금액</th>
               <th className="px-4 py-3 text-center font-medium text-gray-600">입고상태</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-600">재고번호</th>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -308,6 +455,41 @@ export default function OrderDetailPage() {
                   }`}>
                     {RECEIPT_LABELS[item.receiptStatus] || item.receiptStatus}
                   </span>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-1">
+                    {item.inventoryItems?.map((inv: any) => (
+                      <span key={inv.id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">
+                        <a href={`/inventory/${inv.id}`} className="hover:underline font-mono">{inv.inventoryNo}</a>
+                        <button
+                          onClick={() => handleUnlinkInventory(item.id, inv.id)}
+                          className="text-blue-400 hover:text-red-500 ml-0.5"
+                          title="연결 해제"
+                        >&times;</button>
+                      </span>
+                    ))}
+                    {linkItemId === item.id ? (
+                      <span className="inline-flex items-center gap-1">
+                        <input
+                          type="text"
+                          value={linkInvNo}
+                          onChange={(e) => setLinkInvNo(e.target.value.toUpperCase())}
+                          onKeyDown={(e) => e.key === "Enter" && handleLinkInventory()}
+                          placeholder="E00001"
+                          className="w-20 border rounded px-1.5 py-0.5 text-xs font-mono"
+                          autoFocus
+                        />
+                        <button onClick={handleLinkInventory} className="text-green-600 hover:text-green-800 text-xs font-bold">&#10003;</button>
+                        <button onClick={() => { setLinkItemId(null); setLinkInvNo(""); }} className="text-gray-400 hover:text-gray-600 text-xs">&times;</button>
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setLinkItemId(item.id)}
+                        className="text-gray-400 hover:text-blue-600 text-xs"
+                        title="재고번호 연결"
+                      >+ 연결</button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

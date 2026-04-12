@@ -72,6 +72,11 @@ export async function documentRoutes(fastify: FastifyInstance) {
     return reply.status(201).send(result);
   });
 
+  fastify.get("/by-reference/:referenceType/:referenceId", async (request) => {
+    const { referenceType, referenceId } = request.params as any;
+    return fastify.documentService.getByReference(referenceType, referenceId);
+  });
+
   fastify.get("/:id", async (request) => {
     return fastify.documentService.getById((request.params as any).id);
   });

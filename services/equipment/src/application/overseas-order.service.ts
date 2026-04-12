@@ -46,7 +46,10 @@ export class OverseasOrderService {
       include: {
         contract: { select: { id: true, contractNumber: true, name: true, client: true } },
         items: {
-          include: { productMaster: { select: { id: true, name: true, modelName: true } } },
+          include: {
+            productMaster: { select: { id: true, name: true, modelName: true } },
+            inventoryItems: { select: { id: true, inventoryNo: true, itemName: true, currentStatus: true }, orderBy: { inventoryNo: "asc" } },
+          },
           orderBy: { createdAt: "asc" },
         },
         progressLogs: { orderBy: { createdAt: "desc" }, take: 20 },
@@ -278,6 +281,32 @@ export class OverseasOrderService {
       }),
     ]);
     return { statusCounts, currencyCounts };
+  }
+
+  // ─── Inventory Link ─────────────────────────────────────────────────
+
+  async linkInventory(itemId: string, inventoryNo: string) {
+    const item = await this.prisma.overseasOrderItem.findUnique({ where: { id: itemId } });
+    if (!item) throw new Error("품목을 찾을 수 없습니다.");
+
+    const inv = await this.prisma.inventoryItem.findUnique({ where: { inventoryNo } });
+    if (!inv) throw new Error(`재고번호 ${inventoryNo}를 찾을 수 없습니다.`);
+    if (inv.orderItemId && inv.orderItemId !== itemId) {
+      throw new Error(`재고 ${inventoryNo}는 이미 다른 품목에 연결되어 있습니다.`);
+    }
+
+    return this.prisma.inventoryItem.update({
+      where: { id: inv.id },
+      data: { orderItemId: itemId },
+      select: { id: true, inventoryNo: true, itemName: true, currentStatus: true },
+    });
+  }
+
+  async unlinkInventory(inventoryId: string) {
+    return this.prisma.inventoryItem.update({
+      where: { id: inventoryId },
+      data: { orderItemId: null },
+    });
   }
 
   private async ensureOrderEditable(orderId: string) {

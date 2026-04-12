@@ -101,7 +101,7 @@ export default function ProcurementPage() {
     <div>
       {/* Dashboard Summary */}
       {dashboard && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
+        <div className="flex gap-2 mb-4 overflow-x-auto">
           {dashboard.statusCounts
             ?.slice()
             .sort((a: any, b: any) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status))
@@ -109,10 +109,10 @@ export default function ProcurementPage() {
             <button
               key={sc.status}
               onClick={() => { setStatusFilter(sc.status); setPage(1); }}
-              className={`rounded-lg p-3 text-center cursor-pointer transition-shadow hover:shadow-md ${STATUS_COLORS[sc.status] || "bg-gray-50"}`}
+              className={`flex-1 min-w-0 rounded-lg px-2 py-1.5 text-center cursor-pointer transition-shadow hover:shadow-md ${STATUS_COLORS[sc.status] || "bg-gray-50"}`}
             >
-              <div className="text-2xl font-bold">{sc._count}</div>
-              <div className="text-xs mt-1">{STATUS_LABELS[sc.status] || sc.status}</div>
+              <div className="text-lg font-bold">{sc._count}</div>
+              <div className="text-[11px]">{STATUS_LABELS[sc.status] || sc.status}</div>
             </button>
           ))}
         </div>

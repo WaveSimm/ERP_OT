@@ -15,6 +15,36 @@ export class InventoryService {
   }
 
   /** 재고 목록 (필터/페이징) */
+  /** 필터 드롭다운용 고유값 목록 */
+  async getFilterOptions() {
+    const [locations, projects, assignees] = await Promise.all([
+      this.prisma.inventoryItem.findMany({
+        where: { currentLocation: { not: null } },
+        select: { currentLocation: true },
+        distinct: ["currentLocation"],
+        orderBy: { currentLocation: "asc" },
+      }),
+      this.prisma.inventoryItem.findMany({
+        where: { projectName: { not: null } },
+        select: { projectName: true },
+        distinct: ["projectName"],
+        orderBy: { projectName: "asc" },
+      }),
+      this.prisma.inventoryItem.findMany({
+        where: { assigneeName: { not: null } },
+        select: { assigneeName: true },
+        distinct: ["assigneeName"],
+        orderBy: { assigneeName: "asc" },
+      }),
+    ]);
+    return {
+      locations: locations.map(l => l.currentLocation).filter(Boolean),
+      projects: projects.map(p => p.projectName).filter(Boolean),
+      assignees: assignees.map(a => a.assigneeName).filter(Boolean),
+    };
+  }
+
+  /** 재고 목록 (필터/페이징) */
   async list(params: {
     category?: InventoryCategory;
     status?: InventoryStatus;
@@ -24,18 +54,29 @@ export class InventoryService {
     limit?: number;
   }) {
     const { category, status, location, search, page = 1, limit = 50 } = params;
-    const where: any = {};
-    if (category) where.category = category;
-    if (status) where.currentStatus = status;
-    if (location) where.currentLocation = { contains: location, mode: "insensitive" };
-    if (search) {
-      where.OR = [
-        { inventoryNo: { contains: search, mode: "insensitive" } },
-        { serialNumber: { contains: search, mode: "insensitive" } },
-        { itemName: { contains: search, mode: "insensitive" } },
-        { productMaster: { name: { contains: search, mode: "insensitive" } } },
-      ];
+    const where: any = { AND: [] as any[] };
+    if (category) where.AND.push({ category });
+    if (status) where.AND.push({ currentStatus: status });
+    if (location) {
+      where.AND.push({
+        OR: [
+          { currentLocation: { contains: location, mode: "insensitive" } },
+          { projectName: { contains: location, mode: "insensitive" } },
+          { assigneeName: { contains: location, mode: "insensitive" } },
+        ],
+      });
     }
+    if (search) {
+      where.AND.push({
+        OR: [
+          { inventoryNo: { contains: search, mode: "insensitive" } },
+          { serialNumber: { contains: search, mode: "insensitive" } },
+          { itemName: { contains: search, mode: "insensitive" } },
+          { productMaster: { name: { contains: search, mode: "insensitive" } } },
+        ],
+      });
+    }
+    if (where.AND.length === 0) delete where.AND;
 
     const [items, total] = await Promise.all([
       this.prisma.inventoryItem.findMany({
@@ -60,6 +101,10 @@ export class InventoryService {
         orderItem: { include: { order: { select: { orderNumber: true } } } },
         transactions: { orderBy: { date: "desc" }, take: 50 },
         costEvents: { orderBy: { eventDate: "desc" } },
+        auditItems: {
+          include: { audit: { select: { id: true, name: true, plannedDate: true, status: true } } },
+          orderBy: { audit: { plannedDate: "desc" } },
+        },
       },
     });
     if (!item) throw new Error("재고를 찾을 수 없습니다.");

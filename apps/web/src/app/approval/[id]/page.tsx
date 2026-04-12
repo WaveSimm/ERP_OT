@@ -241,6 +241,7 @@ export default function ApprovalDetailPage() {
                 <th className="text-right px-3 py-2">수량</th>
                 <th className="text-right px-3 py-2">소계</th>
                 <th className="text-right px-3 py-2">부가세</th>
+                <th className="text-center px-3 py-2">증빙</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -251,6 +252,20 @@ export default function ApprovalDetailPage() {
                   <td className="px-3 py-2 text-right">{item.quantity}</td>
                   <td className="px-3 py-2 text-right">{Number(item.subtotal).toLocaleString()}</td>
                   <td className="px-3 py-2 text-right">{Number(item.vat).toLocaleString()}</td>
+                  <td className="px-3 py-2 text-center">
+                    {(item.attachments || []).length > 0 ? (
+                      <div className="flex flex-col items-center gap-0.5">
+                        {(item.attachments as any[]).map((att: any) => (
+                          <a key={att.id} href={`/api/v1/approval/files/${att.id}/download`}
+                            className="text-xs text-blue-600 hover:underline truncate max-w-[100px]" title={att.fileName}>
+                            {att.fileName}
+                          </a>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-300">-</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

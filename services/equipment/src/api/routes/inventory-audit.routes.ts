@@ -32,4 +32,8 @@ export async function inventoryAuditRoutes(fastify: FastifyInstance) {
       checkedBy: request.userId,
     });
   });
+
+  // 실사 항목 리셋 (미확인으로 되돌리기)
+  fastify.post("/items/:itemId/reset", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) =>
+    fastify.inventoryAuditService.resetItem((request.params as any).itemId));
 }

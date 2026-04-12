@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { procurementApi, supplierApi } from "@/lib/api";
 import SearchableSelect from "@/components/SearchableSelect";
 import FilterableSelect from "@/components/FilterableSelect";
+import DateInput from "@/components/DateInput";
 
 interface OrderItem {
   name: string;
@@ -158,21 +159,21 @@ export default function NewOrderPage() {
         <div className="grid grid-cols-3 gap-4">
           <div>
             <label className="block text-sm text-gray-600 mb-1">발주일</label>
-            <input type="date" value={form.orderDate}
-              onChange={(e) => setForm({ ...form, orderDate: e.target.value })}
-              className="w-full border rounded-lg px-3 py-2 text-sm" />
+            <DateInput value={form.orderDate}
+              onChange={(v) => setForm({ ...form, orderDate: v })}
+              className="w-full !py-2" />
           </div>
           <div>
             <label className="block text-sm text-gray-600 mb-1">예상 생산완료일</label>
-            <input type="date" value={form.estimatedProductionEnd}
-              onChange={(e) => setForm({ ...form, estimatedProductionEnd: e.target.value })}
-              className="w-full border rounded-lg px-3 py-2 text-sm" />
+            <DateInput value={form.estimatedProductionEnd}
+              onChange={(v) => setForm({ ...form, estimatedProductionEnd: v })}
+              className="w-full !py-2" />
           </div>
           <div>
             <label className="block text-sm text-gray-600 mb-1">예상 출하일</label>
-            <input type="date" value={form.estimatedShipDate}
-              onChange={(e) => setForm({ ...form, estimatedShipDate: e.target.value })}
-              className="w-full border rounded-lg px-3 py-2 text-sm" />
+            <DateInput value={form.estimatedShipDate}
+              onChange={(v) => setForm({ ...form, estimatedShipDate: v })}
+              className="w-full !py-2" />
           </div>
           <div>
             <label className="block text-sm text-gray-600 mb-1">입고장소</label>
@@ -201,9 +202,9 @@ export default function NewOrderPage() {
           </div>
           <div>
             <label className="block text-sm text-gray-600 mb-1">결제기한</label>
-            <input type="date" value={form.dueDate}
-              onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
-              className="w-full border rounded-lg px-3 py-2 text-sm" />
+            <DateInput value={form.dueDate}
+              onChange={(v) => setForm({ ...form, dueDate: v })}
+              className="w-full !py-2" />
           </div>
           <div>
             <label className="block text-sm text-gray-600 mb-1">OA번호</label>

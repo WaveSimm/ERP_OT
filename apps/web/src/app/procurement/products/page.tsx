@@ -12,6 +12,9 @@ export default function ProductMasterPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [nameFilter, setNameFilter] = useState("");
+  const [modelFilter, setModelFilter] = useState("");
+  const [mfrFilter, setMfrFilter] = useState("");
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -22,12 +25,19 @@ export default function ProductMasterPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await procurementApi.getProducts({ search: search || undefined, page, limit: PAGE_SIZE });
+      const res = await procurementApi.getProducts({
+        search: search || undefined,
+        name: nameFilter || undefined,
+        modelName: modelFilter || undefined,
+        manufacturer: mfrFilter || undefined,
+        page,
+        limit: PAGE_SIZE,
+      });
       setProducts(res.items);
       setTotal(res.total);
     } catch (e: any) { console.error(e); }
     finally { setLoading(false); }
-  }, [search, page]);
+  }, [search, nameFilter, modelFilter, mfrFilter, page]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -80,12 +90,15 @@ export default function ProductMasterPage() {
     <div>
       <div className="flex items-center gap-3 mb-4">
         <h2 className="text-lg font-bold">장비 마스터</h2>
-        <input
-          type="text" placeholder="검색..."
-          value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          className="border rounded-lg px-3 py-1.5 text-sm w-60"
-        />
         <span className="text-sm text-gray-400">{total}건</span>
+        {(nameFilter || modelFilter || mfrFilter) && (
+          <button
+            onClick={() => { setNameFilter(""); setModelFilter(""); setMfrFilter(""); setPage(1); }}
+            className="px-3 py-1.5 text-xs border rounded-lg hover:bg-gray-50 text-gray-500"
+          >
+            필터 초기화
+          </button>
+        )}
         <button onClick={() => { resetForm(); setShowForm(true); }}
           className="ml-auto px-4 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
           + 등록
@@ -105,13 +118,34 @@ export default function ProductMasterPage() {
           </colgroup>
           <thead className="bg-gray-50 border-b">
             <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">품명</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">모델명</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">제조사</th>
-              <th className="px-4 py-3 text-center font-medium text-gray-600">통화</th>
-              <th className="px-4 py-3 text-right font-medium text-gray-600">참고가</th>
-              <th className="px-4 py-3 text-center font-medium text-gray-600">발주</th>
-              <th className="px-4 py-3 text-center font-medium text-gray-600">작업</th>
+              <th className="px-4 py-2 text-left font-medium text-gray-600">
+                <div className="text-xs mb-1">품명</div>
+                <input
+                  type="text" placeholder="품명 검색..."
+                  value={nameFilter} onChange={(e) => { setNameFilter(e.target.value); setPage(1); }}
+                  className="w-full border rounded px-2 py-1 text-xs font-normal focus:outline-none focus:ring-1 focus:ring-blue-400"
+                />
+              </th>
+              <th className="px-4 py-2 text-left font-medium text-gray-600">
+                <div className="text-xs mb-1">모델명</div>
+                <input
+                  type="text" placeholder="모델명 검색..."
+                  value={modelFilter} onChange={(e) => { setModelFilter(e.target.value); setPage(1); }}
+                  className="w-full border rounded px-2 py-1 text-xs font-normal focus:outline-none focus:ring-1 focus:ring-blue-400"
+                />
+              </th>
+              <th className="px-4 py-2 text-left font-medium text-gray-600">
+                <div className="text-xs mb-1">제조사</div>
+                <input
+                  type="text" placeholder="제조사 검색..."
+                  value={mfrFilter} onChange={(e) => { setMfrFilter(e.target.value); setPage(1); }}
+                  className="w-full border rounded px-2 py-1 text-xs font-normal focus:outline-none focus:ring-1 focus:ring-blue-400"
+                />
+              </th>
+              <th className="px-4 py-2 text-center font-medium text-gray-600 text-xs">통화</th>
+              <th className="px-4 py-2 text-right font-medium text-gray-600 text-xs">참고가</th>
+              <th className="px-4 py-2 text-center font-medium text-gray-600 text-xs">발주</th>
+              <th className="px-4 py-2 text-center font-medium text-gray-600 text-xs">작업</th>
             </tr>
           </thead>
           <tbody className="divide-y">

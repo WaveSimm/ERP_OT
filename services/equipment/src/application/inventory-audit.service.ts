@@ -17,7 +17,7 @@ export class InventoryAuditService {
       where: { id },
       include: {
         items: {
-          include: { inventoryItem: { select: { inventoryNo: true, productMaster: { select: { name: true } } } } },
+          include: { inventoryItem: { select: { id: true, inventoryNo: true, productMaster: { select: { name: true } } } } },
           orderBy: { inventoryItem: { inventoryNo: "asc" } },
         },
       },
@@ -81,6 +81,24 @@ export class InventoryAuditService {
         checkedBy: data.checkedBy,
         checkedAt: new Date(),
         notes: data.notes ?? null,
+      },
+    });
+  }
+
+  /** 실사 항목 리셋 (미확인으로 되돌리기) */
+  async resetItem(itemId: string) {
+    const item = await this.prisma.inventoryAuditItem.findUnique({ where: { id: itemId } });
+    if (!item) throw new Error("실사 항목을 찾을 수 없습니다.");
+
+    return this.prisma.inventoryAuditItem.update({
+      where: { id: itemId },
+      data: {
+        actualQuantity: null,
+        actualLocation: null,
+        status: "PENDING",
+        checkedBy: null,
+        checkedAt: null,
+        notes: null,
       },
     });
   }

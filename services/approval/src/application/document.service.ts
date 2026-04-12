@@ -72,6 +72,17 @@ export class DocumentService {
     return { ...doc, requesterName, allowedTransitions: getAllowedTransitions(doc.status) };
   }
 
+  async getByReference(referenceType: string, referenceId: string) {
+    return this.prisma.approvalDocument.findFirst({
+      where: { referenceType, referenceId },
+      include: {
+        template: { select: { code: true, name: true } },
+        steps: { orderBy: { stepOrder: "asc" } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
   async update(id: string, data: any) {
     const doc = await this.prisma.approvalDocument.findUnique({ where: { id } });
     if (!doc) throw new Error("결재 문서를 찾을 수 없습니다.");

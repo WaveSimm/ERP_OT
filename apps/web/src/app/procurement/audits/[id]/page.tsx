@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { auditApi } from "@/lib/api";
 
 const ITEM_STATUS_COLORS: Record<string, string> = {
@@ -13,14 +13,21 @@ const ITEM_STATUS_COLORS: Record<string, string> = {
 const ITEM_STATUS_LABELS: Record<string, string> = { PENDING: "미확인", MATCHED: "일치", MISMATCHED: "불일치", MISSING: "누락" };
 const AUDIT_STATUS_LABELS: Record<string, string> = { PLANNED: "예정", IN_PROGRESS: "진행중", COMPLETED: "완료" };
 
+type SortKey = "inventoryNo" | "location";
+
 export default function AuditDetailPage() {
+  const router = useRouter();
   const params = useParams();
   const id = params.id as string;
   const [audit, setAudit] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
-  const [checkingId, setCheckingId] = useState<string | null>(null);
-  const [checkForm, setCheckForm] = useState({ actualQuantity: "", actualLocation: "", notes: "" });
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<SortKey>("inventoryNo");
+  const [groupByLocation, setGroupByLocation] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editQty, setEditQty] = useState("");
+  const [acting, setActing] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try { setAudit(await auditApi.getById(id)); }
@@ -33,28 +40,148 @@ export default function AuditDetailPage() {
   const handleStart = async () => { await auditApi.start(id); load(); };
   const handleComplete = async () => { await auditApi.complete(id); load(); };
 
-  const handleCheck = async () => {
-    if (!checkingId || checkForm.actualQuantity === "") return;
-    await auditApi.checkItem(checkingId, {
-      actualQuantity: Number(checkForm.actualQuantity),
-      actualLocation: checkForm.actualLocation || undefined,
-      notes: checkForm.notes || undefined,
-    });
-    setCheckingId(null);
-    setCheckForm({ actualQuantity: "", actualLocation: "", notes: "" });
-    load();
+  const quickAction = async (itemId: string, action: "MATCHED" | "MISSING" | "PENDING", systemQty?: number) => {
+    setActing(itemId);
+    try {
+      if (action === "PENDING") {
+        await auditApi.resetItem(itemId);
+      } else {
+        await auditApi.checkItem(itemId, {
+          actualQuantity: action === "MATCHED" ? (systemQty ?? 1) : 0,
+        });
+      }
+      load();
+    } catch (e: any) { alert(e.message); }
+    finally { setActing(null); }
   };
+
+  const submitMismatch = async (itemId: string) => {
+    if (editQty === "") return;
+    setActing(itemId);
+    try {
+      await auditApi.checkItem(itemId, { actualQuantity: Number(editQty) });
+      setEditingId(null);
+      setEditQty("");
+      load();
+    } catch (e: any) { alert(e.message); }
+    finally { setActing(null); }
+  };
+
+  const allItems: any[] = audit?.items || [];
+
+  // 필터 + 검색
+  const filtered = useMemo(() => {
+    return allItems.filter((i: any) => {
+      if (filter && i.status !== filter) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        const invNo = (i.inventoryItem?.inventoryNo || "").toLowerCase();
+        const name = (i.inventoryItem?.productMaster?.name || "").toLowerCase();
+        const loc = (i.systemLocation || "").toLowerCase();
+        if (!invNo.includes(q) && !name.includes(q) && !loc.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [allItems, filter, search]);
+
+  // 정렬
+  const sorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      if (sortBy === "location") {
+        const la = (a.systemLocation || "").localeCompare(b.systemLocation || "");
+        if (la !== 0) return la;
+      }
+      return (a.inventoryItem?.inventoryNo || "").localeCompare(b.inventoryItem?.inventoryNo || "");
+    });
+  }, [filtered, sortBy]);
+
+  // 창고별 그룹핑
+  const grouped = useMemo(() => {
+    if (!groupByLocation) return null;
+    const map: Record<string, any[]> = {};
+    sorted.forEach((item) => {
+      const loc = item.systemLocation || "위치미상";
+      if (!map[loc]) map[loc] = [];
+      map[loc].push(item);
+    });
+    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
+  }, [sorted, groupByLocation]);
+
+  const stats = useMemo(() => ({
+    total: allItems.length,
+    checked: allItems.filter((i: any) => i.status !== "PENDING").length,
+    matched: allItems.filter((i: any) => i.status === "MATCHED").length,
+    mismatched: allItems.filter((i: any) => i.status === "MISMATCHED").length,
+    missing: allItems.filter((i: any) => i.status === "MISSING").length,
+  }), [allItems]);
 
   if (loading) return <div className="text-center py-12 text-gray-400">로딩 중...</div>;
   if (!audit) return <div className="text-center py-12 text-red-500">실사를 찾을 수 없습니다.</div>;
 
-  const items = (audit.items || []).filter((i: any) => !filter || i.status === filter);
-  const stats = {
-    total: audit.items?.length || 0,
-    checked: audit.items?.filter((i: any) => i.status !== "PENDING").length || 0,
-    matched: audit.items?.filter((i: any) => i.status === "MATCHED").length || 0,
-    mismatched: audit.items?.filter((i: any) => i.status === "MISMATCHED").length || 0,
-    missing: audit.items?.filter((i: any) => i.status === "MISSING").length || 0,
+  const isInProgress = audit.status === "IN_PROGRESS";
+
+  const renderItem = (item: any) => {
+    const disabled = acting === item.id;
+    const isEditing = editingId === item.id;
+
+    return (
+      <div key={item.id} className={`bg-white border rounded-lg p-3 flex items-center gap-3 ${disabled ? "opacity-50" : ""}`}>
+        {/* 상태 뱃지 */}
+        <span className={`text-xs px-2 py-1 rounded whitespace-nowrap w-14 text-center ${ITEM_STATUS_COLORS[item.status]}`}>
+          {ITEM_STATUS_LABELS[item.status]}
+        </span>
+
+        {/* 재고 정보 — 클릭 시 재고 상세 */}
+        <div className="flex-1 min-w-0 cursor-pointer group" onClick={() => {
+          if (item.inventoryItem?.id) router.push(`/procurement/inventory/${item.inventoryItem.id}`);
+        }}>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium font-mono text-blue-600 group-hover:underline">{item.inventoryItem?.inventoryNo}</span>
+            <span className="text-xs text-gray-400 truncate">{item.systemLocation || "위치미상"}</span>
+          </div>
+          <div className="text-xs text-gray-500 truncate group-hover:text-blue-500">{item.inventoryItem?.productMaster?.name || "-"}</div>
+          <div className="text-xs text-gray-400">
+            수량: {item.systemQuantity}개
+            {item.actualQuantity !== null && item.status !== "MATCHED" && (
+              <span className="text-red-600"> → 실제: {item.actualQuantity}개</span>
+            )}
+          </div>
+        </div>
+
+        {/* 액션 버튼 (진행중일 때만) */}
+        {isInProgress && (
+          <div className="flex items-center gap-1 shrink-0">
+            {/* 불일치 수량 입력 */}
+            {isEditing ? (
+              <div className="flex items-center gap-1">
+                <input type="number" value={editQty} onChange={(e) => setEditQty(e.target.value)}
+                  className="w-16 border rounded px-2 py-1 text-xs" placeholder="수량"
+                  autoFocus onKeyDown={(e) => { if (e.key === "Enter") submitMismatch(item.id); if (e.key === "Escape") { setEditingId(null); setEditQty(""); } }} />
+                <button onClick={() => submitMismatch(item.id)} disabled={disabled || editQty === ""}
+                  className="px-2 py-1 text-xs bg-red-600 text-white rounded disabled:opacity-30">확인</button>
+                <button onClick={() => { setEditingId(null); setEditQty(""); }}
+                  className="px-1.5 py-1 text-xs text-gray-400 hover:text-gray-600">&times;</button>
+              </div>
+            ) : (
+              <>
+                <button onClick={() => quickAction(item.id, "PENDING")} disabled={disabled}
+                  className={`px-2 py-1 text-xs rounded border ${item.status === "PENDING" ? "bg-gray-200 text-gray-700 font-medium" : "text-gray-400 hover:bg-gray-100"}`}>
+                  미확인</button>
+                <button onClick={() => quickAction(item.id, "MISSING", 0)} disabled={disabled}
+                  className={`px-2 py-1 text-xs rounded border ${item.status === "MISSING" ? "bg-orange-200 text-orange-800 font-medium" : "text-orange-500 hover:bg-orange-50"}`}>
+                  누락</button>
+                <button onClick={() => { setEditingId(item.id); setEditQty(""); }} disabled={disabled}
+                  className={`px-2 py-1 text-xs rounded border ${item.status === "MISMATCHED" ? "bg-red-200 text-red-800 font-medium" : "text-red-500 hover:bg-red-50"}`}>
+                  불일치</button>
+                <button onClick={() => quickAction(item.id, "MATCHED", item.systemQuantity)} disabled={disabled}
+                  className={`px-2 py-1 text-xs rounded border ${item.status === "MATCHED" ? "bg-green-200 text-green-800 font-medium" : "text-green-600 hover:bg-green-50"}`}>
+                  일치</button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -95,7 +222,22 @@ export default function AuditDetailPage() {
         </div>
       </div>
 
-      {/* 필터 */}
+      {/* 검색 + 정렬 + 필터 */}
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <input type="text" placeholder="재고번호, 품명, 창고 검색..." value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="border rounded-lg px-3 py-1.5 text-sm w-56" />
+        <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortKey)}
+          className="border rounded-lg px-3 py-1.5 text-sm">
+          <option value="inventoryNo">재고번호순</option>
+          <option value="location">창고순</option>
+        </select>
+        <button onClick={() => setGroupByLocation((v) => !v)}
+          className={`px-3 py-1.5 rounded-lg text-sm border ${groupByLocation ? "bg-blue-600 text-white border-blue-600" : "hover:bg-gray-50"}`}>
+          창고별 그룹
+        </button>
+        <span className="text-xs text-gray-400 ml-1">{filtered.length}/{allItems.length}건</span>
+      </div>
       <div className="flex gap-2 mb-4">
         {["", "PENDING", "MATCHED", "MISMATCHED", "MISSING"].map((f) => (
           <button key={f} onClick={() => setFilter(f)}
@@ -106,57 +248,23 @@ export default function AuditDetailPage() {
       </div>
 
       {/* 항목 목록 */}
-      <div className="space-y-2">
-        {items.map((item: any) => (
-          <div key={item.id} className="bg-white border rounded-lg p-3 flex items-center gap-4">
-            <div className="flex-1">
-              <div className="text-sm font-medium">{item.inventoryItem?.inventoryNo}</div>
-              <div className="text-xs text-gray-500">{item.inventoryItem?.productMaster?.name || "-"}</div>
-              <div className="text-xs text-gray-400">
-                시스템: {item.systemQuantity}개 / {item.systemLocation || "위치미상"}
-                {item.actualQuantity !== null && ` → 실제: ${item.actualQuantity}개`}
+      {grouped ? (
+        <div className="space-y-4">
+          {grouped.map(([loc, locItems]) => (
+            <div key={loc}>
+              <div className="flex items-center gap-2 mb-2">
+                <h3 className="text-sm font-semibold text-gray-700">{loc}</h3>
+                <span className="text-xs text-gray-400">{locItems.length}건</span>
+                <span className="text-xs text-green-600">{locItems.filter((i: any) => i.status !== "PENDING").length}건 확인</span>
               </div>
+              <div className="space-y-2">{locItems.map(renderItem)}</div>
             </div>
-            <span className={`text-xs px-2 py-1 rounded ${ITEM_STATUS_COLORS[item.status]}`}>
-              {ITEM_STATUS_LABELS[item.status]}
-            </span>
-            {audit.status === "IN_PROGRESS" && item.status === "PENDING" && (
-              <button onClick={() => { setCheckingId(item.id); setCheckForm({ actualQuantity: String(item.systemQuantity), actualLocation: item.systemLocation || "", notes: "" }); }}
-                className="px-3 py-1 text-xs bg-blue-600 text-white rounded">확인</button>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* 체크 모달 */}
-      {checkingId && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setCheckingId(null)}>
-          <div className="bg-white rounded-xl p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold mb-4">실사 확인</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm text-gray-600">실제 수량</label>
-                <input type="number" value={checkForm.actualQuantity} onChange={(e) => setCheckForm(p => ({ ...p, actualQuantity: e.target.value }))}
-                  className="w-full border rounded px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="text-sm text-gray-600">실제 위치</label>
-                <input value={checkForm.actualLocation} onChange={(e) => setCheckForm(p => ({ ...p, actualLocation: e.target.value }))}
-                  className="w-full border rounded px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="text-sm text-gray-600">메모</label>
-                <textarea value={checkForm.notes} onChange={(e) => setCheckForm(p => ({ ...p, notes: e.target.value }))}
-                  className="w-full border rounded px-3 py-2 text-sm" rows={2} />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 mt-4">
-              <button onClick={() => setCheckingId(null)} className="px-4 py-2 border rounded-lg text-sm">취소</button>
-              <button onClick={handleCheck} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">확인</button>
-            </div>
-          </div>
+          ))}
         </div>
+      ) : (
+        <div className="space-y-2">{sorted.map(renderItem)}</div>
       )}
+
     </div>
   );
 }
