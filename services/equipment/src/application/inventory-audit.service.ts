@@ -103,8 +103,58 @@ export class InventoryAuditService {
     });
   }
 
+  /** 실사 일시정지 */
+  async pause(id: string) {
+    const audit = await this.prisma.inventoryAudit.findUnique({ where: { id } });
+    if (!audit) throw new Error("실사를 찾을 수 없습니다.");
+    if (audit.status !== "IN_PROGRESS") throw new Error("진행중인 실사만 일시정지할 수 있습니다.");
+
+    return this.prisma.inventoryAudit.update({
+      where: { id },
+      data: { status: "PAUSED" },
+    });
+  }
+
+  /** 실사 재개 */
+  async resume(id: string) {
+    const audit = await this.prisma.inventoryAudit.findUnique({ where: { id } });
+    if (!audit) throw new Error("실사를 찾을 수 없습니다.");
+    if (audit.status !== "PAUSED") throw new Error("일시정지된 실사만 재개할 수 있습니다.");
+
+    return this.prisma.inventoryAudit.update({
+      where: { id },
+      data: { status: "IN_PROGRESS" },
+    });
+  }
+
+  /** 실사 취소 */
+  async cancel(id: string) {
+    const audit = await this.prisma.inventoryAudit.findUnique({ where: { id } });
+    if (!audit) throw new Error("실사를 찾을 수 없습니다.");
+    if (audit.status === "COMPLETED" || audit.status === "CANCELLED") {
+      throw new Error("완료되었거나 이미 취소된 실사는 취소할 수 없습니다.");
+    }
+
+    return this.prisma.inventoryAudit.update({
+      where: { id },
+      data: { status: "CANCELLED" },
+    });
+  }
+
   /** 실사 완료 */
   async complete(id: string) {
+    const audit = await this.prisma.inventoryAudit.findUnique({
+      where: { id },
+      include: { items: { select: { status: true } } },
+    });
+    if (!audit) throw new Error("실사를 찾을 수 없습니다.");
+    if (audit.status !== "IN_PROGRESS") throw new Error("진행중인 실사만 완료할 수 있습니다.");
+
+    const pendingCount = audit.items.filter(i => i.status === "PENDING").length;
+    if (pendingCount > 0) {
+      throw new Error(`미확인 항목이 ${pendingCount}건 있습니다. 모든 항목을 확인한 후 완료해주세요.`);
+    }
+
     return this.prisma.inventoryAudit.update({
       where: { id },
       data: { status: "COMPLETED", completedAt: new Date() },

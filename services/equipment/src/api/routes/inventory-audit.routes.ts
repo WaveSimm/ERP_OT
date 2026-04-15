@@ -21,6 +21,15 @@ export async function inventoryAuditRoutes(fastify: FastifyInstance) {
   fastify.post("/:id/start", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) =>
     fastify.inventoryAuditService.start((request.params as any).id));
 
+  fastify.post("/:id/pause", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) =>
+    fastify.inventoryAuditService.pause((request.params as any).id));
+
+  fastify.post("/:id/resume", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) =>
+    fastify.inventoryAuditService.resume((request.params as any).id));
+
+  fastify.post("/:id/cancel", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) =>
+    fastify.inventoryAuditService.cancel((request.params as any).id));
+
   fastify.post("/:id/complete", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) =>
     fastify.inventoryAuditService.complete((request.params as any).id));
 

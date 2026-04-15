@@ -1003,6 +1003,12 @@ export const auditApi = {
     request<any>("/inventory/audits", { method: "POST", body: JSON.stringify(data) }),
   start: (id: string) =>
     request<any>(`/inventory/audits/${id}/start`, { method: "POST" }),
+  pause: (id: string) =>
+    request<any>(`/inventory/audits/${id}/pause`, { method: "POST" }),
+  resume: (id: string) =>
+    request<any>(`/inventory/audits/${id}/resume`, { method: "POST" }),
+  cancel: (id: string) =>
+    request<any>(`/inventory/audits/${id}/cancel`, { method: "POST" }),
   complete: (id: string) =>
     request<any>(`/inventory/audits/${id}/complete`, { method: "POST" }),
   checkItem: (itemId: string, data: { actualQuantity: number; actualLocation?: string; notes?: string }) =>
@@ -1032,6 +1038,12 @@ export const settlementApi = {
     request<any>("/procurement/settlements", { method: "POST", body: JSON.stringify(data) }),
   addExtra: (id: string, data: any) =>
     request<any>(`/procurement/settlements/${id}/extras`, { method: "POST", body: JSON.stringify(data) }),
+  updateContract: (id: string, contractId: string | null) =>
+    request<any>(`/procurement/settlements/${id}/contract`, { method: "PATCH", body: JSON.stringify({ contractId }) }),
+  addRemittance: (id: string, data: any) =>
+    request<any>(`/procurement/settlements/${id}/remittances`, { method: "POST", body: JSON.stringify(data) }),
+  removeRemittance: (remittanceId: string) =>
+    request<void>(`/procurement/settlements/remittances/${remittanceId}`, { method: "DELETE" }),
   remove: (id: string) =>
     request<void>(`/procurement/settlements/${id}`, { method: "DELETE" }),
 };

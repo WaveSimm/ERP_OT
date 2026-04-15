@@ -213,15 +213,28 @@ export default function InventoryDetailPage() {
                 <InfoField label="발주 연결" value={item.orderItem.order?.orderNumber || item.sourceId} />
               )}
               {item.costSettlement && (
-                <InfoField label="수입원가정산">
-                  <button
-                    onClick={() => router.push(`/procurement/settlements/${item.costSettlement.id}`)}
-                    className="text-sm font-medium text-blue-600 hover:underline"
-                  >
-                    {item.costSettlement.declarationNo}
-                  </button>
-                  <div className="text-xs text-gray-400">{item.costSettlement.supplier}</div>
-                </InfoField>
+                <>
+                  <InfoField label="수입원가정산">
+                    <button
+                      onClick={() => router.push(`/procurement/settlements/${item.costSettlement.id}`)}
+                      className="text-sm font-medium text-blue-600 hover:underline"
+                    >
+                      {item.costSettlement.declarationNo}
+                    </button>
+                    <div className="text-xs text-gray-400">{item.costSettlement.supplier}</div>
+                  </InfoField>
+                  {item.costSettlement.contract && (
+                    <InfoField label="계약번호">
+                      <button
+                        onClick={() => router.push(`/procurement/contracts/${item.costSettlement.contract.id}`)}
+                        className="text-sm font-medium text-blue-600 hover:underline"
+                      >
+                        {item.costSettlement.contract.contractNumber}
+                      </button>
+                      <div className="text-xs text-gray-400">{item.costSettlement.contract.name} · {item.costSettlement.contract.client}</div>
+                    </InfoField>
+                  )}
+                </>
               )}
               <div className="col-span-2 sm:col-span-4 border-t pt-3 mt-1">
                 <div className="text-xs text-gray-500 mb-0.5">비고</div>

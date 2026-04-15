@@ -985,7 +985,8 @@ model Contract {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  orders OverseasOrder[]
+  orders      OverseasOrder[]
+  settlements ImportCostSettlement[]
 
   @@index([status])
   @@map("contracts")
@@ -1248,6 +1249,7 @@ enum CostDutyType {
 model ImportCostSettlement {
   id                String   @id @default(cuid())
   orderId           String?  @map("order_id")
+  contractId        String?  @map("contract_id")
   declarationNo     String   @unique @map("declaration_no")
   supplier          String
   declarationDate   DateTime @map("declaration_date") @db.Date
@@ -1265,12 +1267,14 @@ model ImportCostSettlement {
   updatedAt         DateTime @updatedAt @map("updated_at")
 
   order             OverseasOrder? @relation(fields: [orderId], references: [id])
+  contract          Contract?      @relation(fields: [contractId], references: [id])
   remittances       CostRemittance[]
   duties            CostDuty[]
   extras            CostExtra[]
   items             CostItem[]
 
   @@index([orderId])
+  @@index([contractId])
   @@map("import_cost_settlements")
   @@schema("equipment")
 }
@@ -1348,6 +1352,8 @@ model CostItem {
 enum AuditStatus {
   PLANNED
   IN_PROGRESS
+  PAUSED
+  CANCELLED
   COMPLETED
 
   @@schema("equipment")

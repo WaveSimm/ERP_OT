@@ -11,7 +11,8 @@ const ITEM_STATUS_COLORS: Record<string, string> = {
   MISSING: "bg-orange-100 text-orange-700",
 };
 const ITEM_STATUS_LABELS: Record<string, string> = { PENDING: "미확인", MATCHED: "일치", MISMATCHED: "불일치", MISSING: "누락" };
-const AUDIT_STATUS_LABELS: Record<string, string> = { PLANNED: "예정", IN_PROGRESS: "진행중", COMPLETED: "완료" };
+const AUDIT_STATUS_LABELS: Record<string, string> = { PLANNED: "예정", IN_PROGRESS: "진행중", PAUSED: "일시정지", CANCELLED: "취소", COMPLETED: "완료" };
+const AUDIT_STATUS_COLORS: Record<string, string> = { PLANNED: "text-gray-600", IN_PROGRESS: "text-yellow-600", PAUSED: "text-blue-600", CANCELLED: "text-red-600", COMPLETED: "text-green-600" };
 
 type SortKey = "inventoryNo" | "location";
 
@@ -28,6 +29,8 @@ export default function AuditDetailPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState("");
   const [acting, setActing] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 100;
 
   const load = useCallback(async () => {
     try { setAudit(await auditApi.getById(id)); }
@@ -37,8 +40,10 @@ export default function AuditDetailPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const handleStart = async () => { await auditApi.start(id); load(); };
-  const handleComplete = async () => { await auditApi.complete(id); load(); };
+  const handleAction = async (action: () => Promise<any>) => {
+    try { await action(); load(); }
+    catch (e: any) { alert(e.message); }
+  };
 
   const quickAction = async (itemId: string, action: "MATCHED" | "MISSING" | "PENDING", systemQty?: number) => {
     setActing(itemId);
@@ -95,6 +100,18 @@ export default function AuditDetailPage() {
     });
   }, [filtered, sortBy]);
 
+  // 페이지네이션
+  const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+  const paged = useMemo(() => {
+    if (groupByLocation) return sorted; // 그룹핑 시 전체 (그룹 내에서 페이징하면 복잡)
+    const start = (page - 1) * PAGE_SIZE;
+    return sorted.slice(start, start + PAGE_SIZE);
+  }, [sorted, page, groupByLocation]);
+
+  // 필터/검색 변경 시 페이지 리셋
+  const setFilterAndReset = (f: string) => { setFilter(f); setPage(1); };
+  const setSearchAndReset = (s: string) => { setSearch(s); setPage(1); };
+
   // 창고별 그룹핑
   const grouped = useMemo(() => {
     if (!groupByLocation) return null;
@@ -118,7 +135,7 @@ export default function AuditDetailPage() {
   if (loading) return <div className="text-center py-12 text-gray-400">로딩 중...</div>;
   if (!audit) return <div className="text-center py-12 text-red-500">실사를 찾을 수 없습니다.</div>;
 
-  const isInProgress = audit.status === "IN_PROGRESS";
+  const isEditable = audit.status === "IN_PROGRESS" || audit.status === "PAUSED";
 
   const renderItem = (item: any) => {
     const disabled = acting === item.id;
@@ -148,8 +165,8 @@ export default function AuditDetailPage() {
           </div>
         </div>
 
-        {/* 액션 버튼 (진행중일 때만) */}
-        {isInProgress && (
+        {/* 액션 버튼 (진행중/일시정지일 때만) */}
+        {isEditable && (
           <div className="flex items-center gap-1 shrink-0">
             {/* 불일치 수량 입력 */}
             {isEditing ? (
@@ -190,16 +207,23 @@ export default function AuditDetailPage() {
         <div>
           <h2 className="text-xl font-bold">{audit.name}</h2>
           <div className="text-sm text-gray-500">
-            {AUDIT_STATUS_LABELS[audit.status]} · 예정: {new Date(audit.plannedDate).toLocaleDateString("ko-KR")}
+            <span className={`font-medium ${AUDIT_STATUS_COLORS[audit.status]}`}>{AUDIT_STATUS_LABELS[audit.status]}</span> · 예정: {new Date(audit.plannedDate).toLocaleDateString("ko-KR")}
           </div>
         </div>
         <div className="flex gap-2">
-          {audit.status === "PLANNED" && (
-            <button onClick={handleStart} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">실사 시작</button>
-          )}
-          {audit.status === "IN_PROGRESS" && (
-            <button onClick={handleComplete} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm">실사 완료</button>
-          )}
+          {audit.status === "PLANNED" && (<>
+            <button onClick={() => handleAction(() => auditApi.cancel(id))} className="px-4 py-2 border border-red-300 text-red-600 rounded-lg text-sm hover:bg-red-50">취소</button>
+            <button onClick={() => handleAction(() => auditApi.start(id))} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">실사 시작</button>
+          </>)}
+          {audit.status === "IN_PROGRESS" && (<>
+            <button onClick={() => handleAction(() => auditApi.pause(id))} className="px-4 py-2 border border-blue-300 text-blue-600 rounded-lg text-sm hover:bg-blue-50">일시정지</button>
+            <button onClick={() => handleAction(() => auditApi.cancel(id))} className="px-4 py-2 border border-red-300 text-red-600 rounded-lg text-sm hover:bg-red-50">취소</button>
+            <button onClick={() => handleAction(() => auditApi.complete(id))} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm">완료</button>
+          </>)}
+          {audit.status === "PAUSED" && (<>
+            <button onClick={() => handleAction(() => auditApi.resume(id))} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">재개</button>
+            <button onClick={() => handleAction(() => auditApi.cancel(id))} className="px-4 py-2 border border-red-300 text-red-600 rounded-lg text-sm hover:bg-red-50">취소</button>
+          </>)}
         </div>
       </div>
 
@@ -225,7 +249,7 @@ export default function AuditDetailPage() {
       {/* 검색 + 정렬 + 필터 */}
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         <input type="text" placeholder="재고번호, 품명, 창고 검색..." value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => setSearchAndReset(e.target.value)}
           className="border rounded-lg px-3 py-1.5 text-sm w-56" />
         <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortKey)}
           className="border rounded-lg px-3 py-1.5 text-sm">
@@ -240,7 +264,7 @@ export default function AuditDetailPage() {
       </div>
       <div className="flex gap-2 mb-4">
         {["", "PENDING", "MATCHED", "MISMATCHED", "MISSING"].map((f) => (
-          <button key={f} onClick={() => setFilter(f)}
+          <button key={f} onClick={() => setFilterAndReset(f)}
             className={`px-3 py-1 rounded-full text-xs ${filter === f ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600"}`}>
             {f ? ITEM_STATUS_LABELS[f] : "전체"}
           </button>
@@ -262,7 +286,25 @@ export default function AuditDetailPage() {
           ))}
         </div>
       ) : (
-        <div className="space-y-2">{sorted.map(renderItem)}</div>
+        <>
+          <div className="space-y-2">{paged.map(renderItem)}</div>
+          {/* 페이지네이션 */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-6 mb-4">
+              <button onClick={() => setPage(1)} disabled={page === 1}
+                className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-30 hover:bg-gray-50">처음</button>
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-30 hover:bg-gray-50">이전</button>
+              <span className="text-sm text-gray-600 px-3">
+                {page} / {totalPages} 페이지 <span className="text-gray-400">({sorted.length}건)</span>
+              </span>
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-30 hover:bg-gray-50">다음</button>
+              <button onClick={() => setPage(totalPages)} disabled={page === totalPages}
+                className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-30 hover:bg-gray-50">마지막</button>
+            </div>
+          )}
+        </>
       )}
 
     </div>

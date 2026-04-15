@@ -114,7 +114,10 @@ export class InventoryService {
       where: { inventoryNo: item.inventoryNo },
       include: {
         settlement: {
-          select: { id: true, declarationNo: true, supplier: true, declarationDate: true },
+          select: {
+            id: true, declarationNo: true, supplier: true, declarationDate: true,
+            contract: { select: { id: true, contractNumber: true, name: true, client: true } },
+          },
         },
       },
     });

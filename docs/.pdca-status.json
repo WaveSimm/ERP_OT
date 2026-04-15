@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-04-12T01:06:49.988Z",
+  "lastUpdated": "2026-04-12T23:11:57.783Z",
   "activeFeatures": [
     "ERP_OT",
     "auth",
@@ -61,7 +61,8 @@
     "audits",
     "edit",
     "suppliers",
-    "locations"
+    "locations",
+    "Downloads"
   ],
   "primaryFeature": "프로젝트-관리",
   "features": {
@@ -211,9 +212,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-17T01:24:05.309Z",
-        "lastUpdated": "2026-04-12T01:06:19.004Z"
+        "lastUpdated": "2026-04-12T22:51:53.823Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\equipment\\src\\application\\inventory.service.ts"
+      "lastFile": "E:\\claude\\ERP_OT\\services\\equipment\\src\\application\\inventory-audit.service.ts"
     },
     "routes": {
       "phase": "do",
@@ -224,9 +225,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-17T01:25:35.966Z",
-        "lastUpdated": "2026-04-12T01:06:43.233Z"
+        "lastUpdated": "2026-04-12T22:52:18.154Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\equipment\\src\\api\\routes\\inventory.routes.ts"
+      "lastFile": "E:\\claude\\ERP_OT\\services\\equipment\\src\\api\\routes\\inventory-audit.routes.ts"
     },
     "websocket": {
       "phase": "do",
@@ -250,7 +251,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-17T02:39:41.101Z",
-        "lastUpdated": "2026-04-12T01:06:49.988Z"
+        "lastUpdated": "2026-04-12T22:52:53.775Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\lib\\api.ts"
     },
@@ -289,9 +290,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-17T02:43:06.008Z",
-        "lastUpdated": "2026-04-11T08:40:20.037Z"
+        "lastUpdated": "2026-04-12T23:11:57.783Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\approval\\[id]\\page.tsx"
+      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\contracts\\[id]\\page.tsx"
     },
     "[...path]": {
       "phase": "do",
@@ -824,7 +825,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-04-10T09:28:25.148Z",
-        "lastUpdated": "2026-04-10T09:28:25.148Z"
+        "lastUpdated": "2026-04-12T22:53:08.405Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\audits\\page.tsx"
     },
@@ -866,6 +867,19 @@
         "lastUpdated": "2026-04-11T01:37:49.480Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\locations\\page.tsx"
+    },
+    "Downloads": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-04-12T08:49:36.569Z",
+        "lastUpdated": "2026-04-12T22:35:23.028Z"
+      },
+      "lastFile": "E:\\Downloads\\create_erp_ppt.js"
     }
   },
   "pipeline": {
@@ -876,7 +890,7 @@
   "session": {
     "startedAt": "2026-02-26T10:52:05.428Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-04-12T01:06:49.988Z"
+    "lastActivity": "2026-04-12T23:11:57.783Z"
   },
   "history": [
     {
@@ -19722,6 +19736,294 @@
     {
       "timestamp": "2026-04-12T01:06:49.988Z",
       "feature": "web",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T07:41:55.036Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T07:42:05.174Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T07:42:21.545Z",
+      "feature": "web",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T07:42:28.142Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T07:42:36.875Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T07:42:59.628Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T07:43:15.706Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T07:51:39.562Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T07:51:45.754Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T07:51:53.625Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T07:51:58.335Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T07:52:04.233Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T07:52:10.530Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T07:52:17.225Z",
+      "feature": "web",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T07:52:21.670Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T07:52:39.883Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T07:52:44.654Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T07:52:58.067Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T08:01:18.601Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T08:01:26.792Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T08:49:36.569Z",
+      "feature": "Downloads",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T08:50:29.144Z",
+      "feature": "Downloads",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T08:50:33.780Z",
+      "feature": "Downloads",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T08:50:37.993Z",
+      "feature": "Downloads",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T08:58:27.215Z",
+      "feature": "Downloads",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T08:58:32.886Z",
+      "feature": "Downloads",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T09:31:51.480Z",
+      "feature": "Downloads",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T22:34:34.613Z",
+      "feature": "Downloads",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T22:35:17.286Z",
+      "feature": "Downloads",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T22:35:23.028Z",
+      "feature": "Downloads",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T22:51:53.823Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T22:52:18.154Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T22:52:53.775Z",
+      "feature": "web",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T22:53:08.405Z",
+      "feature": "audits",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T22:53:20.253Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T22:53:27.358Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T22:53:32.283Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T22:53:37.945Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T22:53:48.619Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T22:53:57.411Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T23:02:51.882Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T23:03:09.590Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T23:03:17.298Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T23:03:25.063Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T23:03:53.391Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T23:11:19.271Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T23:11:36.234Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-12T23:11:57.783Z",
+      "feature": "[id]",
       "phase": "do",
       "action": "updated"
     }

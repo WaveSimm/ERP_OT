@@ -9,6 +9,7 @@ export class ImportCostService {
       orderBy: { createdAt: "desc" },
       include: {
         order: { select: { orderNumber: true, currency: true } },
+        contract: { select: { contractNumber: true, name: true, client: true } },
         _count: { select: { remittances: true, duties: true, extras: true, items: true } },
       },
     });
@@ -20,6 +21,7 @@ export class ImportCostService {
       where: { id },
       include: {
         order: { select: { orderNumber: true, currency: true, totalAmount: true } },
+        contract: { select: { contractNumber: true, name: true, client: true } },
         remittances: { orderBy: { remittanceDate: "asc" } },
         duties: true,
         extras: { include: { targetItem: { select: { name: true } } } },
@@ -33,6 +35,7 @@ export class ImportCostService {
   /** 원가정산 생성 */
   async create(data: {
     orderId?: string;
+    contractId?: string;
     declarationNo: string;
     supplier: string;
     declarationDate: string;
@@ -70,6 +73,7 @@ export class ImportCostService {
   }) {
     const createData: any = {
       orderId: data.orderId ?? null,
+      contractId: data.contractId ?? null,
       declarationNo: data.declarationNo,
       supplier: data.supplier,
       declarationDate: new Date(data.declarationDate),
@@ -156,6 +160,46 @@ export class ImportCostService {
 
       return extra;
     });
+  }
+
+  /** 계약 연결 업데이트 */
+  async updateContract(settlementId: string, contractId: string | null) {
+    return this.prisma.importCostSettlement.update({
+      where: { id: settlementId },
+      data: { contractId },
+      include: { contract: { select: { contractNumber: true, name: true, client: true } } },
+    });
+  }
+
+  /** 송금 추가 */
+  async addRemittance(settlementId: string, data: {
+    remittanceDate: string;
+    foreignAmount: number;
+    exchangeRate: number;
+    krwAmount: number;
+    invoiceNo?: string;
+    notes?: string;
+  }) {
+    // 정산 존재 확인
+    const settlement = await this.prisma.importCostSettlement.findUnique({ where: { id: settlementId } });
+    if (!settlement) throw new Error("원가정산을 찾을 수 없습니다.");
+
+    return this.prisma.costRemittance.create({
+      data: {
+        settlementId,
+        remittanceDate: new Date(data.remittanceDate),
+        foreignAmount: data.foreignAmount,
+        exchangeRate: data.exchangeRate,
+        krwAmount: data.krwAmount,
+        invoiceNo: data.invoiceNo ?? null,
+        notes: data.notes ?? null,
+      },
+    });
+  }
+
+  /** 송금 삭제 */
+  async removeRemittance(remittanceId: string) {
+    await this.prisma.costRemittance.delete({ where: { id: remittanceId } });
   }
 
   /** 삭제 */

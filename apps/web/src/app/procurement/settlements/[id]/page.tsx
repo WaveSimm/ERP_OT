@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { settlementApi, inventoryApi } from "@/lib/api";
+import { settlementApi, inventoryApi, procurementApi } from "@/lib/api";
 import FileAttachment from "@/components/FileAttachment";
+import SearchableSelect from "@/components/SearchableSelect";
 
 const DUTY_LABELS: Record<string, string> = {
   TARIFF: "관세", OVERSEAS_FREIGHT: "국외운반비", DOMESTIC_FREIGHT: "국내운반비",
@@ -18,6 +19,8 @@ export default function SettlementDetailPage() {
   const [loading, setLoading] = useState(true);
   const [showExtraModal, setShowExtraModal] = useState(false);
   const [extraForm, setExtraForm] = useState({ name: "", amount: "", notes: "" });
+  const [showRemitModal, setShowRemitModal] = useState(false);
+  const [remitForm, setRemitForm] = useState({ remittanceDate: "", foreignAmount: "", exchangeRate: "", krwAmount: "", invoiceNo: "", notes: "" });
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -44,6 +47,36 @@ export default function SettlementDetailPage() {
     finally { setSaving(false); }
   };
 
+  const handleAddRemittance = async () => {
+    if (!remitForm.remittanceDate || !remitForm.foreignAmount || !remitForm.exchangeRate) return;
+    setSaving(true);
+    try {
+      const foreignAmount = Number(remitForm.foreignAmount);
+      const exchangeRate = Number(remitForm.exchangeRate);
+      const krwAmount = remitForm.krwAmount ? Number(remitForm.krwAmount) : Math.round(foreignAmount * exchangeRate);
+      await settlementApi.addRemittance(id, {
+        remittanceDate: remitForm.remittanceDate,
+        foreignAmount,
+        exchangeRate,
+        krwAmount,
+        invoiceNo: remitForm.invoiceNo || undefined,
+        notes: remitForm.notes || undefined,
+      });
+      setShowRemitModal(false);
+      setRemitForm({ remittanceDate: "", foreignAmount: "", exchangeRate: "", krwAmount: "", invoiceNo: "", notes: "" });
+      load();
+    } catch (e: any) { alert(e.message); }
+    finally { setSaving(false); }
+  };
+
+  const handleDeleteRemittance = async (remittanceId: string) => {
+    if (!confirm("이 송금 내역을 삭제하시겠습니까?")) return;
+    try {
+      await settlementApi.removeRemittance(remittanceId);
+      load();
+    } catch (e: any) { alert(e.message); }
+  };
+
   if (loading) return <div className="text-center py-12 text-gray-400">로딩 중...</div>;
   if (!data) return <div className="text-center py-12 text-red-500">원가정산을 찾을 수 없습니다.</div>;
 
@@ -54,9 +87,36 @@ export default function SettlementDetailPage() {
   return (
     <div className="max-w-5xl">
       <h2 className="text-xl font-bold mb-1">{data.declarationNo}</h2>
-      <div className="text-sm text-gray-500 mb-6">
+      <div className="text-sm text-gray-500 mb-2">
         {data.supplier} · {currency} · 신고일: {new Date(data.declarationDate).toLocaleDateString("ko-KR")}
         {data.order && ` · 발주: ${data.order.orderNumber}`}
+      </div>
+      <div className="flex items-center gap-2 mb-6">
+        <span className="text-xs text-gray-400">계약번호:</span>
+        {data.contract ? (
+          <div className="flex items-center gap-2">
+            <button onClick={() => router.push(`/procurement/contracts/${data.contract.id}`)}
+              className="text-sm text-blue-600 hover:underline font-medium">
+              {data.contract.contractNumber}
+            </button>
+            <span className="text-xs text-gray-400">{data.contract.name} · {data.contract.client}</span>
+            <button onClick={async () => { await settlementApi.updateContract(id, null); load(); }}
+              className="text-xs text-red-400 hover:text-red-600">해제</button>
+          </div>
+        ) : (
+          <SearchableSelect
+            value="" onChange={() => {}}
+            onSelect={async (opt) => {
+              if (opt) { await settlementApi.updateContract(id, opt.id); load(); }
+            }}
+            placeholder="계약번호 검색..."
+            className="border rounded px-2 py-1 text-sm w-56"
+            loadOptions={async (q) => {
+              const res = await procurementApi.getContracts({ search: q, limit: 10 });
+              return (res.items || res || []).map((c: any) => ({ id: c.id, name: c.contractNumber, sub: `${c.name} · ${c.client}` }));
+            }}
+          />
+        )}
       </div>
 
       {/* 5. 수입원가합계 */}
@@ -76,33 +136,67 @@ export default function SettlementDetailPage() {
       </div>
 
       {/* 4-(1) 송금 내역 */}
-      {data.remittances?.length > 0 && (
-        <div className="mb-6">
-          <h3 className="text-sm font-medium mb-2">4-(1) 송금 내역</h3>
-          <table className="w-full text-sm border rounded">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="text-left px-3 py-2">송금일</th>
-                <th className="text-right px-3 py-2">외화 ({currency})</th>
-                <th className="text-right px-3 py-2">환율</th>
-                <th className="text-right px-3 py-2">원화 (₩)</th>
-                <th className="text-left px-3 py-2">Invoice</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {data.remittances.map((r: any) => (
-                <tr key={r.id}>
-                  <td className="px-3 py-2">{new Date(r.remittanceDate).toLocaleDateString("ko-KR")}</td>
-                  <td className="px-3 py-2 text-right">{Number(r.foreignAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                  <td className="px-3 py-2 text-right">{Number(r.exchangeRate).toFixed(4)}</td>
-                  <td className="px-3 py-2 text-right font-medium">₩{Number(r.krwAmount).toLocaleString()}</td>
-                  <td className="px-3 py-2 text-gray-500">{r.invoiceNo || "-"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {(() => {
+        const remittances = data.remittances || [];
+        const totalRemitKrw = remittances.reduce((s: number, r: any) => s + Number(r.krwAmount), 0);
+        const totalRemitForeign = remittances.reduce((s: number, r: any) => s + Number(r.foreignAmount), 0);
+        const remaining = Number(data.totalImportCost) - totalRemitKrw;
+        return (
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium">4-(1) 송금 내역</h3>
+              <button onClick={() => setShowRemitModal(true)} className="text-xs text-blue-600 hover:underline">+ 송금 추가</button>
+            </div>
+            {remittances.length > 0 ? (
+              <table className="w-full text-sm border rounded">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="text-left px-3 py-2">송금일</th>
+                    <th className="text-right px-3 py-2">외화 ({currency})</th>
+                    <th className="text-right px-3 py-2">환율</th>
+                    <th className="text-right px-3 py-2">원화 (₩)</th>
+                    <th className="text-left px-3 py-2">Invoice</th>
+                    <th className="text-center px-3 py-2 w-10"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {remittances.map((r: any) => (
+                    <tr key={r.id}>
+                      <td className="px-3 py-2">{new Date(r.remittanceDate).toLocaleDateString("ko-KR")}</td>
+                      <td className="px-3 py-2 text-right">{Number(r.foreignAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                      <td className="px-3 py-2 text-right">{Number(r.exchangeRate).toFixed(4)}</td>
+                      <td className="px-3 py-2 text-right font-medium">₩{Number(r.krwAmount).toLocaleString()}</td>
+                      <td className="px-3 py-2 text-gray-500">{r.invoiceNo || "-"}</td>
+                      <td className="px-3 py-2 text-center">
+                        <button onClick={() => handleDeleteRemittance(r.id)} className="text-xs text-red-400 hover:text-red-600">삭제</button>
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="bg-gray-50 font-medium">
+                    <td className="px-3 py-2">합계</td>
+                    <td className="px-3 py-2 text-right">{totalRemitForeign.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                    <td className="px-3 py-2"></td>
+                    <td className="px-3 py-2 text-right">₩{totalRemitKrw.toLocaleString()}</td>
+                    <td colSpan={2}></td>
+                  </tr>
+                </tbody>
+              </table>
+            ) : (
+              <p className="text-xs text-gray-400">송금 내역이 없습니다.</p>
+            )}
+            {remaining > 0 && (
+              <div className="mt-2 text-xs px-3 py-1.5 bg-amber-50 border border-amber-200 rounded text-amber-700">
+                미송금 잔액: ₩{remaining.toLocaleString()} (수입원가 ₩{Number(data.totalImportCost).toLocaleString()} - 송금합계 ₩{totalRemitKrw.toLocaleString()})
+              </div>
+            )}
+            {remaining <= 0 && remittances.length > 0 && (
+              <div className="mt-2 text-xs px-3 py-1.5 bg-green-50 border border-green-200 rounded text-green-700">
+                송금 완료
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* 4-(2) 관세/부대비용 */}
       {data.duties?.length > 0 && (
@@ -246,6 +340,61 @@ export default function SettlementDetailPage() {
             <div className="flex justify-end gap-2 mt-4">
               <button onClick={() => setShowExtraModal(false)} className="px-4 py-2 border rounded-lg text-sm">취소</button>
               <button onClick={handleAddExtra} disabled={saving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50">등록</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 송금 추가 모달 */}
+      {showRemitModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setShowRemitModal(false)}>
+          <div className="bg-white rounded-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold mb-4">송금 추가</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm text-gray-600">송금일 *</label>
+                <input type="date" value={remitForm.remittanceDate} onChange={(e) => setRemitForm(p => ({ ...p, remittanceDate: e.target.value }))}
+                  className="w-full border rounded px-3 py-2 text-sm" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm text-gray-600">외화금액 ({data.currency || "USD"}) *</label>
+                  <input type="number" step="0.01" value={remitForm.foreignAmount}
+                    onChange={(e) => {
+                      const fa = e.target.value;
+                      setRemitForm(p => ({ ...p, foreignAmount: fa, krwAmount: fa && p.exchangeRate ? String(Math.round(Number(fa) * Number(p.exchangeRate))) : p.krwAmount }));
+                    }}
+                    className="w-full border rounded px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-600">환율 *</label>
+                  <input type="number" step="0.0001" value={remitForm.exchangeRate}
+                    onChange={(e) => {
+                      const er = e.target.value;
+                      setRemitForm(p => ({ ...p, exchangeRate: er, krwAmount: p.foreignAmount && er ? String(Math.round(Number(p.foreignAmount) * Number(er))) : p.krwAmount }));
+                    }}
+                    className="w-full border rounded px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm text-gray-600">원화금액 (₩)</label>
+                <input type="number" value={remitForm.krwAmount} onChange={(e) => setRemitForm(p => ({ ...p, krwAmount: e.target.value }))}
+                  className="w-full border rounded px-3 py-2 text-sm bg-gray-50" placeholder="자동 계산" />
+              </div>
+              <div>
+                <label className="text-sm text-gray-600">Invoice No.</label>
+                <input value={remitForm.invoiceNo} onChange={(e) => setRemitForm(p => ({ ...p, invoiceNo: e.target.value }))}
+                  className="w-full border rounded px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-sm text-gray-600">메모</label>
+                <textarea value={remitForm.notes} onChange={(e) => setRemitForm(p => ({ ...p, notes: e.target.value }))}
+                  className="w-full border rounded px-3 py-2 text-sm" rows={2} />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setShowRemitModal(false)} className="px-4 py-2 border rounded-lg text-sm">취소</button>
+              <button onClick={handleAddRemittance} disabled={saving || !remitForm.remittanceDate || !remitForm.foreignAmount || !remitForm.exchangeRate}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50">등록</button>
             </div>
           </div>
