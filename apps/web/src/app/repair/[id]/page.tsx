@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { repairApi } from "@/lib/api";
+import { repairApi, getUser } from "@/lib/api";
 
 const STATUS_LABELS: Record<string, string> = {
   RECEIVED: "접수", INSPECTING_1ST: "1차점검", QUOTED: "견적발행",
@@ -59,6 +59,17 @@ export default function RepairOrderDetailPage() {
   const [tab, setTab] = useState<TabKey>("info");
   const [transitions, setTransitions] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const isAdmin = getUser()?.role === "ADMIN";
+
+  const deleteOrder = async () => {
+    if (!confirm(`AS 접수 "${order?.orderNumber}"을(를) 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+    try {
+      await repairApi.deleteRepairOrder(id);
+      router.push("/repair");
+    } catch (e: any) {
+      alert(e.message || "삭제 실패");
+    }
+  };
 
   const load = useCallback(async () => {
     try {
@@ -100,11 +111,11 @@ export default function RepairOrderDetailPage() {
   };
 
   const updateTechStatus = async (techStatus: string) => {
-    try { await repairApi.updateTechStatus(id, { techStatus }); await load(); } catch {}
+    try { await repairApi.updateTechStatus(id, { techStatus }); await load(); } catch (e: any) { alert(e.message || "저장 실패"); }
   };
 
   const updateSalesStatus = async (salesStatus: string) => {
-    try { await repairApi.updateSalesStatus(id, { salesStatus }); await load(); } catch {}
+    try { await repairApi.updateSalesStatus(id, { salesStatus }); await load(); } catch (e: any) { alert(e.message || "저장 실패"); }
   };
 
   if (loading) return <div className="py-12 text-center text-gray-400">불러오는 중...</div>;
@@ -125,9 +136,17 @@ export default function RepairOrderDetailPage() {
               {serialNumber && <span className="text-gray-400 ml-1">(S.N: {serialNumber})</span>}
             </p>
           </div>
-          <span className={`px-3 py-1 rounded-lg text-sm font-semibold ${STATUS_COLORS[order.status]}`}>
-            {STATUS_LABELS[order.status]}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={`px-3 py-1 rounded-lg text-sm font-semibold ${STATUS_COLORS[order.status]}`}>
+              {STATUS_LABELS[order.status]}
+            </span>
+            {isAdmin && (
+              <button onClick={deleteOrder}
+                className="px-3 py-1 text-xs text-red-500 border border-red-200 rounded-lg hover:bg-red-50 hover:border-red-300">
+                삭제
+              </button>
+            )}
+          </div>
         </div>
 
         {/* 상태 플로우 */}
@@ -404,12 +423,14 @@ function InspectionTab({ order, onUpdate, onReload }: { order: any; onUpdate: (f
     setSaving(true);
     try {
       await repairApi.updateRepairOrder(order.id, {
-        diagnosis1st: d1 || undefined,
-        diagnosis2nd: d2 || undefined,
-        repairDetails: details || undefined,
+        diagnosis1st: d1 || null,
+        diagnosis2nd: d2 || null,
+        repairDetails: details || null,
       });
-      onReload();
-    } catch {}
+      await onReload();
+    } catch (e: any) {
+      alert(e.message || "저장 실패");
+    }
     setSaving(false);
   };
 

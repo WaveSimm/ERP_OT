@@ -198,6 +198,8 @@ export default function MyTasksPage() {
         });
       }
       await load();
+    } catch (e: any) {
+      alert(`저장 실패: ${e?.message ?? "알 수 없는 오류"}`);
     } finally { setSavingKey(key, false); }
   };
 
@@ -532,8 +534,7 @@ export default function MyTasksPage() {
                                             ),
                                           })));
                                         }}
-                                        onMouseUp={(e) => makeCommitHandler(task, seg)(`${segKey}:progress`, String((e.target as HTMLInputElement).value))}
-                                        onTouchEnd={(e) => makeCommitHandler(task, seg)(`${segKey}:progress`, String((e.target as HTMLInputElement).value))}
+                                        onPointerUp={(e) => makeCommitHandler(task, seg)(`${segKey}:progress`, String((e.target as HTMLInputElement).value))}
                                         className={`w-24 h-1.5 rounded-full cursor-pointer accent-blue-500 ${saving.has(`${segKey}:progress`) ? "opacity-40" : ""}`}
                                       />
                                       <EditCell

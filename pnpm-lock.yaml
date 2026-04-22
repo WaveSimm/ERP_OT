@@ -302,6 +302,52 @@ importers:
         specifier: ^1.6.0
         version: 1.6.1(@types/node@20.19.37)
 
+  services/ocr:
+    dependencies:
+      '@erp-ot/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@fastify/cors':
+        specifier: ^9.0.1
+        version: 9.0.1
+      '@fastify/jwt':
+        specifier: ^8.0.0
+        version: 8.0.1
+      '@fastify/multipart':
+        specifier: ^8.3.0
+        version: 8.3.1
+      '@prisma/client':
+        specifier: ^5.14.0
+        version: 5.22.0(prisma@5.22.0)
+      fastify:
+        specifier: ^4.27.0
+        version: 4.29.1
+      fastify-plugin:
+        specifier: ^4.5.1
+        version: 4.5.1
+      pino:
+        specifier: ^9.0.0
+        version: 9.14.0
+      zod:
+        specifier: ^3.23.0
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.37
+      prisma:
+        specifier: ^5.14.0
+        version: 5.22.0
+      tsx:
+        specifier: ^4.15.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.6.0
+        version: 1.6.1(@types/node@20.19.37)
+
   services/project:
     dependencies:
       '@erp-ot/shared':

@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-04-12T23:11:57.783Z",
+  "lastUpdated": "2026-04-20T01:06:24.074Z",
   "activeFeatures": [
     "ERP_OT",
     "auth",
@@ -62,7 +62,14 @@
     "edit",
     "suppliers",
     "locations",
-    "Downloads"
+    "Downloads",
+    "config",
+    "engines",
+    "erp",
+    "ocr",
+    "engine",
+    "scan",
+    "templates"
   ],
   "primaryFeature": "프로젝트-관리",
   "features": {
@@ -212,9 +219,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-17T01:24:05.309Z",
-        "lastUpdated": "2026-04-12T22:51:53.823Z"
+        "lastUpdated": "2026-04-20T00:44:34.654Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\equipment\\src\\application\\inventory-audit.service.ts"
+      "lastFile": "E:\\claude\\ERP_OT\\services\\ocr\\src\\application\\auto-extract.service.ts"
     },
     "routes": {
       "phase": "do",
@@ -225,9 +232,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-17T01:25:35.966Z",
-        "lastUpdated": "2026-04-12T22:52:18.154Z"
+        "lastUpdated": "2026-04-20T01:06:24.074Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\equipment\\src\\api\\routes\\inventory-audit.routes.ts"
+      "lastFile": "E:\\claude\\ERP_OT\\services\\ocr\\src\\api\\routes\\ocr.routes.ts"
     },
     "websocket": {
       "phase": "do",
@@ -251,9 +258,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-17T02:39:41.101Z",
-        "lastUpdated": "2026-04-12T22:52:53.775Z"
+        "lastUpdated": "2026-04-19T23:01:21.504Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\lib\\api.ts"
+      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\components\\AttendanceView.tsx"
     },
     "login": {
       "phase": "do",
@@ -290,9 +297,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-17T02:43:06.008Z",
-        "lastUpdated": "2026-04-12T23:11:57.783Z"
+        "lastUpdated": "2026-04-17T01:23:27.257Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\contracts\\[id]\\page.tsx"
+      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\repair\\[id]\\page.tsx"
     },
     "[...path]": {
       "phase": "do",
@@ -355,7 +362,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-19T01:00:18.355Z",
-        "lastUpdated": "2026-03-19T07:00:49.554Z"
+        "lastUpdated": "2026-04-19T23:01:38.100Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\my-tasks\\page.tsx"
     },
@@ -368,9 +375,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-19T03:30:02.061Z",
-        "lastUpdated": "2026-04-11T04:12:55.415Z"
+        "lastUpdated": "2026-04-16T02:15:08.212Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\approval\\src\\api\\middleware\\auth.middleware.ts"
+      "lastFile": "E:\\claude\\ERP_OT\\services\\ocr\\src\\api\\middleware\\auth.middleware.ts"
     },
     "prisma": {
       "phase": "do",
@@ -381,9 +388,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-19T03:30:49.132Z",
-        "lastUpdated": "2026-04-10T20:18:50.712Z"
+        "lastUpdated": "2026-04-15T08:54:29.546Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\equipment\\prisma\\migrate-product-master.ts"
+      "lastFile": "E:\\claude\\ERP_OT\\services\\ocr\\prisma\\seed.ts"
     },
     "refresh": {
       "phase": "do",
@@ -433,9 +440,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-21T06:39:21.588Z",
-        "lastUpdated": "2026-04-08T14:45:50.063Z"
+        "lastUpdated": "2026-04-19T23:01:44.117Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\me\\dashboard\\page.tsx"
+      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\dashboard\\page.tsx"
     },
     "notifications": {
       "phase": "do",
@@ -760,7 +767,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-04-10T07:55:38.172Z",
-        "lastUpdated": "2026-04-11T08:40:00.627Z"
+        "lastUpdated": "2026-04-19T23:01:23.381Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\approval\\new\\page.tsx"
     },
@@ -880,6 +887,97 @@
         "lastUpdated": "2026-04-12T22:35:23.028Z"
       },
       "lastFile": "E:\\Downloads\\create_erp_ppt.js"
+    },
+    "config": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-04-15T07:53:56.496Z",
+        "lastUpdated": "2026-04-15T08:20:43.318Z"
+      },
+      "lastFile": "E:\\claude\\ERP_OT\\services\\ocr\\src\\config\\env.ts"
+    },
+    "engines": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-04-15T07:54:08.458Z",
+        "lastUpdated": "2026-04-16T04:00:37.636Z"
+      },
+      "lastFile": "E:\\claude\\ERP_OT\\services\\ocr\\src\\infrastructure\\engines\\paddle-ocr.client.ts"
+    },
+    "erp": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-04-15T07:54:19.702Z",
+        "lastUpdated": "2026-04-15T07:54:19.702Z"
+      },
+      "lastFile": "E:\\claude\\ERP_OT\\services\\ocr\\src\\infrastructure\\erp\\equipment.client.ts"
+    },
+    "ocr": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-04-15T07:56:10.297Z",
+        "lastUpdated": "2026-04-20T00:42:57.228Z"
+      },
+      "lastFile": "E:\\claude\\ERP_OT\\services\\ocr\\src\\index.ts"
+    },
+    "engine": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-04-15T07:56:32.374Z",
+        "lastUpdated": "2026-04-19T23:14:04.318Z"
+      },
+      "lastFile": "E:\\claude\\ERP_OT\\services\\ocr\\engine\\main.py"
+    },
+    "scan": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-04-16T02:11:14.990Z",
+        "lastUpdated": "2026-04-16T02:11:14.990Z"
+      },
+      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\ocr\\scan\\page.tsx"
+    },
+    "templates": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-04-16T02:11:38.952Z",
+        "lastUpdated": "2026-04-16T02:11:38.952Z"
+      },
+      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\ocr\\templates\\page.tsx"
     }
   },
   "pipeline": {
@@ -890,7 +988,7 @@
   "session": {
     "startedAt": "2026-02-26T10:52:05.428Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-04-12T23:11:57.783Z"
+    "lastActivity": "2026-04-20T01:06:24.074Z"
   },
   "history": [
     {
@@ -20026,6 +20124,768 @@
       "feature": "[id]",
       "phase": "do",
       "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T07:53:56.496Z",
+      "feature": "config",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T07:54:00.355Z",
+      "feature": "middleware",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T07:54:08.458Z",
+      "feature": "engines",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T07:54:13.891Z",
+      "feature": "engines",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T07:54:19.702Z",
+      "feature": "erp",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T07:54:46.283Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T07:55:16.866Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T07:55:28.579Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T07:55:32.717Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T07:55:50.290Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T07:55:54.051Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T07:56:10.297Z",
+      "feature": "ocr",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T07:56:32.374Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T07:56:38.280Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T07:56:43.443Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T07:57:03.813Z",
+      "feature": "ocr",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T07:58:31.534Z",
+      "feature": "prisma",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T07:59:46.927Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T07:59:50.063Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T07:59:56.592Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T08:00:07.035Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T08:00:14.231Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T08:00:30.552Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T08:00:41.622Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T08:00:42.996Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T08:00:45.522Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T08:03:23.255Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T08:03:27.477Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T08:20:43.318Z",
+      "feature": "config",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T08:27:00.466Z",
+      "feature": "ocr",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T08:29:17.162Z",
+      "feature": "middleware",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T08:32:12.730Z",
+      "feature": "ocr",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T08:33:52.619Z",
+      "feature": "engines",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T08:34:34.970Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T08:52:56.233Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T08:54:29.546Z",
+      "feature": "prisma",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T09:05:49.202Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T09:05:56.605Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T09:06:12.813Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T09:06:22.081Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T09:06:31.494Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T09:09:27.473Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T09:09:37.698Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T09:35:18.585Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T23:43:07.522Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T23:43:23.465Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T23:43:45.789Z",
+      "feature": "engines",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T23:43:55.693Z",
+      "feature": "engines",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T23:44:14.203Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T23:44:26.559Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T23:44:31.196Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T23:44:45.750Z",
+      "feature": "ocr",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-15T23:45:04.869Z",
+      "feature": "ocr",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T00:06:07.601Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T00:06:15.867Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T00:06:22.380Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T00:06:51.096Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T00:51:23.901Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T00:51:35.965Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T00:51:46.876Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T00:52:13.479Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T01:02:15.409Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T01:02:22.283Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T01:02:34.746Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T01:06:15.343Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T01:06:20.051Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T01:50:01.694Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T01:55:53.575Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T01:56:07.115Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T02:09:01.811Z",
+      "feature": "web",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T02:09:12.398Z",
+      "feature": "web",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T02:09:32.938Z",
+      "feature": "ocr",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T02:09:59.807Z",
+      "feature": "ocr",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T02:11:14.990Z",
+      "feature": "scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T02:11:38.952Z",
+      "feature": "templates",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T02:15:08.212Z",
+      "feature": "middleware",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T02:25:16.676Z",
+      "feature": "engines",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T02:25:19.128Z",
+      "feature": "engines",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T02:25:23.919Z",
+      "feature": "engines",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T04:00:15.608Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T04:00:20.936Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T04:00:27.662Z",
+      "feature": "engines",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T04:00:32.920Z",
+      "feature": "engines",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T04:00:37.636Z",
+      "feature": "engines",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T04:00:45.281Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T04:00:55.476Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T04:01:03.340Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T04:01:10.095Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-16T04:11:00.334Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-17T00:19:25.566Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-17T00:19:31.467Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-17T00:19:31.661Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-17T00:19:31.864Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-17T00:19:32.072Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-17T00:19:48.784Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-17T00:19:51.077Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-17T00:28:46.893Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-17T00:28:57.390Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-17T01:23:01.631Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-17T01:23:14.238Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-17T01:23:27.257Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-19T23:01:09.427Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-19T23:01:15.676Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-19T23:01:21.504Z",
+      "feature": "web",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-19T23:01:23.382Z",
+      "feature": "new",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-19T23:01:26.034Z",
+      "feature": "my-tasks",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-19T23:01:38.100Z",
+      "feature": "my-tasks",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-19T23:01:44.118Z",
+      "feature": "dashboard",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-19T23:13:32.998Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-19T23:13:40.085Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-19T23:13:41.554Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-19T23:13:53.095Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-19T23:14:04.318Z",
+      "feature": "engine",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T00:42:42.343Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T00:42:51.166Z",
+      "feature": "ocr",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T00:42:53.466Z",
+      "feature": "ocr",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T00:42:55.747Z",
+      "feature": "ocr",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T00:42:57.228Z",
+      "feature": "ocr",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T00:43:08.773Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T00:43:21.949Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T00:43:39.235Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T00:43:41.225Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T00:44:16.586Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T00:44:20.633Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T00:44:28.681Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T00:44:34.654Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-20T01:06:24.074Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
     }
   ],
   "부서-결재라인": {
@@ -20034,5 +20894,20 @@
     "updatedAt": "2026-03-21T08:02:48.149Z",
     "matchRate": null,
     "iterationCount": 0
+  },
+  "OCR-문서인식": {
+    "phase": "design",
+    "phaseNumber": 2,
+    "matchRate": null,
+    "iterationCount": 0,
+    "requirements": [],
+    "documents": {
+      "plan": "docs/01-plan/features/OCR-문서인식.plan.md",
+      "design": "docs/02-design/features/OCR-문서인식.design.md"
+    },
+    "timestamps": {
+      "started": "2026-04-15T00:00:00.000Z",
+      "lastUpdated": "2026-04-15T00:00:00.000Z"
+    }
   }
 }

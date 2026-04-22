@@ -103,10 +103,14 @@ export class RepairQuoteService {
   }
 
   async updateItem(itemId: string, data: { description?: string; quantity?: number; unitPrice?: number; amount?: number }) {
+    const item = await this.prisma.quoteItem.findUnique({ where: { id: itemId } });
+    if (!item) throw new Error("견적 항목을 찾을 수 없습니다.");
     return this.prisma.quoteItem.update({ where: { id: itemId }, data });
   }
 
   async removeItem(itemId: string) {
+    const item = await this.prisma.quoteItem.findUnique({ where: { id: itemId } });
+    if (!item) throw new Error("견적 항목을 찾을 수 없습니다.");
     return this.prisma.quoteItem.delete({ where: { id: itemId } });
   }
 }

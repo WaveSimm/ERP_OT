@@ -3,9 +3,17 @@
 > **Feature**: OCR-문서인식
 > **Phase**: Design
 > **Created**: 2026-04-15
-> **Updated**: 2026-04-15
-> **Status**: Design v1.0
+> **Updated**: 2026-04-20
+> **Status**: Design v2.1
 > **Plan Reference**: `docs/01-plan/features/OCR-문서인식.plan.md` (v1.0)
+
+---
+
+> ⚠️ **중요 변경사항 (2026-04-20)**
+> - **dots-ocr (GPU VLM) 완전 제거**: 하드웨어(GPU) 요구사항으로 현 환경에서 개발 불가 판단
+> - 아래 문서 내 `dots-ocr`, `rednote-hilab/dots.ocr`, `vLLM`, `port 8100`, `dots_ocr_models` 관련 모든 내용은 **DEPRECATED** — 유지만 참고용으로 남겨둠
+> - 현재 운영 엔진: **PaddleOCR (로컬) + Claude Vision + CLOVA OCR (Cloud API)**
+> - 복원 필요 시: `git log --oneline -- services/ocr/dots-ocr` 참고
 
 ---
 
@@ -13,63 +21,57 @@
 
 ### 1.1 서비스 구성
 
-2개 컨테이너로 구성 — OCR 엔진(Python)과 API 서버(Node.js) 분리:
+2개 컨테이너 + 선택적 Cloud API — 멀티 OCR 엔진(Python), API 서버(Node.js):
 
 | 컴포넌트 | 런타임 | 포트 | 역할 |
 |----------|--------|------|------|
 | ocr-service | Node.js + Fastify | 3007 | API 서버, 템플릿 관리, 매핑 로직, ERP 연동 |
-| ocr-engine | Python + FastAPI | 8000 | PaddleOCR 래퍼, 이미지→텍스트+좌표 추출 |
+| ocr-engine | Python + FastAPI | 8000 | 멀티 엔진 OCR (PaddleOCR + Cloud Fallback), 이미지→텍스트+좌표 추출 |
 
-> **포트 변경**: 3006은 향후 approval-service 예약 (구매-재고-결재 Design 참조) → ocr-service는 3007
+> **포트**: 3006은 approval-service → ocr-service는 3007
+> **제거 이력** (2026-04-20): GPU 기반 dots-ocr VLM(8100)은 하드웨어 요구사항으로 삭제. 고품질 인식은 Claude Vision / CLOVA OCR API 사용
 
 ```
 erp-ot-platform/
 ├── services/
-│   └── ocr/                          ★ 신규
+│   └── ocr/                          ★ 구현 완료 (Phase 1-2)
 │       ├── prisma/
-│       │   └── schema.prisma         # OCR 전용 스키마
+│       │   ├── schema.prisma         # OCR 전용 스키마
+│       │   └── seed.ts               # 6종 문서 템플릿 + 필드 + aliases 초기 데이터
 │       ├── src/                      # Node.js API 서버
 │       │   ├── api/
-│       │   │   ├── routes/
-│       │   │   │   ├── ocr.routes.ts
-│       │   │   │   ├── template.routes.ts
-│       │   │   │   └── correction.routes.ts
-│       │   │   └── dtos/
-│       │   │       ├── ocr.dto.ts
-│       │   │       └── template.dto.ts
+│       │   │   ├── middleware/
+│       │   │   │   └── auth.middleware.ts    # JWT 인증 미들웨어
+│       │   │   └── routes/
+│       │   │       ├── ocr.routes.ts         # OCR 스캔/결과/엔진 라우트
+│       │   │       └── template.routes.ts    # 템플릿 CRUD 라우트
 │       │   ├── application/
 │       │   │   ├── ocr.service.ts           # OCR 파이프라인 오케스트레이션
-│       │   │   ├── mapping.service.ts       # 필드 매핑 엔진
+│       │   │   ├── mapping.service.ts       # 필드 매핑 엔진 (퍼지 매칭 포함)
 │       │   │   ├── template.service.ts      # 문서 템플릿 CRUD
 │       │   │   └── correction.service.ts    # 수정 이력 관리
-│       │   ├── domain/
-│       │   │   └── entities/
-│       │   │       ├── ocr-result.entity.ts
-│       │   │       ├── document-template.entity.ts
-│       │   │       └── ocr-correction.entity.ts
 │       │   ├── infrastructure/
 │       │   │   ├── engines/
-│       │   │   │   ├── engine.interface.ts  # 공통 인터페이스
-│       │   │   │   └── paddle-ocr.client.ts # Python sidecar HTTP 클라이언트
+│       │   │   │   ├── engine.interface.ts  # OcrEngine + EngineInfo 인터페이스
+│       │   │   │   └── paddle-ocr.client.ts # Python sidecar 멀티엔진 클라이언트
 │       │   │   └── erp/
 │       │   │       └── equipment.client.ts  # equipment-service 연동
 │       │   ├── config/
 │       │   │   └── env.ts                   # 환경변수 Zod 검증
 │       │   └── index.ts
-│       ├── engine/                    # Python OCR 엔진
-│       │   ├── main.py                # FastAPI 엔트리포인트
-│       │   ├── ocr_handler.py         # PaddleOCR 래퍼
-│       │   ├── preprocessor.py        # 이미지 전처리
-│       │   ├── requirements.txt
-│       │   └── Dockerfile
+│       ├── engine/                    # Python 멀티 OCR 엔진
+│       │   ├── main.py                # FastAPI v2.0 (엔진 선택 지원)
+│       │   ├── ocr_handler.py         # 멀티 엔진 핸들러 (9종)
+│       │   ├── preprocessor.py        # 이미지 전처리 (CLAHE, PDF 지원)
+│       │   ├── requirements.txt       # paddleocr, easyocr, pytesseract, httpx
+│       │   └── Dockerfile             # tesseract-ocr 패키지 포함
+│       ├── test-ui/                   # 개발용 테스트 UI
+│       │   └── index.html             # 싱글 스캔 + 엔진 비교 모드
 │       ├── uploads/                   # 업로드 이미지 (volume mount)
-│       ├── models/                    # PaddleOCR 모델 (volume mount)
-│       │   ├── base/
-│       │   └── custom/
 │       ├── Dockerfile                 # Node.js 서버
 │       ├── package.json
 │       └── tsconfig.json
-└── apps/web/src/app/ocr/             ★ OCR UI (향후)
+└── apps/web/src/app/ocr/             ★ ERP UI (Phase 3 예정)
     ├── page.tsx                       # OCR 처리 이력 목록
     ├── scan/page.tsx                  # 스캔 + 확인/수정 화면
     └── templates/page.tsx             # 템플릿 관리 (관리자)
@@ -95,19 +97,50 @@ erp-ot-platform/
             │ ocr-engine │  │ equipment │  │   auth   │
             │ (Python)   │  │ -service  │  │ -service │
             │ port 8000  │  │ port 3005 │  │ port 3001│
-            └────────────┘  └───────────┘  └──────────┘
-             이미지→텍스트    ERP 데이터 저장   인증 검증
+            └─────┬──────┘  └───────────┘  └──────────┘
+                  │ HTTP (선택적)
+                  ▼
+            ┌────────────┐
+            │  dots-ocr  │  GPU VLM 1.7B (프로파일: gpu)
+            │  port 8100 │  rednote-hilab/dots.ocr via vLLM
+            └────────────┘
 ```
+
+### 1.4 멀티 엔진 아키텍처 (v2.0 신규)
+
+ocr-engine(Python FastAPI)이 9종 엔진을 멀티플렉싱:
+
+| 엔진 ID | 그룹 | 언어 | 런타임 | 비고 |
+|----------|------|------|--------|------|
+| paddle-ko | PaddleOCR | 한국어 | CPU (in-process) | 기본 엔진 |
+| paddle-en | PaddleOCR | 영어 | CPU (in-process) | |
+| paddle-ja | PaddleOCR | 일본어 | CPU (in-process) | |
+| paddle-zh | PaddleOCR | 중국어 | CPU (in-process) | |
+| easy-ko | EasyOCR | 한+영 | CPU (in-process) | |
+| easy-en | EasyOCR | 영어 | CPU (in-process) | |
+| tess-ko | Tesseract | 한+영 | CPU (in-process) | |
+| tess-en | Tesseract | 영어 | CPU (in-process) | |
+| claude-vision | Claude Vision | 다국어 | Cloud API | Anthropic API 키 필요 |
+| clova-ocr | CLOVA OCR | 한/영/일 | Cloud API | Naver CLOVA 키 필요 |
+
+**엔진 선택 전략:**
+- 기본값: `paddle-ko` (한글 정형 문서 최적)
+- 영문 인보이스: `paddle-en` 또는 `easy-en`
+- 고품질 필요 시: `claude-vision` 또는 `clova-ocr` (Cloud API)
+- 비교 모드: 여러 엔진 병렬 실행 후 최고 신뢰도 선택
+- ~~GPU VLM (dots-ocr)~~: 2026-04-20 제거 (하드웨어 요구사항)
 
 | From | To | 경로 | 용도 |
 |------|----|------|------|
-| ocr-service | ocr-engine | `POST /ocr/scan` | 이미지 OCR 처리 |
+| ocr-service | ocr-engine | `POST /ocr/scan?engine={id}` | 이미지 OCR 처리 (엔진 선택) |
+| ocr-service | ocr-engine | `GET /engines` | 사용 가능 엔진 목록 |
+| ocr-engine | dots-ocr | `POST /v1/chat/completions` | VLM OCR (OpenAI 호환 API) |
 | ocr-service | equipment-service | `POST /api/v1/import-costs` | 수입원가정산 저장 |
 | ocr-service | equipment-service | `POST /api/v1/overseas-orders` | 발주 저장 |
 | ocr-service | equipment-service | `POST /api/v1/inventory` | 재고 입고 |
 | ocr-service | auth-service | `GET /internal/users/me` | 사용자 인증 |
 
-### 1.4 next.config.mjs 리라이트 추가
+### 1.5 next.config.mjs 리라이트 추가
 
 ```javascript
 // 기존 리라이트에 추가
@@ -319,20 +352,20 @@ model OcrCorrection {
 
 ---
 
-## 3. Python OCR 엔진 (ocr-engine)
+## 3. Python OCR 엔진 (ocr-engine) — 멀티 엔진 v2.0
 
 ### 3.1 FastAPI 엔드포인트
 
 ```python
-# engine/main.py
+# engine/main.py (v2.0)
 
 @app.post("/ocr/scan")
-async def scan_image(file: UploadFile) -> OcrScanResponse:
-    """이미지 → 텍스트 + 좌표 + 신뢰도 추출"""
+async def scan_image(file: UploadFile, engine: str = "paddle-ko") -> OcrScanResponse:
+    """이미지 → 텍스트 + 좌표 + 신뢰도 추출 (엔진 선택 가능)"""
 
-@app.post("/ocr/scan-region")
-async def scan_region(file: UploadFile, region: Region) -> OcrScanResponse:
-    """이미지 특정 영역만 OCR"""
+@app.get("/engines")
+async def list_engines() -> list[EngineInfo]:
+    """사용 가능한 OCR 엔진 목록 (ready 상태 포함)"""
 
 @app.get("/health")
 async def health_check():
@@ -348,44 +381,125 @@ class TextBlock(BaseModel):
     bounding_box: BoundingBox   # { x, y, width, height } (정규화 0~1)
 
 class OcrScanResponse(BaseModel):
+    engine_id: str              # 사용된 엔진 ID
     texts: list[TextBlock]
     image_width: int
     image_height: int
     processing_time_ms: int
+
+class EngineInfo(BaseModel):
+    id: str                     # "paddle-ko", "easy-en", "dots-ocr"
+    name: str                   # "PaddleOCR Korean"
+    group: str                  # "PaddleOCR", "EasyOCR", "Tesseract", "dots.ocr"
+    lang: str                   # "korean", "en", "multi-100+"
+    ready: bool                 # 현재 사용 가능 여부
 ```
 
-### 3.3 이미지 전처리 (preprocessor.py)
+### 3.3 멀티 엔진 핸들러 (ocr_handler.py)
+
+```python
+class OcrHandler:
+    """멀티 엔진/모델 OCR 핸들러 — lazy-loaded engine cache"""
+
+    def __init__(self, model_dir: str = "/app/models"):
+        self._engines: dict = {}  # 엔진별 인스턴스 캐시
+
+    def get_available_engines(self) -> list[dict]:
+        """PaddleOCR(항상) + EasyOCR(import 확인) + Tesseract(바이너리 확인) + dots.ocr(HTTP 헬스체크)"""
+
+    def detect(self, image: np.ndarray, engine_id: str = "paddle-ko") -> list:
+        """엔진 디스패치 → 통일된 포맷 [box_coords, (text, confidence)]"""
+
+    # 결과 정규화: 모든 엔진이 PaddleOCR 형식으로 통일
+    # EasyOCR: [(bbox, text, conf)] → [[bbox, (text, conf)]]
+    # Tesseract: word-level data → 4점 좌표 변환
+    # dots.ocr: VLM 텍스트 → 줄별 가상 바운딩박스 생성
+```
+
+**엔진별 특성:**
+
+| 엔진 | 장점 | 단점 | 적합 용도 |
+|------|------|------|-----------|
+| PaddleOCR | 한글 우수, 빠름 | 영문 약간 약함 | 한글 정형 문서 (기본) |
+| EasyOCR | 다국어 안정적 | PaddleOCR보다 느림 | 혼합 언어 문서 |
+| Tesseract | 가볍고 빠름 | 한글 정확도 낮음 | 영문 위주 문서 |
+| dots.ocr | 최고 품질 (VLM) | GPU 필수, 느림 | 고품질 필요 시, 복잡 레이아웃 |
+
+### 3.4 이미지 전처리 (preprocessor.py)
 
 ```python
 class ImagePreprocessor:
-    def process(self, image: np.ndarray) -> np.ndarray:
+    def process(self, image_bytes: bytes) -> np.ndarray:
         """OCR 정확도를 높이기 위한 전처리 파이프라인"""
-        # 1. 자동 회전 보정 (기울기 감지)
-        # 2. 노이즈 제거 (가우시안 블러)
-        # 3. 대비 향상 (CLAHE)
-        # 4. 이진화 (adaptive threshold)  — 스크린샷은 skip
-        # 5. 해상도 정규화 (DPI 조정)
+        # 1. 파일 형식 감지 (PNG/JPEG/PDF)
+        # 2. PDF → 첫 페이지 이미지 변환 (pdf2image)
+        # 3. 대비 향상 (CLAHE — clipLimit=2.0)
+        # 4. RGB → OpenCV 배열 변환
 ```
 
-### 3.4 Dockerfile (ocr-engine)
+### 3.5 Dockerfile (ocr-engine)
 
 ```dockerfile
 FROM python:3.11-slim
 
-RUN apt-get update && apt-get install -y libgl1-mesa-glx libglib2.0-0
-WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 libglib2.0-0 libgomp1 curl poppler-utils \
+    tesseract-ocr tesseract-ocr-kor tesseract-ocr-eng \
+    && rm -rf /var/lib/apt/lists/*
 
+WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
-
-# PaddleOCR 모델 사전 다운로드 (빌드 시 캐시)
-RUN python -c "from paddleocr import PaddleOCR; PaddleOCR(lang='korean', use_gpu=False)"
-
 EXPOSE 8000
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
+
+**requirements.txt:**
+```
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+python-multipart==0.0.9
+paddleocr==2.8.1
+paddlepaddle==2.6.2
+opencv-python-headless==4.10.0.84
+Pillow==10.4.0
+numpy==1.26.4
+pdf2image==1.17.0
+easyocr==1.7.2
+pytesseract==0.3.13
+httpx==0.28.1
+```
+
+### 3.6 dots.ocr GPU 컨테이너 (선택적)
+
+```dockerfile
+# services/ocr/dots-ocr/Dockerfile
+FROM vllm/vllm-openai:latest
+
+ENV HF_HOME=/app/models
+ENV VLLM_WORKER_MULTIPROC_METHOD=spawn
+
+EXPOSE 8100
+
+CMD ["--model", "rednote-hilab/dots.ocr", \
+     "--served-model-name", "dots-ocr", \
+     "--host", "0.0.0.0", \
+     "--port", "8100", \
+     "--tensor-parallel-size", "1", \
+     "--gpu-memory-utilization", "0.85", \
+     "--max-model-len", "4096", \
+     "--chat-template-content-format", "string", \
+     "--trust-remote-code"]
+```
+
+**특징:**
+- rednote-hilab/dots.ocr: 1.7B VLM, 100+ 언어 지원
+- OpenAI 호환 Chat Completion API (`/v1/chat/completions`)
+- 첫 실행 시 ~3.5GB 모델 자동 다운로드 (이후 캐시)
+- NVIDIA GPU 필요 (RTX 5060 이상 권장, VRAM 8GB+)
+- Docker Compose `profiles: [gpu]`로 선택적 기동
 
 ---
 
@@ -396,9 +510,12 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 | Method | Path | 설명 | 인증 |
 |--------|------|------|------|
 | **OCR 처리** |
-| POST | `/api/v1/ocr/scan` | 이미지 업로드 + OCR 처리 + 자동 매핑 | Required |
+| POST | `/api/v1/ocr/scan` | 이미지 업로드 + OCR 처리 + 자동 매핑 (DB 저장) | Required |
+| POST | `/api/v1/ocr/scan/raw` | 이미지 → OCR 원본 결과만 반환 (DB 미저장) | Required |
+| GET | `/api/v1/ocr/engines` | 사용 가능 OCR 엔진 목록 | Public |
 | GET | `/api/v1/ocr/results` | 처리 이력 목록 (필터/페이징) | Required |
 | GET | `/api/v1/ocr/results/:id` | 처리 결과 상세 (필드 포함) | Required |
+| GET | `/api/v1/ocr/results/:id/image` | 원본 이미지 서빙 | Required |
 | PATCH | `/api/v1/ocr/results/:id/fields` | 필드값 수정 (확인/수정) | Required |
 | POST | `/api/v1/ocr/results/:id/confirm` | 확인 완료 처리 | Required |
 | POST | `/api/v1/ocr/results/:id/apply` | ERP 반영 (confirm 후) | ADMIN, MANAGER |
@@ -422,8 +539,9 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
-| file | File | ✅ | 이미지 파일 (PNG/JPG/PDF) |
+| file | File | ✅ | 이미지 파일 (PNG/JPG/PDF, 최대 10MB) |
 | templateCode | string | | 문서 유형 코드 (생략 시 자동 판별) |
+| engineId | string | | OCR 엔진 ID (기본: `paddle-ko`) |
 
 **Response (201):**
 
@@ -505,47 +623,77 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 ## 5. 필드 매핑 엔진 (mapping.service.ts)
 
-### 5.1 매핑 파이프라인
+### 5.1 매핑 파이프라인 (2-pass 전략)
 
 ```typescript
 class MappingService {
-  async mapFields(
-    ocrTexts: TextBlock[],       // OCR 원본 결과
-    template: DocumentTemplate   // 문서 템플릿
-  ): Promise<MappedField[]> {
+  mapFields(
+    ocrTexts: TextBlock[],
+    templateFields: TemplateFieldDef[]
+  ): MappedField[] {
 
-    // Step 1: 키-값 쌍 추출
-    const pairs = this.extractKeyValuePairs(ocrTexts);
+    // Pass 1: 라벨 근접 매칭 (Primary)
+    //   - 모든 텍스트 블록에서 label/aliases 매칭 라벨 탐색
+    //   - 라벨 발견 시, 오른쪽/아래 근접 블록을 값으로 추출
+    //   - 퍼지 매칭 (70% 임계) 으로 OCR 오인식 대응
+    //   - 사용된 블록 추적 → 중복 방지
 
-    // Step 2: 라벨 매칭 (label + aliases)
-    const mapped = this.matchLabelsToFields(pairs, template.fields);
+    // Pass 2: 키-값 쌍 추출 (Fallback)
+    //   - Pass 1에서 매핑 안 된 필드에 대해
+    //   - 전체 텍스트에서 패턴 기반 매칭 시도
+    //   - 타입별 검증 (DATE: 날짜 패턴, NUMBER: 숫자 패턴)
 
-    // Step 3: 타입 변환
-    const parsed = this.parseFieldValues(mapped);
-
-    // Step 4: 검증
-    const validated = this.validateFields(parsed, template.fields);
-
-    return validated;
+    // 신뢰도 계산: 매칭 방법 + OCR 신뢰도 + 검증 결과 종합
+    return mappedFields;
   }
 }
 ```
 
-### 5.2 키-값 쌍 추출 알고리즘
+### 5.2 라벨 근접 매칭 알고리즘 (구현 완료)
 
 ```
-OCR 텍스트 블록들에서 인접한 블록을 쌍으로 묶는 로직:
+1. 전처리: OCR 블록 텍스트에서 선행 숫자/기호 제거
+   "5부가가치세과" → "부가가치세과"
+   "12. 관세" → "관세"
 
-1. 모든 텍스트 블록을 Y좌표로 정렬 → 같은 줄 그룹핑 (Y 차이 < threshold)
-2. 같은 줄에서 왼쪽 블록 = 라벨 후보, 오른쪽 블록 = 값 후보
-3. 라벨 후보가 템플릿의 label/aliases에 포함되면 → 키-값 쌍 확정
-4. 테이블 구조 감지: 위-아래 관계의 헤더-값도 매칭
+2. 라벨 탐색: 각 블록을 label + aliases와 매칭
+   - 정확 매칭 (includes): 우선
+   - 퍼지 매칭 (70% 임계): OCR 오인식 대응
+   - 가장 긴 매칭 우선 (matchLen 기준) → "Total Invoice Amount" > "Total"
 
-예시:
-  블록 A: { text: "공급가액", y: 0.45, x: 0.40 }
-  블록 B: { text: "45,230,000", y: 0.45, x: 0.60 }
-  → 같은 줄, A가 왼쪽 → { key: "공급가액", value: "45,230,000" }
-  → "공급가액"이 supplyAmount의 label → 매칭 성공
+3. 값 추출: 라벨 블록 기준 근접 블록 탐색
+   - 오른쪽 근접 (같은 줄): X거리 < threshold
+   - 아래 근접 (테이블 구조): Y거리 < threshold
+   - 값 검증: 타입별 유효성 확인
+
+4. 값 검증 (isValidValue):
+   - DATE: 2자리 이상 연속 숫자 필요 ("Page 1 of 1" 거부)
+   - NUMBER: HS 코드 패턴(^\d+-\d+-\d+) 거부
+   - 공통: 라벨과 동일 텍스트 거부
+
+5. 중복 방지: 사용된 블록(usedBlocks Set)은 재사용 불가
+```
+
+### 5.3 퍼지 매칭 (fuzzyMatch)
+
+```typescript
+// OCR 오인식 보정용 — 70% 문자 일치율 기준
+private fuzzyMatch(a: string, b: string): number {
+  if (a.includes(b) || b.includes(a)) return 1.0;
+  const shorter = a.length <= b.length ? a : b;
+  const longer = a.length <= b.length ? b : a;
+  if (shorter.length < longer.length * 0.5) return 0;
+  // 슬라이딩 윈도우: shorter를 longer 위에서 이동하며 최대 일치 탐색
+  let bestMatch = 0;
+  for (let offset = 0; offset <= longer.length - shorter.length; offset++) {
+    let matches = 0;
+    for (let i = 0; i < shorter.length; i++) {
+      if (shorter[i] === longer[offset + i]) matches++;
+    }
+    bestMatch = Math.max(bestMatch, matches / shorter.length);
+  }
+  return bestMatch;
+}
 ```
 
 ### 5.3 타입 변환 규칙
@@ -740,60 +888,105 @@ apps/web/src/app/ocr/
 | 변수 | 설명 | 기본값 |
 |------|------|--------|
 | `PORT` | 엔진 포트 | 8000 |
-| `USE_GPU` | GPU 사용 여부 | false |
+| `USE_GPU` | PaddleOCR GPU 사용 여부 | false |
 | `MODEL_DIR` | 모델 저장 경로 | /app/models |
-| `LANG` | OCR 언어 | korean |
-| `DET_MODEL` | 텍스트 감지 모델 | base/det | 
-| `REC_MODEL` | 텍스트 인식 모델 | base/rec |
+| `LANG` | 기본 OCR 언어 | korean |
+| `DOTS_OCR_URL` | dots.ocr VLM 서비스 URL | (빈 값 = 비활성) |
+
+### 8.3 dots-ocr (GPU VLM, 선택적)
+
+| 변수 | 설명 | 기본값 |
+|------|------|--------|
+| `HF_HOME` | HuggingFace 모델 캐시 | /app/models |
+| `VLLM_WORKER_MULTIPROC_METHOD` | vLLM 프로세스 방식 | spawn |
 
 ---
 
-## 9. Docker Compose 추가
+## 9. Docker Compose 구성 (구현 완료)
 
 ```yaml
-# docker-compose.yml에 추가
+# docker-compose.yml — 실제 구성
+
 ocr-engine:
   build:
     context: ./services/ocr/engine
     dockerfile: Dockerfile
+  container_name: erp-ot-ocr-engine
+  environment:
+    USE_GPU: "false"
+    LANG: korean
+    MODEL_DIR: /app/models
+    DOTS_OCR_URL: http://dots-ocr:8100    # VLM 엔진 연결
   ports:
     - "8000:8000"
-  environment:
-    - USE_GPU=false
-    - LANG=korean
   volumes:
-    - ./services/ocr/models:/app/models
+    - ocr_models:/app/models
   healthcheck:
     test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
     interval: 30s
     timeout: 10s
-    retries: 3
+    retries: 5
+    start_period: 60s
+
+# dots.ocr — GPU 기반 VLM (선택적, --profile gpu)
+dots-ocr:
+  build:
+    context: services/ocr/dots-ocr
+  container_name: erp-ot-dots-ocr
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [gpu]
+  environment:
+    HF_HOME: /app/models
+  ports:
+    - "8100:8100"
+  volumes:
+    - dots_ocr_models:/app/models
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:8100/health"]
+    interval: 30s
+    timeout: 10s
+    retries: 10
+    start_period: 180s              # 모델 로딩 시간
+  profiles:
+    - gpu                           # docker compose --profile gpu up 으로만 기동
 
 ocr-service:
   build:
-    context: ./services/ocr
-    dockerfile: Dockerfile
+    context: .
+    dockerfile: services/ocr/Dockerfile
+  container_name: erp-ot-ocr
+  environment:
+    PORT: 3007
+    DATABASE_URL: postgresql://...?schema=ocr
+    OCR_ENGINE_URL: http://ocr-engine:8000
+    DOTS_OCR_URL: http://dots-ocr:8100
+    EQUIPMENT_SERVICE_URL: http://equipment-service:3005
+    AUTH_SERVICE_URL: http://auth-service:3001
+    INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN}
+    CORS_ORIGIN: "*"
+    UPLOAD_DIR: /app/uploads
+    MAX_FILE_SIZE_MB: "10"
   ports:
     - "3007:3007"
-  environment:
-    - PORT=3007
-    - DATABASE_URL=postgresql://erp:erp@postgres:5432/erp_equipment?schema=ocr
-    - OCR_ENGINE_URL=http://ocr-engine:8000
-    - EQUIPMENT_SERVICE_URL=http://equipment-service:3005
-    - AUTH_SERVICE_URL=http://auth-service:3001
-    - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN}
-    - JWT_SECRET=${JWT_SECRET}
-    - UPLOAD_DIR=/app/uploads
   volumes:
-    - ocr-uploads:/app/uploads
+    - ocr_uploads:/app/uploads
   depends_on:
     ocr-engine:
       condition: service_healthy
     postgres:
       condition: service_started
+    auth-service:
+      condition: service_started
 
 volumes:
-  ocr-uploads:
+  ocr_uploads:
+  ocr_models:
+  dots_ocr_models:
 ```
 
 ---
@@ -837,46 +1030,77 @@ volumes:
 
 ---
 
-## 12. 구현 순서
+## 12. 구현 순서 및 진행 상태
 
-### Phase 1: 기반 구축 (독립 동작)
-1. [ ] `services/ocr` Node.js 프로젝트 초기화 (Fastify + Prisma)
-2. [ ] `services/ocr/engine` Python 프로젝트 초기화 (FastAPI + PaddleOCR)
-3. [ ] Docker Compose에 ocr-engine, ocr-service 추가
-4. [ ] DB 스키마 생성 (`prisma migrate`)
-5. [ ] `POST /api/v1/ocr/scan` — 이미지 업로드 → OCR 원본 결과 반환
-6. [ ] 헬스체크 + 환경변수 검증
+### Phase 1: 기반 구축 (독립 동작) ✅ 완료
+1. [x] `services/ocr` Node.js 프로젝트 초기화 (Fastify + Prisma)
+2. [x] `services/ocr/engine` Python 프로젝트 초기화 (FastAPI + PaddleOCR)
+3. [x] Docker Compose에 ocr-engine, ocr-service, dots-ocr 추가
+4. [x] DB 스키마 생성 (`prisma migrate`) — ocr 스키마
+5. [x] `POST /api/v1/ocr/scan` — 이미지 업로드 → OCR 원본 결과 반환
+6. [x] 헬스체크 + 환경변수 검증
+7. [x] 테스트 UI (test-ui/index.html) — localhost:9090
 
-### Phase 2: 템플릿 + 매핑 엔진
-7. [ ] DocumentTemplate / TemplateField CRUD API
-8. [ ] 수입면장 템플릿 초기 데이터 (seed)
-9. [ ] 키-값 쌍 추출 로직 (인접 텍스트 그룹핑)
-10. [ ] 라벨-필드 매칭 엔진 (label + aliases)
-11. [ ] 타입 변환 (NUMBER, DATE, BIZ_NO 등)
-12. [ ] 문서 유형 자동 판별
-13. [ ] 세금계산서, 견적서 등 추가 템플릿
+### Phase 2: 템플릿 + 매핑 + 멀티 엔진 ✅ 완료
+8. [x] DocumentTemplate / TemplateField CRUD API
+9. [x] 6종 문서 템플릿 초기 데이터 (seed.ts)
+10. [x] 라벨 근접 매칭 엔진 (2-pass 전략)
+11. [x] 퍼지 매칭 (70% 임계) — OCR 오인식 대응
+12. [x] 타입 변환 (NUMBER, DATE, BIZ_NO, CURRENCY 등)
+13. [x] 문서 유형 자동 판별 (키워드 기반)
+14. [x] 멀티 OCR 엔진 통합 (PaddleOCR 4종 + EasyOCR 2종 + Tesseract 2종)
+15. [x] dots.ocr VLM 통합 (GPU 컨테이너, 선택적)
+16. [x] `GET /engines` — 엔진 목록 API
+17. [x] `POST /scan/raw` — DB 미저장 직접 스캔 API
+18. [x] 엔진 비교 테스트 UI (Compare Models 탭)
+19. [x] 수입면장 실문서 검증 (10/14 필드 정확 매핑)
+20. [x] 인보이스 실문서 검증 (7~8/9 필드 정확 매핑)
 
-### Phase 3: 확인/수정 UI
-14. [ ] `/ocr` 이력 목록 페이지
-15. [ ] `/ocr/scan` 업로드 + 스캔 화면
-16. [ ] OcrImageViewer 컴포넌트 (확대/축소/회전)
-17. [ ] OcrFieldForm 컴포넌트 (필드 양식 + 신뢰도 뱃지)
-18. [ ] 필드 클릭 ↔ 이미지 하이라이트 연동
-19. [ ] 필드 수정 + 확인 완료 API 연동
-20. [ ] 임시저장 기능
+### Phase 3: 확인/수정 UI (ERP 통합) — 미착수
+21. [ ] `/ocr` 이력 목록 페이지
+22. [ ] `/ocr/scan` 업로드 + 스캔 화면
+23. [ ] OcrImageViewer 컴포넌트 (확대/축소/회전)
+24. [ ] OcrFieldForm 컴포넌트 (필드 양식 + 신뢰도 뱃지)
+25. [ ] 필드 클릭 ↔ 이미지 하이라이트 연동
+26. [ ] 필드 수정 + 확인 완료 API 연동
+27. [ ] 임시저장 기능
 
-### Phase 4: ERP 연동
-21. [ ] equipment-service 클라이언트 (`equipment.client.ts`)
-22. [ ] `POST /api/v1/ocr/results/:id/apply` — ERP 반영
-23. [ ] 수입면장 → ImportCostSettlement 매핑 완성
-24. [ ] 인보이스 → OverseasOrder 매칭
-25. [ ] 연동 성공/실패 UI 피드백
+### Phase 4: ERP 연동 — 미착수
+28. [ ] equipment-service 클라이언트 (`equipment.client.ts`)
+29. [ ] `POST /api/v1/ocr/results/:id/apply` — ERP 반영
+30. [ ] 수입면장 → ImportCostSettlement 매핑 완성
+31. [ ] 인보이스 → OverseasOrder 매칭
+32. [ ] 연동 성공/실패 UI 피드백
 
-### Phase 5: 학습 데이터 + 통계
-26. [ ] OcrCorrection 자동 저장 (수정 시)
-27. [ ] 학습 데이터 내보내기 API (PaddleOCR 형식)
-28. [ ] 통계 대시보드 (문서 유형별 정확도, 수정률)
-29. [ ] `/ocr/templates` 관리자 화면
+### Phase 5: 학습 데이터 + 통계 — 미착수
+33. [ ] OcrCorrection 자동 저장 (수정 시)
+34. [ ] 학습 데이터 내보내기 API (PaddleOCR 형식)
+35. [ ] 통계 대시보드 (문서 유형별 정확도, 수정률)
+36. [ ] `/ocr/templates` 관리자 화면
+
+---
+
+## 13. 테스트 UI (개발용)
+
+### 13.1 싱글 스캔 모드
+
+문서 업로드 → 템플릿 선택 → 엔진 선택 → OCR 처리 → 필드 매핑 결과 표시
+
+### 13.2 엔진 비교 모드 (Compare Models)
+
+- 파일 업로드 + 여러 엔진 체크박스 선택
+- 병렬 OCR 실행 (각 엔진별 `/scan/raw` 호출)
+- 결과 비교: 인식 블록 수, 처리 시간, 평균 신뢰도
+- 엔진별 상세 텍스트 결과 테이블
+- 최고 성능 엔진 자동 하이라이트
+
+**엔진 그룹 색상:**
+- PaddleOCR: 파란색 (#3b82f6)
+- EasyOCR: 보라색 (#a855f7)
+- Tesseract: 주황색 (#f97316)
+- dots.ocr: 초록색 (#10b981)
+
+접근: `http://localhost:9090` (별도 정적 파일 서빙)
 
 ---
 
@@ -885,3 +1109,4 @@ volumes:
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
 | 1.0 | 2026-04-15 | 초기 Design 작성 | AI + Team |
+| 2.0 | 2026-04-15 | 멀티 엔진 아키텍처(9종), dots.ocr VLM, 퍼지 매칭, 비교 UI, 구현 상태 반영 | AI + Team |

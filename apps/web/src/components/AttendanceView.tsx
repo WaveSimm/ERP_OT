@@ -122,8 +122,13 @@ function CheckInWidget({ today, onAction }: { today: TodayRecord | null; onActio
   };
 
   const handleCheckIn = async () => {
+    // entryType(UI) → workType(backend enum: OFFICE/REMOTE/FIELD) 매핑
+    const workType =
+      entryType === "FIELD" || entryType === "BUSINESS_TRIP" ? "FIELD" :
+      entryType === "TRAINING" ? "OFFICE" :
+      "OFFICE";
     await doAction(async () => {
-      await attendanceApi.checkIn({ workType: "OFFICE" });
+      await attendanceApi.checkIn({ workType });
       try {
         const now = new Date();
         const hh = String(now.getHours()).padStart(2, "0");

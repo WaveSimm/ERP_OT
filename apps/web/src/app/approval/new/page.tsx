@@ -428,7 +428,7 @@ export default function NewApprovalPage() {
             <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)}
               className="border rounded px-2 py-1 text-sm">
               <option value="APPROVER">결재</option>
-              <option value="AGREEER">합의</option>
+              <option value="AGREER">합의</option>
             </select>
           </div>
           <button onClick={addApprover} disabled={!selectedUserId}

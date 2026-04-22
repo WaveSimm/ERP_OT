@@ -13,17 +13,17 @@ export async function repairQuoteRoutes(fastify: FastifyInstance) {
     return fastify.repairQuoteService.getById(id);
   });
 
-  fastify.post("/", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request, reply) => {
+  fastify.post("/", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request, reply) => {
     const result = await fastify.repairQuoteService.create(request.body as any);
     return reply.status(201).send(result);
   });
 
-  fastify.patch("/:id", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
+  fastify.patch("/:id", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
     const { id } = request.params as any;
     return fastify.repairQuoteService.update(id, request.body as any);
   });
 
-  fastify.patch("/:id/status", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
+  fastify.patch("/:id/status", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
     const { id } = request.params as any;
     const { status } = request.body as any;
     const userId = (request as any).user?.id;
@@ -37,13 +37,13 @@ export async function repairQuoteRoutes(fastify: FastifyInstance) {
   });
 
   // 견적 항목
-  fastify.post("/:id/items", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request, reply) => {
+  fastify.post("/:id/items", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request, reply) => {
     const { id } = request.params as any;
     const result = await fastify.repairQuoteService.addItem(id, request.body as any);
     return reply.status(201).send(result);
   });
 
-  fastify.patch("/items/:itemId", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
+  fastify.patch("/items/:itemId", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
     const { itemId } = request.params as any;
     return fastify.repairQuoteService.updateItem(itemId, request.body as any);
   });

@@ -721,7 +721,9 @@ export default function CommandCenterDashboard() {
     try {
       await dashboardApi.refreshAll();
       await load();
-    } catch {}
+    } catch (e: any) {
+      setError(e?.message ?? "새로고침 실패");
+    }
     finally { setRefreshing(false); }
   };
 

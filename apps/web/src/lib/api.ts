@@ -1186,6 +1186,70 @@ export const fileApi = {
     request<void>(`/approval/files/${id}`, { method: "DELETE" }),
 };
 
+// ── OCR 문서인식 ──────────────────────────────────────────────────────────────
+export const ocrApi = {
+  // 이미지 업로드 + OCR 처리 (DB 저장)
+  scan: (file: File, templateCode?: string, engineId?: string) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (templateCode) formData.append("templateCode", templateCode);
+    if (engineId) formData.append("engineId", engineId);
+    const token = getToken();
+    return fetch(`${API_PREFIX}/ocr/scan`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    }).then(async (r) => {
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({ message: r.statusText }));
+        throw new Error(err.message ?? "OCR 처리 실패");
+      }
+      return r.json();
+    });
+  },
+
+  // 엔진 목록
+  engines: () => request<Array<{ id: string; name: string; group: string; lang: string; ready: boolean }>>("/ocr/engines"),
+
+  // 처리 이력 목록
+  listResults: (params?: { status?: string; templateCode?: string; page?: number; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.status) qs.set("status", params.status);
+    if (params?.templateCode) qs.set("templateCode", params.templateCode);
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.limit) qs.set("limit", String(params.limit));
+    const q = qs.toString();
+    return request<{ items: any[]; total: number; page: number; limit: number; totalPages: number }>(`/ocr/results${q ? `?${q}` : ""}`);
+  },
+
+  // 결과 상세
+  getResult: (id: string) => request<any>(`/ocr/results/${id}`),
+
+  // 원본 이미지 URL
+  imageUrl: (id: string) => `${API_PREFIX}/ocr/results/${id}/image`,
+
+  // 필드 수정
+  updateFields: (id: string, fields: Array<{ fieldKey: string; confirmedValue: string }>) =>
+    request<any>(`/ocr/results/${id}/fields`, { method: "PATCH", body: JSON.stringify({ fields }) }),
+
+  // 확인 완료
+  confirmResult: (id: string) =>
+    request<any>(`/ocr/results/${id}/confirm`, { method: "POST" }),
+
+  // 결과 삭제
+  deleteResult: (id: string) =>
+    request<void>(`/ocr/results/${id}`, { method: "DELETE" }),
+
+  // 템플릿 목록
+  listTemplates: () => request<any[]>("/ocr/templates"),
+
+  // 템플릿 상세
+  getTemplate: (code: string) => request<any>(`/ocr/templates/${code}`),
+
+  // 통계
+  getStats: () => request<any>("/ocr/stats"),
+};
+
 /** @deprecated Use authApi.login instead */
 export async function devLogin(username: string, _password: string) {
   // Legacy dev login kept for backward compatibility — redirects through authApi

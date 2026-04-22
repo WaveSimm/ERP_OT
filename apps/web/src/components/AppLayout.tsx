@@ -13,6 +13,7 @@ const NAV = [
   { href: "/equipment",      label: "장비 관리",  icon: "🔧", managerOnly: false },
   { href: "/repair",         label: "수리 관리",  icon: "🛠", managerOnly: false },
   { href: "/procurement",    label: "구매/회계",  icon: "📦", managerOnly: false },
+  { href: "/ocr",            label: "문서인식",  icon: "📄", managerOnly: false },
   { href: "/approval",       label: "결재",      icon: "📝", managerOnly: false },
 ];
 

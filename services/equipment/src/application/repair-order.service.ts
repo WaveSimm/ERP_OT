@@ -274,7 +274,7 @@ export class RepairOrderService {
     const order = await this.prisma.repairOrder.findUnique({ where: { id } });
     if (!order) throw new Error("AS 접수를 찾을 수 없습니다.");
     if (order.status !== "RECEIVED" && order.status !== "CANCELLED") {
-      throw new Error("접수 또는 취소 상태의 건만 삭제할 수 있습니다.");
+      throw new Error("접수 또는 취소 상태가 아닌 AS 접수는 삭제할 수 없습니다.");
     }
     return this.prisma.repairOrder.delete({ where: { id } });
   }

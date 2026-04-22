@@ -28,19 +28,19 @@ export async function repairOrderRoutes(fastify: FastifyInstance) {
   });
 
   // 생성
-  fastify.post("/", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request, reply) => {
+  fastify.post("/", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request, reply) => {
     const result = await fastify.repairOrderService.create(request.body as any);
     return reply.status(201).send(result);
   });
 
   // 수정
-  fastify.patch("/:id", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
+  fastify.patch("/:id", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
     const { id } = request.params as any;
     return fastify.repairOrderService.update(id, request.body as any);
   });
 
   // 상태 변경 (FSM)
-  fastify.patch("/:id/status", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
+  fastify.patch("/:id/status", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
     const { id } = request.params as any;
     const { status } = request.body as any;
     const userId = (request as any).user?.id;
@@ -48,14 +48,14 @@ export async function repairOrderRoutes(fastify: FastifyInstance) {
   });
 
   // 점검진행상황 업데이트
-  fastify.patch("/:id/tech-status", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
+  fastify.patch("/:id/tech-status", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
     const { id } = request.params as any;
     const { techStatus } = request.body as any;
     return fastify.repairOrderService.updateTechStatus(id, techStatus);
   });
 
   // 영업부진행상황 업데이트
-  fastify.patch("/:id/sales-status", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
+  fastify.patch("/:id/sales-status", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
     const { id } = request.params as any;
     const { salesStatus } = request.body as any;
     return fastify.repairOrderService.updateSalesStatus(id, salesStatus);

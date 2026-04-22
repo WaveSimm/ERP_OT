@@ -1,12 +1,12 @@
 {
-  "sessionCount": 123,
+  "sessionCount": 135,
   "lastSession": {
-    "startedAt": "2026-04-15T06:26:32.584Z",
+    "startedAt": "2026-04-22T00:00:00.000Z",
     "platform": "claude",
     "level": "Enterprise"
   },
-  "currentFeature": "구매-재고-결재",
-  "currentPhase": "design",
+  "currentFeature": "OCR-문서인식",
+  "currentPhase": "do",
   "matchRate": null,
-  "lastUpdated": "2026-04-10T12:00:00.000Z"
+  "lastUpdated": "2026-04-22T00:00:00.000Z"
 }

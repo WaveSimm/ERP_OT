@@ -202,6 +202,77 @@ services:
     networks:
       - erp-network
 
+  # ─── OCR Service ──────────────────────────────────────────────────────────────
+  ocr-engine:
+    build:
+      context: ./services/ocr/engine
+      dockerfile: Dockerfile
+    container_name: erp-ot-ocr-engine
+    restart: unless-stopped
+    environment:
+      USE_GPU: "false"
+      LANG: korean
+      MODEL_DIR: /app/models
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CLOVA_OCR_API_URL: ${CLOVA_OCR_API_URL:-}
+      CLOVA_OCR_SECRET_KEY: ${CLOVA_OCR_SECRET_KEY:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ocr_models:/app/models
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - erp-network
+
+  # OCR 개발용 테스트 UI (정적 HTML) — localhost:9090
+  ocr-test-ui:
+    image: nginx:alpine
+    container_name: erp-ot-ocr-test-ui
+    restart: unless-stopped
+    volumes:
+      - ./services/ocr/test-ui:/usr/share/nginx/html:ro
+    ports:
+      - "9090:80"
+    networks:
+      - erp-network
+
+  ocr-service:
+    build:
+      context: .
+      dockerfile: services/ocr/Dockerfile
+    container_name: erp-ot-ocr
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3007
+      DATABASE_URL: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:-erp_password}@postgres:5432/${POSTGRES_DB:-erp_ot}?schema=ocr
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change_me_in_production}
+      OCR_ENGINE_URL: http://ocr-engine:8000
+      EQUIPMENT_SERVICE_URL: http://equipment-service:3005
+      AUTH_SERVICE_URL: http://auth-service:3001
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-dev_internal_token_min32chars_change}
+      CORS_ORIGIN: "*"
+      UPLOAD_DIR: /app/uploads
+      MAX_FILE_SIZE_MB: "10"
+    ports:
+      - "3007:3007"
+    volumes:
+      - ocr_uploads:/app/uploads
+    depends_on:
+      ocr-engine:
+        condition: service_healthy
+      postgres:
+        condition: service_started
+      auth-service:
+        condition: service_started
+    networks:
+      - erp-network
+
   # ─── DB Backup (매일 02:00 자동 백업) ────────────────────────────────────────
   db-backup:
     image: postgres:16-alpine
@@ -270,6 +341,7 @@ services:
       ATTENDANCE_SERVICE_URL: http://attendance-service:3004
       EQUIPMENT_SERVICE_URL: http://equipment-service:3005
       APPROVAL_SERVICE_URL: http://approval-service:3006
+      OCR_SERVICE_URL: http://ocr-service:3007
       JWT_SECRET: ${JWT_ACCESS_SECRET:-change_me_in_production}
       WATCHPACK_POLLING: "true"
       CHOKIDAR_USEPOLLING: "true"
@@ -290,6 +362,8 @@ volumes:
   rabbitmq_data:
   file_storage:
   approval_uploads:
+  ocr_uploads:
+  ocr_models:
   web_node_modules:
 
 networks:

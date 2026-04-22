@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OCR Test Console</title>
+  <style>
+    :root { --bg: #0f172a; --surface: #1e293b; --border: #334155; --text: #e2e8f0; --muted: #94a3b8; --accent: #3b82f6; --green: #22c55e; --yellow: #eab308; --red: #ef4444; --purple: #a855f7; --orange: #f97316; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; gap: 16px; }
+    .header h1 { font-size: 18px; font-weight: 600; }
+    .header .badge { font-size: 11px; background: var(--accent); color: white; padding: 2px 8px; border-radius: 10px; }
+    .header .status { margin-left: auto; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .dot.ok { background: var(--green); }
+    .dot.err { background: var(--red); }
+    .dot.loading { background: var(--yellow); animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+    /* Tabs */
+    .tab-bar { display: flex; gap: 0; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; }
+    .tab { padding: 12px 20px; font-size: 14px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; color: var(--muted); transition: all .15s; }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    .container { max-width: 1600px; margin: 0 auto; padding: 24px; }
+    .grid { display: grid; grid-template-columns: 380px 1fr; gap: 24px; }
+    .grid-compare { display: grid; grid-template-columns: 380px 1fr; gap: 24px; }
+    @media (max-width: 960px) { .grid, .grid-compare { grid-template-columns: 1fr; } }
+
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .panel-header { padding: 12px 16px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+    .panel-body { padding: 16px; }
+
+    .drop-zone { border: 2px dashed var(--border); border-radius: 8px; padding: 32px 20px; text-align: center; cursor: pointer; transition: all .2s; }
+    .drop-zone:hover, .drop-zone.dragover { border-color: var(--accent); background: rgba(59,130,246,.05); }
+    .drop-zone .icon { font-size: 40px; margin-bottom: 8px; }
+    .drop-zone p { color: var(--muted); font-size: 13px; margin-top: 4px; }
+    .drop-zone input { display: none; }
+
+    .preview-img { max-width: 100%; max-height: 200px; border-radius: 6px; margin-top: 12px; object-fit: contain; display: none; }
+
+    .form-group { margin-top: 12px; }
+    .form-group label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 4px; }
+    .form-group select, .form-group input[type=text] { width: 100%; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 14px; }
+
+    /* Engine checkboxes */
+    .engine-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+    .engine-item { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border); cursor: pointer; font-size: 12px; transition: all .15s; }
+    .engine-item:hover { border-color: var(--accent); }
+    .engine-item.checked { border-color: var(--accent); background: rgba(59,130,246,.08); }
+    .engine-item.disabled { opacity: .4; cursor: not-allowed; }
+    .engine-item input { accent-color: var(--accent); cursor: pointer; }
+    .engine-item .engine-name { flex: 1; }
+    .engine-item .engine-group { font-size: 10px; color: var(--muted); padding: 1px 5px; border-radius: 4px; background: var(--bg); }
+
+    .checkbox-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+    .checkbox-row input[type=checkbox] { accent-color: var(--accent); }
+    .checkbox-row label { font-size: 13px; color: var(--muted); cursor: pointer; }
+
+    .btn { padding: 10px 20px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all .15s; }
+    .btn-primary { background: var(--accent); color: white; width: 100%; margin-top: 12px; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-sm { padding: 6px 14px; font-size: 13px; }
+    .btn-green { background: var(--green); color: white; }
+    .btn-green:hover { background: #16a34a; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3); border-top-color: white; border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .progress-bar { height: 4px; background: var(--border); border-radius: 2px; margin-top: 10px; overflow: hidden; display: none; }
+    .progress-bar .fill { height: 100%; background: var(--accent); width: 0; transition: width .3s; }
+
+    /* Result cards */
+    .result-meta { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    .meta-card { background: var(--bg); padding: 12px; border-radius: 6px; text-align: center; }
+    .meta-card .val { font-size: 24px; font-weight: 700; }
+    .meta-card .label { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .method-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 10px; font-size: 12px; font-weight: 600; }
+    .method-badge.text-extract { background: rgba(34,197,94,.15); color: var(--green); }
+    .method-badge.ocr { background: rgba(59,130,246,.15); color: var(--accent); }
+
+    .field-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .field-table th { text-align: left; padding: 8px 10px; border-bottom: 2px solid var(--border); color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+    .field-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .field-table tr:hover { background: rgba(59,130,246,.03); }
+    .field-table input[type=text] { width: 100%; padding: 6px 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 13px; }
+    .field-table input[type=text]:focus { outline: none; border-color: var(--accent); }
+    .field-table input[type=text].modified { border-color: var(--yellow); background: rgba(234,179,8,.05); }
+
+    .conf-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+    .conf-high { background: rgba(34,197,94,.15); color: var(--green); }
+    .conf-mid { background: rgba(234,179,8,.15); color: var(--yellow); }
+    .conf-low { background: rgba(239,68,68,.15); color: var(--red); }
+
+    .actions-bar { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+
+    .raw-output { max-height: 300px; overflow: auto; background: var(--bg); padding: 12px; border-radius: 6px; font-family: 'Consolas', monospace; font-size: 12px; white-space: pre-wrap; color: var(--muted); margin-top: 12px; display: none; }
+
+    .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; z-index: 1000; transform: translateY(100px); opacity: 0; transition: all .3s; }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.success { background: var(--green); color: white; }
+    .toast.error { background: var(--red); color: white; }
+
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); }
+    .empty-state .icon { font-size: 48px; margin-bottom: 12px; opacity: .5; }
+    .empty-state p { font-size: 14px; }
+
+    .history-list { max-height: 160px; overflow-y: auto; }
+    .history-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13px; }
+    .history-item:hover { background: rgba(59,130,246,.05); }
+    .history-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .history-item .time { color: var(--muted); font-size: 11px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .status-dot.PENDING_REVIEW { background: var(--yellow); }
+    .status-dot.CONFIRMED { background: var(--green); }
+
+    .log { margin-top: 10px; padding: 8px 12px; background: var(--bg); border-radius: 6px; font-size: 11px; font-family: 'Consolas', monospace; color: var(--muted); max-height: 80px; overflow-y: auto; }
+    .log div { padding: 1px 0; }
+    .log .ok { color: var(--green); }
+    .log .err { color: var(--red); }
+    .log .warn { color: var(--yellow); }
+
+    /* Compare mode */
+    .compare-results { display: grid; gap: 16px; }
+    .compare-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .compare-card-header { padding: 10px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 14px; }
+    .compare-card-header .engine-tag { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+    .compare-card-header .stats { margin-left: auto; font-size: 12px; color: var(--muted); display: flex; gap: 12px; }
+    .compare-card-body { padding: 12px 16px; }
+
+    .compare-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .compare-table th { text-align: left; padding: 6px 8px; border-bottom: 2px solid var(--border); color: var(--muted); font-weight: 600; font-size: 11px; }
+    .compare-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); font-family: 'Consolas', monospace; }
+    .compare-table tr.best td { background: rgba(34,197,94,.05); }
+    .compare-table .diff { color: var(--red); text-decoration: line-through; font-size: 11px; }
+
+    .summary-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .summary-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px; text-align: center; }
+    .summary-card.winner { border-color: var(--green); }
+    .summary-card .engine-name { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+    .summary-card .stat-row { display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; }
+    .summary-card .stat-row .label { color: var(--muted); }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>OCR Test Console</h1>
+    <span class="badge">Multi-Engine</span>
+    <div class="status" id="connStatus">
+      <span class="dot loading"></span>
+      <span>Connecting...</span>
+    </div>
+  </div>
+
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <div class="tab active" data-tab="single" onclick="switchTab('single')">Single Scan</div>
+    <div class="tab" data-tab="compare" onclick="switchTab('compare')">Compare Models</div>
+    <div class="tab" data-tab="diag" onclick="switchTab('diag')">🔬 Auto-Extract (Diagnostic)</div>
+  </div>
+
+  <div class="container">
+    <!-- =================== SINGLE MODE =================== -->
+    <div id="tab-single" class="grid">
+      <!-- LEFT -->
+      <div>
+        <div class="panel">
+          <div class="panel-header">Upload</div>
+          <div class="panel-body">
+            <div class="drop-zone" id="dropZone">
+              <div class="icon">📄</div>
+              <div><strong>Click or drag file here</strong></div>
+              <p>PNG, JPG, PDF — max 10MB</p>
+              <input type="file" id="fileInput" accept="image/png,image/jpeg,image/jpg,application/pdf">
+            </div>
+            <img class="preview-img" id="preview">
+            <div id="fileName" style="margin-top:8px; font-size:13px; color:var(--muted);"></div>
+
+            <div class="form-group">
+              <label>Template</label>
+              <select id="templateSelect"><option value="">Auto detect</option></select>
+            </div>
+
+            <div class="form-group">
+              <label>OCR Engine</label>
+              <select id="engineSelect"><option value="">Default (PaddleOCR Korean)</option></select>
+            </div>
+
+            <div class="checkbox-row">
+              <input type="checkbox" id="showRaw">
+              <label for="showRaw">Show raw OCR output</label>
+            </div>
+
+            <button class="btn btn-primary" id="scanBtn" disabled>Scan Document</button>
+            <div class="progress-bar" id="progressBar"><div class="fill" id="progressFill"></div></div>
+            <div class="log" id="connLog"></div>
+          </div>
+        </div>
+        <div class="panel" style="margin-top:16px;">
+          <div class="panel-header">Recent Results <button class="btn btn-outline btn-sm" style="margin-left:auto;" onclick="loadHistory()">Refresh</button></div>
+          <div class="panel-body" style="padding:0;">
+            <div id="historyList" class="history-list"><div class="empty-state" style="padding:20px;"><p>No results yet</p></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT -->
+      <div>
+        <div class="panel" id="resultPanel">
+          <div class="panel-header">OCR Result <span id="resultStatus" style="margin-left:8px;"></span><span id="resultTemplate" style="margin-left:auto; font-size:12px; color:var(--muted);"></span></div>
+          <div class="panel-body">
+            <div id="emptyResult" class="empty-state"><div class="icon">🔍</div><p>Upload and scan a document to see results here</p></div>
+            <div id="resultContent" style="display:none;">
+              <div class="result-meta" style="grid-template-columns: 1fr 1fr 1fr 1fr;">
+                <div class="meta-card"><div class="val" id="metaMethod">—</div><div class="label">Method</div></div>
+                <div class="meta-card"><div class="val" id="metaConfidence">—</div><div class="label">Confidence</div></div>
+                <div class="meta-card"><div class="val" id="metaTime">—</div><div class="label">Processing (ms)</div></div>
+                <div class="meta-card"><div class="val" id="metaFields">—</div><div class="label">Mapped Fields</div></div>
+              </div>
+              <table class="field-table">
+                <thead><tr><th style="width:22%">Field</th><th style="width:22%">OCR Value</th><th style="width:28%">Confirmed Value</th><th style="width:10%">Conf.</th><th style="width:8%">Req</th></tr></thead>
+                <tbody id="fieldBody"></tbody>
+              </table>
+              <div class="actions-bar">
+                <button class="btn btn-outline btn-sm" onclick="saveFields()">Save Corrections</button>
+                <button class="btn btn-green btn-sm" onclick="confirmResult()">Confirm All</button>
+              </div>
+              <div class="raw-output" id="rawOutput"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- =================== DIAGNOSTIC MODE =================== -->
+    <div id="tab-diag" class="grid hidden">
+      <!-- LEFT -->
+      <div>
+        <div class="panel">
+          <div class="panel-header">🔬 Auto-Extract (개발 진단)</div>
+          <div class="panel-body">
+            <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">
+              템플릿 없이 문서에서 인식된 <strong>모든 라벨-값 쌍</strong>을 추출합니다.<br>
+              OCR 엔진의 실제 인식률 평가 + 현업 요구 필드 탐색용.
+            </p>
+            <div class="drop-zone" id="dropZone3">
+              <div class="icon">📄</div>
+              <div><strong>Click or drag file here</strong></div>
+              <p>PNG, JPG, PDF — max 10MB</p>
+              <input type="file" id="fileInput3" accept="image/png,image/jpeg,image/jpg,application/pdf">
+            </div>
+            <img class="preview-img" id="preview3">
+            <div id="fileName3" style="margin-top:8px; font-size:13px; color:var(--muted);"></div>
+
+            <div class="form-group">
+              <label>OCR Engine</label>
+              <select id="engineSelect3"><option value="paddle-ko">PaddleOCR Korean</option></select>
+            </div>
+
+            <div class="checkbox-row">
+              <input type="checkbox" id="forceOcr">
+              <label for="forceOcr">
+                <strong style="color:var(--yellow);">🔒 Force OCR</strong>
+                <span style="font-size:11px;color:var(--muted);display:block;margin-top:2px;">PDF 텍스트 레이어 무시하고 반드시 선택한 엔진으로 OCR 실행<br>(체크 안 하면 PDF는 엔진 무시하고 pdfplumber로 추출)</span>
+              </label>
+            </div>
+
+            <div class="checkbox-row">
+              <input type="checkbox" id="useLLM">
+              <label for="useLLM">LLM 보완 (Claude, ANTHROPIC_API_KEY 필요)</label>
+            </div>
+
+            <div id="pdfWarning" style="display:none; margin-top:10px; padding:10px 12px; background:rgba(234,179,8,.1); border:1px solid var(--yellow); border-radius:6px; font-size:12px; color:var(--yellow);">
+              ⚠️ <strong>PDF 감지</strong>: 이 PDF는 텍스트 레이어가 있을 수 있습니다. 엔진 비교를 원하면 위 <strong>Force OCR</strong>을 체크하세요.
+            </div>
+
+            <button class="btn btn-primary" id="diagBtn" disabled>진단 실행</button>
+            <div class="progress-bar" id="diagProgressBar"><div class="fill" id="diagProgressFill"></div></div>
+            <div class="log" id="diagLog"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Diag Results -->
+      <div>
+        <div id="diagEmpty" class="empty-state" style="padding:80px 20px;">
+          <div class="icon">🔬</div>
+          <p>파일을 선택하고 "진단 실행"을 누르면<br>인식된 모든 라벨-값 쌍이 표시됩니다.</p>
+        </div>
+        <div id="diagContent" class="hidden">
+          <!-- Summary -->
+          <div class="summary-bar" id="diagSummaryBar"></div>
+          <!-- KV Results -->
+          <div class="panel">
+            <div class="panel-header">추출된 KV 목록 <span id="diagKvCount" style="color:var(--muted);font-weight:400;"></span></div>
+            <div class="panel-body">
+              <table class="compare-table" id="diagTable">
+                <thead><tr><th>라벨</th><th>값</th><th>타입</th><th>신뢰도</th><th>출처</th></tr></thead>
+                <tbody id="diagTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <!-- Unmatched -->
+          <div class="panel" style="margin-top:12px;">
+            <div class="panel-header">미매칭 텍스트 <span id="diagUnmatchedCount" style="color:var(--muted);font-weight:400;"></span></div>
+            <div class="panel-body">
+              <div id="diagUnmatched" class="raw-output" style="display:block;max-height:200px;"></div>
+            </div>
+          </div>
+          <!-- Full text -->
+          <div class="panel" style="margin-top:12px;">
+            <div class="panel-header">전체 OCR 텍스트 (참고)</div>
+            <div class="panel-body">
+              <div id="diagFullText" class="raw-output" style="display:block;max-height:200px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- =================== COMPARE MODE =================== -->
+    <div id="tab-compare" class="grid-compare hidden">
+      <!-- LEFT -->
+      <div>
+        <div class="panel">
+          <div class="panel-header">Upload & Select Engines</div>
+          <div class="panel-body">
+            <div class="drop-zone" id="dropZone2">
+              <div class="icon">📄</div>
+              <div><strong>Click or drag file here</strong></div>
+              <p>PNG, JPG, PDF — max 10MB</p>
+              <input type="file" id="fileInput2" accept="image/png,image/jpeg,image/jpg,application/pdf">
+            </div>
+            <img class="preview-img" id="preview2">
+            <div id="fileName2" style="margin-top:8px; font-size:13px; color:var(--muted);"></div>
+
+            <div class="form-group">
+              <label>Template (for field mapping)</label>
+              <select id="templateSelect2"><option value="">Auto detect</option></select>
+            </div>
+
+            <div class="form-group">
+              <label>Select Engines to Compare</label>
+              <div class="engine-grid" id="engineGrid"></div>
+            </div>
+
+            <button class="btn btn-primary" id="compareBtn" disabled>
+              Compare Selected Engines
+            </button>
+            <div class="progress-bar" id="compareProgressBar"><div class="fill" id="compareProgressFill"></div></div>
+            <div class="log" id="compareLog"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Compare Results -->
+      <div>
+        <div id="compareEmpty" class="empty-state" style="padding:80px 20px;">
+          <div class="icon">⚖️</div>
+          <p>Select 2+ engines and scan a document to compare results</p>
+        </div>
+        <div id="compareContent" class="hidden">
+          <!-- Summary -->
+          <div class="summary-bar" id="summaryBar"></div>
+          <!-- Per-engine results -->
+          <div class="compare-results" id="compareResults"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ──── Config ───────────────────────────────────────────
+    const API = 'http://localhost:3007';
+    let TOKEN = '';
+    let engines = [];
+
+    const logEl = document.getElementById('connLog');
+    const cmpLogEl = document.getElementById('compareLog');
+    function log(msg, cls, target) {
+      const el = target || logEl;
+      const d = document.createElement('div');
+      if (cls) d.className = cls;
+      d.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      el.appendChild(d);
+      el.scrollTop = el.scrollHeight;
+    }
+
+    // ──── Tab switching ───────────────────────────────────
+    function switchTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+      document.getElementById('tab-single').classList.toggle('hidden', tab !== 'single');
+      document.getElementById('tab-compare').classList.toggle('hidden', tab !== 'compare');
+      document.getElementById('tab-diag').classList.toggle('hidden', tab !== 'diag');
+    }
+
+    // ──── Init ────────────────────────────────────────────
+    async function init() {
+      log('Checking OCR service...');
+      try {
+        const res = await fetch(`${API}/health`);
+        const data = await res.json();
+        if (data.engine === 'ok') { log('OCR service + engine OK', 'ok'); setStatus('ok', 'Connected'); }
+        else { log('OCR engine unavailable', 'warn'); setStatus('err', 'Engine down'); }
+      } catch (e) { log('Cannot reach OCR service at ' + API, 'err'); setStatus('err', 'Disconnected'); return; }
+
+      log('Getting dev token...');
+      try {
+        const res = await fetch(`${API}/dev/token`);
+        TOKEN = (await res.json()).token;
+        log('Token acquired (8h valid)', 'ok');
+      } catch (e) { log('Dev token failed: ' + e.message, 'err'); return; }
+
+      // Load templates
+      log('Loading templates...');
+      try {
+        const res = await apiFetch('/api/v1/ocr/templates');
+        const templates = await res.json();
+        [document.getElementById('templateSelect'), document.getElementById('templateSelect2')].forEach(sel => {
+          templates.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.code;
+            opt.textContent = `${t.name} (${t.code})`;
+            sel.appendChild(opt);
+          });
+        });
+        log(`${templates.length} templates loaded`, 'ok');
+      } catch (e) { log('Template load failed: ' + e.message, 'err'); }
+
+      // Load engines
+      log('Loading engines...');
+      try {
+        const res = await apiFetch('/api/v1/ocr/engines');
+        engines = await res.json();
+        populateEngines();
+        log(`${engines.length} engines found (${engines.filter(e=>e.ready).length} ready)`, 'ok');
+      } catch (e) { log('Engine list failed: ' + e.message, 'err'); }
+
+      loadHistory();
+      log('Ready!', 'ok');
+    }
+
+    function setStatus(type, text) {
+      document.getElementById('connStatus').innerHTML = `<span class="dot ${type}"></span><span>${text}</span>`;
+    }
+
+    function populateEngines() {
+      // Single mode dropdown
+      const sel = document.getElementById('engineSelect');
+      const selDiag = document.getElementById('engineSelect3');
+      selDiag.innerHTML = ''; // 기존 하드코딩 옵션 제거
+      engines.filter(e => e.ready).forEach(e => {
+        const opt = document.createElement('option');
+        opt.value = e.id;
+        opt.textContent = `${e.name}`;
+        sel.appendChild(opt);
+
+        const opt2 = document.createElement('option');
+        opt2.value = e.id;
+        opt2.textContent = `${e.name}`;
+        if (e.id === 'paddle-ko') opt2.selected = true;
+        selDiag.appendChild(opt2);
+      });
+
+      // Compare mode checkboxes
+      const grid = document.getElementById('engineGrid');
+      grid.innerHTML = '';
+      const colors = { PaddleOCR: '#3b82f6', Claude: '#d97706', CLOVA: '#22c55e' };
+      engines.forEach(e => {
+        const div = document.createElement('div');
+        div.className = `engine-item ${e.ready ? '' : 'disabled'}`;
+        div.innerHTML = `
+          <input type="checkbox" value="${e.id}" ${e.ready ? '' : 'disabled'} ${e.id === 'paddle-ko' ? 'checked' : ''}>
+          <span class="engine-name">${e.name.replace(e.group + ' ', '')}</span>
+          <span class="engine-group" style="color:${colors[e.group]||'var(--muted)'}">${e.group}</span>
+        `;
+        const cb = div.querySelector('input');
+        cb.addEventListener('change', () => {
+          div.classList.toggle('checked', cb.checked);
+          updateCompareBtn();
+        });
+        if (cb.checked) div.classList.add('checked');
+        if (!e.ready) div.title = 'Not installed';
+        grid.appendChild(div);
+      });
+    }
+
+    function getSelectedEngines() {
+      return [...document.querySelectorAll('#engineGrid input:checked')].map(cb => cb.value);
+    }
+
+    function updateCompareBtn() {
+      document.getElementById('compareBtn').disabled = !compareFile || getSelectedEngines().length < 2 || !TOKEN;
+    }
+
+    // ──── File Upload (shared logic) ──────────────────────
+    let selectedFile = null;
+    let compareFile = null;
+
+    function setupDropZone(zoneId, inputId, previewId, nameId, onFile) {
+      const zone = document.getElementById(zoneId);
+      const input = document.getElementById(inputId);
+      zone.addEventListener('click', () => input.click());
+      zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+      zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+      zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('dragover'); if (e.dataTransfer.files.length) onFile(e.dataTransfer.files[0]); });
+      input.addEventListener('change', () => { if (input.files.length) onFile(input.files[0]); });
+    }
+
+    setupDropZone('dropZone', 'fileInput', 'preview', 'fileName', f => {
+      selectedFile = f;
+      document.getElementById('fileName').textContent = `${f.name} (${(f.size/1024).toFixed(1)} KB)`;
+      document.getElementById('scanBtn').disabled = !TOKEN;
+      const p = document.getElementById('preview');
+      if (f.type.startsWith('image/')) { const r = new FileReader(); r.onload = e => { p.src = e.target.result; p.style.display = 'block'; }; r.readAsDataURL(f); } else { p.style.display = 'none'; }
+    });
+
+    setupDropZone('dropZone2', 'fileInput2', 'preview2', 'fileName2', f => {
+      compareFile = f;
+      document.getElementById('fileName2').textContent = `${f.name} (${(f.size/1024).toFixed(1)} KB)`;
+      updateCompareBtn();
+      const p = document.getElementById('preview2');
+      if (f.type.startsWith('image/')) { const r = new FileReader(); r.onload = e => { p.src = e.target.result; p.style.display = 'block'; }; r.readAsDataURL(f); } else { p.style.display = 'none'; }
+    });
+
+    // ──── Single Scan ─────────────────────────────────────
+    let currentResultId = null;
+    document.getElementById('scanBtn').addEventListener('click', async () => {
+      if (!selectedFile || !TOKEN) return;
+      const btn = document.getElementById('scanBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Scanning...';
+      showProgress('progressBar', 'progressFill', true, 30);
+
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      const tc = document.getElementById('templateSelect').value;
+      if (tc) formData.append('templateCode', tc);
+      const eng = document.getElementById('engineSelect').value;
+      if (eng) formData.append('engineId', eng);
+
+      try {
+        showProgress('progressBar', 'progressFill', true, 60);
+        const res = await fetch(`${API}/api/v1/ocr/scan`, { method: 'POST', headers: { 'Authorization': 'Bearer ' + TOKEN }, body: formData });
+        showProgress('progressBar', 'progressFill', true, 90);
+        if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.message || `HTTP ${res.status}`); }
+        const data = await res.json();
+        showProgress('progressBar', 'progressFill', true, 100);
+        const scanMethod = data.rawOcrOutput?.extraction_method || data.rawOcrOutput?.extractionMethod || 'ocr';
+        log(`Scan complete [${scanMethod}]: ${data.templateCode||'?'}, ${data.fields?.length||0} fields, ${data.processingTimeMs}ms`, 'ok');
+        displayResult(data);
+        loadHistory();
+        showToast('Scan complete!', 'success');
+      } catch (e) { log('Scan error: ' + e.message, 'err'); showToast('Scan failed: ' + e.message, 'error'); }
+      finally { btn.disabled = false; btn.textContent = 'Scan Document'; setTimeout(() => showProgress('progressBar', 'progressFill', false), 500); }
+    });
+
+    // ──── Compare Scan ────────────────────────────────────
+    document.getElementById('compareBtn').addEventListener('click', async () => {
+      const selectedEngines = getSelectedEngines();
+      if (!compareFile || selectedEngines.length < 2 || !TOKEN) return;
+
+      const btn = document.getElementById('compareBtn');
+      btn.disabled = true;
+      const cLog = cmpLogEl;
+      cLog.innerHTML = '';
+
+      document.getElementById('compareEmpty').classList.add('hidden');
+      document.getElementById('compareContent').classList.remove('hidden');
+      document.getElementById('summaryBar').innerHTML = '';
+      document.getElementById('compareResults').innerHTML = '<div class="empty-state"><span class="spinner"></span> Running OCR engines...</div>';
+
+      const tc = document.getElementById('templateSelect2').value;
+      const isPdf = compareFile.type === 'application/pdf' || compareFile.name.toLowerCase().endsWith('.pdf');
+      const results = [];
+      let groundTruth = null;
+
+      // PDF: 텍스트 추출을 참값(Ground Truth)으로 먼저 수행
+      const totalSteps = isPdf ? selectedEngines.length + 1 : selectedEngines.length;
+      btn.innerHTML = `<span class="spinner"></span> Scanning ${totalSteps} results...`;
+
+      if (isPdf) {
+        log('PDF detected — extracting text layer as Ground Truth...', 'warn', cLog);
+        showProgress('compareProgressBar', 'compareProgressFill', true, 5);
+        const formData = new FormData();
+        formData.append('file', compareFile);
+        if (tc) formData.append('templateCode', tc);
+        formData.append('engineId', 'paddle-ko'); // 어떤 엔진이든 텍스트 추출 우선
+
+        try {
+          const res = await fetch(`${API}/api/v1/ocr/scan`, { method: 'POST', headers: { 'Authorization': 'Bearer ' + TOKEN }, body: formData });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          const method = data.rawOcrOutput?.extractionMethod || data.rawOcrOutput?.extraction_method || 'ocr';
+          if (method === 'text-extract') {
+            data._engineId = 'text-extract';
+            data._engineName = 'Ground Truth (Text)';
+            data._isGroundTruth = true;
+            groundTruth = data;
+            results.push(data);
+            log(`Ground Truth: ${data.fields?.length||0} fields, ${data.processingTimeMs}ms, confidence=100%`, 'ok', cLog);
+          } else {
+            log('PDF has no text layer — skipping Ground Truth, comparing OCR only', 'warn', cLog);
+          }
+        } catch (e) {
+          log(`Ground Truth extraction failed: ${e.message}`, 'err', cLog);
+        }
+      }
+
+      // 각 엔진으로 OCR 수행 (PDF면 force_ocr=true)
+      for (let i = 0; i < selectedEngines.length; i++) {
+        const engineId = selectedEngines[i];
+        const step = (isPdf && groundTruth ? i + 2 : i + 1);
+        const pct = (step / totalSteps * 100).toFixed(0);
+        showProgress('compareProgressBar', 'compareProgressFill', true, pct);
+        log(`[${step}/${totalSteps}] Scanning with ${engineId}${isPdf ? ' (force OCR)' : ''}...`, 'warn', cLog);
+
+        const formData = new FormData();
+        formData.append('file', compareFile);
+        if (tc) formData.append('templateCode', tc);
+        formData.append('engineId', engineId);
+        if (isPdf) formData.append('forceOcr', 'true');
+
+        try {
+          const res = await fetch(`${API}/api/v1/ocr/scan`, { method: 'POST', headers: { 'Authorization': 'Bearer ' + TOKEN }, body: formData });
+          if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.message || `HTTP ${res.status}`); }
+          const data = await res.json();
+          data._engineId = engineId;
+          data._engineName = engines.find(e => e.id === engineId)?.name || engineId;
+          results.push(data);
+          log(`${engineId}: ${data.fields?.length||0} fields, ${data.processingTimeMs}ms, conf=${((data.overallConfidence||0)*100).toFixed(0)}%`, 'ok', cLog);
+        } catch (e) {
+          log(`${engineId}: FAILED - ${e.message}`, 'err', cLog);
+          results.push({ _engineId: engineId, _engineName: engines.find(e => e.id === engineId)?.name || engineId, _error: e.message });
+        }
+      }
+
+      displayCompareResults(results);
+      showProgress('compareProgressBar', 'compareProgressFill', false);
+      btn.disabled = false;
+      btn.textContent = 'Compare Selected Engines';
+      const okCount = results.filter(r => !r._error).length;
+      showToast(`Compare complete: ${okCount}/${results.length} succeeded${groundTruth ? ' (incl. Ground Truth)' : ''}`, 'success');
+    });
+
+    // ──── Display Compare Results ─────────────────────────
+    function displayCompareResults(results) {
+      const summaryBar = document.getElementById('summaryBar');
+      const container = document.getElementById('compareResults');
+      summaryBar.innerHTML = '';
+      container.innerHTML = '';
+
+      const colors = { 'paddle': '#3b82f6', 'easy': '#a855f7', 'tess': '#f97316', 'clova': '#22c55e', 'claude': '#f59e0b', 'text': '#10b981' };
+      const getColor = id => {
+        if (id === 'text-extract') return colors['text'];
+        return colors[id.split('-')[0]] || 'var(--accent)';
+      };
+
+      // Ground Truth 분리
+      const gtResult = results.find(r => r._isGroundTruth);
+      const ocrResults = results.filter(r => !r._isGroundTruth);
+
+      // Ground Truth 필드 맵 (비교용)
+      const gtFields = {};
+      if (gtResult) {
+        (gtResult.fields || []).forEach(f => { gtFields[f.fieldKey] = f.ocrValue || f.parsedValue || ''; });
+      }
+
+      // Summary cards
+      let bestMapped = -1, bestConfidence = -1, bestTime = Infinity;
+
+      // Ground Truth summary card
+      if (gtResult) {
+        const gtFieldsArr = gtResult.fields || [];
+        const gtMapped = gtFieldsArr.filter(f => f.ocrValue).length;
+        const card = document.createElement('div');
+        card.className = 'summary-card';
+        card.style.borderLeftColor = getColor('text-extract');
+        card.style.borderLeftWidth = '3px';
+        card.style.background = 'rgba(16,185,129,0.08)';
+        card.innerHTML = `
+          <div class="engine-name" style="color:${getColor('text-extract')}">📋 Ground Truth <span class="method-badge text-extract" style="font-size:10px;padding:1px 6px;">Text Layer</span></div>
+          <div class="stat-row"><span class="label">Fields</span><strong>${gtMapped}/${gtFieldsArr.length}</strong></div>
+          <div class="stat-row"><span class="label">Confidence</span><strong style="color:var(--green)">100%</strong></div>
+          <div class="stat-row"><span class="label">Time</span><strong>${gtResult.processingTimeMs}ms</strong></div>
+        `;
+        summaryBar.appendChild(card);
+      }
+
+      const stats = ocrResults.filter(r => !r._error).map(r => {
+        const fields = r.fields || [];
+        const mapped = fields.filter(f => f.ocrValue).length;
+        const total = fields.length;
+        const conf = r.overallConfidence || 0;
+        const time = r.processingTimeMs || 0;
+        // 정확도: Ground Truth 대비 일치율
+        let accuracy = null;
+        if (gtResult && total > 0) {
+          let match = 0;
+          fields.forEach(f => {
+            const gt = gtFields[f.fieldKey];
+            const val = f.ocrValue || '';
+            if (gt && val && gt.replace(/\s/g,'') === val.replace(/\s/g,'')) match++;
+          });
+          accuracy = match / Object.keys(gtFields).length;
+        }
+        if (mapped > bestMapped) bestMapped = mapped;
+        if (conf > bestConfidence) bestConfidence = conf;
+        if (time < bestTime) bestTime = time;
+        return { engineId: r._engineId, name: r._engineName, mapped, total, conf, time, accuracy, error: false };
+      });
+      ocrResults.filter(r => r._error).forEach(r => {
+        stats.push({ engineId: r._engineId, name: r._engineName, mapped: 0, total: 0, conf: 0, time: 0, accuracy: null, error: true, errorMsg: r._error });
+      });
+
+      stats.forEach(s => {
+        const card = document.createElement('div');
+        const isBest = !s.error && s.mapped === bestMapped && s.conf === bestConfidence;
+        card.className = `summary-card ${isBest ? 'winner' : ''}`;
+        card.style.borderLeftColor = getColor(s.engineId);
+        card.style.borderLeftWidth = '3px';
+        if (s.error) {
+          card.innerHTML = `
+            <div class="engine-name" style="color:${getColor(s.engineId)}">${s.name}</div>
+            <div style="color:var(--red);font-size:12px;">Error: ${s.errorMsg}</div>
+          `;
+        } else {
+          const accHtml = s.accuracy !== null
+            ? `<div class="stat-row"><span class="label">Accuracy</span><strong style="color:${s.accuracy>=.9?'var(--green)':s.accuracy>=.7?'var(--yellow)':'var(--red)'}">${(s.accuracy*100).toFixed(0)}%</strong></div>`
+            : '';
+          card.innerHTML = `
+            <div class="engine-name" style="color:${getColor(s.engineId)}">${s.name} ${isBest ? '★' : ''} <span class="method-badge ocr" style="font-size:10px;padding:1px 6px;">🔍 OCR</span></div>
+            <div class="stat-row"><span class="label">Mapped</span><strong>${s.mapped}/${s.total}</strong></div>
+            ${accHtml}
+            <div class="stat-row"><span class="label">Confidence</span><strong style="color:${s.conf>=.8?'var(--green)':'var(--yellow)'}">${(s.conf*100).toFixed(1)}%</strong></div>
+            <div class="stat-row"><span class="label">Time</span><strong ${s.time===bestTime?'style="color:var(--green)"':''}>${s.time}ms</strong></div>
+          `;
+        }
+        summaryBar.appendChild(card);
+      });
+
+      // Per-engine detail cards (Ground Truth first if exists)
+      const allForDetail = gtResult ? [gtResult, ...ocrResults.filter(r => !r._error)] : ocrResults.filter(r => !r._error);
+
+      allForDetail.forEach(r => {
+        const fields = r.fields || [];
+        const mapped = fields.filter(f => f.ocrValue).length;
+        const card = document.createElement('div');
+        card.className = 'compare-card';
+        const isGT = r._isGroundTruth;
+
+        const color = getColor(r._engineId);
+        if (isGT) card.style.border = '1px solid rgba(16,185,129,0.3)';
+
+        const badge = isGT
+          ? '<span class="method-badge text-extract" style="font-size:11px;padding:2px 8px;">📋 Ground Truth (Text Layer)</span>'
+          : `<span class="method-badge ocr" style="font-size:11px;padding:2px 8px;">🔍 ${r._engineId}</span>`;
+
+        card.innerHTML = `
+          <div class="compare-card-header">
+            <span class="engine-tag" style="background:${color}20;color:${color}">${r._engineName}</span>
+            ${badge}
+            <span class="stats">
+              <span>Fields: ${mapped}/${fields.length}</span>
+              <span>Conf: ${isGT ? '100' : ((r.overallConfidence||0)*100).toFixed(0)}%</span>
+              <span>Time: ${r.processingTimeMs}ms</span>
+            </span>
+          </div>
+          <div class="compare-card-body">
+            <table class="compare-table">
+              <thead><tr><th>Field</th><th>${isGT ? 'Text Value' : 'OCR Value'}</th><th>Parsed</th><th>Conf</th>${!isGT && gtResult ? '<th>vs GT</th>' : ''}</tr></thead>
+              <tbody>${fields.map(f => {
+                const cv = f.confidence || 0;
+                const cls = cv >= .95 ? 'conf-high' : cv >= .8 ? 'conf-mid' : 'conf-low';
+                const val = f.ocrValue || '';
+                // Ground Truth 비교
+                let matchCol = '';
+                if (!isGT && gtResult) {
+                  const gt = gtFields[f.fieldKey] || '';
+                  if (!gt && !val) matchCol = '<td style="color:var(--muted)">—</td>';
+                  else if (gt.replace(/\\s/g,'') === val.replace(/\\s/g,'')) matchCol = '<td style="color:var(--green)">✓</td>';
+                  else matchCol = '<td style="color:var(--red)" title="GT: ' + gt.replace(/"/g,'&quot;') + '">✗</td>';
+                }
+                return `<tr>
+                  <td style="font-family:inherit;font-weight:500;">${f.fieldKey}</td>
+                  <td style="color:${val ? 'var(--text)' : 'var(--muted)'}">${val || '—'}</td>
+                  <td>${f.parsedValue || '—'}</td>
+                  <td><span class="conf-badge ${cls}">${(cv*100).toFixed(0)}%</span></td>
+                  ${matchCol}
+                </tr>`;
+              }).join('')}</tbody>
+            </table>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    // ──── Display Single Result ───────────────────────────
+    function displayResult(data) {
+      currentResultId = data.id;
+      const fields = data.fields || [];
+      document.getElementById('emptyResult').style.display = 'none';
+      document.getElementById('resultContent').style.display = 'block';
+
+      const statusColors = { PENDING_REVIEW: 'var(--yellow)', CONFIRMED: 'var(--green)', APPLIED: 'var(--accent)', FAILED: 'var(--red)' };
+      document.getElementById('resultStatus').innerHTML = `<span style="font-size:12px;padding:2px 8px;border-radius:10px;background:${statusColors[data.status]||'var(--muted)'}20;color:${statusColors[data.status]||'var(--muted)'}">${data.status}</span>`;
+
+      // Extraction method
+      const method = data.rawOcrOutput?.extraction_method || data.rawOcrOutput?.extractionMethod || 'ocr';
+      const methodEl = document.getElementById('metaMethod');
+      if (method === 'text-extract') {
+        methodEl.innerHTML = '<span class="method-badge text-extract">📋 Text Extract</span>';
+      } else {
+        const engineName = data.rawOcrOutput?.engine_id || data.rawOcrOutput?.engineId || 'OCR';
+        methodEl.innerHTML = `<span class="method-badge ocr">🔍 ${engineName}</span>`;
+      }
+
+      const conf = data.overallConfidence || 0;
+      const confEl = document.getElementById('metaConfidence');
+      confEl.textContent = (conf * 100).toFixed(1) + '%';
+      confEl.style.color = conf >= .95 ? 'var(--green)' : conf >= .8 ? 'var(--yellow)' : 'var(--red)';
+      document.getElementById('metaTime').textContent = data.processingTimeMs || '—';
+      const mapped = fields.filter(f => f.ocrValue).length;
+      document.getElementById('metaFields').textContent = `${mapped}/${fields.length}`;
+
+      const tmpl = data.template;
+      document.getElementById('resultTemplate').textContent = tmpl ? `${tmpl.name} (${data.templateCode})` : data.templateCode || 'Not detected';
+
+      const tbody = document.getElementById('fieldBody');
+      tbody.innerHTML = '';
+      const tmplMap = {};
+      if (tmpl?.fields) tmpl.fields.forEach(f => { tmplMap[f.key] = f; });
+      fields.forEach(f => {
+        const tf = tmplMap[f.fieldKey] || {};
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${tf.label || f.fieldKey}</strong><br><span style="font-size:11px;color:var(--muted)">${f.fieldKey}</span></td>
+          <td style="color:${f.ocrValue?'var(--text)':'var(--muted)'};font-family:'Consolas',monospace;font-size:12px;">${f.ocrValue || '(not detected)'}</td>
+          <td></td>
+          <td><span class="conf-badge ${(f.confidence||0)>=.95?'conf-high':(f.confidence||0)>=.8?'conf-mid':'conf-low'}">${((f.confidence||0)*100).toFixed(0)}%</span></td>
+          <td style="text-align:center">${tf.required ? '<span style="color:var(--red);font-weight:bold;">*</span>' : ''}</td>
+        `;
+        const tdC = tr.children[2];
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = f.confirmedValue || f.parsedValue || f.ocrValue || '';
+        input.dataset.fieldKey = f.fieldKey;
+        input.dataset.original = f.ocrValue || '';
+        input.addEventListener('input', () => input.classList.toggle('modified', input.value !== input.dataset.original));
+        tdC.appendChild(input);
+        tbody.appendChild(tr);
+      });
+
+      const rawEl = document.getElementById('rawOutput');
+      if (document.getElementById('showRaw').checked && data.rawOcrOutput) {
+        rawEl.textContent = JSON.stringify(data.rawOcrOutput, null, 2);
+        rawEl.style.display = 'block';
+      } else { rawEl.style.display = 'none'; }
+    }
+
+    // ──── Save / Confirm ──────────────────────────────────
+    async function saveFields() {
+      if (!currentResultId) return;
+      const inputs = document.querySelectorAll('#fieldBody input[type=text]');
+      const fields = [];
+      inputs.forEach(inp => { if (inp.value !== inp.dataset.original) fields.push({ fieldKey: inp.dataset.fieldKey, confirmedValue: inp.value }); });
+      if (!fields.length) { showToast('No changes', 'error'); return; }
+      try {
+        const res = await apiFetch(`/api/v1/ocr/results/${currentResultId}/fields`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({fields}) });
+        displayResult(await res.json());
+        showToast(`${fields.length} field(s) saved`, 'success');
+      } catch (e) { showToast('Save failed: ' + e.message, 'error'); }
+    }
+
+    async function confirmResult() {
+      if (!currentResultId) return;
+      const inputs = document.querySelectorAll('#fieldBody input[type=text]');
+      const fields = [];
+      inputs.forEach(inp => fields.push({ fieldKey: inp.dataset.fieldKey, confirmedValue: inp.value }));
+      try {
+        if (fields.length) await apiFetch(`/api/v1/ocr/results/${currentResultId}/fields`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({fields}) });
+        const res = await apiFetch(`/api/v1/ocr/results/${currentResultId}/confirm`, { method: 'POST' });
+        displayResult(await res.json());
+        loadHistory();
+        showToast('Confirmed!', 'success');
+      } catch (e) { showToast('Failed: ' + e.message, 'error'); }
+    }
+
+    // ──── History ─────────────────────────────────────────
+    async function loadHistory() {
+      try {
+        const res = await apiFetch('/api/v1/ocr/results?limit=10');
+        const { items } = await res.json();
+        const list = document.getElementById('historyList');
+        if (!items.length) { list.innerHTML = '<div class="empty-state" style="padding:20px;"><p>No results yet</p></div>'; return; }
+        list.innerHTML = '';
+        items.forEach(item => {
+          const div = document.createElement('div');
+          div.className = 'history-item';
+          div.onclick = () => loadResultById(item.id);
+          div.innerHTML = `<div class="status-dot ${item.status}"></div><div class="name">${item.originalFileName}</div><div style="font-size:11px;color:var(--muted);">${item.templateCode||'?'}</div><div class="time">${new Date(item.createdAt).toLocaleTimeString('ko-KR')}</div>`;
+          list.appendChild(div);
+        });
+      } catch {}
+    }
+
+    async function loadResultById(id) {
+      try { const res = await apiFetch(`/api/v1/ocr/results/${id}`); displayResult(await res.json()); switchTab('single'); } catch (e) { showToast('Failed to load', 'error'); }
+    }
+
+    // ──── Helpers ─────────────────────────────────────────
+    async function apiFetch(path, opts = {}) {
+      const res = await fetch(`${API}${path}`, { ...opts, headers: { 'Authorization': 'Bearer ' + TOKEN, ...(opts.headers || {}) } });
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.message || `HTTP ${res.status}`); }
+      return res;
+    }
+
+    function showProgress(barId, fillId, show, pct) {
+      document.getElementById(barId).style.display = show ? 'block' : 'none';
+      document.getElementById(fillId).style.width = (pct || 0) + '%';
+    }
+
+    function showToast(msg, type) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = `toast ${type} show`;
+      setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    document.getElementById('showRaw').addEventListener('change', () => {
+      const r = document.getElementById('rawOutput');
+      r.style.display = document.getElementById('showRaw').checked && currentResultId ? 'block' : 'none';
+    });
+
+    // ──── Diagnostic Mode (Auto-Extract) ─────────────────
+    let diagFile = null;
+    const diagLogEl = document.getElementById('diagLog');
+    function diagLog(msg, cls) { log(msg, cls, diagLogEl); }
+
+    setupDropZone('dropZone3', 'fileInput3', 'preview3', 'fileName3', (file) => {
+      diagFile = file;
+      document.getElementById('diagBtn').disabled = !file || !TOKEN;
+      diagLog(`File selected: ${file.name}`);
+      // PDF 업로드 시 경고 표시 (Force OCR 안 걸면 엔진 무시됨)
+      const isPdf = file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf';
+      document.getElementById('pdfWarning').style.display = isPdf ? 'block' : 'none';
+      if (isPdf) diagLog('⚠ PDF detected — without Force OCR, engine selection may be bypassed.', 'warn');
+    });
+
+    // 엔진 변경 시 즉시 로그에 반영 (사용자가 바꾼 게 등록됐는지 확인 용)
+    document.getElementById('engineSelect3').addEventListener('change', (e) => {
+      const name = e.target.options[e.target.selectedIndex]?.text || e.target.value;
+      diagLog(`⚙ Engine changed: ${name} (id=${e.target.value})`);
+    });
+    document.getElementById('useLLM').addEventListener('change', (e) => {
+      diagLog(`⚙ LLM ${e.target.checked ? 'enabled' : 'disabled'}`);
+    });
+    document.getElementById('forceOcr').addEventListener('change', (e) => {
+      diagLog(`⚙ Force OCR ${e.target.checked ? 'enabled (PDF 텍스트 레이어 무시)' : 'disabled'}`);
+    });
+
+    document.getElementById('diagBtn').addEventListener('click', async () => {
+      if (!diagFile || !TOKEN) return;
+      const btn = document.getElementById('diagBtn');
+      btn.disabled = true;
+      const bar = document.getElementById('diagProgressBar');
+      const fill = document.getElementById('diagProgressFill');
+      bar.style.display = 'block';
+      fill.style.width = '20%';
+
+      const sel = document.getElementById('engineSelect3');
+      const engineId = sel.value;
+      const engineName = sel.options[sel.selectedIndex]?.text || engineId;
+      const useLLM = document.getElementById('useLLM').checked;
+      const forceOcr = document.getElementById('forceOcr').checked;
+
+      const fd = new FormData();
+      fd.append('engineId', engineId);
+      if (useLLM) fd.append('useLLM', 'true');
+      if (forceOcr) fd.append('forceOcr', 'true');
+      fd.append('file', diagFile);
+
+      diagLog(`▶ Running with engine: "${engineName}" (id=${engineId}, LLM=${useLLM}, forceOCR=${forceOcr})`);
+      const t0 = Date.now();
+      try {
+        fill.style.width = '50%';
+        const res = await fetch(`${API}/api/v1/ocr/scan/diagnostic`, {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + TOKEN },
+          body: fd,
+        });
+        fill.style.width = '90%';
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+        const data = await res.json();
+        fill.style.width = '100%';
+        const elapsed = Date.now() - t0;
+        diagLog(`✓ [${engineName}] Done in ${elapsed}ms (OCR ${data.ocrProcessingMs}ms + extract ${data.extraction.stats.processingMs}ms)`, 'ok');
+        renderDiagResult(data, engineName, useLLM);
+        setTimeout(() => bar.style.display = 'none', 600);
+      } catch (e) {
+        diagLog('Failed: ' + e.message, 'err');
+        bar.style.display = 'none';
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    function renderDiagResult(data, engineName, useLLM) {
+      document.getElementById('diagEmpty').classList.add('hidden');
+      document.getElementById('diagContent').classList.remove('hidden');
+
+      const ex = data.extraction;
+      const s = ex.stats;
+      const matchRate = s.totalTextBlocks > 0 ? ((s.matchedBlocks / s.totalTextBlocks) * 100).toFixed(1) : '0';
+
+      // Engine banner (최상단, 크게 표시)
+      const engineColors = {
+        'paddle-ko': { bg: 'rgba(59,130,246,.15)', fg: '#3b82f6', icon: '🖥️' },
+        'claude-vision': { bg: 'rgba(217,119,6,.15)', fg: '#d97706', icon: '🤖' },
+        'clova-ocr': { bg: 'rgba(34,197,94,.15)', fg: '#22c55e', icon: '☁️' },
+      };
+      const engId = data.engineId || 'unknown';
+      const c = engineColors[engId] || { bg: 'rgba(100,116,139,.15)', fg: '#64748b', icon: '⚙️' };
+      const engBanner = document.getElementById('diagEngineBanner') || (() => {
+        const el = document.createElement('div');
+        el.id = 'diagEngineBanner';
+        el.style.cssText = 'padding:12px 18px;border-radius:10px;margin-bottom:12px;display:flex;align-items:center;gap:14px;font-size:14px;';
+        document.getElementById('diagSummaryBar').parentElement.insertBefore(el, document.getElementById('diagSummaryBar'));
+        return el;
+      })();
+      engBanner.style.background = c.bg;
+      engBanner.style.border = `1px solid ${c.fg}`;
+      const method = data.extractionMethod || 'ocr';
+      const methodBadge = method === 'text-extract'
+        ? `<span style="background:rgba(239,68,68,.2);color:var(--red);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">⚠ PDF text layer (engine bypassed)</span>`
+        : `<span style="background:rgba(34,197,94,.2);color:var(--green);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">✓ Real OCR</span>`;
+      engBanner.innerHTML = `
+        <span style="font-size:28px;">${c.icon}</span>
+        <div style="flex:1;">
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;">사용된 엔진</div>
+          <div style="font-size:18px;font-weight:700;color:${c.fg};display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            ${escapeHtml(engineName)}
+            ${methodBadge}
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">id: <code>${escapeHtml(engId)}</code> · OCR ${data.ocrProcessingMs}ms · extract ${s.processingMs}ms ${useLLM ? '· 🤖 LLM on' : ''} ${data.forceOcr ? '· 🔒 Force OCR' : ''}</div>
+        </div>
+        <div style="text-align:right;font-size:11px;color:var(--muted);">${new Date().toLocaleTimeString()}</div>
+      `;
+
+      // Summary
+      document.getElementById('diagSummaryBar').innerHTML = `
+        <div class="summary-card">
+          <div style="font-size:24px;font-weight:700;color:var(--accent);">${s.ruleExtracted + s.llmExtracted}</div>
+          <div style="color:var(--muted);font-size:12px;margin-top:4px;">추출된 KV 쌍</div>
+        </div>
+        <div class="summary-card">
+          <div style="font-size:24px;font-weight:700;color:var(--green);">${(s.avgConfidence * 100).toFixed(0)}%</div>
+          <div style="color:var(--muted);font-size:12px;margin-top:4px;">평균 신뢰도</div>
+        </div>
+        <div class="summary-card">
+          <div style="font-size:24px;font-weight:700;color:var(--purple);">${matchRate}%</div>
+          <div style="color:var(--muted);font-size:12px;margin-top:4px;">매칭률 (${s.matchedBlocks}/${s.totalTextBlocks})</div>
+        </div>
+        <div class="summary-card">
+          <div style="font-size:18px;font-weight:600;color:var(--yellow);">${ex.documentTypeHint || '-'}</div>
+          <div style="color:var(--muted);font-size:12px;margin-top:4px;">문서 유형 추정</div>
+        </div>
+      `;
+
+      // KV Table
+      const body = document.getElementById('diagTableBody');
+      body.innerHTML = '';
+      const typeColors = {
+        date: '#3b82f6', money: '#22c55e', phone: '#a855f7',
+        email: '#f97316', identifier: '#eab308', quantity: '#06b6d4',
+        percent: '#ec4899', text: '#64748b',
+      };
+      ex.kvPairs.forEach(kv => {
+        const confCls = kv.confidence >= 0.9 ? 'conf-high' : kv.confidence >= 0.7 ? 'conf-mid' : 'conf-low';
+        const extra = [kv.currency && `💰${kv.currency}`, kv.unit && `📏${kv.unit}`].filter(Boolean).join(' ');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="font-weight:600;">${escapeHtml(kv.label)}</td>
+          <td>${escapeHtml(kv.value)} ${extra ? `<span style="color:var(--muted);font-size:11px;">${extra}</span>` : ''}</td>
+          <td><span style="padding:2px 8px;border-radius:10px;font-size:11px;background:${typeColors[kv.type] || '#64748b'}20;color:${typeColors[kv.type] || '#64748b'};">${kv.type}</span></td>
+          <td><span class="conf-badge ${confCls}">${(kv.confidence * 100).toFixed(0)}%</span></td>
+          <td style="color:var(--muted);font-size:11px;">${kv.source === 'llm' ? '🤖 LLM' : '📏 Rule'}</td>
+        `;
+        body.appendChild(tr);
+      });
+      document.getElementById('diagKvCount').textContent = `(${ex.kvPairs.length}건, rule=${s.ruleExtracted} / LLM=${s.llmExtracted})`;
+
+      // Unmatched
+      const unm = ex.unmatchedText || [];
+      document.getElementById('diagUnmatched').textContent = unm.length ? unm.join('\n') : '(없음)';
+      document.getElementById('diagUnmatchedCount').textContent = `(${unm.length}건)`;
+
+      // Full text
+      document.getElementById('diagFullText').textContent = ex.fullText || '';
+    }
+
+    function escapeHtml(s) {
+      const d = document.createElement('div');
+      d.textContent = String(s ?? '');
+      return d.innerHTML;
+    }
+
+    // ──── Start ───────────────────────────────────────────
+    init();
+  </script>
+</body>
+</html>

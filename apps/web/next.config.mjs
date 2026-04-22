@@ -7,8 +7,12 @@ const nextConfig = {
     const att = process.env.ATTENDANCE_SERVICE_URL || "http://localhost:3004";
     const proj = process.env.API_BASE_URL || "http://localhost:3003";
     const appr = process.env.APPROVAL_SERVICE_URL || "http://localhost:3006";
+    const ocr = process.env.OCR_SERVICE_URL || "http://localhost:3007";
 
     return [
+      // ── ocr-service (OCR 문서인식) ──
+      { source: "/api/v1/ocr/:path*", destination: `${ocr}/api/v1/ocr/:path*` },
+
       // ── equipment-service (장비/수리/구매/재고) ──
       { source: "/api/v1/equipment", destination: `${eq}/api/v1/equipment` },
       { source: "/api/v1/equipment/:path*", destination: `${eq}/api/v1/equipment/:path*` },

@@ -1,0 +1,159 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["ocr"]
+}
+
+// ─── Enums ─────────────────────────────────────────────
+
+enum OcrResultStatus {
+  PROCESSING
+  PENDING_REVIEW
+  CONFIRMED
+  APPLIED
+  FAILED
+
+  @@schema("ocr")
+}
+
+enum FieldType {
+  STRING
+  NUMBER
+  DATE
+  BIZ_NO
+  CURRENCY
+  PHONE
+
+  @@schema("ocr")
+}
+
+// ─── 문서 템플릿 ───────────────────────────────────────
+
+model DocumentTemplate {
+  id          String  @id @default(cuid())
+  code        String  @unique
+  name        String
+  description String?
+  isActive    Boolean @default(true) @map("is_active")
+
+  targetService  String @map("target_service")
+  targetEndpoint String @map("target_endpoint")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  fields  TemplateField[]
+  results OcrResult[]
+
+  @@map("document_templates")
+  @@schema("ocr")
+}
+
+model TemplateField {
+  id         String    @id @default(cuid())
+  templateId String    @map("template_id")
+  key        String
+  label      String
+  aliases    String[]  @default([])
+  type       FieldType @default(STRING)
+  required   Boolean   @default(false)
+  sortOrder  Int       @default(0) @map("sort_order")
+
+  erpFieldName String? @map("erp_field_name")
+
+  validation String?
+  minValue   Decimal? @map("min_value")
+  maxValue   Decimal? @map("max_value")
+
+  template DocumentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, key])
+  @@index([templateId])
+  @@map("template_fields")
+  @@schema("ocr")
+}
+
+// ─── OCR 처리 결과 ─────────────────────────────────────
+
+model OcrResult {
+  id           String          @id @default(cuid())
+  templateId   String?         @map("template_id")
+  templateCode String?         @map("template_code")
+  status       OcrResultStatus @default(PROCESSING)
+
+  originalFileName String @map("original_file_name")
+  storedFilePath   String @map("stored_file_path")
+  fileSize         Int    @map("file_size")
+  mimeType         String @map("mime_type")
+
+  overallConfidence Float? @map("overall_confidence")
+  processingTimeMs  Int?   @map("processing_time_ms")
+  rawOcrOutput      Json?  @map("raw_ocr_output")
+
+  erpAppliedAt  DateTime? @map("erp_applied_at")
+  erpResponseId String?   @map("erp_response_id")
+
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  template    DocumentTemplate? @relation(fields: [templateId], references: [id])
+  fields      OcrFieldResult[]
+  corrections OcrCorrection[]
+
+  @@index([templateId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("ocr_results")
+  @@schema("ocr")
+}
+
+model OcrFieldResult {
+  id       String @id @default(cuid())
+  resultId String @map("result_id")
+  fieldKey String @map("field_key")
+
+  ocrValue       String? @map("ocr_value")
+  parsedValue    String? @map("parsed_value")
+  confirmedValue String? @map("confirmed_value")
+  isModified     Boolean @default(false) @map("is_modified")
+
+  confidence Float @default(0)
+  boundingBox Json? @map("bounding_box")
+
+  result OcrResult @relation(fields: [resultId], references: [id], onDelete: Cascade)
+
+  @@index([resultId])
+  @@map("ocr_field_results")
+  @@schema("ocr")
+}
+
+// ─── 수정 이력 (학습 데이터) ───────────────────────────
+
+model OcrCorrection {
+  id           String @id @default(cuid())
+  resultId     String @map("result_id")
+  fieldKey     String @map("field_key")
+  templateCode String @map("template_code")
+
+  originalValue  String @map("original_value")
+  correctedValue String @map("corrected_value")
+  confidence     Float
+  boundingBox    Json?  @map("bounding_box")
+
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  result OcrResult @relation(fields: [resultId], references: [id], onDelete: Cascade)
+
+  @@index([resultId])
+  @@index([templateCode])
+  @@index([createdAt])
+  @@map("ocr_corrections")
+  @@schema("ocr")
+}
