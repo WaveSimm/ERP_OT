@@ -4,6 +4,7 @@ import { z } from "zod";
 export async function internalRoutes(fastify: FastifyInstance) {
   const leaveSvc = fastify.leaveService;
   const otSvc = fastify.overtimeService;
+  const notifSvc = fastify.notificationService;
 
   // Internal API 인증
   fastify.addHook("onRequest", async (req, reply) => {
@@ -61,5 +62,40 @@ export async function internalRoutes(fastify: FastifyInstance) {
     const q = req.query as { approverId?: string };
     if (!q.approverId) return reply.status(400).send({ code: "BAD_REQUEST", message: "approverId required" });
     return reply.send(await otSvc.getPending(q.approverId));
+  });
+
+  // POST /internal/notifications/bulk — 다수 사용자에게 알림 일괄 생성 (board service 등에서 호출)
+  fastify.post("/notifications/bulk", async (req, reply) => {
+    const body = z.object({
+      userIds: z.array(z.string()).min(1).max(2000),
+      type: z.string(),
+      source: z.string().optional(),
+      title: z.string().min(1).max(200),
+      body: z.string().max(500),
+      priority: z.number().int().min(1).max(3).optional(),
+      linkUrl: z.string().optional(),
+      metadata: z.any().optional(),
+    }).parse(req.body);
+
+    let createdCount = 0;
+    for (const userId of body.userIds) {
+      try {
+        const payload: any = {
+          userId,
+          type: body.type,
+          source: body.source ?? "internal",
+          title: body.title,
+          body: body.body,
+        };
+        if (body.priority !== undefined) payload.priority = body.priority;
+        if (body.linkUrl !== undefined) payload.linkUrl = body.linkUrl;
+        if (body.metadata !== undefined) payload.metadata = body.metadata;
+        await notifSvc.create(payload);
+        createdCount++;
+      } catch (err) {
+        req.log.error({ err, userId }, "[internal/notifications/bulk] failed for user");
+      }
+    }
+    return reply.send({ requested: body.userIds.length, created: createdCount });
   });
 }

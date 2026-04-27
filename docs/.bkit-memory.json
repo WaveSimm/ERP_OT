@@ -5,8 +5,8 @@
     "platform": "claude",
     "level": "Enterprise"
   },
-  "currentFeature": "OCR-문서인식",
+  "currentFeature": "게시판",
   "currentPhase": "do",
   "matchRate": null,
-  "lastUpdated": "2026-04-22T00:00:00.000Z"
+  "lastUpdated": "2026-04-27T00:00:00.000Z"
 }

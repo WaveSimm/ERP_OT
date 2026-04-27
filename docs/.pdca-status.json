@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-04-27T01:14:13.669Z",
+  "lastUpdated": "2026-04-27T05:52:12.443Z",
   "activeFeatures": [
     "ERP_OT",
     "auth",
@@ -69,7 +69,8 @@
     "ocr",
     "engine",
     "scan",
-    "templates"
+    "templates",
+    "domain"
   ],
   "primaryFeature": "프로젝트-관리",
   "features": {
@@ -110,7 +111,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-26T11:04:44.698Z",
-        "lastUpdated": "2026-04-11T04:12:53.677Z"
+        "lastUpdated": "2026-04-27T05:48:32.737Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\index.ts"
     },
@@ -219,9 +220,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-17T01:24:05.309Z",
-        "lastUpdated": "2026-04-24T10:10:45.218Z"
+        "lastUpdated": "2026-04-27T05:48:54.985Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\equipment\\src\\application\\repair-order.service.ts"
+      "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\application\\comment.service.ts"
     },
     "routes": {
       "phase": "do",
@@ -232,9 +233,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-17T01:25:35.966Z",
-        "lastUpdated": "2026-04-23T23:50:15.699Z"
+        "lastUpdated": "2026-04-27T05:52:12.443Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\equipment\\src\\api\\routes\\customer.routes.ts"
+      "lastFile": "E:\\claude\\ERP_OT\\services\\attendance\\src\\api\\routes\\internal.routes.ts"
     },
     "websocket": {
       "phase": "do",
@@ -349,9 +350,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-18T10:01:42.535Z",
-        "lastUpdated": "2026-03-19T03:29:12.426Z"
+        "lastUpdated": "2026-04-27T05:46:32.905Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\api\\dtos\\user.dto.ts"
+      "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\api\\dtos\\board.dto.ts"
     },
     "my-tasks": {
       "phase": "do",
@@ -388,9 +389,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-19T03:30:49.132Z",
-        "lastUpdated": "2026-04-15T08:54:29.546Z"
+        "lastUpdated": "2026-04-27T05:44:02.506Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\ocr\\prisma\\seed.ts"
+      "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\prisma\\seed.ts"
     },
     "refresh": {
       "phase": "do",
@@ -492,9 +493,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-21T08:08:24.674Z",
-        "lastUpdated": "2026-04-08T11:03:56.717Z"
+        "lastUpdated": "2026-04-27T05:44:50.639Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\project\\src\\infrastructure\\event-consumer.ts"
+      "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\infrastructure\\attachment-storage.ts"
     },
     "departments": {
       "phase": "do",
@@ -978,6 +979,19 @@
         "lastUpdated": "2026-04-16T02:11:38.952Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\ocr\\templates\\page.tsx"
+    },
+    "domain": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-04-27T05:44:23.504Z",
+        "lastUpdated": "2026-04-27T05:44:23.504Z"
+      },
+      "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\domain\\board.types.ts"
     }
   },
   "pipeline": {
@@ -988,7 +1002,7 @@
   "session": {
     "startedAt": "2026-02-26T10:52:05.428Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-04-27T01:14:13.669Z"
+    "lastActivity": "2026-04-27T05:52:12.443Z"
   },
   "history": [
     {
@@ -21622,6 +21636,150 @@
     {
       "timestamp": "2026-04-27T01:14:13.669Z",
       "feature": "resources",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-27T05:44:02.506Z",
+      "feature": "prisma",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-27T05:44:23.504Z",
+      "feature": "domain",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-27T05:44:32.771Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-27T05:44:50.639Z",
+      "feature": "infrastructure",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-27T05:44:57.655Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-27T05:45:39.908Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-27T05:45:56.447Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-27T05:46:07.912Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-27T05:46:23.783Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-27T05:46:32.905Z",
+      "feature": "dtos",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-27T05:46:40.710Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-27T05:47:05.961Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-27T05:47:17.256Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-27T05:47:28.949Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-27T05:47:45.959Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-27T05:47:57.585Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-27T05:48:32.737Z",
+      "feature": "auth",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-27T05:48:46.180Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-27T05:48:48.475Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-27T05:48:50.392Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-27T05:48:52.298Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-27T05:48:53.837Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-27T05:48:54.985Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-04-27T05:52:12.443Z",
+      "feature": "routes",
       "phase": "do",
       "action": "updated"
     }

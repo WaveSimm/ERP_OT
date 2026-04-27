@@ -203,6 +203,9 @@ importers:
       '@fastify/cors':
         specifier: ^9.0.1
         version: 9.0.1
+      '@fastify/multipart':
+        specifier: ^8.3.0
+        version: 8.3.1
       '@prisma/client':
         specifier: ^5.14.0
         version: 5.22.0(prisma@5.22.0)

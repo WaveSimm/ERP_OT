@@ -20,6 +20,10 @@ model User {
 
   refreshTokens RefreshToken[]
   profile       UserProfile?
+  posts         Post[]    @relation("PostAuthor")
+  comments      Comment[] @relation("CommentAuthor")
+  attachments   Attachment[] @relation("AttachmentUploader")
+  postReads     PostRead[]
 
   @@map("auth_users")
 }
@@ -100,4 +104,143 @@ enum UserRole {
   MANAGER
   OPERATOR
   VIEWER
+}
+
+// ─── 게시판 도메인 ─────────────────────────────────────────────────
+
+model BoardCategory {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  icon      String?
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  isVisible Boolean  @default(true) @map("is_visible")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  boards    Board[]
+
+  @@index([sortOrder])
+  @@map("board_categories")
+}
+
+model Board {
+  id              String   @id @default(cuid())
+  categoryId      String   @map("category_id")
+  code            String   @unique
+  name            String
+  description     String?
+
+  writeRoles      String[] @map("write_roles")
+  readAudience    BoardAudience @default(ALL) @map("read_audience")
+  audienceTargetId String? @map("audience_target_id")
+
+  allowComments    Boolean @default(true) @map("allow_comments")
+  allowAttachments Boolean @default(true) @map("allow_attachments")
+  postPinnable     Boolean @default(true) @map("post_pinnable")
+
+  sortOrder       Int      @default(0) @map("sort_order")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  category        BoardCategory @relation(fields: [categoryId], references: [id])
+  posts           Post[]
+
+  @@index([categoryId, sortOrder])
+  @@index([isActive])
+  @@map("boards")
+}
+
+model Post {
+  id              String   @id @default(cuid())
+  boardId         String   @map("board_id")
+  authorId        String   @map("author_id")
+
+  publishingDepartmentId   String? @map("publishing_department_id")
+  publishingDepartmentName String? @map("publishing_department_name")
+
+  title           String
+  content         String   @db.Text
+
+  isPinned        Boolean  @default(false) @map("is_pinned")
+  priority        Int      @default(0)
+
+  publishedAt     DateTime @default(now()) @map("published_at")
+  expiresAt       DateTime? @map("expires_at")
+  isDeleted       Boolean  @default(false) @map("is_deleted")
+
+  viewCount       Int      @default(0) @map("view_count")
+
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  board           Board       @relation(fields: [boardId], references: [id])
+  author          User        @relation("PostAuthor", fields: [authorId], references: [id])
+  reads           PostRead[]
+  comments        Comment[]
+  attachments     Attachment[]
+
+  @@index([boardId, isDeleted, isPinned, publishedAt(sort: Desc)])
+  @@index([authorId])
+  @@index([publishingDepartmentId])
+  @@map("board_posts")
+}
+
+model PostRead {
+  postId   String   @map("post_id")
+  userId   String   @map("user_id")
+  readAt   DateTime @default(now()) @map("read_at")
+
+  post     Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([postId, userId])
+  @@index([userId])
+  @@map("board_post_reads")
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String   @map("post_id")
+  authorId  String   @map("author_id")
+  parentId  String?  @map("parent_id")
+  content   String   @db.Text
+  isDeleted Boolean  @default(false) @map("is_deleted")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author    User     @relation("CommentAuthor", fields: [authorId], references: [id])
+  parent    Comment? @relation("CommentTree", fields: [parentId], references: [id])
+  children  Comment[] @relation("CommentTree")
+
+  @@index([postId, createdAt(sort: Asc)])
+  @@map("board_comments")
+}
+
+model Attachment {
+  id          String   @id @default(cuid())
+  postId      String?  @map("post_id")
+  uploadedBy  String   @map("uploaded_by")
+  fileName    String   @map("file_name")
+  fileSize    Int      @map("file_size")
+  mimeType    String   @map("mime_type")
+  storageKey  String   @unique @map("storage_key")
+  isInline    Boolean  @default(false) @map("is_inline")
+  uploadedAt  DateTime @default(now()) @map("uploaded_at")
+
+  post        Post? @relation(fields: [postId], references: [id], onDelete: SetNull)
+  uploader    User  @relation("AttachmentUploader", fields: [uploadedBy], references: [id])
+
+  @@index([postId])
+  @@index([uploadedBy])
+  @@map("board_attachments")
+}
+
+enum BoardAudience {
+  ALL
+  DEPARTMENT
+  ROLE
 }
