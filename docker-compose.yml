@@ -220,6 +220,9 @@ services:
       - "8000:8000"
     volumes:
       - ocr_models:/app/models
+    # 메모리 제한: PaddleOCR/EasyOCR 다국어 모델 lazy-load 누적 방지 (개발 PC 메모리 15GB 압박 완화)
+    mem_limit: 4g
+    mem_reservation: 1g
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s

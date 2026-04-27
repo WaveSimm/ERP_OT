@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ko-KR" xml:lang="ko-KR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>AS 관리 사용자 매뉴얼</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">AS 관리 사용자 매뉴얼</h1>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#as수리-관리-사용자-매뉴얼"
+id="toc-as수리-관리-사용자-매뉴얼">📘 AS(수리) 관리 사용자 매뉴얼</a>
+<ul>
+<li><a href="#목차" id="toc-목차">📑 목차</a></li>
+<li><a href="#개요" id="toc-개요">1. 개요</a>
+<ul>
+<li><a href="#핵심-개념" id="toc-핵심-개념">1.1 핵심 개념</a></li>
+<li><a href="#이관-데이터-식별" id="toc-이관-데이터-식별">1.2 이관
+데이터 식별</a></li>
+</ul></li>
+<li><a href="#메뉴-구조" id="toc-메뉴-구조">2. 메뉴 구조</a>
+<ul>
+<li><a href="#상위-메뉴" id="toc-상위-메뉴">2.1 상위 메뉴</a></li>
+<li><a href="#as-접수-목록-화면" id="toc-as-접수-목록-화면">2.2 AS 접수
+목록 화면</a></li>
+<li><a href="#필터-그룹-분류" id="toc-필터-그룹-분류">필터 그룹
+분류</a></li>
+<li><a href="#as-상세-화면-헤더-구조"
+id="toc-as-상세-화면-헤더-구조">2.3 AS 상세 화면 (헤더 구조)</a></li>
+<li><a href="#하단-6개-탭" id="toc-하단-6개-탭">2.4 하단 6개 탭</a></li>
+</ul></li>
+<li><a href="#업무-전체-흐름-fsm" id="toc-업무-전체-흐름-fsm">3. 업무
+전체 흐름 (FSM)</a>
+<ul>
+<li><a href="#상태-라벨-대조표" id="toc-상태-라벨-대조표">3.1 상태 라벨
+대조표</a></li>
+</ul></li>
+<li><a href="#as-접수-등록" id="toc-as-접수-등록">4. AS 접수 등록</a>
+<ul>
+<li><a href="#접수-절차" id="toc-접수-절차">4.1 접수 절차</a></li>
+<li><a href="#접수-직후-할-일-체크리스트"
+id="toc-접수-직후-할-일-체크리스트">4.2 접수 직후 할 일
+(체크리스트)</a></li>
+</ul></li>
+<li><a href="#차-점검" id="toc-차-점검">5. 1차 점검</a>
+<ul>
+<li><a href="#차점검-시작" id="toc-차점검-시작">5.1 1차점검
+시작</a></li>
+<li><a href="#점검-탭-입력" id="toc-점검-탭-입력">5.2 점검 탭
+입력</a></li>
+<li><a href="#보고서-탭-선택" id="toc-보고서-탭-선택">5.3 보고서 탭
+(선택)</a></li>
+</ul></li>
+<li><a href="#본사-수리-경로" id="toc-본사-수리-경로">6. 본사 수리
+경로</a>
+<ul>
+<li><a href="#진행-플로우" id="toc-진행-플로우">6.1 진행 플로우</a></li>
+<li><a href="#견적-발행-선택-사항" id="toc-견적-발행-선택-사항">6.2 견적
+발행 (선택 사항)</a></li>
+<li><a href="#수리-진행" id="toc-수리-진행">6.3 수리 진행</a></li>
+<li><a href="#비용-기록" id="toc-비용-기록">6.4 비용 기록</a></li>
+<li><a href="#완료-종료" id="toc-완료-종료">6.5 완료 → 종료</a></li>
+</ul></li>
+<li><a href="#제조사-발송-경로" id="toc-제조사-발송-경로">7. 제조사 발송
+경로</a>
+<ul>
+<li><a href="#제조사-탭-전체-구조" id="toc-제조사-탭-전체-구조">7.1
+제조사 탭 전체 구조</a></li>
+<li><a href="#제조사로-발송" id="toc-제조사로-발송">7.2 제조사로
+발송</a></li>
+<li><a href="#견적quote-수신-기록" id="toc-견적quote-수신-기록">7.3
+견적(Quote) 수신 기록</a></li>
+<li><a href="#발주po-발행-기록" id="toc-발주po-발행-기록">7.4 발주(PO)
+발행 기록</a></li>
+<li><a href="#본사-입고" id="toc-본사-입고">7.5 본사 입고</a></li>
+<li><a href="#판단-전이-일치-경고" id="toc-판단-전이-일치-경고">7.6 ⚠️
+판단-전이 일치 경고</a></li>
+</ul></li>
+<li><a href="#차-점검-1" id="toc-차-점검-1">8. 2차 점검</a>
+<ul>
+<li><a href="#차점검-시작-1" id="toc-차점검-시작-1">8.1 2차점검
+시작</a></li>
+<li><a href="#점검-탭-2차-섹션" id="toc-점검-탭-2차-섹션">8.2 점검 탭 —
+2차 섹션</a></li>
+<li><a href="#차-판단-후속" id="toc-차-판단-후속">8.3 2차 판단 →
+후속</a></li>
+</ul></li>
+<li><a href="#완료-종료-처리" id="toc-완료-종료-처리">9. 완료 · 종료
+처리</a>
+<ul>
+<li><a href="#완료-completed" id="toc-완료-completed">9.1 완료
+(COMPLETED)</a></li>
+<li><a href="#종료-closed" id="toc-종료-closed">9.2 종료
+(CLOSED)</a></li>
+</ul></li>
+<li><a href="#정상-수리안함-처리" id="toc-정상-수리안함-처리">10. 정상 ·
+수리안함 처리</a>
+<ul>
+<li><a href="#정상-no_fault" id="toc-정상-no_fault">10.1 정상
+(NO_FAULT)</a></li>
+<li><a href="#수리안함-no_repair" id="toc-수리안함-no_repair">10.2
+수리안함 (NO_REPAIR)</a></li>
+</ul></li>
+<li><a href="#취소-삭제" id="toc-취소-삭제">11. 취소 · 삭제</a>
+<ul>
+<li><a href="#취소-cancelled" id="toc-취소-cancelled">11.1 취소
+(CANCELLED)</a></li>
+<li><a href="#삭제-admin-전용" id="toc-삭제-admin-전용">11.2 삭제 (ADMIN
+전용)</a></li>
+<li><a href="#상태-복원이-필요할-때" id="toc-상태-복원이-필요할-때">11.3
+상태 복원이 필요할 때</a></li>
+</ul></li>
+<li><a href="#권한-계정-역할" id="toc-권한-계정-역할">12. 권한 · 계정
+역할</a>
+<ul>
+<li><a href="#operator-허용-범위" id="toc-operator-허용-범위">12.1
+OPERATOR 허용 범위</a></li>
+<li><a href="#operator-제한" id="toc-operator-제한">12.2 OPERATOR
+제한</a></li>
+</ul></li>
+<li><a href="#자주-묻는-사용법" id="toc-자주-묻는-사용법">13. 자주 묻는
+사용법</a>
+<ul>
+<li><a href="#전이-버튼이-안-보여요" id="toc-전이-버튼이-안-보여요">13.1
+“전이 버튼이 안 보여요”</a></li>
+<li><a href="#삭제-버튼-눌렀는데-에러-납니다"
+id="toc-삭제-버튼-눌렀는데-에러-납니다">13.2 “삭제 버튼 눌렀는데 에러
+납니다”</a></li>
+<li><a href="#본사-입고했는데-입고-이력-카드가-안-보여요"
+id="toc-본사-입고했는데-입고-이력-카드가-안-보여요">13.3 “본사
+입고했는데 입고 이력 카드가 안 보여요”</a></li>
+<li><a href="#제조사-quote와-po-금액은-어디에"
+id="toc-제조사-quote와-po-금액은-어디에">13.4 “제조사 Quote와 PO 금액은
+어디에?”</a></li>
+<li><a href="#점검-판단을-바꾸면-상태도-자동-바뀌나요"
+id="toc-점검-판단을-바꾸면-상태도-자동-바뀌나요">13.5 “점검 판단을
+바꾸면 상태도 자동 바뀌나요?”</a></li>
+<li><a href="#엑셀-이관-건은-어떻게-구분"
+id="toc-엑셀-이관-건은-어떻게-구분">13.6 “엑셀 이관 건은 어떻게
+구분?”</a></li>
+<li><a href="#고객-정보-틀렸어요" id="toc-고객-정보-틀렸어요">13.7 “고객
+정보 틀렸어요”</a></li>
+<li><a href="#비용견적은-어느-탭" id="toc-비용견적은-어느-탭">13.8
+“비용·견적은 어느 탭?”</a></li>
+<li><a href="#담당자-테이블-좁아서-안-보여요"
+id="toc-담당자-테이블-좁아서-안-보여요">13.9 “담당자 테이블 좁아서 안
+보여요”</a></li>
+<li><a href="#동일-담당자가-여러-as에-연결되는데-중복-입력"
+id="toc-동일-담당자가-여러-as에-연결되는데-중복-입력">13.10 “동일
+담당자가 여러 AS에 연결되는데 중복 입력?”</a></li>
+</ul></li>
+<li><a href="#부록-a.-상태-전이-규칙-테이블"
+id="toc-부록-a.-상태-전이-규칙-테이블">📎 부록 A. 상태 전이 규칙
+테이블</a></li>
+<li><a href="#부록-b.-전이-시-자동-동작"
+id="toc-부록-b.-전이-시-자동-동작">📎 부록 B. 전이 시 자동 동작</a></li>
+<li><a href="#부록-c.-이슈-해결-가이드"
+id="toc-부록-c.-이슈-해결-가이드">📎 부록 C. 이슈 해결 가이드</a></li>
+<li><a href="#관련-문서" id="toc-관련-문서">🔗 관련 문서</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="as수리-관리-사용자-매뉴얼">📘 AS(수리) 관리 사용자 매뉴얼</h1>
+<ul>
+<li><strong>버전</strong>: v1.1 (스크린샷 추가)</li>
+<li><strong>작성일</strong>: 2026-04-24</li>
+<li><strong>대상 사용자</strong>: OPERATOR · MANAGER · ADMIN 전원</li>
+</ul>
+<hr />
+<h2 id="목차">📑 목차</h2>
+<ol type="1">
+<li><a href="#1-개요">개요</a></li>
+<li><a href="#2-메뉴-구조">메뉴 구조</a></li>
+<li><a href="#3-업무-전체-흐름-fsm">업무 전체 흐름(FSM)</a></li>
+<li><a href="#4-as-접수-등록">AS 접수 등록</a></li>
+<li><a href="#5-1차-점검">1차 점검</a></li>
+<li><a href="#6-본사-수리-경로">본사 수리 경로</a></li>
+<li><a href="#7-제조사-발송-경로">제조사 발송 경로</a></li>
+<li><a href="#8-2차-점검">2차 점검</a></li>
+<li><a href="#9-완료--종료-처리">완료 · 종료 처리</a></li>
+<li><a href="#10-정상--수리안함-처리">정상 · 수리안함 처리</a></li>
+<li><a href="#11-취소--삭제">취소 · 삭제</a></li>
+<li><a href="#12-권한--계정-역할">권한 · 계정 역할</a></li>
+<li><a href="#13-자주-묻는-사용법">자주 묻는 사용법</a></li>
+</ol>
+<hr />
+<h2 id="개요">1. 개요</h2>
+<p>AS(수리) 관리는 고객사에서 입고된 장비의 <strong>점검 → 수리 →
+반납</strong> 전 과정을 ERP에서 추적하는 업무입니다.</p>
+<h3 id="핵심-개념">1.1 핵심 개념</h3>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>용어</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>🔢 <strong>AS 접수번호</strong></td>
+<td><code>AS-YYYY-NNNN</code> 형식. 예: <code>AS-2026-0001</code></td>
+</tr>
+<tr>
+<td>📊 <strong>상태(Status)</strong></td>
+<td>현재 AS가 어느 업무 단계에 있는지 (총 13종, 아래 FSM 참조)</td>
+</tr>
+<tr>
+<td>⚖️ <strong>판단(Decision)</strong></td>
+<td>1차/2차 점검 결과. <strong>본사수리 · 제조사발송 · 정상 ·
+수리안함</strong> 4가지</td>
+</tr>
+<tr>
+<td>📦 <strong>Shipment</strong></td>
+<td>제조사 발송·본사 입고 이력. 한 AS에 여러 건 가능</td>
+</tr>
+<tr>
+<td>🏷️ <strong>RMA No.</strong></td>
+<td>Return Merchandise Authorization 번호 (제조사 반품 승인)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="이관-데이터-식별">1.2 이관 데이터 식별</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">접두사</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><code>AS-</code></td>
+<td>ERP 네이티브 접수</td>
+</tr>
+<tr>
+<td style="text-align: center;"><code>SA-</code></td>
+<td>2026-04-24 엑셀 수리현황 이관 건 (20건)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="메뉴-구조">2. 메뉴 구조</h2>
+<h3 id="상위-메뉴">2.1 상위 메뉴</h3>
+<figure>
+<img src="img/06-repair-tabs.png" alt="수리관리 탭" />
+<figcaption aria-hidden="true">수리관리 탭</figcaption>
+</figure>
+<p><strong>수리 관리</strong> 메뉴 (<code>/repair</code>) 아래 5개
+탭:</p>
+<table>
+<thead>
+<tr>
+<th>탭</th>
+<th>용도</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>AS 접수</strong></td>
+<td>AS 건 목록 · 신규 접수</td>
+</tr>
+<tr>
+<td><strong>부품/재고</strong></td>
+<td>수리용 부품 마스터 · 입출고</td>
+</tr>
+<tr>
+<td><strong>고객사</strong></td>
+<td>고객 정보 (구매/회계 탭과 공유)</td>
+</tr>
+<tr>
+<td><strong>제조사/공급사</strong></td>
+<td>제조사 정보 (구매/회계 탭과 공유)</td>
+</tr>
+<tr>
+<td><strong>통계</strong></td>
+<td>AS 현황 대시보드</td>
+</tr>
+</tbody>
+</table>
+<h3 id="as-접수-목록-화면">2.2 AS 접수 목록 화면</h3>
+<pre><code>┌───────────────────────────────────────────────────────────────────────┐
+│ [전체][접수][점검중][본사수리중][제조사수리중][본사입고][완료]         │
+│ 🔍 접수번호/고객명/시리얼 검색...                   [+ AS 접수 등록]   │
+├───────────────────────────────────────────────────────────────────────┤
+│ 접수번호    고객     장비     S.N     상태    우선도 접수일             │
+│ AS-2026-03  KIOST  RESEA  2501002  제조사로 발송  높음 ...              │
+│ ...                                                                   │
+└───────────────────────────────────────────────────────────────────────┘</code></pre>
+<ul>
+<li><strong>상단 필터</strong>: 상태 그룹별 필터링</li>
+<li><strong>검색 박스</strong>: 3가지 필드 통합 검색</li>
+<li><strong>+ AS 접수</strong>: 신규 접수 등록 폼 열기</li>
+</ul>
+<h3 id="필터-그룹-분류">필터 그룹 분류</h3>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>필터</th>
+<th>포함 상태</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>전체</td>
+<td>모든 건</td>
+</tr>
+<tr>
+<td>접수</td>
+<td><code>RECEIVED</code></td>
+</tr>
+<tr>
+<td>점검중</td>
+<td><code>INSPECTING_1ST</code>, <code>INSPECTING_2ND</code></td>
+</tr>
+<tr>
+<td>본사수리중</td>
+<td><code>QUOTED</code>, <code>APPROVED</code>,
+<code>REPAIRING</code></td>
+</tr>
+<tr>
+<td>제조사수리중</td>
+<td><code>SHIPPED_TO_MFG</code> (제조사에 발송돼 아직 돌아오지
+않음)</td>
+</tr>
+<tr>
+<td><strong>본사입고</strong></td>
+<td><code>RECEIVED_FROM_MFG</code> (제조사에서 돌아와 2차점검·완료
+대기)</td>
+</tr>
+<tr>
+<td>완료</td>
+<td><code>COMPLETED</code>, <code>NO_FAULT</code>,
+<code>NO_REPAIR</code>, <code>CLOSED</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="as-상세-화면-헤더-구조">2.3 AS 상세 화면 (헤더 구조)</h3>
+<figure>
+<img src="img/04-as-header.png" alt="AS 상세 헤더" />
+<figcaption aria-hidden="true">AS 상세 헤더</figcaption>
+</figure>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│ AS-2026-0394    [본사 입고]  [삭제]                         │
+│ KIOST · RESEA (S.N: 2501002)                                │
+│                                                              │
+│ [접수]→[1차점검]→[견적발행]→[승인]→[수리중]→[제조사로 발송]→ │
+│ [본사 입고]→[2차점검]→[완료]→[종료]     ← 플로우 시각화     │
+│                                                              │
+│ 점검상황:- 영업상황:- [→ 2차점검] [→ 완료] [→ 정상]         │
+│                       [→ 수리안함] [→ 취소]  ← 전이 버튼    │
+└─────────────────────────────────────────────────────────────┘</code></pre>
+<h3 id="하단-6개-탭">2.4 하단 6개 탭</h3>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>탭</th>
+<th>내용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>기본정보</strong></td>
+<td>고객 · 장비 · 접수자 · 담당자 · 접수일 · 현재위치 등 편집</td>
+</tr>
+<tr>
+<td><strong>점검</strong></td>
+<td>1/2차 점검소견, <strong>1/2차 판단(필수)</strong>, 수리 내용</td>
+</tr>
+<tr>
+<td><strong>보고서</strong></td>
+<td>정식 점검보고서 (점검 단계별 내용 구조화)</td>
+</tr>
+<tr>
+<td><strong>견적/비용</strong></td>
+<td>내부 견적 · 비용 항목 (고객용)</td>
+</tr>
+<tr>
+<td><strong>제조사</strong></td>
+<td>제조사 발송/입고 Shipment · 견적(Quote) · 발주(PO)</td>
+</tr>
+<tr>
+<td><strong>이력</strong></td>
+<td>상태 변경 로그 · 생성일·수정일</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="업무-전체-흐름-fsm">3. 업무 전체 흐름 (FSM)</h2>
+<pre><code>             [접수]
+                │ 1차점검 버튼
+                ▼
+        ┌─ [1차점검 INSPECTING_1ST] ─┐
+        │                              │
+   ┌────┴────┬─────────┬───────────┐ 정상/수리안함
+   │         │         │           │   │
+ 견적     제조사     본사        완료   ▼
+ 발행      발송      수리         직행 [정상/수리안함 NO_FAULT/NO_REPAIR]
+   │         │         │           │   │
+ [QUOTED]  [SHIPPED  [REPAIRING]  ...  │
+   │       _TO_MFG]                    │
+ [APPROVED]  │                         │
+   │         ▼                         │
+   ▼     [본사 입고                    │
+수리중   RECEIVED_FROM_MFG]             │
+   │         │                         │
+   │         └─ 2차점검 ─┐              │
+   ▼                      │              │
+[완료 COMPLETED]◄────────┘              │
+   │                                     │
+   └──────► [종료 CLOSED] ◄──────────────┘
+                │
+        (장비 상태 AVAILABLE 복원)
+
+취소(CANCELLED): 어느 단계에서든 가능 — terminal</code></pre>
+<h3 id="상태-라벨-대조표">3.1 상태 라벨 대조표</h3>
+<table>
+<thead>
+<tr>
+<th>내부 상태</th>
+<th>UI 라벨</th>
+<th>비고</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RECEIVED</td>
+<td>접수</td>
+<td>초기 상태</td>
+</tr>
+<tr>
+<td>INSPECTING_1ST</td>
+<td>1차점검</td>
+<td>점검 진행 중</td>
+</tr>
+<tr>
+<td>QUOTED</td>
+<td>견적발행</td>
+<td>내부 견적 발행됨</td>
+</tr>
+<tr>
+<td>APPROVED</td>
+<td>승인</td>
+<td>견적 승인</td>
+</tr>
+<tr>
+<td>REPAIRING</td>
+<td>수리중</td>
+<td>본사 수리 진행</td>
+</tr>
+<tr>
+<td>SHIPPED_TO_MFG</td>
+<td>제조사로 발송</td>
+<td>제조사 수리 요청 중</td>
+</tr>
+<tr>
+<td>RECEIVED_FROM_MFG</td>
+<td>본사 입고</td>
+<td>제조사에서 돌아옴</td>
+</tr>
+<tr>
+<td>INSPECTING_2ND</td>
+<td>2차점검</td>
+<td>수리 후 재검증</td>
+</tr>
+<tr>
+<td>COMPLETED</td>
+<td>완료</td>
+<td>기술적 완료</td>
+</tr>
+<tr>
+<td>NO_FAULT</td>
+<td>정상</td>
+<td>이상 없음 판정</td>
+</tr>
+<tr>
+<td>NO_REPAIR</td>
+<td>수리안함</td>
+<td>수리 보류 결정</td>
+</tr>
+<tr>
+<td>CLOSED</td>
+<td>종료</td>
+<td>행정 마감 (terminal)</td>
+</tr>
+<tr>
+<td>CANCELLED</td>
+<td>취소</td>
+<td>terminal</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="as-접수-등록">4. AS 접수 등록</h2>
+<h3 id="접수-절차">4.1 접수 절차</h3>
+<ol type="1">
+<li><code>/repair</code> → <strong><code>+ AS 접수</code></strong> 버튼
+클릭</li>
+<li>신규 접수 폼에서 다음 항목 입력:
+<ul>
+<li>🔴 <strong>고객</strong> (필수) — 고객사 선택. 없으면
+<code>/repair/customers</code>에서 먼저 등록</li>
+<li><strong>장비/센서</strong> — 고객 자산 목록에서 선택. 없으면 아래
+제품 정보 직접 입력</li>
+<li><strong>제품명 / 제조사 / 시리얼</strong> — 자산 미등록 시 텍스트
+입력</li>
+<li><strong>증상</strong> — 고장 현상 설명</li>
+<li><strong>고객사 담당자명 · 연락처</strong> — 필요 시</li>
+<li><strong>접수자</strong> — 본인 이름 기본값</li>
+<li><strong>우선순위</strong> — LOW / NORMAL / HIGH / URGENT</li>
+</ul></li>
+<li>저장 → <strong><code>AS-YYYY-NNNN</code> 접수번호</strong> 자동
+부여</li>
+<li>초기 상태: <strong><code>접수(RECEIVED)</code></strong></li>
+</ol>
+<h3 id="접수-직후-할-일-체크리스트">4.2 접수 직후 할 일
+(체크리스트)</h3>
+<ul class="task-list">
+<li><label><input type="checkbox" />장비를 1층 창고 AS Rack에
+입고</label></li>
+<li><label><input type="checkbox" />영업부에
+<strong>재고번호·위치</strong> 알림</label></li>
+<li><label><input type="checkbox" /><strong>기본정보 탭</strong>에서
+<strong>OT재고NO</strong>, <strong>접수일</strong>(필요 시 수정)
+확정</label></li>
+</ul>
+<hr />
+<h2 id="차-점검">5. 1차 점검</h2>
+<h3 id="차점검-시작">5.1 1차점검 시작</h3>
+<pre><code>AS 상세 화면 상단 전이 버튼: [→ 1차점검] 클릭
+        │
+        ▼
+상태: INSPECTING_1ST (1차점검)</code></pre>
+<h3 id="점검-탭-입력">5.2 점검 탭 입력</h3>
+<p><strong>점검 탭</strong>(두 번째 탭) 접속 후:</p>
+<p><strong>① 1차 점검소견</strong> (텍스트)<br />
+점검 내용·발견 사항 서술형으로 작성.</p>
+<p><strong>② 1차 판단</strong> (🔴 필수, 4지선다)</p>
+<pre><code>○ 본사수리     ○ 제조사발송     ○ 정상     ○ 수리안함
+
+사유: [_____________________________]  (선택)
+
+Maker Reference No: [_______________]  (제조사발송 선택 시 노출)</code></pre>
+<table>
+<thead>
+<tr>
+<th>판단</th>
+<th>의미</th>
+<th>다음 단계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>🔧 <strong>본사수리</strong></td>
+<td>내부에서 수리 가능</td>
+<td>견적발행 → 승인 → 수리중</td>
+</tr>
+<tr>
+<td>📤 <strong>제조사발송</strong></td>
+<td>제조사 수리 필요</td>
+<td>제조사로 발송 진행</td>
+</tr>
+<tr>
+<td>✅ <strong>정상</strong></td>
+<td>이상 없음 (오신고·환경요인)</td>
+<td>정상 → 종료</td>
+</tr>
+<tr>
+<td>⛔ <strong>수리안함</strong></td>
+<td>고장 확인됐으나 수리 안 함</td>
+<td>수리안함 → 종료</td>
+</tr>
+</tbody>
+</table>
+<p><strong>③ 저장 버튼</strong> 클릭</p>
+<h3 id="보고서-탭-선택">5.3 보고서 탭 (선택)</h3>
+<p>고객에게 <strong>공식 점검 보고서</strong>를 제출할 때 사용: -
+보고서번호 · 점검 단계별 내용·결과 구조화 - 점검 소견(점검 탭)은 간단
+메모, 보고서는 <strong>외부 제출용 공식 문서</strong></p>
+<hr />
+<h2 id="본사-수리-경로">6. 본사 수리 경로</h2>
+<p>1차 판단 = <strong>본사수리</strong> 선택 시:</p>
+<h3 id="진행-플로우">6.1 진행 플로우</h3>
+<pre><code>1차점검 [판단: 본사수리]
+    │
+    ▼
+(선택) → 견적발행 [QUOTED]
+    │
+    ▼
+    → 승인 [APPROVED]
+    │
+    ▼
+    → 수리중 [REPAIRING]
+    │
+    ▼
+    → 완료 [COMPLETED]
+    │
+    ▼
+    → 종료 [CLOSED]</code></pre>
+<h3 id="견적-발행-선택-사항">6.2 견적 발행 (선택 사항)</h3>
+<p>AS 상세 → <strong>견적/비용 탭</strong> → <code>+ 견적</code>: -
+견적번호 · 노동비 · 부품비 · 운송비 · 비고 - 저장 → 고객 전달용 문서</p>
+<h3 id="수리-진행">6.3 수리 진행</h3>
+<ul>
+<li>상단 <code>→ 수리중</code> 버튼 클릭</li>
+<li><strong>점검 탭</strong>의 <strong>수리 내용</strong> 텍스트 영역에
+작업 내역 기록</li>
+<li><strong>부품 사용</strong>: 부품/재고 메뉴에서 <code>출고</code>
+처리</li>
+</ul>
+<h3 id="비용-기록">6.4 비용 기록</h3>
+<p>견적/비용 탭 → <code>+ 비용</code>: | 비용 유형 | 용도 | |—|—| |
+DIRECT_EXPENSE | 직접경비 | | LABOR | 공수(인건비) | | OVERSEAS_SHIPPING
+| 해외발송비 | | PARTS | 부품비 | | OTHER | 기타 |</p>
+<h3 id="완료-종료">6.5 완료 → 종료</h3>
+<ul>
+<li><code>→ 완료</code> 버튼: <code>completedAt</code> 기록, 자사 장비의
+경우 MaintenanceRecord 자동 생성</li>
+<li><code>→ 종료</code> 버튼: <code>closedAt</code> 기록, <strong>자사
+장비 상태 → AVAILABLE 복원</strong> (다시 사용 가능)</li>
+</ul>
+<hr />
+<h2 id="제조사-발송-경로">7. 제조사 발송 경로</h2>
+<p>1차 판단 = <strong>제조사발송</strong> 선택 시 이 경로.</p>
+<h3 id="제조사-탭-전체-구조">7.1 제조사 탭 전체 구조</h3>
+<figure>
+<img src="img/02-mfg-tab-cards.png" alt="제조사 탭 카드들" />
+<figcaption aria-hidden="true">제조사 탭 카드들</figcaption>
+</figure>
+<pre><code>[제조사 발송/입고 이력] ────────────── [+ 발송/입고 등록]
+ ┌──────────────────────────────────────────────────┐
+ │ [제조사로 발송] [제조사 수령]  [수정] [삭제]     │
+ │ RMA No.       운송사      운송장번호              │
+ │ 발송일        도착일                              │
+ │ 비고                                              │
+ └──────────────────────────────────────────────────┘
+ ┌──────────────────────────────────────────────────┐
+ │ [본사 입고] [본사 수령]  [수정] [삭제]           │
+ │ (동일 구조)                                       │
+ └──────────────────────────────────────────────────┘
+
+[견적 (제조사)]                              [수정]
+ ┌──────────────────────────────────────────────────┐
+ │ 견적번호    수신일    금액(통화)                  │
+ │ 확정일                                            │
+ └──────────────────────────────────────────────────┘
+
+[발주 (제조사)]                              [수정]
+ ┌──────────────────────────────────────────────────┐
+ │ 발주번호    발행일    금액(통화)                  │
+ └──────────────────────────────────────────────────┘</code></pre>
+<h3 id="제조사로-발송">7.2 제조사로 발송</h3>
+<p><strong>①</strong> 상단 전이 버튼 <code>→ 제조사로 발송</code> 클릭 →
+상태 <code>SHIPPED_TO_MFG</code><br />
+<strong>②</strong> OUTBOUND Shipment 카드가 <strong>자동 생성</strong>
+(상태: 준비중)<br />
+<strong>③</strong> 카드 <code>수정</code> 클릭 → 상세 입력:</p>
+<figure>
+<img src="img/03-shipment-edit.png" alt="Shipment 카드 편집" />
+<figcaption aria-hidden="true">Shipment 카드 편집</figcaption>
+</figure>
+<table>
+<thead>
+<tr>
+<th>필드</th>
+<th>설명</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>RMA No.</strong></td>
+<td>제조사 발급 반품 승인번호</td>
+</tr>
+<tr>
+<td><strong>운송사</strong></td>
+<td>DHL/FedEx/대한통운 등</td>
+</tr>
+<tr>
+<td><strong>운송장번호</strong></td>
+<td>트래킹 번호</td>
+</tr>
+<tr>
+<td><strong>발송일</strong></td>
+<td>본사 → 제조사 출발일</td>
+</tr>
+<tr>
+<td><strong>도착일</strong></td>
+<td>제조사 도착일</td>
+</tr>
+<tr>
+<td><strong>비고</strong></td>
+<td>특이사항</td>
+</tr>
+</tbody>
+</table>
+<h3 id="견적quote-수신-기록">7.3 견적(Quote) 수신 기록</h3>
+<p>제조사로부터 수리 Quote 받으면: - <code>견적 (제조사)</code> 카드
+<code>수정</code> 클릭 - 견적번호 · 수신일 · 금액 ·
+통화(KRW/USD/EUR/JPY/GBP) · 확정일</p>
+<h3 id="발주po-발행-기록">7.4 발주(PO) 발행 기록</h3>
+<p>내부 승인 후 제조사에 PO 발행: - <code>발주 (제조사)</code> 카드
+<code>수정</code> 클릭 - 발주번호 · 발행일 · 금액 · 통화</p>
+<h3 id="본사-입고">7.5 본사 입고</h3>
+<p>제조사 수리 완료 후 장비가 본사에 돌아오면: - 상단
+<code>→ 본사 입고</code> 버튼 클릭 → <code>RECEIVED_FROM_MFG</code> -
+<strong>INBOUND Shipment 자동 생성</strong> (도착일 = 버튼 클릭 시각) -
+필요 시 INBOUND 카드 <code>수정</code>으로 정확한 도착일 수정</p>
+<h3 id="판단-전이-일치-경고">7.6 ⚠️ 판단-전이 일치 경고</h3>
+<p>점검 탭에서 기록한 <strong>1차 판단</strong>과 실제 전이하는 상태가
+다를 때:</p>
+<pre><code>┌─────────────────────────────────────────────────┐
+│ 1차 판단은 &#39;본사수리&#39;인데 &#39;제조사로 발송&#39;(으)로 │
+│ 진행합니다.                                     │
+│ 그래도 &quot;제조사로 발송&quot;(으)로 변경하시겠습니까?  │
+│                                                 │
+│                              [취소]  [확인]     │
+└─────────────────────────────────────────────────┘</code></pre>
+<p>의도적이면 <code>확인</code>, 아니면 <code>취소</code> 후 판단을
+수정하세요.</p>
+<hr />
+<h2 id="차-점검-1">8. 2차 점검</h2>
+<p>제조사 수리 후 본사 재검증이 필요한 경우:</p>
+<h3 id="차점검-시작-1">8.1 2차점검 시작</h3>
+<ul>
+<li>AS 상세(<code>RECEIVED_FROM_MFG</code> 상태) →
+<code>→ 2차점검</code> 버튼 클릭</li>
+<li>상태 <code>INSPECTING_2ND</code></li>
+</ul>
+<h3 id="점검-탭-2차-섹션">8.2 점검 탭 — 2차 섹션</h3>
+<p><strong>① 2차 점검소견</strong> (텍스트)<br />
+<strong>② 2차 판단</strong> (4지선다): - 본사수리 / 제조사발송(재발송) /
+정상 / 수리안함</p>
+<h3 id="차-판단-후속">8.3 2차 판단 → 후속</h3>
+<table>
+<thead>
+<tr>
+<th>판단</th>
+<th>후속 전이</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>수리 완료</td>
+<td><code>→ 완료</code></td>
+</tr>
+<tr>
+<td>다시 제조사</td>
+<td>제조사발송 판단 저장 + <code>→ 제조사로 발송</code> (2차 왕복)</td>
+</tr>
+<tr>
+<td>정상</td>
+<td><code>→ 정상</code></td>
+</tr>
+<tr>
+<td>수리안함</td>
+<td><code>→ 수리안함</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="완료-종료-처리">9. 완료 · 종료 처리</h2>
+<h3 id="완료-completed">9.1 완료 (COMPLETED)</h3>
+<ul>
+<li>기술적 수리 작업 끝난 시점</li>
+<li><code>completedAt</code> 기록</li>
+<li><strong>자사 장비·센서 연결 시 MaintenanceRecord 자동 생성</strong>
+(type=CORRECTIVE)</li>
+<li>다음 전이: <code>→ 종료</code>만 가능</li>
+</ul>
+<h3 id="종료-closed">9.2 종료 (CLOSED)</h3>
+<ul>
+<li>행정적 마감 (고객 인도, 정산 완료 등)</li>
+<li><code>closedAt</code> 기록</li>
+<li><strong>자사 장비·센서 상태 → AVAILABLE 복원</strong></li>
+<li>전이 없음 (terminal)</li>
+<li>이 상태에서도 ADMIN이 삭제 가능</li>
+</ul>
+<hr />
+<h2 id="정상-수리안함-처리">10. 정상 · 수리안함 처리</h2>
+<h3 id="정상-no_fault">10.1 정상 (NO_FAULT)</h3>
+<ul>
+<li>점검 결과 이상 없음 (사용자 환경 문제, 오신고 등)</li>
+<li><code>completedAt</code> 기록</li>
+<li>MaintenanceRecord <strong>생성하지 않음</strong> (장비 이력 오염
+방지)</li>
+<li>다음 전이: <code>→ 종료</code></li>
+</ul>
+<h3 id="수리안함-no_repair">10.2 수리안함 (NO_REPAIR)</h3>
+<ul>
+<li>고장 확인됐으나 수리 미진행 (비용 초과, 부품 단종, 고객 요청
+등)</li>
+<li><code>completedAt</code> 기록</li>
+<li>MaintenanceRecord <strong>생성하지 않음</strong></li>
+<li>다음 전이: <code>→ 종료</code></li>
+</ul>
+<hr />
+<h2 id="취소-삭제">11. 취소 · 삭제</h2>
+<h3 id="취소-cancelled">11.1 취소 (CANCELLED)</h3>
+<ul>
+<li>어느 단계에서나 <code>→ 취소</code> 버튼 사용 가능</li>
+<li>고객 철회, 오접수, 중복 접수 등</li>
+<li>terminal (다음 전이 없음)</li>
+</ul>
+<h3 id="삭제-admin-전용">11.2 삭제 (ADMIN 전용)</h3>
+<h4 id="삭제-가능한-상태">✅ 삭제 가능한 상태</h4>
+<pre><code>RECEIVED   CANCELLED   COMPLETED   NO_FAULT   NO_REPAIR   CLOSED</code></pre>
+<h4 id="삭제-불가-진행-중">❌ 삭제 불가 (진행 중)</h4>
+<pre><code>INSPECTING_1ST   QUOTED   APPROVED   REPAIRING
+SHIPPED_TO_MFG   RECEIVED_FROM_MFG   INSPECTING_2ND</code></pre>
+<p>⚠️ 삭제 시 관련 Shipment·점검보고서·견적·비용·부품출고 이력 모두 연쇄
+삭제. <strong>주의</strong>.</p>
+<h3 id="상태-복원이-필요할-때">11.3 상태 복원이 필요할 때</h3>
+<p>삭제가 안 되는 상태에서 실수한 경우: 1. <code>→ 취소</code> 전이 후
+삭제 (일반적) 2. DB 관리자에게 문의 (Admin 수동 상태 복원)</p>
+<hr />
+<h2 id="권한-계정-역할">12. 권한 · 계정 역할</h2>
+<table>
+<thead>
+<tr>
+<th>역할</th>
+<th>주요 권한</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>ADMIN</strong></td>
+<td>전체 권한 + <strong>삭제</strong></td>
+</tr>
+<tr>
+<td><strong>MANAGER</strong></td>
+<td>생성·수정·상태 전이 전권, 삭제 불가</td>
+</tr>
+<tr>
+<td><strong>OPERATOR</strong></td>
+<td>AS 운영 전권 (결재 경유 없음)</td>
+</tr>
+<tr>
+<td><strong>VIEWER</strong></td>
+<td>조회만</td>
+</tr>
+</tbody>
+</table>
+<h3 id="operator-허용-범위">12.1 OPERATOR 허용 범위</h3>
+<p>✅ 가능: - AS 접수 POST/PATCH · 상태 전이 - 점검보고서 생성·수정 -
+견적 생성·수정·상태 전이 - 비용 항목 추가·수정 - <strong>Shipment
+생성·수정·삭제</strong> (오입력 정정) - 부품 입출고 - 고객사 · 고객
+담당자 · 고객 자산 생성·수정</p>
+<h3 id="operator-제한">12.2 OPERATOR 제한</h3>
+<p>❌ 불가: - <strong>AS 접수 · 견적 · 비용 · 부품 · 고객사 / 담당자 /
+자산 — 모든 DELETE</strong> → ADMIN 전용</p>
+<hr />
+<h2 id="자주-묻는-사용법">13. 자주 묻는 사용법</h2>
+<h3 id="전이-버튼이-안-보여요">13.1 “전이 버튼이 안 보여요”</h3>
+<p><strong>원인</strong>: 현재 상태가 terminal (CLOSED, CANCELLED)이어서
+다음 단계 없음<br />
+<strong>해결</strong>: 마감된 건. 추가 작업 원하면 ADMIN에게 상태 복원
+요청</p>
+<h3 id="삭제-버튼-눌렀는데-에러-납니다">13.2 “삭제 버튼 눌렀는데 에러
+납니다”</h3>
+<p>에러: <em>“진행 중인 AS 접수는 삭제할 수 없습니다. 먼저
+완료·종료·취소 처리하세요.”</em><br />
+<strong>해결</strong>: 11.2 참조. <code>→ 취소</code> 후 삭제</p>
+<h3 id="본사-입고했는데-입고-이력-카드가-안-보여요">13.3 “본사
+입고했는데 입고 이력 카드가 안 보여요”</h3>
+<p><strong>원인</strong>: 과거 버전에서 생성된 건이거나 INBOUND
+Shipment가 수동 삭제됨<br />
+<strong>해결</strong>: 제조사 탭에서 <code>+ 발송/입고 등록</code> →
+<strong>direction=본사 입고</strong>로 수동 등록</p>
+<h3 id="제조사-quote와-po-금액은-어디에">13.4 “제조사 Quote와 PO 금액은
+어디에?”</h3>
+<p><strong>제조사 탭</strong> 아래 쪽에: - <code>견적 (제조사)</code>
+카드 → 수정 버튼 - <code>발주 (제조사)</code> 카드 → 수정 버튼</p>
+<h3 id="점검-판단을-바꾸면-상태도-자동-바뀌나요">13.5 “점검 판단을
+바꾸면 상태도 자동 바뀌나요?”</h3>
+<p>❌ 아니요. 판단은 <strong>저장만</strong> 됩니다. 상태는 <strong>전이
+버튼 클릭</strong> 필요.<br />
+불일치 시 확인 메시지 뜨지만 무시하고 진행 가능.</p>
+<h3 id="엑셀-이관-건은-어떻게-구분">13.6 “엑셀 이관 건은 어떻게
+구분?”</h3>
+<p>접수번호 접두사: - <code>AS-</code> → ERP 네이티브 - <code>SA-</code>
+→ 엑셀 수리현황 이관 (2026-04-24, 20건)</p>
+<h3 id="고객-정보-틀렸어요">13.7 “고객 정보 틀렸어요”</h3>
+<ul>
+<li><code>/repair/customers</code> 탭에서 해당 기관 선택</li>
+<li>정보 수정 또는 담당자 추가/편집 (OPERATOR 권한으로 가능)</li>
+</ul>
+<h3 id="비용견적은-어느-탭">13.8 “비용·견적은 어느 탭?”</h3>
+<table>
+<thead>
+<tr>
+<th>영역</th>
+<th>위치</th>
+<th>용도</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>내부 견적·비용</strong> (고객용)</td>
+<td>견적/비용 탭</td>
+<td>고객에게 청구할 금액</td>
+</tr>
+<tr>
+<td><strong>제조사 견적·발주</strong></td>
+<td>제조사 탭</td>
+<td>제조사와의 거래</td>
+</tr>
+</tbody>
+</table>
+<p>두 영역 <strong>별도 관리</strong>에 주의!</p>
+<h3 id="담당자-테이블-좁아서-안-보여요">13.9 “담당자 테이블 좁아서 안
+보여요”</h3>
+<p>담당자 섹션(고객사 상세) UI:</p>
+<figure>
+<img src="img/05-contacts-table.png" alt="담당자 테이블" />
+<figcaption aria-hidden="true">담당자 테이블</figcaption>
+</figure>
+<ul>
+<li>각 행 우측의 <strong>수정 / 삭제</strong> 버튼</li>
+<li>주담당자는 <strong>파란색 배지</strong> 표시</li>
+<li>테이블 폭 자동 조정 — 직위 컬럼 넓게 배치</li>
+</ul>
+<h3 id="동일-담당자가-여러-as에-연결되는데-중복-입력">13.10 “동일
+담당자가 여러 AS에 연결되는데 중복 입력?”</h3>
+<p>담당자는 고객사별 <strong>CustomerContact</strong> 테이블에 한 번만
+등록, AS에서는 <code>customerContactName</code> 텍스트로 참조(현재
+설계). 동일 인물이 여러 AS 건에 나타나는 것은 정상.</p>
+<hr />
+<h2 id="부록-a.-상태-전이-규칙-테이블">📎 부록 A. 상태 전이 규칙
+테이블</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>From → To</th>
+<th>허용 대상</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RECEIVED</td>
+<td>INSPECTING_1ST, CANCELLED</td>
+</tr>
+<tr>
+<td>INSPECTING_1ST</td>
+<td>QUOTED, REPAIRING, SHIPPED_TO_MFG, COMPLETED, NO_FAULT, NO_REPAIR,
+CANCELLED</td>
+</tr>
+<tr>
+<td>QUOTED</td>
+<td>APPROVED, CANCELLED</td>
+</tr>
+<tr>
+<td>APPROVED</td>
+<td>REPAIRING, SHIPPED_TO_MFG, CANCELLED</td>
+</tr>
+<tr>
+<td>REPAIRING</td>
+<td>COMPLETED, CANCELLED</td>
+</tr>
+<tr>
+<td>SHIPPED_TO_MFG</td>
+<td>RECEIVED_FROM_MFG, CANCELLED</td>
+</tr>
+<tr>
+<td>RECEIVED_FROM_MFG</td>
+<td>INSPECTING_2ND, COMPLETED, NO_FAULT, NO_REPAIR, CANCELLED</td>
+</tr>
+<tr>
+<td>INSPECTING_2ND</td>
+<td>COMPLETED, NO_FAULT, NO_REPAIR, CANCELLED</td>
+</tr>
+<tr>
+<td>COMPLETED</td>
+<td>CLOSED</td>
+</tr>
+<tr>
+<td>NO_FAULT</td>
+<td>CLOSED</td>
+</tr>
+<tr>
+<td>NO_REPAIR</td>
+<td>CLOSED</td>
+</tr>
+<tr>
+<td>CLOSED</td>
+<td>(없음, terminal)</td>
+</tr>
+<tr>
+<td>CANCELLED</td>
+<td>(없음, terminal)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="부록-b.-전이-시-자동-동작">📎 부록 B. 전이 시 자동 동작</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>전이</th>
+<th>자동 동작</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>→ SHIPPED_TO_MFG</td>
+<td><strong>OUTBOUND Shipment 자동 생성</strong> (status=PREPARING)</td>
+</tr>
+<tr>
+<td>→ RECEIVED_FROM_MFG</td>
+<td><strong>INBOUND Shipment 자동 생성</strong> (DELIVERED,
+receivedAt=now), OUTBOUND 미마감 시 DELIVERED로</td>
+</tr>
+<tr>
+<td>→ COMPLETED</td>
+<td><code>completedAt</code> 기록, 자사 장비·센서 연결 시
+<strong>MaintenanceRecord(CORRECTIVE) 자동 생성</strong></td>
+</tr>
+<tr>
+<td>→ NO_FAULT / NO_REPAIR</td>
+<td><code>completedAt</code>만 기록. MaintenanceRecord 생성 <strong>안
+함</strong></td>
+</tr>
+<tr>
+<td>→ CLOSED</td>
+<td><code>closedAt</code> 기록, <strong>자사 장비·센서 status=AVAILABLE
+복원</strong></td>
+</tr>
+<tr>
+<td>→ CANCELLED</td>
+<td>별도 동작 없음</td>
+</tr>
+</tbody>
+</table>
+<h2 id="부록-c.-이슈-해결-가이드">📎 부록 C. 이슈 해결 가이드</h2>
+<p><strong>Shipment 카드가 빈 상태로 남아있을 때</strong><br />
+사용자가 “+ 발송/입고 등록” 클릭 후 저장 없이 닫으면 발생.
+<code>삭제</code> 버튼으로 제거.</p>
+<p><strong>RMA No.가 여러 곳에 나뉘어 기록됨</strong><br />
+- 기본정보 하단 <code>Maker Reference No.</code> (legacy) - Shipment
+카드의 <code>RMA No.</code> (신규, 선적건별)</p>
+<p>⚠️ 중복 주의. 실무상 <strong>Shipment.rmaNumber만 사용
+권장</strong></p>
+<p><strong>판단을 잘못 기록함</strong><br />
+점검 탭에서 다시 저장하면 덮어씀. 단, 상태가 이미 전이됐다면 수동 상태
+복원 필요(Admin).</p>
+<hr />
+<h2 id="관련-문서">🔗 관련 문서</h2>
+<ul>
+<li>설계: <code>docs/02-design/features/수리관리.design.md</code></li>
+<li>이관 플레이북:
+<code>docs/04-operation/migration-playbook-수리관리.md</code></li>
+<li>종합 검토:
+<code>docs/04-operation/2026-04-24-종합검토보고서.md</code></li>
+</ul>
+<hr />
+<p><em>본 매뉴얼은 ERP v1.5.5 기준. UI·FSM 변경 시 업데이트
+필요.</em></p>
+</body>
+</html>

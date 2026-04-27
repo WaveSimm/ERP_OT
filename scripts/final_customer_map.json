@@ -1,0 +1,797 @@
+{
+  "KIOST": {
+    "id": "cmnt80iba002jayi6svk5ug89",
+    "targetName": "KIOST",
+    "kind": "EXISTS"
+  },
+  "KHOA": {
+    "id": "cmnt80ib2002fayi6jh9qud8k",
+    "targetName": "KHOA",
+    "kind": "EXISTS"
+  },
+  "지오시스템리서치": {
+    "id": "cmnt80ic1002xayi6fo4t7c0j",
+    "targetName": "지오시스템리서치",
+    "kind": "EXISTS"
+  },
+  "UST21": {
+    "id": "cmnt80ibx002vayi6fxj70r8s",
+    "targetName": "UST21",
+    "kind": "EXISTS"
+  },
+  "미래해양": {
+    "id": "cmnt8aw3o0000cpwd3njkrq3t",
+    "targetName": "미래해양",
+    "kind": "EXISTS"
+  },
+  "오션테크": {
+    "id": "cmnt8aw3y0003cpwdlkgmr75f",
+    "targetName": "오션테크",
+    "kind": "EXISTS"
+  },
+  "한국해양조사협회": {
+    "id": "cmnt8aw4x000lcpwdoyn4l5um",
+    "targetName": "조사협회",
+    "kind": "EXISTS"
+  },
+  "국토해양환경기술단": {
+    "id": "cmnt8aw4d000bcpwdsb418h0e",
+    "targetName": "국토해양환경기술단",
+    "kind": "EXISTS"
+  },
+  "메이텍": {
+    "id": "cmnt8aw3r0001cpwdo85vfw1q",
+    "targetName": "메이텍엔지니어링",
+    "kind": "EXISTS"
+  },
+  "세광종합기술단": {
+    "id": "cmnt80ibk002oayi6pndjsiir",
+    "targetName": "세광종합기술단",
+    "kind": "EXISTS"
+  },
+  "지오뷰": {
+    "id": "cmnt80ib4002gayi6biiqrsh8",
+    "targetName": "지오뷰",
+    "kind": "EXISTS"
+  },
+  "조사협회": {
+    "id": "cmnt8aw4x000lcpwdoyn4l5um",
+    "targetName": "조사협회",
+    "kind": "EXISTS"
+  },
+  "KHOA(남해)": {
+    "id": "cmnt80ib2002fayi6jh9qud8k",
+    "targetName": "KHOA",
+    "kind": "EXISTS"
+  },
+  "KOPRI": {
+    "id": "cmnt80ib8002iayi6s2enblsz",
+    "targetName": "KOPRI",
+    "kind": "EXISTS"
+  },
+  "인하대": {
+    "id": "cmnt8aw610015cpwdpttd5bl9",
+    "targetName": "인하대",
+    "kind": "EXISTS"
+  },
+  "오션테크 재고": {
+    "id": "cmnt8aw3y0003cpwdlkgmr75f",
+    "targetName": "오션테크",
+    "kind": "EXISTS"
+  },
+  "메이텍엔지니어링": {
+    "id": "cmnt8aw3r0001cpwdo85vfw1q",
+    "targetName": "메이텍엔지니어링",
+    "kind": "EXISTS"
+  },
+  "메이텍 엔지니어링": {
+    "id": "cmnt8aw3r0001cpwdo85vfw1q",
+    "targetName": "메이텍엔지니어링",
+    "kind": "EXISTS"
+  },
+  "MIT": {
+    "id": "cmnt80ic60030ayi67twfhxfh",
+    "targetName": "MIT",
+    "kind": "EXISTS"
+  },
+  "세광": {
+    "id": "cmnt80ibk002oayi6pndjsiir",
+    "targetName": "세광종합기술단",
+    "kind": "EXISTS"
+  },
+  "전남대": {
+    "id": "cmnt8aw450007cpwdsxeukzal",
+    "targetName": "전남대",
+    "kind": "EXISTS"
+  },
+  "씨텍": {
+    "id": "cmntbouu2001yv1ho1tgtbbnb",
+    "targetName": "씨텍",
+    "kind": "EXISTS"
+  },
+  "㈜오션": {
+    "id": "cmnt8aw680019cpwd5mf2ajcx",
+    "targetName": "㈜오션",
+    "kind": "EXISTS"
+  },
+  "오션데모": {
+    "id": "cmnt8aw3y0003cpwdlkgmr75f",
+    "targetName": "오션테크",
+    "kind": "EXISTS"
+  },
+  "국토환경기술단": {
+    "id": "cmnt8aw4d000bcpwdsb418h0e",
+    "targetName": "국토해양환경기술단",
+    "kind": "EXISTS"
+  },
+  "오션재고": {
+    "id": "cmnt8aw3y0003cpwdlkgmr75f",
+    "targetName": "오션테크",
+    "kind": "EXISTS"
+  },
+  "KIGAM": {
+    "id": "cmnt80iaw002cayi6pbofjlll",
+    "targetName": "KIGAM",
+    "kind": "EXISTS"
+  },
+  "인천항만공사": {
+    "id": "cmoci263f000qzhtekyvrgq44",
+    "targetName": "인천항만공사",
+    "kind": "NEW"
+  },
+  "올포랜드": {
+    "id": "cmnt8aw4n000gcpwdnwvh2pqu",
+    "targetName": "올포랜드",
+    "kind": "EXISTS"
+  },
+  "KHRA": {
+    "id": "cmnt8aw4x000lcpwdoyn4l5um",
+    "targetName": "조사협회",
+    "kind": "EXISTS"
+  },
+  "인하대학교": {
+    "id": "cmnt8aw610015cpwdpttd5bl9",
+    "targetName": "인하대",
+    "kind": "EXISTS"
+  },
+  "이엔씨기술": {
+    "id": "cmnt8aw4r000icpwdgw7kr1pp",
+    "targetName": "이엔씨기술",
+    "kind": "EXISTS"
+  },
+  "KHOA(서해)": {
+    "id": "cmnt80ib2002fayi6jh9qud8k",
+    "targetName": "KHOA",
+    "kind": "EXISTS"
+  },
+  "파랑해양기술": {
+    "id": "cmnt8aw4p000hcpwdvbgartzr",
+    "targetName": "파랑해양기술",
+    "kind": "EXISTS"
+  },
+  "강릉원주대": {
+    "id": "cmoci263d000pzhtewxlwfi6g",
+    "targetName": "원주대",
+    "kind": "NEW"
+  },
+  "오션테크(데모)": {
+    "id": "cmnt8aw3y0003cpwdlkgmr75f",
+    "targetName": "오션테크",
+    "kind": "EXISTS"
+  },
+  "한국수자원공사": {
+    "id": "cmntbous4000hv1homtyrrbk3",
+    "targetName": "한국수자원공사",
+    "kind": "EXISTS"
+  },
+  "KHOA(동해) 동해로호": {
+    "id": "cmnt80ib2002fayi6jh9qud8k",
+    "targetName": "KHOA",
+    "kind": "EXISTS"
+  },
+  "남해수산연구소": {
+    "id": "cmnt8aw6e001ccpwdh1vhzfgk",
+    "targetName": "남해수산",
+    "kind": "EXISTS"
+  },
+  "한국생산기술연구원": {
+    "id": "cmoci263v000wzhte737z0vmh",
+    "targetName": "한국생산기술연구원",
+    "kind": "NEW"
+  },
+  "㈜세광종합기술단": {
+    "id": "cmnt80ibk002oayi6pndjsiir",
+    "targetName": "세광종합기술단",
+    "kind": "EXISTS"
+  },
+  "오션그래픽": {
+    "id": "cmnt8awy900micpwdvbx422t4",
+    "targetName": "오션그래픽",
+    "kind": "EXISTS"
+  },
+  "SM오션": {
+    "id": "cmoci261z0006zhtenddcj5ex",
+    "targetName": "SM오션",
+    "kind": "NEW"
+  },
+  "KIOST(동해)": {
+    "id": "cmnt80iba002jayi6svk5ug89",
+    "targetName": "KIOST",
+    "kind": "EXISTS"
+  },
+  "KHOA(동해)": {
+    "id": "cmnt80ib2002fayi6jh9qud8k",
+    "targetName": "KHOA",
+    "kind": "EXISTS"
+  },
+  "한국종합환경연구소": {
+    "id": "cmnt8aw4u000kcpwdq01596ta",
+    "targetName": "한국종합환경연구소",
+    "kind": "EXISTS"
+  },
+  "KHOA 남해사무소": {
+    "id": "cmnt80ib2002fayi6jh9qud8k",
+    "targetName": "KHOA",
+    "kind": "EXISTS"
+  },
+  "서울대": {
+    "id": "cmnt80ibp002rayi6kd4q83eg",
+    "targetName": "서울대학교",
+    "kind": "EXISTS"
+  },
+  "에이스해양": {
+    "id": "cmnt8aw6l001gcpwdky7eex5z",
+    "targetName": "에이스해양",
+    "kind": "EXISTS"
+  },
+  "로마스인더스트리즈": {
+    "id": "cmnt8aw5c000scpwd8s70y7q7",
+    "targetName": "로마스",
+    "kind": "EXISTS"
+  },
+  "동해해양조사사무소": {
+    "id": "cmoci262m000fzhter2jhvafg",
+    "targetName": "동해해양조사사무소",
+    "kind": "NEW"
+  },
+  "오션프론티어": {
+    "id": "cmoci2635000mzhtere45djis",
+    "targetName": "오션프론티어",
+    "kind": "NEW"
+  },
+  "대영지오발파": {
+    "id": "cmoci262h000dzhtev4i1dvhq",
+    "targetName": "대영지오발파",
+    "kind": "NEW"
+  },
+  "해양정보기술": {
+    "id": "cmnt8aw4s000jcpwdxz51mvdi",
+    "targetName": "해양정보기술",
+    "kind": "EXISTS"
+  },
+  "㈜이엔씨기술": {
+    "id": "cmnt8aw4r000icpwdgw7kr1pp",
+    "targetName": "이엔씨기술",
+    "kind": "EXISTS"
+  },
+  "새한항업": {
+    "id": "cmocj286e0000mdv3zbb6vist",
+    "kind": "NEW",
+    "targetName": "새한항업",
+    "note": "EMPTY resolved via user directive"
+  },
+  "선영종합엔지니어링": {
+    "id": "cmnt8aw4j000ecpwdpyhbhm9q",
+    "targetName": "선영엔지니어링",
+    "kind": "EXISTS"
+  },
+  "KRISO": {
+    "id": "cmnt8aw4b000acpwdgw3r4wpp",
+    "targetName": "KRISO",
+    "kind": "EXISTS"
+  },
+  "KHOA 서해사무소": {
+    "id": "cmnt80ib2002fayi6jh9qud8k",
+    "targetName": "KHOA",
+    "kind": "EXISTS"
+  },
+  "KHOA 남해연구소": {
+    "id": "cmnt80ib2002fayi6jh9qud8k",
+    "targetName": "KHOA",
+    "kind": "EXISTS"
+  },
+  "국립수산과학원": {
+    "id": "cmnt80ica0032ayi6att6tg6z",
+    "targetName": "국립수산과학원",
+    "kind": "EXISTS"
+  },
+  "한국엠에이": {
+    "id": "cmoci263y000xzhte5lpfnkui",
+    "targetName": "한국엠에이",
+    "kind": "NEW"
+  },
+  "해안해양기술": {
+    "id": "cmnt80ibt002tayi6aff1jwv5",
+    "targetName": "해안해양기술",
+    "kind": "EXISTS"
+  },
+  "공간정보": {
+    "id": "cmoci26270009zhtev52401k9",
+    "targetName": "공간정보",
+    "kind": "NEW"
+  },
+  "부경해양개발": {
+    "id": "cmoci262s000hzhtezr8o38sw",
+    "targetName": "부경해양개발",
+    "kind": "NEW"
+  },
+  "국토해양기술공단": {
+    "id": "cmnt8aw4d000bcpwdsb418h0e",
+    "targetName": "국토해양환경기술단",
+    "kind": "EXISTS"
+  },
+  "KHOA 동해소": {
+    "id": "cmnt80ib2002fayi6jh9qud8k",
+    "targetName": "KHOA",
+    "kind": "EXISTS"
+  },
+  "남동해수산연구소": {
+    "id": "cmoci262c000bzhtee325c0qk",
+    "targetName": "남동해수산연구소",
+    "kind": "NEW"
+  },
+  "수산과학원": {
+    "id": "cmnt80ica0032ayi6att6tg6z",
+    "targetName": "국립수산과학원",
+    "kind": "EXISTS"
+  },
+  "한양대": {
+    "id": "cmoci26450010zhtem9cepqfl",
+    "targetName": "한양대",
+    "kind": "NEW"
+  },
+  "전남대(여수)": {
+    "id": "cmnt8aw450007cpwdsxeukzal",
+    "targetName": "전남대",
+    "kind": "EXISTS"
+  },
+  "(주)해안해양기술": {
+    "id": "cmnt80ibt002tayi6aff1jwv5",
+    "targetName": "해안해양기술",
+    "kind": "EXISTS"
+  },
+  "군산대": {
+    "id": "cmnt8aw53000ncpwd00ybjy44",
+    "targetName": "군산대",
+    "kind": "EXISTS"
+  },
+  "㈜ 오션": {
+    "id": "cmnt8aw680019cpwd5mf2ajcx",
+    "targetName": "㈜오션",
+    "kind": "EXISTS"
+  },
+  "부경대": {
+    "id": "cmnt8aw420005cpwd9ss6fjlf",
+    "targetName": "부경대",
+    "kind": "EXISTS"
+  },
+  "KHOA(조사협회)": {
+    "id": "cmnt8aw4x000lcpwdoyn4l5um",
+    "targetName": "조사협회",
+    "kind": "EXISTS"
+  },
+  "서해수산연구소": {
+    "id": "cmoci262u000izhte44aemep6",
+    "targetName": "서해수산연구소",
+    "kind": "NEW"
+  },
+  "국토해양환경 기술단": {
+    "id": "cmnt8aw4d000bcpwdsb418h0e",
+    "targetName": "국토해양환경기술단",
+    "kind": "EXISTS"
+  },
+  "에이에이티": {
+    "id": "cmoci261k0001zhtesm2igvj0",
+    "targetName": "AAT",
+    "kind": "NEW"
+  },
+  "KHOA(서해소)": {
+    "id": "cmnt80ib2002fayi6jh9qud8k",
+    "targetName": "KHOA",
+    "kind": "EXISTS"
+  },
+  "국토해양기술단": {
+    "id": "cmnt8aw4d000bcpwdsb418h0e",
+    "targetName": "국토해양환경기술단",
+    "kind": "EXISTS"
+  },
+  "㈜해안해양기술": {
+    "id": "cmnt80ibt002tayi6aff1jwv5",
+    "targetName": "해안해양기술",
+    "kind": "EXISTS"
+  },
+  "STX엔진": {
+    "id": "cmoci26220007zhtesng60ykv",
+    "targetName": "STX엔진",
+    "kind": "NEW"
+  },
+  "경원산업": {
+    "id": "cmntbourk0002v1ho8aarc4j0",
+    "targetName": "경원산업",
+    "kind": "EXISTS"
+  },
+  "충남대학교": {
+    "id": "cmoci263r000uzhtehte4tvnv",
+    "targetName": "충남대학교",
+    "kind": "NEW"
+  },
+  "KHOA서해소": {
+    "id": "cmnt80ib2002fayi6jh9qud8k",
+    "targetName": "KHOA",
+    "kind": "EXISTS"
+  },
+  "한국해양수산연구원": {
+    "id": "cmoci2643000zzhteulr1k9ty",
+    "targetName": "한국해양수산연구원",
+    "kind": "NEW"
+  },
+  "KHOA, KIOST": {
+    "id": "cmnt80ib2002fayi6jh9qud8k",
+    "targetName": "KHOA",
+    "kind": "EXISTS"
+  },
+  "오션테크 무인해양팀": {
+    "id": "cmnt8aw3y0003cpwdlkgmr75f",
+    "targetName": "오션테크",
+    "kind": "EXISTS"
+  },
+  "일우": {
+    "id": "cmntbousp000xv1how8mv5ml2",
+    "targetName": "일우인터내셔날",
+    "kind": "EXISTS"
+  },
+  "미래해양(전남대)": {
+    "id": "cmnt8aw3o0000cpwd3njkrq3t",
+    "targetName": "미래해양",
+    "kind": "EXISTS"
+  },
+  "오션테크(재고)": {
+    "id": "cmnt8aw3y0003cpwdlkgmr75f",
+    "targetName": "오션테크",
+    "kind": "EXISTS"
+  },
+  "지마텍": {
+    "id": "cmoci263n000tzhted92lgd98",
+    "targetName": "지마텍",
+    "kind": "NEW"
+  },
+  "기상산업기술원": {
+    "id": "cmnt80ibc002kayi6yui15x56",
+    "targetName": "한국기상산업기술원",
+    "kind": "EXISTS"
+  },
+  "서울대학교": {
+    "id": "cmnt80ibp002rayi6kd4q83eg",
+    "targetName": "서울대학교",
+    "kind": "EXISTS"
+  },
+  "시화조력단": {
+    "id": "cmnt8aw5h000vcpwds36j36n4",
+    "targetName": "시화조력",
+    "kind": "EXISTS"
+  },
+  "남해해양조사사무소": {
+    "id": "cmoci262f000czhtee3ts9iqm",
+    "targetName": "남해해양조사사무소",
+    "kind": "NEW"
+  },
+  "KOPRI 외": {
+    "id": "cmnt80ib8002iayi6s2enblsz",
+    "targetName": "KOPRI",
+    "kind": "EXISTS"
+  },
+  "오션테크(위탁재고)": {
+    "id": "cmnt8aw3y0003cpwdlkgmr75f",
+    "targetName": "오션테크",
+    "kind": "EXISTS"
+  },
+  "KIOST-ISABU": {
+    "id": "cmnt80iba002jayi6svk5ug89",
+    "targetName": "KIOST",
+    "kind": "EXISTS"
+  },
+  "대양전기공업": {
+    "id": "cmntbousj000sv1home1h9g25",
+    "targetName": "대양전기공업",
+    "kind": "EXISTS"
+  },
+  "이엔씨기술연구소": {
+    "id": "cmnt8aw4r000icpwdgw7kr1pp",
+    "targetName": "이엔씨기술",
+    "kind": "EXISTS"
+  },
+  "한국해양조사원": {
+    "id": "cmnt80ib2002fayi6jh9qud8k",
+    "targetName": "KHOA",
+    "kind": "EXISTS"
+  },
+  "㈜씨앤에스솔루션": {
+    "id": "cmnt8aw5v0012cpwd00cpey46",
+    "targetName": "씨엔에스솔루션",
+    "kind": "EXISTS"
+  },
+  "극지연구소": {
+    "id": "cmnt80ib8002iayi6s2enblsz",
+    "targetName": "KOPRI",
+    "kind": "EXISTS"
+  },
+  "제이엠케이(KHOA)": {
+    "id": "cmnt80ib2002fayi6jh9qud8k",
+    "targetName": "KHOA",
+    "kind": "EXISTS"
+  },
+  "해군": {
+    "id": "cmocj286s0001mdv36i0ys04u",
+    "kind": "NEW",
+    "targetName": "해군",
+    "note": "EMPTY resolved via user directive"
+  },
+  "KHOA(바다로1호)": {
+    "id": "cmnt80ib2002fayi6jh9qud8k",
+    "targetName": "KHOA",
+    "kind": "EXISTS"
+  },
+  "제주해양수산연구원": {
+    "id": "cmoci263l000szhte0xjqa5m7",
+    "targetName": "제주해양수산연구원",
+    "kind": "NEW"
+  },
+  "바란산업?": {
+    "id": "cmocj286v0002mdv39sdle7n8",
+    "kind": "NEW",
+    "targetName": "바란산업",
+    "note": "EMPTY resolved via user directive"
+  },
+  "남해소": {
+    "id": "cmnt80ib2002fayi6jh9qud8k",
+    "targetName": "KHOA",
+    "kind": "EXISTS"
+  },
+  "㈜해원문화재연구소": {
+    "id": "cmoci264f0014zhteh5niff9g",
+    "targetName": "해원문화재연구소",
+    "kind": "NEW",
+    "note": "merged from previous duplicate"
+  },
+  "대양전기": {
+    "id": "cmntbousj000sv1home1h9g25",
+    "targetName": "대양전기공업",
+    "kind": "EXISTS"
+  },
+  "NIFS": {
+    "id": "cmoci261x0005zhtetf7nbdt5",
+    "targetName": "NIFS",
+    "kind": "NEW"
+  },
+  "동문시스텍": {
+    "id": "cmnt8aw4g000ccpwdtv2gim06",
+    "targetName": "동문시스텍",
+    "kind": "EXISTS"
+  },
+  "우리해양": {
+    "id": "cmntbours0008v1ho7ywudwwh",
+    "targetName": "우리해양",
+    "kind": "EXISTS"
+  },
+  "한국전자기술연구원": {
+    "id": "cmoci2641000yzhte93e8dztn",
+    "targetName": "한국전자기술연구원",
+    "kind": "NEW"
+  },
+  "AAT": {
+    "id": "cmoci261k0001zhtesm2igvj0",
+    "targetName": "AAT",
+    "kind": "NEW"
+  },
+  "마린리서치": {
+    "id": "cmoci262p000gzhtesf76npby",
+    "targetName": "마린리서치",
+    "kind": "NEW"
+  },
+  "한일뉴즈": {
+    "id": "cmnt8aw6o001hcpwdyq7yai3d",
+    "targetName": "한일뉴즈",
+    "kind": "EXISTS"
+  },
+  "한국기상산업진흥원": {
+    "id": "cmntbousv0011v1hogbg6fuok",
+    "targetName": "한국",
+    "kind": "EXISTS"
+  },
+  "KHOA(남해소)": {
+    "id": "cmnt80ib2002fayi6jh9qud8k",
+    "targetName": "KHOA",
+    "kind": "EXISTS"
+  },
+  "한원중공업": {
+    "id": "cmoci264a0012zhtednmyx5fy",
+    "targetName": "한원중공업",
+    "kind": "NEW"
+  },
+  "부산대(KHOA)": {
+    "id": "cmnt80ib2002fayi6jh9qud8k",
+    "targetName": "KHOA",
+    "kind": "EXISTS"
+  },
+  "울산청": {
+    "id": "cmoci263a000ozhteghb1gfnp",
+    "targetName": "울산청",
+    "kind": "NEW"
+  },
+  "데모": {
+    "id": "cmnt8aw3y0003cpwdlkgmr75f",
+    "targetName": "오션테크",
+    "kind": "EXISTS"
+  },
+  "서해소": {
+    "id": "cmnt80ib2002fayi6jh9qud8k",
+    "targetName": "KHOA",
+    "kind": "EXISTS"
+  },
+  "국립수산과학원 남해수산연구소": {
+    "id": "cmnt80ica0032ayi6att6tg6z",
+    "targetName": "국립수산과학원",
+    "kind": "EXISTS"
+  },
+  "남동해 수산연구소": {
+    "id": "cmoci262c000bzhtee325c0qk",
+    "targetName": "남동해수산연구소",
+    "kind": "NEW",
+    "note": "merged from previous duplicate"
+  },
+  "(주)해양수산자원연구소": {
+    "id": "cmoci261f0000zhtet6wfnoy7",
+    "targetName": "(주)해양수산자원연구소",
+    "kind": "NEW"
+  },
+  "이앤씨기술": {
+    "id": "cmnt8aw4r000icpwdgw7kr1pp",
+    "targetName": "이엔씨기술",
+    "kind": "EXISTS"
+  },
+  "월성원자력본부": {
+    "id": "cmntboutu001sv1hoqrxc921q",
+    "targetName": "월성원자력본부",
+    "kind": "EXISTS"
+  },
+  "인피니티 오션": {
+    "id": "cmoci263i000rzhtem1enj9xu",
+    "targetName": "인피니티 오션",
+    "kind": "NEW"
+  },
+  "오트로닉스": {
+    "id": "cmoci2637000nzhteiii6tueh",
+    "targetName": "오트로닉스",
+    "kind": "NEW"
+  },
+  "동일조선": {
+    "id": "cmoci262k000ezhte589txfaj",
+    "targetName": "동일조선",
+    "kind": "NEW"
+  },
+  "해원문화재연구소": {
+    "id": "cmoci264f0014zhteh5niff9g",
+    "targetName": "해원문화재연구소",
+    "kind": "NEW"
+  },
+  "씨엔에스(부경대)": {
+    "id": "cmnt8aw420005cpwd9ss6fjlf",
+    "targetName": "부경대",
+    "kind": "EXISTS"
+  },
+  "영해문화재연구소": {
+    "id": "cmoci2632000lzhtep6rsbqvz",
+    "targetName": "영해문화재연구소",
+    "kind": "NEW"
+  },
+  "인터오션(네오엔비즈)": {
+    "id": "cmntboutn001mv1ho1cy8c6dn",
+    "targetName": "인터오션",
+    "kind": "EXISTS"
+  },
+  "평택석유공사": {
+    "id": "cmoci263t000vzhte52ejxrhl",
+    "targetName": "평택석유공사",
+    "kind": "NEW"
+  },
+  "CNC오션": {
+    "id": "cmoci261n0002zhtejnglsece",
+    "targetName": "CNC오션",
+    "kind": "NEW"
+  },
+  "기상청": {
+    "id": "cmntbouth001iv1how2rc2ps4",
+    "targetName": "기상청",
+    "kind": "EXISTS"
+  },
+  "한국산업기술시험원": {
+    "id": "cmntbousv0011v1hogbg6fuok",
+    "targetName": "한국",
+    "kind": "EXISTS"
+  },
+  "전략해양": {
+    "id": "cmnt8aw630016cpwdksbafvdq",
+    "targetName": "전략해양",
+    "kind": "EXISTS"
+  },
+  "KHOA 남해": {
+    "id": "cmnt80ib2002fayi6jh9qud8k",
+    "targetName": "KHOA",
+    "kind": "EXISTS"
+  },
+  "대우이앤씨": {
+    "id": "cmntbousg000qv1ho0y641eho",
+    "targetName": "대우이앤씨",
+    "kind": "EXISTS"
+  },
+  "해연기술": {
+    "id": "cmoci264d0013zhtezhtyvhc3",
+    "targetName": "해연기술",
+    "kind": "NEW"
+  },
+  "KIOST(VAST)": {
+    "id": "cmnt80iba002jayi6svk5ug89",
+    "targetName": "KIOST",
+    "kind": "EXISTS"
+  },
+  "한울원전": {
+    "id": "cmoci26480011zhteinxhrh8l",
+    "targetName": "한울원전",
+    "kind": "NEW"
+  },
+  "오션테크 데모": {
+    "id": "cmnt8aw3y0003cpwdlkgmr75f",
+    "targetName": "오션테크",
+    "kind": "EXISTS"
+  },
+  "부산대": {
+    "id": "cmntbourn0004v1hoi0ozw0fj",
+    "targetName": "부산대학교",
+    "kind": "EXISTS"
+  },
+  "지디엘": {
+    "id": "cmntbout50019v1hokm3x64qa",
+    "targetName": "지디엘시스템",
+    "kind": "EXISTS"
+  },
+  "강원대": {
+    "id": "cmnt8aw6g001dcpwdombfiwla",
+    "targetName": "강원대학교",
+    "kind": "EXISTS"
+  },
+  "전남대학교": {
+    "id": "cmnt8aw450007cpwdsxeukzal",
+    "targetName": "전남대",
+    "kind": "EXISTS"
+  },
+  "K Water": {
+    "id": "cmoci261q0003zhte7gfd54b3",
+    "targetName": "K Water",
+    "kind": "NEW"
+  },
+  "씨앤씨오션": {
+    "id": "cmoci262z000kzhte90ckucw3",
+    "targetName": "씨앤씨오션",
+    "kind": "NEW"
+  },
+  "수중생태기술연구소": {
+    "id": "cmoci262x000jzhteissbiqcb",
+    "targetName": "수중생태기술연구소",
+    "kind": "NEW"
+  },
+  "LTMetric": {
+    "id": "cmoci261u0004zhteocjr1rr5",
+    "targetName": "LTMetric",
+    "kind": "NEW"
+  }
+}

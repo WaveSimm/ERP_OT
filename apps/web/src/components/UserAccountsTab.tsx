@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { userManagementApi, departmentApi, resourceApi, workScheduleApi } from "@/lib/api";
+import { userManagementApi, departmentApi, resourceApi, workScheduleApi, getUser } from "@/lib/api";
 
 interface User {
   id: string;
@@ -69,8 +69,10 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
 
   const [saving, setSaving] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
+    setIsAdmin(getUser()?.role === "ADMIN");
     try {
       const saved = sessionStorage.getItem(EXPANDED_KEY);
       if (saved) setExpanded(new Set<string>(JSON.parse(saved)));
@@ -89,10 +91,30 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
     setLoading(true);
     try {
       const [userData, depts] = await Promise.all([
-        userManagementApi.list(),
+        userManagementApi.list().catch(() => null),
         departmentApi.list().catch(() => []),
       ]);
-      const userList = Array.isArray(userData) ? userData : ((userData as any).items ?? []);
+      let userList: any[];
+      if (userData) {
+        userList = Array.isArray(userData) ? userData : ((userData as any).items ?? []);
+      } else {
+        // 비-관리자 폴백: 인증만 필요한 members 엔드포인트 사용 (read-only)
+        const members = await userManagementApi.members(true).catch(() => []);
+        userList = (members as any[]).map((m) => ({
+          id: m.id,
+          email: "",
+          name: m.name,
+          role: "OPERATOR",
+          isActive: true,
+          lastLoginAt: null,
+          createdAt: "",
+          profile: {
+            departmentId: (m as any).departmentId ?? null,
+            departmentName: (m as any).departmentName ?? null,
+            position: (m as any).position ?? null,
+          },
+        }));
+      }
       setUsers(userList);
       const flatten = (nodes: any[]): any[] => nodes.flatMap((n: any) => [n, ...flatten(n.children ?? [])]);
       setDepartments(
@@ -320,18 +342,22 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
         >
           {allOpen ? "전체 닫기" : "전체 펼치기"}
         </button>
-        <button
-          onClick={() => setShowDeptMgmt(true)}
-          className="border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50"
-        >
-          🏢 부서 관리
-        </button>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700"
-        >
-          + 인력 추가
-        </button>
+        {isAdmin && (
+          <>
+            <button
+              onClick={() => setShowDeptMgmt(true)}
+              className="border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50"
+            >
+              🏢 부서 관리
+            </button>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700"
+            >
+              + 인력 추가
+            </button>
+          </>
+        )}
       </div>
 
       {/* 사용자 트리 */}
@@ -358,7 +384,7 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
                         onToggleActive={handleToggleActive} onRoleChange={handleRoleChange}
                         onOpenProfile={openProfile} onOpenSchedule={openSchedule}
                         onResetPw={(u) => { setResetId(u.id); setNewResetPw(""); setResetError(""); }}
-                        onDelete={handleDelete} />
+                        onDelete={handleDelete} isAdmin={isAdmin} />
                     ))}
                   </div>
                 )}
@@ -398,7 +424,7 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
                         onToggleActive={handleToggleActive} onRoleChange={handleRoleChange}
                         onOpenProfile={openProfile} onOpenSchedule={openSchedule}
                         onResetPw={(u) => { setResetId(u.id); setNewResetPw(""); setResetError(""); }}
-                        onDelete={handleDelete} />
+                        onDelete={handleDelete} isAdmin={isAdmin} />
                     ))}
                   </div>
                 )}
@@ -655,7 +681,7 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
 
 // ── 사용자 행 (부서 목록 + 미분류 공통 사용) ──────────────────────────────────
 
-function UserRow({ user, departments, editingId, setEditingId, onToggleActive, onRoleChange, onOpenProfile, onOpenSchedule, onResetPw, onDelete }: {
+function UserRow({ user, departments, editingId, setEditingId, onToggleActive, onRoleChange, onOpenProfile, onOpenSchedule, onResetPw, onDelete, isAdmin }: {
   user: User;
   departments: Department[];
   editingId: string | null;
@@ -666,6 +692,7 @@ function UserRow({ user, departments, editingId, setEditingId, onToggleActive, o
   onOpenSchedule: (u: User) => void;
   onResetPw: (u: User) => void;
   onDelete: (u: User) => void;
+  isAdmin?: boolean;
 }) {
   return (
     <div className="flex items-center gap-3 pl-10 pr-4 py-2.5 hover:bg-gray-50">
@@ -673,41 +700,51 @@ function UserRow({ user, departments, editingId, setEditingId, onToggleActive, o
         {user.name}
         {(user as any).isOnline && <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" title="접속중" />}
       </span>
-      <span className="text-gray-400 text-xs whitespace-nowrap w-36" title={user.email}>
-        {user.email.length > 15 ? user.email.slice(0, 15) + "…" : user.email}
-      </span>
-      <span className="w-16">
-        {editingId === user.id ? (
-          <select defaultValue={user.role}
-            onChange={(e) => onRoleChange(user, e.target.value as typeof ROLES[number])}
-            onBlur={() => setEditingId(null)} autoFocus
-            className="border border-gray-300 rounded px-1 py-0.5 text-xs w-full">
-            {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
-          </select>
-        ) : (
-          <button onClick={() => setEditingId(user.id)} className="text-blue-600 hover:underline text-xs">
-            {ROLE_LABELS[user.role]}
+      {isAdmin && (
+        <span className="text-gray-400 text-xs whitespace-nowrap w-36" title={user.email}>
+          {user.email.length > 15 ? user.email.slice(0, 15) + "…" : user.email}
+        </span>
+      )}
+      {isAdmin && (
+        <span className="w-16">
+          {editingId === user.id ? (
+            <select defaultValue={user.role}
+              onChange={(e) => onRoleChange(user, e.target.value as typeof ROLES[number])}
+              onBlur={() => setEditingId(null)} autoFocus
+              className="border border-gray-300 rounded px-1 py-0.5 text-xs w-full">
+              {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+            </select>
+          ) : (
+            <button onClick={() => setEditingId(user.id)} className="text-blue-600 hover:underline text-xs">
+              {ROLE_LABELS[user.role]}
+            </button>
+          )}
+        </span>
+      )}
+      {isAdmin && (
+        <span className="w-14">
+          <button onClick={() => onToggleActive(user)}
+            className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${user.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+            {user.isActive ? "활성" : "비활성"}
           </button>
-        )}
-      </span>
-      <span className="w-14">
-        <button onClick={() => onToggleActive(user)}
-          className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${user.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-          {user.isActive ? "활성" : "비활성"}
-        </button>
-      </span>
-      <span className="text-gray-400 text-xs whitespace-nowrap w-20">
-        {user.lastLoginAt
-          ? new Date(user.lastLoginAt).toLocaleString("ko-KR", { year: "2-digit", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })
-          : "미접속"}
-      </span>
+        </span>
+      )}
+      {isAdmin && (
+        <span className="text-gray-400 text-xs whitespace-nowrap w-20">
+          {user.lastLoginAt
+            ? new Date(user.lastLoginAt).toLocaleString("ko-KR", { year: "2-digit", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })
+            : "미접속"}
+        </span>
+      )}
       <span className="flex-1" />
-      <div className="flex items-center gap-3 whitespace-nowrap">
-        <button onClick={() => onOpenProfile(user)} className="text-xs text-blue-600 hover:text-blue-800 font-medium">개인정보</button>
-        <button onClick={() => onOpenSchedule(user)} className="text-xs text-purple-600 hover:text-purple-800 font-medium">근무시간</button>
-        <button onClick={() => onResetPw(user)} className="text-xs text-gray-400 hover:text-gray-600">비밀번호</button>
-        <button onClick={() => onDelete(user)} className="text-xs text-red-400 hover:text-red-600">삭제</button>
-      </div>
+      {isAdmin && (
+        <div className="flex items-center gap-3 whitespace-nowrap">
+          <button onClick={() => onOpenProfile(user)} className="text-xs text-blue-600 hover:text-blue-800 font-medium">개인정보</button>
+          <button onClick={() => onOpenSchedule(user)} className="text-xs text-purple-600 hover:text-purple-800 font-medium">근무시간</button>
+          <button onClick={() => onResetPw(user)} className="text-xs text-gray-400 hover:text-gray-600">비밀번호</button>
+          <button onClick={() => onDelete(user)} className="text-xs text-red-400 hover:text-red-600">삭제</button>
+        </div>
+      )}
     </div>
   );
 }

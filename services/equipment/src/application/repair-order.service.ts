@@ -2,14 +2,16 @@ import { PrismaClient, RepairOrderStatus } from "@prisma/client";
 
 const TRANSITIONS: Record<string, string[]> = {
   RECEIVED:          ["INSPECTING_1ST", "CANCELLED"],
-  INSPECTING_1ST:    ["QUOTED", "REPAIRING", "SHIPPED_TO_MFG", "COMPLETED", "CANCELLED"],
+  INSPECTING_1ST:    ["QUOTED", "REPAIRING", "SHIPPED_TO_MFG", "COMPLETED", "NO_FAULT", "NO_REPAIR", "CANCELLED"],
   QUOTED:            ["APPROVED", "CANCELLED"],
   APPROVED:          ["REPAIRING", "SHIPPED_TO_MFG", "CANCELLED"],
   REPAIRING:         ["COMPLETED", "CANCELLED"],
   SHIPPED_TO_MFG:    ["RECEIVED_FROM_MFG", "CANCELLED"],
-  RECEIVED_FROM_MFG: ["INSPECTING_2ND", "COMPLETED", "CANCELLED"],
-  INSPECTING_2ND:    ["COMPLETED", "CANCELLED"],
+  RECEIVED_FROM_MFG: ["INSPECTING_2ND", "COMPLETED", "NO_FAULT", "NO_REPAIR", "CANCELLED"],
+  INSPECTING_2ND:    ["COMPLETED", "NO_FAULT", "NO_REPAIR", "CANCELLED"],
   COMPLETED:         ["CLOSED"],
+  NO_FAULT:          ["CLOSED"],
+  NO_REPAIR:         ["CLOSED"],
   CLOSED:            [],
   CANCELLED:         [],
 };
@@ -49,8 +51,9 @@ export class RepairOrderService {
         received: ["RECEIVED"],
         inspecting: ["INSPECTING_1ST", "INSPECTING_2ND"],
         repairing: ["QUOTED", "APPROVED", "REPAIRING"],
-        manufacturer: ["SHIPPED_TO_MFG", "RECEIVED_FROM_MFG"],
-        completed: ["COMPLETED", "CLOSED"],
+        manufacturer: ["SHIPPED_TO_MFG"],
+        received_from_mfg: ["RECEIVED_FROM_MFG"],
+        completed: ["COMPLETED", "NO_FAULT", "NO_REPAIR", "CLOSED"],
       };
       if (groups[statusGroup]) where.status = { in: groups[statusGroup] };
     }
@@ -97,7 +100,7 @@ export class RepairOrderService {
         inspectionReport: true,
         costs: { orderBy: { createdAt: "desc" } },
         quotes: { include: { items: true }, orderBy: { createdAt: "desc" } },
-        shipments: { orderBy: { createdAt: "desc" } },
+        shipments: { orderBy: { createdAt: "asc" } },
         usedParts: {
           include: { part: { select: { id: true, name: true, partNumber: true } } },
           orderBy: { performedAt: "desc" },
@@ -168,21 +171,45 @@ export class RepairOrderService {
     diagnosis1st?: string;
     inspector1stId?: string;
     inspector1stName?: string;
+    decision1st?: string | null;
+    decision1stReason?: string | null;
     needsMfgRepair?: boolean;
     mfgReferenceNo?: string;
     diagnosis2nd?: string;
     inspector2ndId?: string;
     inspector2ndName?: string;
+    decision2nd?: string | null;
+    decision2ndReason?: string | null;
+    // 제조사 견적/발주 + 추가 날짜
+    quoteReceivedAt?: string | null;
+    quoteApprovedAt?: string | null;
+    poIssuedAt?: string | null;
+    stockedAt?: string | null;
+    handedToTechAt?: string | null;
+    deliveryDueAt?: string | null;
+    shippingAssigneeName?: string | null;
+    mfgQuoteNumber?: string | null;
+    mfgQuoteAmount?: number | null;
+    mfgQuoteCurrency?: string | null;
+    mfgPoNumber?: string | null;
+    mfgPoAmount?: number | null;
+    mfgPoCurrency?: string | null;
     repairDetails?: string;
     isWarranty?: boolean;
     assigneeId?: string;
     assigneeName?: string;
     estimatedDays?: number;
     notes?: string;
+    receivedAt?: string | null;
   }) {
+    const d: any = { ...data };
+    const dateFields = ["receivedAt", "quoteReceivedAt", "quoteApprovedAt", "poIssuedAt", "stockedAt", "handedToTechAt", "deliveryDueAt"];
+    for (const k of dateFields) {
+      if (d[k] !== undefined) d[k] = d[k] ? new Date(d[k]) : null;
+    }
     return this.prisma.repairOrder.update({
       where: { id },
-      data: data as any,
+      data: d,
     });
   }
 
@@ -208,23 +235,41 @@ export class RepairOrderService {
       });
     }
 
-    // 제조사 입고 시 OUTBOUND Shipment 상태 업데이트
+    // 본사 입고 시:
+    //  1) 기존 OUTBOUND(최근 PREPARING/IN_TRANSIT)를 DELIVERED로 마감 — 제조사 수령으로 간주
+    //  2) 신규 INBOUND(status=DELIVERED, receivedAt=now()) 생성 — 본사 수령 이벤트
+    //  INBOUND 중복 생성을 막기 위해 동일 repairOrderId의 INBOUND 존재 여부 먼저 확인(idempotent).
     if (newStatus === "RECEIVED_FROM_MFG") {
       const outbound = await this.prisma.shipment.findFirst({
         where: { repairOrderId: id, direction: "OUTBOUND" },
         orderBy: { createdAt: "desc" },
       });
-      if (outbound) {
+      if (outbound && outbound.status !== "DELIVERED") {
         await this.prisma.shipment.update({
           where: { id: outbound.id },
-          data: { status: "DELIVERED", receivedAt: new Date() },
+          data: { status: "DELIVERED" },
+        });
+      }
+
+      const existingInbound = await this.prisma.shipment.findFirst({
+        where: { repairOrderId: id, direction: "INBOUND" },
+        orderBy: { createdAt: "desc" },
+      });
+      if (!existingInbound) {
+        await this.prisma.shipment.create({
+          data: {
+            repairOrderId: id,
+            direction: "INBOUND",
+            status: "DELIVERED",
+            receivedAt: new Date(),
+          },
         });
       }
     }
 
     if (newStatus === "COMPLETED") {
       updateData.completedAt = new Date();
-      // MaintenanceRecord 자동 생성
+      // MaintenanceRecord 자동 생성 (실제 수리 발생 전제)
       if (order.equipmentId || order.sensorId) {
         await this.prisma.maintenanceRecord.create({
           data: {
@@ -240,6 +285,11 @@ export class RepairOrderService {
           },
         });
       }
+    }
+
+    // NO_FAULT(정상) · NO_REPAIR(수리안함) — completedAt만 기록, MaintenanceRecord 생성 안 함
+    if (newStatus === "NO_FAULT" || newStatus === "NO_REPAIR") {
+      updateData.completedAt = new Date();
     }
 
     if (newStatus === "CLOSED") {
@@ -273,8 +323,10 @@ export class RepairOrderService {
   async remove(id: string) {
     const order = await this.prisma.repairOrder.findUnique({ where: { id } });
     if (!order) throw new Error("AS 접수를 찾을 수 없습니다.");
-    if (order.status !== "RECEIVED" && order.status !== "CANCELLED") {
-      throw new Error("접수 또는 취소 상태가 아닌 AS 접수는 삭제할 수 없습니다.");
+    // 삭제 가능: 접수 초기 상태(RECEIVED) + 종결 상태 5종(CANCELLED/COMPLETED/NO_FAULT/NO_REPAIR/CLOSED)
+    const deletable = ["RECEIVED", "CANCELLED", "COMPLETED", "NO_FAULT", "NO_REPAIR", "CLOSED"];
+    if (!deletable.includes(order.status)) {
+      throw new Error("진행 중인 AS 접수는 삭제할 수 없습니다. 먼저 완료·종료·취소 처리하세요.");
     }
     return this.prisma.repairOrder.delete({ where: { id } });
   }

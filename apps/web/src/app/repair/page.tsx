@@ -8,9 +8,10 @@ import FilterableSelect from "@/components/FilterableSelect";
 
 const STATUS_LABELS: Record<string, string> = {
   RECEIVED: "접수", INSPECTING_1ST: "1차점검", QUOTED: "견적발행",
-  APPROVED: "승인", REPAIRING: "수리중", SHIPPED_TO_MFG: "제조사발송",
-  RECEIVED_FROM_MFG: "제조사입고", INSPECTING_2ND: "2차점검",
-  COMPLETED: "완료", CLOSED: "종료", CANCELLED: "취소",
+  APPROVED: "승인", REPAIRING: "수리중", SHIPPED_TO_MFG: "제조사로 발송",
+  RECEIVED_FROM_MFG: "본사 입고", INSPECTING_2ND: "2차점검",
+  COMPLETED: "완료", NO_FAULT: "정상", NO_REPAIR: "수리안함",
+  CLOSED: "종료", CANCELLED: "취소",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -39,8 +40,9 @@ const FILTER_GROUPS = [
   { key: "", label: "전체" },
   { key: "received", label: "접수" },
   { key: "inspecting", label: "점검중" },
-  { key: "repairing", label: "수리중" },
-  { key: "manufacturer", label: "제조사" },
+  { key: "repairing", label: "본사수리중" },
+  { key: "manufacturer", label: "제조사수리중" },
+  { key: "received_from_mfg", label: "본사입고" },
   { key: "completed", label: "완료" },
 ];
 

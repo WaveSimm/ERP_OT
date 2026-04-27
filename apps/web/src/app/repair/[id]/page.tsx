@@ -6,9 +6,10 @@ import { repairApi, getUser } from "@/lib/api";
 
 const STATUS_LABELS: Record<string, string> = {
   RECEIVED: "접수", INSPECTING_1ST: "1차점검", QUOTED: "견적발행",
-  APPROVED: "승인", REPAIRING: "수리중", SHIPPED_TO_MFG: "제조사발송",
-  RECEIVED_FROM_MFG: "제조사입고", INSPECTING_2ND: "2차점검",
-  COMPLETED: "완료", CLOSED: "종료", CANCELLED: "취소",
+  APPROVED: "승인", REPAIRING: "수리중", SHIPPED_TO_MFG: "제조사로 발송",
+  RECEIVED_FROM_MFG: "본사 입고", INSPECTING_2ND: "2차점검",
+  COMPLETED: "완료", NO_FAULT: "정상", NO_REPAIR: "수리안함",
+  CLOSED: "종료", CANCELLED: "취소",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -29,6 +30,38 @@ const STATUS_FLOW = [
   "RECEIVED", "INSPECTING_1ST", "QUOTED", "APPROVED", "REPAIRING",
   "SHIPPED_TO_MFG", "RECEIVED_FROM_MFG", "INSPECTING_2ND", "COMPLETED", "CLOSED",
 ];
+
+// decision 라벨 (InspectionTab·checkDecisionMismatch 공용)
+const DECISION_LABEL_MAP: Record<string, string> = {
+  IN_HOUSE_REPAIR: "본사수리",
+  SEND_TO_MFG: "제조사발송",
+  NORMAL: "정상",
+  KEEP_AS_IS: "수리안함",
+};
+
+// 판단(decision)별 기대 전이 상태 매핑
+const DECISION_EXPECTED_STATUSES: Record<string, string[]> = {
+  IN_HOUSE_REPAIR: ["QUOTED", "APPROVED", "REPAIRING", "COMPLETED"],
+  SEND_TO_MFG:     ["SHIPPED_TO_MFG"],
+  NORMAL:          ["NO_FAULT"],
+  KEEP_AS_IS:      ["NO_REPAIR"],
+};
+
+// 현재 AS 상태와 전이 대상 기준으로 decision 불일치를 검사.
+// 불일치 메시지 반환, 일치 또는 검증 대상 아님 시 null.
+function checkDecisionMismatch(order: any, targetStatus: string): string | null {
+  if (!order) return null;
+  // 1차 판단 체크 구간
+  const usePhase = (order.status === "INSPECTING_2ND" || order.status === "RECEIVED_FROM_MFG")
+    ? 2
+    : (order.status === "INSPECTING_1ST" ? 1 : null);
+  if (!usePhase) return null;
+  const decision = usePhase === 2 ? order.decision2nd : order.decision1st;
+  if (!decision) return null;
+  const expected = DECISION_EXPECTED_STATUSES[decision] || [];
+  if (expected.includes(targetStatus)) return null;
+  return `${usePhase}차 판단은 '${DECISION_LABEL_MAP[decision]}'인데 '${STATUS_LABELS[targetStatus] || targetStatus}'(으)로 진행합니다.`;
+}
 
 const COST_LABELS: Record<string, string> = {
   DIRECT_EXPENSE: "직접경비", LABOR: "공수", OVERSEAS_SHIPPING: "해외발송비", PARTS: "부품비", OTHER: "기타",
@@ -89,7 +122,13 @@ export default function RepairOrderDetailPage() {
   useEffect(() => { load(); }, [load]);
 
   const changeStatus = async (status: string) => {
-    if (!confirm(`상태를 "${STATUS_LABELS[status]}"(으)로 변경하시겠습니까?`)) return;
+    // 판단(decision)과 전이 대상의 일치 확인 — 불일치 시 경고
+    const mismatch = checkDecisionMismatch(order, status);
+    if (mismatch) {
+      if (!confirm(`${mismatch}\n\n그래도 "${STATUS_LABELS[status]}"(으)로 진행하시겠습니까?`)) return;
+    } else {
+      if (!confirm(`상태를 "${STATUS_LABELS[status]}"(으)로 변경하시겠습니까?`)) return;
+    }
     setSaving(true);
     try {
       await repairApi.changeStatus(id, { status });
@@ -254,6 +293,7 @@ function InfoTab({ order, onReload }: { order: any; onReload: () => Promise<void
     symptom: order.symptom || "",
     notes: order.notes || "",
     otInventoryNo: order.otInventoryNo || "",
+    receivedAt: order.receivedAt ? new Date(order.receivedAt).toISOString().slice(0, 10) : "",
   });
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -279,6 +319,7 @@ function InfoTab({ order, onReload }: { order: any; onReload: () => Promise<void
         symptom: form.symptom || null,
         notes: form.notes || null,
         otInventoryNo: form.otInventoryNo || null,
+        receivedAt: form.receivedAt || null,
       });
       setDirty(false);
       await onReload();
@@ -361,8 +402,23 @@ function InfoTab({ order, onReload }: { order: any; onReload: () => Promise<void
           <input type="text" value={form.receivedBy} onChange={(e) => set("receivedBy", e.target.value)}
             className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
         </div>
-        {/* 접수일 (읽기전용) */}
-        <Field label="접수일" value={new Date(order.receivedAt).toLocaleDateString("ko-KR")} />
+        {/* 접수일 */}
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">접수일</label>
+          <input type="date" value={form.receivedAt}
+            min="2000-01-01" max="2099-12-31"
+            onChange={(e) => {
+              const v = e.target.value;
+              // 브라우저가 5~6자리 연도 허용하는 경우 방어: YYYY-MM-DD에서 연도 4자리로 trim
+              const m = v.match(/^(\d{4,6})(-\d{2}-\d{2})$/);
+              if (m && m[1].length > 4) {
+                set("receivedAt", m[1].slice(0, 4) + m[2]);
+              } else {
+                set("receivedAt", v);
+              }
+            }}
+            className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+        </div>
         {/* 담당자 */}
         <div>
           <label className="block text-xs text-gray-500 mb-1">담당자</label>
@@ -413,10 +469,41 @@ function Field({ label, value }: { label: string; value: string }) {
 
 // ─── 점검 탭 ─────────────────────────────────────────────────────────────
 
+const DECISION_OPTIONS: { value: string; label: string }[] = [
+  { value: "IN_HOUSE_REPAIR", label: "본사수리" },
+  { value: "SEND_TO_MFG",     label: "제조사발송" },
+  { value: "NORMAL",          label: "정상" },
+  { value: "KEEP_AS_IS",      label: "수리안함" },
+];
+
+function DecisionRadio({ name, value, onChange, disabled }: {
+  name: string; value: string | null | undefined; onChange: (v: string) => void; disabled?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-4 flex-wrap">
+      {DECISION_OPTIONS.map((o) => (
+        <label key={o.value} className="flex items-center gap-1.5 text-sm">
+          <input type="radio" name={name} value={o.value}
+            checked={value === o.value}
+            onChange={() => onChange(o.value)}
+            disabled={disabled}
+            className="border-gray-300" />
+          {o.label}
+        </label>
+      ))}
+    </div>
+  );
+}
+
 function InspectionTab({ order, onUpdate, onReload }: { order: any; onUpdate: (f: string, v: any) => void; onReload: () => void }) {
   const [d1, setD1] = useState(order.diagnosis1st || "");
   const [d2, setD2] = useState(order.diagnosis2nd || "");
   const [details, setDetails] = useState(order.repairDetails || "");
+  const [decision1st, setDecision1st] = useState<string>(order.decision1st || "");
+  const [decision1stReason, setDecision1stReason] = useState(order.decision1stReason || "");
+  const [decision2nd, setDecision2nd] = useState<string>(order.decision2nd || "");
+  const [decision2ndReason, setDecision2ndReason] = useState(order.decision2ndReason || "");
+  const [mfgRefNo, setMfgRefNo] = useState(order.mfgReferenceNo || "");
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
@@ -426,6 +513,11 @@ function InspectionTab({ order, onUpdate, onReload }: { order: any; onUpdate: (f
         diagnosis1st: d1 || null,
         diagnosis2nd: d2 || null,
         repairDetails: details || null,
+        decision1st: decision1st || null,
+        decision1stReason: decision1stReason || null,
+        decision2nd: decision2nd || null,
+        decision2ndReason: decision2ndReason || null,
+        mfgReferenceNo: mfgRefNo || null,
       });
       await onReload();
     } catch (e: any) {
@@ -436,6 +528,7 @@ function InspectionTab({ order, onUpdate, onReload }: { order: any; onUpdate: (f
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
+      {/* 1차 점검 */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">1차 점검소견</label>
         <textarea value={d1} onChange={(e) => setD1(e.target.value)} rows={3}
@@ -443,20 +536,18 @@ function InspectionTab({ order, onUpdate, onReload }: { order: any; onUpdate: (f
         <span className="text-xs text-gray-500">점검자: {order.inspector1stName || "-"}</span>
       </div>
 
-      <div className="flex items-center gap-4">
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={order.needsMfgRepair}
-            onChange={(e) => onUpdate("needsMfgRepair", e.target.checked)}
-            className="rounded border-gray-300" />
-          제조사 수리 필요
-        </label>
-        {order.needsMfgRepair && (
-          <input type="text" defaultValue={order.mfgReferenceNo || ""} placeholder="Maker Reference No."
-            onBlur={(e) => onUpdate("mfgReferenceNo", e.target.value)}
-            className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+      <div className="bg-blue-50/30 border border-blue-100 rounded-lg p-3 space-y-2">
+        <label className="block text-sm font-medium text-gray-700">1차 판단 <span className="text-red-500">*</span></label>
+        <DecisionRadio name="decision1st" value={decision1st} onChange={setDecision1st} />
+        <input value={decision1stReason} onChange={(e) => setDecision1stReason(e.target.value)}
+          placeholder="판단 사유(선택)" className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+        {decision1st === "SEND_TO_MFG" && (
+          <input value={mfgRefNo} onChange={(e) => setMfgRefNo(e.target.value)}
+            placeholder="Maker Reference No." className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
         )}
       </div>
 
+      {/* 2차 점검 */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">2차 점검소견 (제조사 수리 후)</label>
         <textarea value={d2} onChange={(e) => setD2(e.target.value)} rows={3}
@@ -464,6 +555,14 @@ function InspectionTab({ order, onUpdate, onReload }: { order: any; onUpdate: (f
         <span className="text-xs text-gray-500">점검자: {order.inspector2ndName || "-"}</span>
       </div>
 
+      <div className="bg-blue-50/30 border border-blue-100 rounded-lg p-3 space-y-2">
+        <label className="block text-sm font-medium text-gray-700">2차 판단</label>
+        <DecisionRadio name="decision2nd" value={decision2nd} onChange={setDecision2nd} />
+        <input value={decision2ndReason} onChange={(e) => setDecision2ndReason(e.target.value)}
+          placeholder="판단 사유(선택)" className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+      </div>
+
+      {/* 수리 내용 */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">수리 내용</label>
         <textarea value={details} onChange={(e) => setDetails(e.target.value)} rows={3}
@@ -853,28 +952,44 @@ function CostTab({ order, onReload }: { order: any; onReload: () => void }) {
 
 // ─── 제조사 탭 (Phase 5) ────────────────────────────────────────────────
 
+const SHIPMENT_STATUS_LABEL: Record<string, string> = {
+  PREPARING: "준비중", SHIPPED: "발송완료", IN_TRANSIT: "운송중", DELIVERED: "배송중",
+};
+// "수령"은 도착일(receivedAt)이 실제로 기록된 경우에만 표시.
+// DELIVERED인데 도착일이 없으면 수령 미확인 → "배송중"으로 표시.
+const shipmentStatusLabel = (s: any) => {
+  if (s.status === "DELIVERED") {
+    if (s.receivedAt) {
+      return s.direction === "OUTBOUND" ? "제조사 수령" : "본사 수령";
+    }
+    return "배송중";
+  }
+  return SHIPMENT_STATUS_LABEL[s.status] || s.status;
+};
+
 function ManufacturerTab({ order, onReload }: { order: any; onReload: () => void }) {
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ direction: "OUTBOUND", carrier: "", trackingNumber: "", notes: "" });
+  const [form, setForm] = useState({ direction: "OUTBOUND", rmaNumber: "", carrier: "", trackingNumber: "", shippedAt: "", receivedAt: "", notes: "" });
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
     setSaving(true);
     try {
-      await repairApi.createShipment({ repairOrderId: order.id, ...form });
+      await repairApi.createShipment({
+        repairOrderId: order.id,
+        direction: form.direction,
+        rmaNumber: form.rmaNumber || undefined,
+        carrier: form.carrier || undefined,
+        trackingNumber: form.trackingNumber || undefined,
+        shippedAt: form.shippedAt || undefined,
+        receivedAt: form.receivedAt || undefined,
+        notes: form.notes || undefined,
+      });
       await onReload();
       setShowForm(false);
-      setForm({ direction: "OUTBOUND", carrier: "", trackingNumber: "", notes: "" });
+      setForm({ direction: "OUTBOUND", rmaNumber: "", carrier: "", trackingNumber: "", shippedAt: "", receivedAt: "", notes: "" });
     } catch (e: any) { alert(e.message || "저장 실패"); }
     setSaving(false);
-  };
-
-  const changeShipmentStatus = async (shipmentId: string, status: string) => {
-    try { await repairApi.changeShipmentStatus(shipmentId, { status }); await onReload(); } catch (e: any) { alert(e.message || "실패"); }
-  };
-
-  const SHIPMENT_STATUS: Record<string, string> = {
-    PREPARING: "준비중", SHIPPED: "발송완료", IN_TRANSIT: "운송중", DELIVERED: "수령완료",
   };
 
   return (
@@ -887,16 +1002,24 @@ function ManufacturerTab({ order, onReload }: { order: any; onReload: () => void
 
       {showForm && (
         <div className="border border-blue-100 rounded-lg p-3 mb-3 bg-blue-50/30 space-y-2">
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             <select value={form.direction} onChange={(e) => setForm({ ...form, direction: e.target.value })}
               className="px-2 py-1.5 border border-gray-300 rounded text-sm">
-              <option value="OUTBOUND">발송 (자사→제조사)</option>
-              <option value="INBOUND">입고 (제조사→자사)</option>
+              <option value="OUTBOUND">제조사로 발송</option>
+              <option value="INBOUND">본사 입고</option>
             </select>
+            <input value={form.rmaNumber} onChange={(e) => setForm({ ...form, rmaNumber: e.target.value })}
+              placeholder="RMA No." className="px-2 py-1.5 border border-gray-300 rounded text-sm" />
             <input value={form.carrier} onChange={(e) => setForm({ ...form, carrier: e.target.value })}
               placeholder="운송사" className="px-2 py-1.5 border border-gray-300 rounded text-sm" />
             <input value={form.trackingNumber} onChange={(e) => setForm({ ...form, trackingNumber: e.target.value })}
               placeholder="운송장번호" className="px-2 py-1.5 border border-gray-300 rounded text-sm" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <input type="date" value={form.shippedAt} onChange={(e) => setForm({ ...form, shippedAt: e.target.value })}
+              className="px-2 py-1.5 border border-gray-300 rounded text-sm" title="발송일" />
+            <input type="date" value={form.receivedAt} onChange={(e) => setForm({ ...form, receivedAt: e.target.value })}
+              className="px-2 py-1.5 border border-gray-300 rounded text-sm" title="도착일" />
           </div>
           <div className="flex gap-2">
             <input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })}
@@ -910,41 +1033,18 @@ function ManufacturerTab({ order, onReload }: { order: any; onReload: () => void
       {order.shipments?.length > 0 ? (
         <div className="space-y-3">
           {order.shipments.map((s: any) => (
-            <div key={s.id} className="border border-gray-100 rounded-lg p-3">
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                    s.direction === "OUTBOUND" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"
-                  }`}>
-                    {s.direction === "OUTBOUND" ? "발송" : "입고"}
-                  </span>
-                  <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">
-                    {SHIPMENT_STATUS[s.status] || s.status}
-                  </span>
-                </div>
-                <div className="flex gap-1">
-                  {s.status === "PREPARING" && (
-                    <button onClick={() => changeShipmentStatus(s.id, "SHIPPED")} className="text-xs text-blue-600 hover:underline">발송완료</button>
-                  )}
-                  {s.status === "SHIPPED" && (
-                    <button onClick={() => changeShipmentStatus(s.id, "DELIVERED")} className="text-xs text-green-600 hover:underline">수령완료</button>
-                  )}
-                  {s.status === "IN_TRANSIT" && (
-                    <button onClick={() => changeShipmentStatus(s.id, "DELIVERED")} className="text-xs text-green-600 hover:underline">수령완료</button>
-                  )}
-                </div>
-              </div>
-              {s.carrier && <p className="text-sm text-gray-700">운송사: {s.carrier}</p>}
-              {s.trackingNumber && <p className="text-sm text-gray-700">운송장: {s.trackingNumber}</p>}
-              {s.shippedAt && <p className="text-xs text-gray-500">발송일: {new Date(s.shippedAt).toLocaleDateString("ko-KR")}</p>}
-              {s.receivedAt && <p className="text-xs text-gray-500">입고일: {new Date(s.receivedAt).toLocaleDateString("ko-KR")}</p>}
-              {s.notes && <p className="text-xs text-gray-400 mt-1">{s.notes}</p>}
-            </div>
+            <ShipmentCard key={s.id} s={s} onReload={onReload} />
           ))}
         </div>
       ) : (
         <p className="text-sm text-gray-400">제조사 발송/입고 이력이 없습니다.</p>
       )}
+
+      {/* 견적·발주 카드 */}
+      <div className="mt-4 space-y-3">
+        <MfgQuoteCard order={order} onReload={onReload} />
+        <MfgPoCard order={order} onReload={onReload} />
+      </div>
 
       {order.mfgReferenceNo && (
         <div className="mt-4 p-3 bg-gray-50 rounded-lg">
@@ -952,6 +1052,332 @@ function ManufacturerTab({ order, onReload }: { order: any; onReload: () => void
           <p className="text-sm font-medium">{order.mfgReferenceNo}</p>
         </div>
       )}
+    </div>
+  );
+}
+
+function MfgQuoteCard({ order, onReload }: { order: any; onReload: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const makeForm = () => ({
+    mfgQuoteNumber: order.mfgQuoteNumber || "",
+    mfgQuoteAmount: order.mfgQuoteAmount != null ? String(order.mfgQuoteAmount) : "",
+    mfgQuoteCurrency: order.mfgQuoteCurrency || "KRW",
+    quoteReceivedAt: toDateInput(order.quoteReceivedAt),
+    quoteApprovedAt: toDateInput(order.quoteApprovedAt),
+  });
+  const [form, setForm] = useState(makeForm);
+  const [saving, setSaving] = useState(false);
+
+  const cancel = () => { setForm(makeForm()); setEditing(false); };
+  const save = async () => {
+    setSaving(true);
+    try {
+      await repairApi.updateRepairOrder(order.id, {
+        mfgQuoteNumber: form.mfgQuoteNumber || null,
+        mfgQuoteAmount: form.mfgQuoteAmount !== "" ? Number(form.mfgQuoteAmount) : null,
+        mfgQuoteCurrency: form.mfgQuoteCurrency || null,
+        quoteReceivedAt: form.quoteReceivedAt || null,
+        quoteApprovedAt: form.quoteApprovedAt || null,
+      });
+      setEditing(false);
+      await onReload();
+    } catch (e: any) { alert(e.message || "저장 실패"); }
+    setSaving(false);
+  };
+
+  const fmtAmount = (v: any, c: string | null | undefined) => {
+    if (v == null) return "-";
+    const sym: Record<string, string> = { KRW: "₩", USD: "$", EUR: "€", JPY: "¥", GBP: "£" };
+    return (sym[c || "KRW"] || (c ? c + " " : "")) + Number(v).toLocaleString("ko-KR");
+  };
+
+  return (
+    <div className="border border-gray-100 rounded-lg p-3">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs px-2 py-0.5 rounded font-medium bg-indigo-100 text-indigo-700 whitespace-nowrap">견적 (제조사)</span>
+        <div className="flex gap-2">
+          {!editing ? (
+            <button onClick={() => setEditing(true)} className="text-xs text-gray-400 hover:text-blue-600">수정</button>
+          ) : (
+            <>
+              <button onClick={cancel} className="text-xs text-gray-500 hover:underline">취소</button>
+              <button onClick={save} disabled={saving}
+                className="px-2 py-0.5 bg-blue-600 text-white rounded text-xs font-semibold disabled:opacity-50">저장</button>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+        <ShipField label="견적번호"
+          value={order.mfgQuoteNumber}
+          editing={editing}
+          input={<input value={form.mfgQuoteNumber} onChange={(e) => setForm({ ...form, mfgQuoteNumber: e.target.value })}
+            className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />}
+        />
+        <ShipField label="수신일"
+          value={fmtDate(order.quoteReceivedAt)}
+          editing={editing}
+          input={<input type="date" value={form.quoteReceivedAt} onChange={(e) => setForm({ ...form, quoteReceivedAt: e.target.value })}
+            className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />}
+        />
+        <ShipField label="금액"
+          value={fmtAmount(order.mfgQuoteAmount, order.mfgQuoteCurrency)}
+          editing={editing}
+          input={<div className="flex gap-1">
+            <input type="number" value={form.mfgQuoteAmount} onChange={(e) => setForm({ ...form, mfgQuoteAmount: e.target.value })}
+              className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm" placeholder="금액" />
+            <select value={form.mfgQuoteCurrency} onChange={(e) => setForm({ ...form, mfgQuoteCurrency: e.target.value })}
+              className="px-2 py-1 border border-gray-300 rounded text-sm">
+              <option value="KRW">KRW</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="JPY">JPY</option>
+              <option value="GBP">GBP</option>
+            </select>
+          </div>}
+        />
+        <ShipField label="확정일"
+          value={fmtDate(order.quoteApprovedAt)}
+          editing={editing}
+          input={<input type="date" value={form.quoteApprovedAt} onChange={(e) => setForm({ ...form, quoteApprovedAt: e.target.value })}
+            className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />}
+        />
+      </div>
+    </div>
+  );
+}
+
+function MfgPoCard({ order, onReload }: { order: any; onReload: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const makeForm = () => ({
+    mfgPoNumber: order.mfgPoNumber || "",
+    mfgPoAmount: order.mfgPoAmount != null ? String(order.mfgPoAmount) : "",
+    mfgPoCurrency: order.mfgPoCurrency || "KRW",
+    poIssuedAt: toDateInput(order.poIssuedAt),
+  });
+  const [form, setForm] = useState(makeForm);
+  const [saving, setSaving] = useState(false);
+
+  const cancel = () => { setForm(makeForm()); setEditing(false); };
+  const save = async () => {
+    setSaving(true);
+    try {
+      await repairApi.updateRepairOrder(order.id, {
+        mfgPoNumber: form.mfgPoNumber || null,
+        mfgPoAmount: form.mfgPoAmount !== "" ? Number(form.mfgPoAmount) : null,
+        mfgPoCurrency: form.mfgPoCurrency || null,
+        poIssuedAt: form.poIssuedAt || null,
+      });
+      setEditing(false);
+      await onReload();
+    } catch (e: any) { alert(e.message || "저장 실패"); }
+    setSaving(false);
+  };
+
+  const fmtAmount = (v: any, c: string | null | undefined) => {
+    if (v == null) return "-";
+    const sym: Record<string, string> = { KRW: "₩", USD: "$", EUR: "€", JPY: "¥", GBP: "£" };
+    return (sym[c || "KRW"] || (c ? c + " " : "")) + Number(v).toLocaleString("ko-KR");
+  };
+
+  return (
+    <div className="border border-gray-100 rounded-lg p-3">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs px-2 py-0.5 rounded font-medium bg-teal-100 text-teal-700 whitespace-nowrap">발주 (제조사)</span>
+        <div className="flex gap-2">
+          {!editing ? (
+            <button onClick={() => setEditing(true)} className="text-xs text-gray-400 hover:text-blue-600">수정</button>
+          ) : (
+            <>
+              <button onClick={cancel} className="text-xs text-gray-500 hover:underline">취소</button>
+              <button onClick={save} disabled={saving}
+                className="px-2 py-0.5 bg-blue-600 text-white rounded text-xs font-semibold disabled:opacity-50">저장</button>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+        <ShipField label="발주번호"
+          value={order.mfgPoNumber}
+          editing={editing}
+          input={<input value={form.mfgPoNumber} onChange={(e) => setForm({ ...form, mfgPoNumber: e.target.value })}
+            className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />}
+        />
+        <ShipField label="발행일"
+          value={fmtDate(order.poIssuedAt)}
+          editing={editing}
+          input={<input type="date" value={form.poIssuedAt} onChange={(e) => setForm({ ...form, poIssuedAt: e.target.value })}
+            className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />}
+        />
+        <ShipField label="금액"
+          value={fmtAmount(order.mfgPoAmount, order.mfgPoCurrency)}
+          editing={editing}
+          input={<div className="flex gap-1">
+            <input type="number" value={form.mfgPoAmount} onChange={(e) => setForm({ ...form, mfgPoAmount: e.target.value })}
+              className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm" placeholder="금액" />
+            <select value={form.mfgPoCurrency} onChange={(e) => setForm({ ...form, mfgPoCurrency: e.target.value })}
+              className="px-2 py-1 border border-gray-300 rounded text-sm">
+              <option value="KRW">KRW</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="JPY">JPY</option>
+              <option value="GBP">GBP</option>
+            </select>
+          </div>}
+        />
+      </div>
+    </div>
+  );
+}
+
+function fmtDate(d: string | null | undefined) {
+  return d ? new Date(d).toLocaleDateString("ko-KR") : "-";
+}
+function toDateInput(d: string | null | undefined) {
+  return d ? new Date(d).toISOString().slice(0, 10) : "";
+}
+
+function ShipmentCard({ s, onReload }: { s: any; onReload: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const makeForm = () => ({
+    rmaNumber: s.rmaNumber || "",
+    carrier: s.carrier || "",
+    trackingNumber: s.trackingNumber || "",
+    shippedAt: toDateInput(s.shippedAt),
+    receivedAt: toDateInput(s.receivedAt),
+    notes: s.notes || "",
+  });
+  const [form, setForm] = useState(makeForm);
+  const [saving, setSaving] = useState(false);
+
+  const cancel = () => {
+    setForm(makeForm());
+    setEditing(false);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await repairApi.updateShipment(s.id, {
+        rmaNumber: form.rmaNumber || null,
+        carrier: form.carrier || null,
+        trackingNumber: form.trackingNumber || null,
+        shippedAt: form.shippedAt || null,
+        receivedAt: form.receivedAt || null,
+        notes: form.notes || null,
+      });
+      setEditing(false);
+      await onReload();
+    } catch (e: any) { alert(e.message || "저장 실패"); }
+    setSaving(false);
+  };
+
+  const del = async () => {
+    if (!confirm("이 발송/입고 기록을 삭제하시겠습니까?")) return;
+    try {
+      await repairApi.deleteShipment(s.id);
+      await onReload();
+    } catch (e: any) { alert(e.message || "삭제 실패"); }
+  };
+
+  const changeStatus = async (status: string) => {
+    try { await repairApi.changeShipmentStatus(s.id, { status }); await onReload(); } catch (e: any) { alert(e.message || "실패"); }
+  };
+
+  return (
+    <div className="border border-gray-100 rounded-lg p-3">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <span className={`text-xs px-2 py-0.5 rounded font-medium whitespace-nowrap ${
+            s.direction === "OUTBOUND" ? "bg-orange-100 text-orange-700" : "bg-green-100 text-green-700"
+          }`}>
+            {s.direction === "OUTBOUND" ? "제조사로 발송" : "본사 입고"}
+          </span>
+          <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600 whitespace-nowrap">
+            {shipmentStatusLabel(s)}
+          </span>
+        </div>
+        <div className="flex gap-2 items-center">
+          {!editing && s.status === "PREPARING" && (
+            <button onClick={() => changeStatus("SHIPPED")} className="text-xs text-blue-600 hover:underline">발송완료</button>
+          )}
+          {!editing && s.status === "SHIPPED" && (
+            <button onClick={() => changeStatus("DELIVERED")} className="text-xs text-green-600 hover:underline">수령완료</button>
+          )}
+          {!editing && s.status === "IN_TRANSIT" && (
+            <button onClick={() => changeStatus("DELIVERED")} className="text-xs text-green-600 hover:underline">수령완료</button>
+          )}
+          {!editing ? (
+            <>
+              <button onClick={() => setEditing(true)} className="text-xs text-gray-400 hover:text-blue-600">수정</button>
+              <button onClick={del} className="text-xs text-gray-400 hover:text-red-600">삭제</button>
+            </>
+          ) : (
+            <>
+              <button onClick={cancel} className="text-xs text-gray-500 hover:underline">취소</button>
+              <button onClick={save} disabled={saving} className="px-2 py-0.5 bg-blue-600 text-white rounded text-xs font-semibold disabled:opacity-50">저장</button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+        {/* 1줄: RMA No. / 운송사 / 운송장번호 */}
+        <ShipField label="RMA No."
+          value={s.rmaNumber}
+          editing={editing}
+          input={<input value={form.rmaNumber} onChange={(e) => setForm({ ...form, rmaNumber: e.target.value })}
+            className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />}
+        />
+        <ShipField label="운송사"
+          value={s.carrier}
+          editing={editing}
+          input={<input value={form.carrier} onChange={(e) => setForm({ ...form, carrier: e.target.value })}
+            className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />}
+        />
+        <ShipField label="운송장번호"
+          value={s.trackingNumber}
+          editing={editing}
+          input={<input value={form.trackingNumber} onChange={(e) => setForm({ ...form, trackingNumber: e.target.value })}
+            className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />}
+        />
+        {/* 2줄: 발송일 / 도착일 / (빈칸) */}
+        <ShipField label="발송일"
+          value={fmtDate(s.shippedAt)}
+          editing={editing}
+          input={<input type="date" value={form.shippedAt} onChange={(e) => setForm({ ...form, shippedAt: e.target.value })}
+            className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />}
+        />
+        <ShipField label="도착일"
+          value={fmtDate(s.receivedAt)}
+          editing={editing}
+          input={<input type="date" value={form.receivedAt} onChange={(e) => setForm({ ...form, receivedAt: e.target.value })}
+            className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />}
+        />
+        <div className="hidden md:block" />
+        {/* 3줄: 비고 (전체 폭) */}
+        <div className="md:col-span-3">
+          <ShipField label="비고"
+            value={s.notes}
+            editing={editing}
+            input={<input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ShipField({ label, value, editing, input }: {
+  label: string; value?: any; editing: boolean; input: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start gap-2">
+      <span className="text-xs text-gray-500 w-20 shrink-0 pt-1">{label}</span>
+      <div className="flex-1 min-w-0">
+        {editing ? input : <span className="text-sm text-gray-700 break-all">{value || "-"}</span>}
+      </div>
     </div>
   );
 }
@@ -972,11 +1398,12 @@ function HistoryTab({ order }: { order: any }) {
           <h4 className="text-xs font-semibold text-gray-500 mb-2">발송/입고</h4>
           {order.shipments.map((s: any) => (
             <div key={s.id} className="flex items-center gap-2 text-xs text-gray-600 mb-1">
-              <span className={s.direction === "OUTBOUND" ? "text-orange-600" : "text-green-600"}>
-                {s.direction === "OUTBOUND" ? "발송" : "입고"}
+              <span className={`whitespace-nowrap ${s.direction === "OUTBOUND" ? "text-orange-600" : "text-green-600"}`}>
+                {s.direction === "OUTBOUND" ? "제조사로 발송" : "본사 입고"}
               </span>
-              <span>{s.status}</span>
+              <span className="whitespace-nowrap">{shipmentStatusLabel(s)}</span>
               {s.shippedAt && <span>{new Date(s.shippedAt).toLocaleDateString("ko-KR")}</span>}
+              {!s.shippedAt && s.receivedAt && <span>{new Date(s.receivedAt).toLocaleDateString("ko-KR")}</span>}
             </div>
           ))}
         </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { supplierApi } from "@/lib/api";
 
 const PAGE_SIZE = 50;
@@ -9,6 +9,8 @@ const PAGE_SIZE = 50;
 export default function SuppliersPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const basePath = pathname.startsWith("/repair") ? "/repair/suppliers" : "/procurement/suppliers";
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -87,7 +89,7 @@ export default function SuppliersPage() {
             ) : suppliers.length === 0 ? (
               <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">등록된 제조사가 없습니다.</td></tr>
             ) : suppliers.map((s) => (
-              <tr key={s.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/procurement/suppliers/${s.id}`)}>
+              <tr key={s.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`${basePath}/${s.id}`)}>
                 <td className="px-4 py-2.5 font-medium text-blue-600 truncate" title={s.name}>{s.name}</td>
                 <td className="px-4 py-2.5 text-gray-500">{s.country || "-"}</td>
                 <td className="px-4 py-2.5 text-gray-500 truncate">{s.contactName || "-"}</td>

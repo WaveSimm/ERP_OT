@@ -1,0 +1,161 @@
+{
+  "박정은": {
+    "id": "migusr_3325223c9d05097b0fe3",
+    "kind": "NEW",
+    "targetName": "박정은"
+  },
+  "이학용": {
+    "id": "cmmyo00290004brnhi2vr0mi8",
+    "kind": "EXACT",
+    "targetName": "이학용"
+  },
+  "하선종": {
+    "id": "cmmyo00260003brnh03lddugq",
+    "kind": "EXACT",
+    "targetName": "하선종"
+  },
+  "현지윤": {
+    "id": "cmmyo002c0005brnhus6d2xf8",
+    "kind": "EXACT",
+    "targetName": "현지윤"
+  },
+  "박우영": {
+    "id": "migusr_2d33cdd12560ecc60ab2",
+    "kind": "NEW",
+    "targetName": "박우영"
+  },
+  "이은경": {
+    "id": "cmmyo004w001bbrnhe5tyixgb",
+    "kind": "EXACT",
+    "targetName": "이은경"
+  },
+  "오원진": {
+    "id": "cmmyo002g0007brnh2ao5xsif",
+    "kind": "EXACT",
+    "targetName": "오원진"
+  },
+  "신용은": {
+    "id": "cmmyo003c000lbrnhj2ucrfnq",
+    "kind": "EXACT",
+    "targetName": "신용은"
+  },
+  "문홍배": {
+    "id": "cmmyo00240002brnh6x1ejhg9",
+    "kind": "EXACT",
+    "targetName": "문홍배"
+  },
+  "이재윤": {
+    "id": "migusr_ec424fc3595c82da9f23",
+    "kind": "NEW",
+    "targetName": "이재윤"
+  },
+  "심윤송": {
+    "id": "cmmwxaxyv000aztfb56tc78ah",
+    "kind": "EXACT",
+    "targetName": "심윤송"
+  },
+  "강경민": {
+    "id": "migusr_e2fc34fbba94175ce75b",
+    "kind": "NEW",
+    "targetName": "강경민"
+  },
+  "권오승": {
+    "id": "cmmyo004m0016brnhgnx83w3g",
+    "kind": "EXACT",
+    "targetName": "권오승"
+  },
+  "이학용(하선종)": {
+    "id": "cmmyo00290004brnhi2vr0mi8",
+    "kind": "SUBSTR_A",
+    "targetName": "이학용"
+  },
+  "이학용/박정은": {
+    "id": "cmmyo00290004brnhi2vr0mi8",
+    "kind": "SUBSTR_A",
+    "targetName": "이학용"
+  },
+  "김주연": {
+    "id": "cmmyo004b0011brnhpdbte6rp",
+    "kind": "EXACT",
+    "targetName": "김주연"
+  },
+  "홍다운": {
+    "id": "cmochintp0016cjo8wlqkmq1h",
+    "kind": "NEW",
+    "targetName": "홍다운"
+  },
+  "황규하": {
+    "id": "cmmyo003r000sbrnhwq0hdini",
+    "kind": "EXACT",
+    "targetName": "황규하"
+  },
+  "김진수": {
+    "id": "cmmyo0033000hbrnhy24ky3kj",
+    "kind": "EXACT",
+    "targetName": "김진수"
+  },
+  "이학용(오원진)": {
+    "id": "cmmyo00290004brnhi2vr0mi8",
+    "kind": "SUBSTR_A",
+    "targetName": "이학용"
+  },
+  "강성화": {
+    "id": "cmmyo002e0006brnhoxx8094v",
+    "kind": "EXACT",
+    "targetName": "강성화"
+  },
+  "김창온": {
+    "id": "cmmyo004s0019brnhy3h8h571",
+    "kind": "EXACT",
+    "targetName": "김창온"
+  },
+  "김재엽": {
+    "id": "cmmyo002l0009brnhacylunbh",
+    "kind": "EXACT",
+    "targetName": "김재엽"
+  },
+  "이학용/오원진": {
+    "id": "cmmyo00290004brnhi2vr0mi8",
+    "kind": "SUBSTR_A",
+    "targetName": "이학용"
+  },
+  "강찬영": {
+    "id": "cmmyo003y000vbrnh0onf4i5o",
+    "kind": "EXACT",
+    "targetName": "강찬영"
+  },
+  "이학용(심윤송)": {
+    "id": "cmmyo00290004brnhi2vr0mi8",
+    "kind": "SUBSTR_A",
+    "targetName": "이학용"
+  },
+  "이기욱": {
+    "id": "cmmyo00200001brnh4hzjcq1y",
+    "kind": "EXACT",
+    "targetName": "이기욱"
+  },
+  "부산지사": {
+    "id": "cmmyo002g0007brnh2ao5xsif",
+    "kind": "MAPPED_SPECIAL",
+    "targetName": "오원진"
+  },
+  "김민준": {
+    "id": "cmmyo004f0013brnh9q98ttsd",
+    "kind": "EXACT",
+    "targetName": "김민준"
+  },
+  "홍": {
+    "id": null,
+    "kind": "IGNORE"
+  },
+  "황유진": {
+    "id": "cmmyo002j0008brnhiz7z2kt7",
+    "kind": "EXACT",
+    "targetName": "황유진"
+  },
+  "송인근": {
+    "id": "cmmyo002w000ebrnhls9ztzlo",
+    "kind": "EXACT",
+    "targetName": "송인근"
+  }
+}

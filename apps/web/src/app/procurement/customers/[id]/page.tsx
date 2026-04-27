@@ -1,24 +1,28 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, usePathname } from "next/navigation";
 import { repairApi, supplierApi } from "@/lib/api";
 import SearchableSelect from "@/components/SearchableSelect";
 
 const STATUS_LABELS: Record<string, string> = {
   RECEIVED: "접수", INSPECTING_1ST: "1차점검", QUOTED: "견적발행", APPROVED: "승인",
-  REPAIRING: "수리중", SHIPPED_TO_MFG: "제조사발송", RECEIVED_FROM_MFG: "제조사입고",
+  REPAIRING: "수리중", SHIPPED_TO_MFG: "제조사로 발송", RECEIVED_FROM_MFG: "본사 입고",
+  NO_FAULT: "정상", NO_REPAIR: "수리안함",
   INSPECTING_2ND: "2차점검", COMPLETED: "완료", CLOSED: "종료", CANCELLED: "취소",
 };
 
 export default function CustomerDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const pathname = usePathname();
+  const basePath = pathname.startsWith("/repair") ? "/repair/customers" : "/procurement/customers";
   const id = params.id as string;
 
   const [customer, setCustomer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showAssetForm, setShowAssetForm] = useState(false);
+  const [editingAsset, setEditingAsset] = useState<any>(null);
   const [showContactForm, setShowContactForm] = useState(false);
   const [editingContact, setEditingContact] = useState<any>(null);
 
@@ -36,7 +40,7 @@ export default function CustomerDetailPage() {
 
   return (
     <div className="space-y-6">
-      <button onClick={() => router.push("/procurement/customers")} className="text-sm text-gray-500 hover:text-gray-700">&larr; 고객사 목록</button>
+      <button onClick={() => router.push(basePath)} className="text-sm text-gray-500 hover:text-gray-700">&larr; 고객사 목록</button>
 
       {/* 회사 대표정보 */}
       <CompanyInfoSection customer={customer} onReload={load} />
@@ -53,14 +57,27 @@ export default function CustomerDetailPage() {
       />
 
       {/* 보유 자산 */}
-      <AssetsSection customer={customer} onAdd={() => setShowAssetForm(true)} />
+      <AssetsSection
+        customer={customer}
+        onAdd={() => { setEditingAsset(null); setShowAssetForm(true); }}
+        onEdit={(a: any) => { setEditingAsset(a); setShowAssetForm(true); }}
+        onDelete={async (assetId: string) => {
+          if (!confirm("자산을 삭제하시겠습니까?")) return;
+          try { await repairApi.deleteCustomerAsset(assetId); load(); } catch (e: any) { alert(e.message || "삭제 실패"); }
+        }}
+      />
 
       {/* AS 이력 */}
       <RepairHistorySection customer={customer} />
 
-      {/* 자산 추가 모달 */}
+      {/* 자산 추가/수정 모달 */}
       {showAssetForm && (
-        <AssetForm customerId={id} onClose={() => setShowAssetForm(false)} onSaved={() => { setShowAssetForm(false); load(); }} />
+        <AssetForm
+          customerId={id}
+          asset={editingAsset}
+          onClose={() => { setShowAssetForm(false); setEditingAsset(null); }}
+          onSaved={() => { setShowAssetForm(false); setEditingAsset(null); load(); }}
+        />
       )}
 
       {/* 담당자 추가/수정 모달 */}
@@ -207,29 +224,38 @@ function ContactsSection({ contacts, onAdd, onEdit, onDelete }: {
       </div>
       {contacts.length > 0 ? (
         <table className="w-full text-sm">
+          <colgroup>
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "16%" }} />
+            <col />
+            <col style={{ width: "11%" }} />
+            <col style={{ width: "16%" }} />
+            <col style={{ width: "6%" }} />
+            <col style={{ width: "8%" }} />
+          </colgroup>
           <thead>
             <tr className="border-b border-gray-200">
               <th className="text-left py-2 text-xs text-gray-500">이름</th>
               <th className="text-left py-2 text-xs text-gray-500">부서</th>
               <th className="text-left py-2 text-xs text-gray-500">직위</th>
-              <th className="text-left py-2 text-xs text-gray-500">전화</th>
+              <th className="text-left py-2 text-xs text-gray-500 whitespace-nowrap">전화</th>
               <th className="text-left py-2 text-xs text-gray-500">이메일</th>
-              <th className="text-center py-2 text-xs text-gray-500">주담당</th>
+              <th className="text-center py-2 text-xs text-gray-500 whitespace-nowrap">주담당</th>
               <th className="text-right py-2 text-xs text-gray-500"></th>
             </tr>
           </thead>
           <tbody>
             {contacts.map((c: any) => (
               <tr key={c.id} className="border-t border-gray-100">
-                <td className="py-2 font-medium">{c.name}</td>
-                <td className="py-2 text-gray-600">{c.department || "-"}</td>
+                <td className="py-2 font-medium break-keep">{c.name}</td>
+                <td className="py-2 text-gray-600 break-keep">{c.department || "-"}</td>
                 <td className="py-2 text-gray-600">{c.position || "-"}</td>
-                <td className="py-2 text-gray-600">{c.phone || "-"}</td>
-                <td className="py-2 text-gray-600">{c.email || "-"}</td>
+                <td className="py-2 text-gray-600 whitespace-nowrap">{c.phone || "-"}</td>
+                <td className="py-2 text-gray-600 break-all">{c.email || "-"}</td>
                 <td className="py-2 text-center">
-                  {c.isPrimary && <span className="inline-block px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[10px] rounded font-medium">주담당</span>}
+                  {c.isPrimary && <span className="inline-block px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[10px] rounded font-medium whitespace-nowrap">주담당</span>}
                 </td>
-                <td className="py-2 text-right">
+                <td className="py-2 text-right whitespace-nowrap">
                   <button onClick={() => onEdit(c)} className="text-xs text-gray-400 hover:text-blue-600 mr-2">수정</button>
                   <button onClick={() => onDelete(c.id)} className="text-xs text-gray-400 hover:text-red-600">삭제</button>
                 </td>
@@ -345,7 +371,12 @@ function ContactForm({ customerId, contact, onClose, onSaved }: {
 
 // ─── 보유 자산 ──────────────────────────────────────────────────────────
 
-function AssetsSection({ customer, onAdd }: { customer: any; onAdd: () => void }) {
+function AssetsSection({ customer, onAdd, onEdit, onDelete }: {
+  customer: any;
+  onAdd: () => void;
+  onEdit: (a: any) => void;
+  onDelete: (id: string) => void;
+}) {
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-5">
       <div className="flex items-center justify-between mb-3">
@@ -357,23 +388,36 @@ function AssetsSection({ customer, onAdd }: { customer: any; onAdd: () => void }
       </div>
       {customer.assets?.length > 0 ? (
         <table className="w-full text-sm">
+          <colgroup>
+            <col style={{ width: "8%" }} />
+            <col />
+            <col style={{ width: "18%" }} />
+            <col style={{ width: "16%" }} />
+            <col style={{ width: "14%" }} />
+            <col style={{ width: "8%" }} />
+          </colgroup>
           <thead>
             <tr className="border-b border-gray-200">
-              <th className="text-left py-2 text-xs text-gray-500">유형</th>
+              <th className="text-left py-2 text-xs text-gray-500 whitespace-nowrap">유형</th>
               <th className="text-left py-2 text-xs text-gray-500">이름</th>
               <th className="text-left py-2 text-xs text-gray-500">제작사</th>
-              <th className="text-left py-2 text-xs text-gray-500">S.N</th>
-              <th className="text-left py-2 text-xs text-gray-500">OT재고NO</th>
+              <th className="text-left py-2 text-xs text-gray-500 whitespace-nowrap">S.N</th>
+              <th className="text-left py-2 text-xs text-gray-500 whitespace-nowrap">OT재고NO</th>
+              <th className="text-right py-2 text-xs text-gray-500"></th>
             </tr>
           </thead>
           <tbody>
             {customer.assets.map((a: any) => (
               <tr key={a.id} className="border-t border-gray-100">
-                <td className="py-2">{a.assetType === "EQUIPMENT" ? "장비" : "센서"}</td>
-                <td className="py-2 font-medium">{a.name}</td>
-                <td className="py-2 text-gray-600">{a.manufacturer || "-"}</td>
-                <td className="py-2 text-gray-500">{a.serialNumber || "-"}</td>
-                <td className="py-2 text-gray-500">{a.otInventoryNo || "-"}</td>
+                <td className="py-2 whitespace-nowrap">{a.assetType === "EQUIPMENT" ? "장비" : "센서"}</td>
+                <td className="py-2 font-medium break-keep">{a.name}</td>
+                <td className="py-2 text-gray-600 break-keep">{a.manufacturer || "-"}</td>
+                <td className="py-2 text-gray-500 break-all">{a.serialNumber || "-"}</td>
+                <td className="py-2 text-gray-500 break-all">{a.otInventoryNo || "-"}</td>
+                <td className="py-2 text-right whitespace-nowrap">
+                  <button onClick={() => onEdit(a)} className="text-xs text-gray-400 hover:text-blue-600 mr-2">수정</button>
+                  <button onClick={() => onDelete(a.id)} className="text-xs text-gray-400 hover:text-red-600">삭제</button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -426,14 +470,20 @@ function RepairHistorySection({ customer }: { customer: any }) {
 
 // ─── 자산 추가 모달 ─────────────────────────────────────────────────────
 
-function AssetForm({ customerId, onClose, onSaved }: { customerId: string; onClose: () => void; onSaved: () => void }) {
+function AssetForm({ customerId, asset, onClose, onSaved }: {
+  customerId: string;
+  asset?: any;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const isEdit = !!asset?.id;
   const [form, setForm] = useState({
-    assetType: "EQUIPMENT",
-    name: "",
-    serialNumber: "",
-    manufacturer: "",
-    model: "",
-    otInventoryNo: "",
+    assetType: asset?.assetType || "EQUIPMENT",
+    name: asset?.name || "",
+    serialNumber: asset?.serialNumber || "",
+    manufacturer: asset?.manufacturer || "",
+    model: asset?.model || "",
+    otInventoryNo: asset?.otInventoryNo || "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -441,10 +491,14 @@ function AssetForm({ customerId, onClose, onSaved }: { customerId: string; onClo
     e.preventDefault();
     setSaving(true);
     try {
-      await repairApi.createCustomerAsset({ customerId, ...form });
+      if (isEdit) {
+        await repairApi.updateCustomerAsset(asset.id, form);
+      } else {
+        await repairApi.createCustomerAsset({ customerId, ...form });
+      }
       onSaved();
     } catch (e: any) {
-      alert(e.message || "추가 실패");
+      alert(e.message || (isEdit ? "수정 실패" : "추가 실패"));
     }
     setSaving(false);
   };
@@ -453,7 +507,7 @@ function AssetForm({ customerId, onClose, onSaved }: { customerId: string; onClo
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900">자산 추가</h3>
+          <h3 className="font-semibold text-gray-900">{isEdit ? "자산 수정" : "자산 추가"}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
         </div>
         <form onSubmit={submit} className="p-6 space-y-3">
@@ -505,7 +559,7 @@ function AssetForm({ customerId, onClose, onSaved }: { customerId: string; onClo
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">취소</button>
             <button type="submit" disabled={saving} className="flex-1 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
-              {saving ? "추가 중..." : "추가"}
+              {saving ? (isEdit ? "수정 중..." : "추가 중...") : (isEdit ? "수정" : "추가")}
             </button>
           </div>
         </form>

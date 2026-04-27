@@ -6,7 +6,7 @@ export class ShipmentService {
   async listByRepairOrder(repairOrderId: string) {
     return this.prisma.shipment.findMany({
       where: { repairOrderId },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: "asc" },
     });
   }
 
@@ -22,6 +22,7 @@ export class ShipmentService {
   async create(data: {
     repairOrderId: string;
     direction: string;
+    rmaNumber?: string;
     carrier?: string;
     trackingNumber?: string;
     shippedAt?: string;
@@ -40,6 +41,7 @@ export class ShipmentService {
   }
 
   async update(id: string, data: {
+    rmaNumber?: string | null;
     carrier?: string;
     trackingNumber?: string;
     shippedAt?: string;
@@ -56,6 +58,12 @@ export class ShipmentService {
         ...(receivedAt !== undefined ? { receivedAt: receivedAt ? new Date(receivedAt) : null } : {}),
       } as any,
     });
+  }
+
+  async delete(id: string) {
+    const shipment = await this.prisma.shipment.findUnique({ where: { id } });
+    if (!shipment) throw new Error("발송/입고 기록을 찾을 수 없습니다.");
+    await this.prisma.shipment.delete({ where: { id } });
   }
 
   async changeStatus(id: string, status: string) {

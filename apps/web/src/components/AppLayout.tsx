@@ -9,7 +9,7 @@ const NAV = [
   { href: "/me/dashboard",   label: "내 대시보드", icon: "🗂", managerOnly: false },
   { href: "/dashboard",      label: "지휘센터",   icon: "🎯", managerOnly: false },
   { href: "/projects",       label: "프로젝트",   icon: "📋", managerOnly: false },
-  { href: "/resources",      label: "자원 관리",  icon: "👥", managerOnly: true  },
+  { href: "/resources",      label: "자원 관리",  icon: "👥", managerOnly: false },
   { href: "/equipment",      label: "장비 관리",  icon: "🔧", managerOnly: false },
   { href: "/repair",         label: "수리 관리",  icon: "🛠", managerOnly: false },
   { href: "/procurement",    label: "구매/회계",  icon: "📦", managerOnly: false },

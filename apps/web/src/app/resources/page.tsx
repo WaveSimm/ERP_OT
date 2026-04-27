@@ -119,7 +119,7 @@ type ResourceTab = "dashboard" | "people" | "equipment" | "attendance" | "orgcha
 export default function ResourcesPage() {
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
-  const [resourceTab, setResourceTab] = useState<ResourceTab>("dashboard");
+  const [resourceTab, setResourceTab] = useState<ResourceTab>("attendance");
 
   // 탭 복원: SSR 이후 클라이언트에서만 실행 (hydration 안전)
   useEffect(() => {
@@ -857,10 +857,10 @@ export default function ResourcesPage() {
         {/* 탭 */}
         <div className="flex gap-1 border-b border-gray-200 mb-6">
           {([
+            { key: "attendance", label: "근태현황" },
             { key: "dashboard",  label: "운영 현황" },
             { key: "people",     label: "인력자원" },
             { key: "equipment",  label: "비인력 자원" },
-            { key: "attendance", label: "근태현황" },
             { key: "orgchart",  label: "조직도" },
           ] as { key: ResourceTab; label: string }[]).map((t) => (
             <button key={t.key}

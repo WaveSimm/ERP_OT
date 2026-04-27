@@ -1,0 +1,902 @@
+[
+  {
+    "excel": "KIOST",
+    "kind": "EXISTS",
+    "targetName": "KIOST",
+    "erpId": "cmnt80iba002jayi6svk5ug89"
+  },
+  {
+    "excel": "KHOA",
+    "kind": "EXISTS",
+    "targetName": "KHOA",
+    "erpId": "cmnt80ib2002fayi6jh9qud8k"
+  },
+  {
+    "excel": "지오시스템리서치",
+    "kind": "EXISTS",
+    "targetName": "지오시스템리서치",
+    "erpId": "cmnt80ic1002xayi6fo4t7c0j"
+  },
+  {
+    "excel": "UST21",
+    "kind": "EXISTS",
+    "targetName": "UST21",
+    "erpId": "cmnt80ibx002vayi6fxj70r8s"
+  },
+  {
+    "excel": "미래해양",
+    "kind": "EXISTS",
+    "targetName": "미래해양",
+    "erpId": "cmnt8aw3o0000cpwd3njkrq3t"
+  },
+  {
+    "excel": "오션테크",
+    "kind": "EXISTS",
+    "targetName": "오션테크",
+    "erpId": "cmnt8aw3y0003cpwdlkgmr75f"
+  },
+  {
+    "excel": "한국해양조사협회",
+    "kind": "EXISTS",
+    "targetName": "조사협회",
+    "erpId": "cmnt8aw4x000lcpwdoyn4l5um"
+  },
+  {
+    "excel": "국토해양환경기술단",
+    "kind": "EXISTS",
+    "targetName": "국토해양환경기술단",
+    "erpId": "cmnt8aw4d000bcpwdsb418h0e"
+  },
+  {
+    "excel": "메이텍",
+    "kind": "EXISTS",
+    "targetName": "메이텍엔지니어링",
+    "erpId": "cmnt8aw3r0001cpwdo85vfw1q"
+  },
+  {
+    "excel": "세광종합기술단",
+    "kind": "EXISTS",
+    "targetName": "세광종합기술단",
+    "erpId": "cmnt80ibk002oayi6pndjsiir"
+  },
+  {
+    "excel": "지오뷰",
+    "kind": "EXISTS",
+    "targetName": "지오뷰",
+    "erpId": "cmnt80ib4002gayi6biiqrsh8"
+  },
+  {
+    "excel": "조사협회",
+    "kind": "EXISTS",
+    "targetName": "조사협회",
+    "erpId": "cmnt8aw4x000lcpwdoyn4l5um"
+  },
+  {
+    "excel": "KHOA(남해)",
+    "kind": "EXISTS",
+    "targetName": "KHOA",
+    "erpId": "cmnt80ib2002fayi6jh9qud8k"
+  },
+  {
+    "excel": "KOPRI",
+    "kind": "EXISTS",
+    "targetName": "KOPRI",
+    "erpId": "cmnt80ib8002iayi6s2enblsz"
+  },
+  {
+    "excel": "인하대",
+    "kind": "EXISTS",
+    "targetName": "인하대",
+    "erpId": "cmnt8aw610015cpwdpttd5bl9"
+  },
+  {
+    "excel": "오션테크 재고",
+    "kind": "EXISTS",
+    "targetName": "오션테크",
+    "erpId": "cmnt8aw3y0003cpwdlkgmr75f"
+  },
+  {
+    "excel": "메이텍엔지니어링",
+    "kind": "EXISTS",
+    "targetName": "메이텍엔지니어링",
+    "erpId": "cmnt8aw3r0001cpwdo85vfw1q"
+  },
+  {
+    "excel": "메이텍 엔지니어링",
+    "kind": "EXISTS",
+    "targetName": "메이텍엔지니어링",
+    "erpId": "cmnt8aw3r0001cpwdo85vfw1q"
+  },
+  {
+    "excel": "MIT",
+    "kind": "EXISTS",
+    "targetName": "MIT",
+    "erpId": "cmnt80ic60030ayi67twfhxfh"
+  },
+  {
+    "excel": "세광",
+    "kind": "EXISTS",
+    "targetName": "세광종합기술단",
+    "erpId": "cmnt80ibk002oayi6pndjsiir"
+  },
+  {
+    "excel": "전남대",
+    "kind": "EXISTS",
+    "targetName": "전남대",
+    "erpId": "cmnt8aw450007cpwdsxeukzal"
+  },
+  {
+    "excel": "씨텍",
+    "kind": "EXISTS",
+    "targetName": "씨텍",
+    "erpId": "cmntbouu2001yv1ho1tgtbbnb"
+  },
+  {
+    "excel": "㈜오션",
+    "kind": "EXISTS",
+    "targetName": "㈜오션",
+    "erpId": "cmnt8aw680019cpwd5mf2ajcx"
+  },
+  {
+    "excel": "오션데모",
+    "kind": "EXISTS",
+    "targetName": "오션테크",
+    "erpId": "cmnt8aw3y0003cpwdlkgmr75f"
+  },
+  {
+    "excel": "국토환경기술단",
+    "kind": "EXISTS",
+    "targetName": "국토해양환경기술단",
+    "erpId": "cmnt8aw4d000bcpwdsb418h0e"
+  },
+  {
+    "excel": "오션재고",
+    "kind": "EXISTS",
+    "targetName": "오션테크",
+    "erpId": "cmnt8aw3y0003cpwdlkgmr75f"
+  },
+  {
+    "excel": "KIGAM",
+    "kind": "EXISTS",
+    "targetName": "KIGAM",
+    "erpId": "cmnt80iaw002cayi6pbofjlll"
+  },
+  {
+    "excel": "인천항만공사",
+    "kind": "NEW",
+    "targetName": "인천항만공사"
+  },
+  {
+    "excel": "올포랜드",
+    "kind": "EXISTS",
+    "targetName": "올포랜드",
+    "erpId": "cmnt8aw4n000gcpwdnwvh2pqu"
+  },
+  {
+    "excel": "KHRA",
+    "kind": "EXISTS",
+    "targetName": "조사협회",
+    "erpId": "cmnt8aw4x000lcpwdoyn4l5um"
+  },
+  {
+    "excel": "인하대학교",
+    "kind": "EXISTS",
+    "targetName": "인하대",
+    "erpId": "cmnt8aw610015cpwdpttd5bl9"
+  },
+  {
+    "excel": "이엔씨기술",
+    "kind": "EXISTS",
+    "targetName": "이엔씨기술",
+    "erpId": "cmnt8aw4r000icpwdgw7kr1pp"
+  },
+  {
+    "excel": "KHOA(서해)",
+    "kind": "EXISTS",
+    "targetName": "KHOA",
+    "erpId": "cmnt80ib2002fayi6jh9qud8k"
+  },
+  {
+    "excel": "파랑해양기술",
+    "kind": "EXISTS",
+    "targetName": "파랑해양기술",
+    "erpId": "cmnt8aw4p000hcpwdvbgartzr"
+  },
+  {
+    "excel": "강릉원주대",
+    "kind": "NEW",
+    "targetName": "원주대"
+  },
+  {
+    "excel": "오션테크(데모)",
+    "kind": "EXISTS",
+    "targetName": "오션테크",
+    "erpId": "cmnt8aw3y0003cpwdlkgmr75f"
+  },
+  {
+    "excel": "한국수자원공사",
+    "kind": "EXISTS",
+    "targetName": "한국수자원공사",
+    "erpId": "cmntbous4000hv1homtyrrbk3"
+  },
+  {
+    "excel": "KHOA(동해) 동해로호",
+    "kind": "EXISTS",
+    "targetName": "KHOA",
+    "erpId": "cmnt80ib2002fayi6jh9qud8k"
+  },
+  {
+    "excel": "남해수산연구소",
+    "kind": "EXISTS",
+    "targetName": "남해수산",
+    "erpId": "cmnt8aw6e001ccpwdh1vhzfgk"
+  },
+  {
+    "excel": "한국생산기술연구원",
+    "kind": "NEW",
+    "targetName": "한국생산기술연구원"
+  },
+  {
+    "excel": "㈜세광종합기술단",
+    "kind": "EXISTS",
+    "targetName": "세광종합기술단",
+    "erpId": "cmnt80ibk002oayi6pndjsiir"
+  },
+  {
+    "excel": "오션그래픽",
+    "kind": "EXISTS",
+    "targetName": "오션그래픽",
+    "erpId": "cmnt8awy900micpwdvbx422t4"
+  },
+  {
+    "excel": "SM오션",
+    "kind": "NEW",
+    "targetName": "SM오션"
+  },
+  {
+    "excel": "KIOST(동해)",
+    "kind": "EXISTS",
+    "targetName": "KIOST",
+    "erpId": "cmnt80iba002jayi6svk5ug89"
+  },
+  {
+    "excel": "KHOA(동해)",
+    "kind": "EXISTS",
+    "targetName": "KHOA",
+    "erpId": "cmnt80ib2002fayi6jh9qud8k"
+  },
+  {
+    "excel": "한국종합환경연구소",
+    "kind": "EXISTS",
+    "targetName": "한국종합환경연구소",
+    "erpId": "cmnt8aw4u000kcpwdq01596ta"
+  },
+  {
+    "excel": "KHOA 남해사무소",
+    "kind": "EXISTS",
+    "targetName": "KHOA",
+    "erpId": "cmnt80ib2002fayi6jh9qud8k"
+  },
+  {
+    "excel": "서울대",
+    "kind": "EXISTS",
+    "targetName": "서울대학교",
+    "erpId": "cmnt80ibp002rayi6kd4q83eg"
+  },
+  {
+    "excel": "에이스해양",
+    "kind": "EXISTS",
+    "targetName": "에이스해양",
+    "erpId": "cmnt8aw6l001gcpwdky7eex5z"
+  },
+  {
+    "excel": "로마스인더스트리즈",
+    "kind": "EXISTS",
+    "targetName": "로마스",
+    "erpId": "cmnt8aw5c000scpwd8s70y7q7"
+  },
+  {
+    "excel": "동해해양조사사무소",
+    "kind": "NEW",
+    "targetName": "동해해양조사사무소"
+  },
+  {
+    "excel": "오션프론티어",
+    "kind": "NEW",
+    "targetName": "오션프론티어"
+  },
+  {
+    "excel": "대영지오발파",
+    "kind": "NEW",
+    "targetName": "대영지오발파"
+  },
+  {
+    "excel": "해양정보기술",
+    "kind": "EXISTS",
+    "targetName": "해양정보기술",
+    "erpId": "cmnt8aw4s000jcpwdxz51mvdi"
+  },
+  {
+    "excel": "㈜이엔씨기술",
+    "kind": "EXISTS",
+    "targetName": "이엔씨기술",
+    "erpId": "cmnt8aw4r000icpwdgw7kr1pp"
+  },
+  {
+    "excel": "새한항업",
+    "kind": "EMPTY"
+  },
+  {
+    "excel": "선영종합엔지니어링",
+    "kind": "EXISTS",
+    "targetName": "선영엔지니어링",
+    "erpId": "cmnt8aw4j000ecpwdpyhbhm9q"
+  },
+  {
+    "excel": "KRISO",
+    "kind": "EXISTS",
+    "targetName": "KRISO",
+    "erpId": "cmnt8aw4b000acpwdgw3r4wpp"
+  },
+  {
+    "excel": "KHOA 서해사무소",
+    "kind": "EXISTS",
+    "targetName": "KHOA",
+    "erpId": "cmnt80ib2002fayi6jh9qud8k"
+  },
+  {
+    "excel": "KHOA 남해연구소",
+    "kind": "EXISTS",
+    "targetName": "KHOA",
+    "erpId": "cmnt80ib2002fayi6jh9qud8k"
+  },
+  {
+    "excel": "국립수산과학원",
+    "kind": "EXISTS",
+    "targetName": "국립수산과학원",
+    "erpId": "cmnt80ica0032ayi6att6tg6z"
+  },
+  {
+    "excel": "한국엠에이",
+    "kind": "NEW",
+    "targetName": "한국엠에이"
+  },
+  {
+    "excel": "해안해양기술",
+    "kind": "EXISTS",
+    "targetName": "해안해양기술",
+    "erpId": "cmnt80ibt002tayi6aff1jwv5"
+  },
+  {
+    "excel": "공간정보",
+    "kind": "NEW",
+    "targetName": "공간정보"
+  },
+  {
+    "excel": "부경해양개발",
+    "kind": "NEW",
+    "targetName": "부경해양개발"
+  },
+  {
+    "excel": "국토해양기술공단",
+    "kind": "EXISTS",
+    "targetName": "국토해양환경기술단",
+    "erpId": "cmnt8aw4d000bcpwdsb418h0e"
+  },
+  {
+    "excel": "KHOA 동해소",
+    "kind": "EXISTS",
+    "targetName": "KHOA",
+    "erpId": "cmnt80ib2002fayi6jh9qud8k"
+  },
+  {
+    "excel": "남동해수산연구소",
+    "kind": "NEW",
+    "targetName": "남동해수산연구소"
+  },
+  {
+    "excel": "수산과학원",
+    "kind": "EXISTS",
+    "targetName": "국립수산과학원",
+    "erpId": "cmnt80ica0032ayi6att6tg6z"
+  },
+  {
+    "excel": "한양대",
+    "kind": "NEW",
+    "targetName": "한양대"
+  },
+  {
+    "excel": "전남대(여수)",
+    "kind": "EXISTS",
+    "targetName": "전남대",
+    "erpId": "cmnt8aw450007cpwdsxeukzal"
+  },
+  {
+    "excel": "(주)해안해양기술",
+    "kind": "EXISTS",
+    "targetName": "해안해양기술",
+    "erpId": "cmnt80ibt002tayi6aff1jwv5"
+  },
+  {
+    "excel": "군산대",
+    "kind": "EXISTS",
+    "targetName": "군산대",
+    "erpId": "cmnt8aw53000ncpwd00ybjy44"
+  },
+  {
+    "excel": "㈜ 오션",
+    "kind": "EXISTS",
+    "targetName": "㈜오션",
+    "erpId": "cmnt8aw680019cpwd5mf2ajcx"
+  },
+  {
+    "excel": "부경대",
+    "kind": "EXISTS",
+    "targetName": "부경대",
+    "erpId": "cmnt8aw420005cpwd9ss6fjlf"
+  },
+  {
+    "excel": "KHOA(조사협회)",
+    "kind": "EXISTS",
+    "targetName": "조사협회",
+    "erpId": "cmnt8aw4x000lcpwdoyn4l5um"
+  },
+  {
+    "excel": "서해수산연구소",
+    "kind": "NEW",
+    "targetName": "서해수산연구소"
+  },
+  {
+    "excel": "국토해양환경 기술단",
+    "kind": "EXISTS",
+    "targetName": "국토해양환경기술단",
+    "erpId": "cmnt8aw4d000bcpwdsb418h0e"
+  },
+  {
+    "excel": "에이에이티",
+    "kind": "NEW",
+    "targetName": "AAT"
+  },
+  {
+    "excel": "KHOA(서해소)",
+    "kind": "EXISTS",
+    "targetName": "KHOA",
+    "erpId": "cmnt80ib2002fayi6jh9qud8k"
+  },
+  {
+    "excel": "국토해양기술단",
+    "kind": "EXISTS",
+    "targetName": "국토해양환경기술단",
+    "erpId": "cmnt8aw4d000bcpwdsb418h0e"
+  },
+  {
+    "excel": "㈜해안해양기술",
+    "kind": "EXISTS",
+    "targetName": "해안해양기술",
+    "erpId": "cmnt80ibt002tayi6aff1jwv5"
+  },
+  {
+    "excel": "STX엔진",
+    "kind": "NEW",
+    "targetName": "STX엔진"
+  },
+  {
+    "excel": "경원산업",
+    "kind": "EXISTS",
+    "targetName": "경원산업",
+    "erpId": "cmntbourk0002v1ho8aarc4j0"
+  },
+  {
+    "excel": "충남대학교",
+    "kind": "NEW",
+    "targetName": "충남대학교"
+  },
+  {
+    "excel": "KHOA서해소",
+    "kind": "EXISTS",
+    "targetName": "KHOA",
+    "erpId": "cmnt80ib2002fayi6jh9qud8k"
+  },
+  {
+    "excel": "한국해양수산연구원",
+    "kind": "NEW",
+    "targetName": "한국해양수산연구원"
+  },
+  {
+    "excel": "KHOA, KIOST",
+    "kind": "EXISTS",
+    "targetName": "KHOA",
+    "erpId": "cmnt80ib2002fayi6jh9qud8k"
+  },
+  {
+    "excel": "오션테크 무인해양팀",
+    "kind": "EXISTS",
+    "targetName": "오션테크",
+    "erpId": "cmnt8aw3y0003cpwdlkgmr75f"
+  },
+  {
+    "excel": "일우",
+    "kind": "EXISTS",
+    "targetName": "일우인터내셔날",
+    "erpId": "cmntbousp000xv1how8mv5ml2"
+  },
+  {
+    "excel": "미래해양(전남대)",
+    "kind": "EXISTS",
+    "targetName": "미래해양",
+    "erpId": "cmnt8aw3o0000cpwd3njkrq3t"
+  },
+  {
+    "excel": "오션테크(재고)",
+    "kind": "EXISTS",
+    "targetName": "오션테크",
+    "erpId": "cmnt8aw3y0003cpwdlkgmr75f"
+  },
+  {
+    "excel": "지마텍",
+    "kind": "NEW",
+    "targetName": "지마텍"
+  },
+  {
+    "excel": "기상산업기술원",
+    "kind": "EXISTS",
+    "targetName": "한국기상산업기술원",
+    "erpId": "cmnt80ibc002kayi6yui15x56"
+  },
+  {
+    "excel": "서울대학교",
+    "kind": "EXISTS",
+    "targetName": "서울대학교",
+    "erpId": "cmnt80ibp002rayi6kd4q83eg"
+  },
+  {
+    "excel": "시화조력단",
+    "kind": "EXISTS",
+    "targetName": "시화조력",
+    "erpId": "cmnt8aw5h000vcpwds36j36n4"
+  },
+  {
+    "excel": "남해해양조사사무소",
+    "kind": "NEW",
+    "targetName": "남해해양조사사무소"
+  },
+  {
+    "excel": "KOPRI 외",
+    "kind": "EXISTS",
+    "targetName": "KOPRI",
+    "erpId": "cmnt80ib8002iayi6s2enblsz"
+  },
+  {
+    "excel": "오션테크(위탁재고)",
+    "kind": "EXISTS",
+    "targetName": "오션테크",
+    "erpId": "cmnt8aw3y0003cpwdlkgmr75f"
+  },
+  {
+    "excel": "KIOST-ISABU",
+    "kind": "EXISTS",
+    "targetName": "KIOST",
+    "erpId": "cmnt80iba002jayi6svk5ug89"
+  },
+  {
+    "excel": "대양전기공업",
+    "kind": "EXISTS",
+    "targetName": "대양전기공업",
+    "erpId": "cmntbousj000sv1home1h9g25"
+  },
+  {
+    "excel": "이엔씨기술연구소",
+    "kind": "EXISTS",
+    "targetName": "이엔씨기술",
+    "erpId": "cmnt8aw4r000icpwdgw7kr1pp"
+  },
+  {
+    "excel": "한국해양조사원",
+    "kind": "EXISTS",
+    "targetName": "KHOA",
+    "erpId": "cmnt80ib2002fayi6jh9qud8k"
+  },
+  {
+    "excel": "㈜씨앤에스솔루션",
+    "kind": "EXISTS",
+    "targetName": "씨엔에스솔루션",
+    "erpId": "cmnt8aw5v0012cpwd00cpey46"
+  },
+  {
+    "excel": "극지연구소",
+    "kind": "EXISTS",
+    "targetName": "KOPRI",
+    "erpId": "cmnt80ib8002iayi6s2enblsz"
+  },
+  {
+    "excel": "제이엠케이(KHOA)",
+    "kind": "EXISTS",
+    "targetName": "KHOA",
+    "erpId": "cmnt80ib2002fayi6jh9qud8k"
+  },
+  {
+    "excel": "해군",
+    "kind": "EMPTY"
+  },
+  {
+    "excel": "KHOA(바다로1호)",
+    "kind": "EXISTS",
+    "targetName": "KHOA",
+    "erpId": "cmnt80ib2002fayi6jh9qud8k"
+  },
+  {
+    "excel": "제주해양수산연구원",
+    "kind": "NEW",
+    "targetName": "제주해양수산연구원"
+  },
+  {
+    "excel": "바란산업?",
+    "kind": "EMPTY"
+  },
+  {
+    "excel": "남해소",
+    "kind": "EXISTS",
+    "targetName": "KHOA",
+    "erpId": "cmnt80ib2002fayi6jh9qud8k"
+  },
+  {
+    "excel": "㈜해원문화재연구소",
+    "kind": "NEW",
+    "targetName": "㈜해원문화재연구소"
+  },
+  {
+    "excel": "대양전기",
+    "kind": "EXISTS",
+    "targetName": "대양전기공업",
+    "erpId": "cmntbousj000sv1home1h9g25"
+  },
+  {
+    "excel": "NIFS",
+    "kind": "NEW",
+    "targetName": "NIFS"
+  },
+  {
+    "excel": "동문시스텍",
+    "kind": "EXISTS",
+    "targetName": "동문시스텍",
+    "erpId": "cmnt8aw4g000ccpwdtv2gim06"
+  },
+  {
+    "excel": "우리해양",
+    "kind": "EXISTS",
+    "targetName": "우리해양",
+    "erpId": "cmntbours0008v1ho7ywudwwh"
+  },
+  {
+    "excel": "한국전자기술연구원",
+    "kind": "NEW",
+    "targetName": "한국전자기술연구원"
+  },
+  {
+    "excel": "AAT",
+    "kind": "NEW",
+    "targetName": "AAT"
+  },
+  {
+    "excel": "마린리서치",
+    "kind": "NEW",
+    "targetName": "마린리서치"
+  },
+  {
+    "excel": "한일뉴즈",
+    "kind": "EXISTS",
+    "targetName": "한일뉴즈",
+    "erpId": "cmnt8aw6o001hcpwdyq7yai3d"
+  },
+  {
+    "excel": "한국기상산업진흥원",
+    "kind": "EXISTS",
+    "targetName": "한국",
+    "erpId": "cmntbousv0011v1hogbg6fuok"
+  },
+  {
+    "excel": "KHOA(남해소)",
+    "kind": "EXISTS",
+    "targetName": "KHOA",
+    "erpId": "cmnt80ib2002fayi6jh9qud8k"
+  },
+  {
+    "excel": "한원중공업",
+    "kind": "NEW",
+    "targetName": "한원중공업"
+  },
+  {
+    "excel": "부산대(KHOA)",
+    "kind": "EXISTS",
+    "targetName": "KHOA",
+    "erpId": "cmnt80ib2002fayi6jh9qud8k"
+  },
+  {
+    "excel": "울산청",
+    "kind": "NEW",
+    "targetName": "울산청"
+  },
+  {
+    "excel": "데모",
+    "kind": "EXISTS",
+    "targetName": "오션테크",
+    "erpId": "cmnt8aw3y0003cpwdlkgmr75f"
+  },
+  {
+    "excel": "서해소",
+    "kind": "EXISTS",
+    "targetName": "KHOA",
+    "erpId": "cmnt80ib2002fayi6jh9qud8k"
+  },
+  {
+    "excel": "국립수산과학원 남해수산연구소",
+    "kind": "EXISTS",
+    "targetName": "국립수산과학원",
+    "erpId": "cmnt80ica0032ayi6att6tg6z"
+  },
+  {
+    "excel": "남동해 수산연구소",
+    "kind": "NEW",
+    "targetName": "남동해 수산연구소"
+  },
+  {
+    "excel": "(주)해양수산자원연구소",
+    "kind": "NEW",
+    "targetName": "(주)해양수산자원연구소"
+  },
+  {
+    "excel": "이앤씨기술",
+    "kind": "EXISTS",
+    "targetName": "이엔씨기술",
+    "erpId": "cmnt8aw4r000icpwdgw7kr1pp"
+  },
+  {
+    "excel": "월성원자력본부",
+    "kind": "EXISTS",
+    "targetName": "월성원자력본부",
+    "erpId": "cmntboutu001sv1hoqrxc921q"
+  },
+  {
+    "excel": "인피니티 오션",
+    "kind": "NEW",
+    "targetName": "인피니티 오션"
+  },
+  {
+    "excel": "오트로닉스",
+    "kind": "NEW",
+    "targetName": "오트로닉스"
+  },
+  {
+    "excel": "동일조선",
+    "kind": "NEW",
+    "targetName": "동일조선"
+  },
+  {
+    "excel": "해원문화재연구소",
+    "kind": "NEW",
+    "targetName": "해원문화재연구소"
+  },
+  {
+    "excel": "씨엔에스(부경대)",
+    "kind": "EXISTS",
+    "targetName": "부경대",
+    "erpId": "cmnt8aw420005cpwd9ss6fjlf"
+  },
+  {
+    "excel": "영해문화재연구소",
+    "kind": "NEW",
+    "targetName": "영해문화재연구소"
+  },
+  {
+    "excel": "인터오션(네오엔비즈)",
+    "kind": "EXISTS",
+    "targetName": "인터오션",
+    "erpId": "cmntboutn001mv1ho1cy8c6dn"
+  },
+  {
+    "excel": "평택석유공사",
+    "kind": "NEW",
+    "targetName": "평택석유공사"
+  },
+  {
+    "excel": "CNC오션",
+    "kind": "NEW",
+    "targetName": "CNC오션"
+  },
+  {
+    "excel": "기상청",
+    "kind": "EXISTS",
+    "targetName": "기상청",
+    "erpId": "cmntbouth001iv1how2rc2ps4"
+  },
+  {
+    "excel": "한국산업기술시험원",
+    "kind": "EXISTS",
+    "targetName": "한국",
+    "erpId": "cmntbousv0011v1hogbg6fuok"
+  },
+  {
+    "excel": "전략해양",
+    "kind": "EXISTS",
+    "targetName": "전략해양",
+    "erpId": "cmnt8aw630016cpwdksbafvdq"
+  },
+  {
+    "excel": "KHOA 남해",
+    "kind": "EXISTS",
+    "targetName": "KHOA",
+    "erpId": "cmnt80ib2002fayi6jh9qud8k"
+  },
+  {
+    "excel": "대우이앤씨",
+    "kind": "EXISTS",
+    "targetName": "대우이앤씨",
+    "erpId": "cmntbousg000qv1ho0y641eho"
+  },
+  {
+    "excel": "해연기술",
+    "kind": "NEW",
+    "targetName": "해연기술"
+  },
+  {
+    "excel": "KIOST(VAST)",
+    "kind": "EXISTS",
+    "targetName": "KIOST",
+    "erpId": "cmnt80iba002jayi6svk5ug89"
+  },
+  {
+    "excel": "한울원전",
+    "kind": "NEW",
+    "targetName": "한울원전"
+  },
+  {
+    "excel": "오션테크 데모",
+    "kind": "EXISTS",
+    "targetName": "오션테크",
+    "erpId": "cmnt8aw3y0003cpwdlkgmr75f"
+  },
+  {
+    "excel": "부산대",
+    "kind": "EXISTS",
+    "targetName": "부산대학교",
+    "erpId": "cmntbourn0004v1hoi0ozw0fj"
+  },
+  {
+    "excel": "지디엘",
+    "kind": "EXISTS",
+    "targetName": "지디엘시스템",
+    "erpId": "cmntbout50019v1hokm3x64qa"
+  },
+  {
+    "excel": "강원대",
+    "kind": "EXISTS",
+    "targetName": "강원대학교",
+    "erpId": "cmnt8aw6g001dcpwdombfiwla"
+  },
+  {
+    "excel": "전남대학교",
+    "kind": "EXISTS",
+    "targetName": "전남대",
+    "erpId": "cmnt8aw450007cpwdsxeukzal"
+  },
+  {
+    "excel": "K Water",
+    "kind": "NEW",
+    "targetName": "K Water"
+  },
+  {
+    "excel": "씨앤씨오션",
+    "kind": "NEW",
+    "targetName": "씨앤씨오션"
+  },
+  {
+    "excel": "수중생태기술연구소",
+    "kind": "NEW",
+    "targetName": "수중생태기술연구소"
+  },
+  {
+    "excel": "LTMetric",
+    "kind": "NEW",
+    "targetName": "LTMetric"
+  }
+]

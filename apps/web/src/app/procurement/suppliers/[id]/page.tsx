@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, usePathname } from "next/navigation";
 import { supplierApi } from "@/lib/api";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -43,6 +43,8 @@ function fmtDate(d: string | null) {
 export default function SupplierDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const pathname = usePathname();
+  const basePath = pathname.startsWith("/repair") ? "/repair/suppliers" : "/procurement/suppliers";
   const id = params.id as string;
 
   const [supplier, setSupplier] = useState<any>(null);
@@ -67,11 +69,11 @@ export default function SupplierDetailPage() {
         address: data.address || "", businessNumber: data.businessNumber || "", notes: data.notes || "",
       });
     } catch {
-      router.push("/procurement/suppliers");
+      router.push(basePath);
     } finally {
       setLoading(false);
     }
-  }, [id, router]);
+  }, [id, router, basePath]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -92,7 +94,7 @@ export default function SupplierDetailPage() {
     if (!confirm(`"${supplier.name}"을(를) 삭제하시겠습니까?`)) return;
     try {
       await supplierApi.delete(id);
-      router.push("/procurement/suppliers");
+      router.push(basePath);
     } catch (e: any) {
       alert(e.message || "삭제 실패");
     }
@@ -144,7 +146,7 @@ export default function SupplierDetailPage() {
     <div>
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.push("/procurement/suppliers")} className="text-gray-400 hover:text-gray-600">&larr;</button>
+        <button onClick={() => router.push(basePath)} className="text-gray-400 hover:text-gray-600">&larr;</button>
         <div>
           <h1 className="text-xl font-bold">{supplier.name}</h1>
           {supplier.country && <p className="text-sm text-gray-500">{supplier.country}</p>}

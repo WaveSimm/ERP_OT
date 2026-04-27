@@ -12,7 +12,7 @@ export async function partTransactionRoutes(fastify: FastifyInstance) {
     });
   });
 
-  fastify.post("/", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request, reply) => {
+  fastify.post("/", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request, reply) => {
     const result = await fastify.partService.createTransaction(request.body as any);
     return reply.status(201).send(result);
   });

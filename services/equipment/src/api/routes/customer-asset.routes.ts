@@ -17,12 +17,12 @@ export async function customerAssetRoutes(fastify: FastifyInstance) {
     return fastify.customerAssetService.getById(id);
   });
 
-  fastify.post("/", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request, reply) => {
+  fastify.post("/", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request, reply) => {
     const result = await fastify.customerAssetService.create(request.body as any);
     return reply.status(201).send(result);
   });
 
-  fastify.patch("/:id", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
+  fastify.patch("/:id", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
     const { id } = request.params as any;
     return fastify.customerAssetService.update(id, request.body as any);
   });

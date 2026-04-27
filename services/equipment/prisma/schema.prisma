@@ -363,8 +363,20 @@ enum RepairOrderStatus {
   RECEIVED_FROM_MFG
   INSPECTING_2ND
   COMPLETED
+  NO_FAULT          // 정상 (점검 결과 이상 없음)
+  NO_REPAIR         // 수리안함 (고장 확인됐으나 수리하지 않음)
   CLOSED
   CANCELLED
+
+  @@schema("equipment")
+}
+
+// 1차·2차 점검 판단 — 점검 결과에 따른 조치 결정
+enum InspectionDecision {
+  IN_HOUSE_REPAIR   // 본사수리
+  SEND_TO_MFG       // 제조사발송
+  NORMAL            // 정상
+  KEEP_AS_IS        // 수리안함
 
   @@schema("equipment")
 }
@@ -539,13 +551,25 @@ model RepairOrder {
   diagnosis1st     String?
   inspector1stId   String?
   inspector1stName String?
+  decision1st      InspectionDecision?
+  decision1stReason String?
 
-  needsMfgRepair   Boolean          @default(false)
+  needsMfgRepair   Boolean          @default(false)  // legacy — decision1st=SEND_TO_MFG로 대체
   mfgReferenceNo   String?
+
+  // 제조사 견적 · 발주
+  mfgQuoteNumber   String?
+  mfgQuoteAmount   Decimal?         @db.Decimal(12, 2)
+  mfgQuoteCurrency String?          @default("KRW")
+  mfgPoNumber      String?
+  mfgPoAmount      Decimal?         @db.Decimal(12, 2)
+  mfgPoCurrency    String?          @default("KRW")
 
   diagnosis2nd     String?
   inspector2ndId   String?
   inspector2ndName String?
+  decision2nd      InspectionDecision?
+  decision2ndReason String?
 
   repairDetails    String?
   isWarranty       Boolean          @default(false)
@@ -554,6 +578,15 @@ model RepairOrder {
   assigneeId       String?
   assigneeName     String?
   assigneePhone    String?
+  shippingAssigneeName String?                         // 운송/발주 담당자
+
+  // 공정 날짜
+  stockedAt        DateTime?                          // 창고 입고일
+  handedToTechAt   DateTime?                          // 기술팀 인계일
+  quoteReceivedAt  DateTime?                          // 견적(Quote) 수신일
+  quoteApprovedAt  DateTime?                          // 견적 확정일
+  poIssuedAt       DateTime?                          // 발주(PO) 발행일
+  deliveryDueAt    DateTime?                          // 납기
 
   receivedAt       DateTime         @default(now())
   requestedDate    DateTime?
@@ -602,8 +635,10 @@ model InspectionReport {
   symptom          String?
   inspectionSteps  Json?
   result           String?
-  needsMfgRepair   Boolean  @default(false)
-  mfgRepairReason  String?
+  decision         InspectionDecision?          // 1차점검 판단(필수 권장)
+  decisionReason   String?                       // 판단 사유
+  needsMfgRepair   Boolean  @default(false)      // legacy
+  mfgRepairReason  String?                       // legacy
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -776,6 +811,7 @@ model Shipment {
   id             String            @id @default(cuid())
   repairOrderId  String
   direction      ShipmentDirection
+  rmaNumber      String?
   carrier        String?
   trackingNumber String?
   shippedAt      DateTime?

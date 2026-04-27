@@ -19,13 +19,13 @@ export async function customerRoutes(fastify: FastifyInstance) {
   });
 
   // 생성
-  fastify.post("/", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request, reply) => {
+  fastify.post("/", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request, reply) => {
     const result = await fastify.customerService.create(request.body as any);
     return reply.status(201).send(result);
   });
 
   // 수정
-  fastify.patch("/:id", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
+  fastify.patch("/:id", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
     const { id } = request.params as any;
     return fastify.customerService.update(id, request.body as any);
   });
@@ -45,14 +45,14 @@ export async function customerRoutes(fastify: FastifyInstance) {
   });
 
   // 담당자 추가
-  fastify.post("/:id/contacts", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request, reply) => {
+  fastify.post("/:id/contacts", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request, reply) => {
     const { id } = request.params as any;
     const result = await fastify.customerService.createContact(id, request.body as any);
     return reply.status(201).send(result);
   });
 
   // 담당자 수정
-  fastify.patch("/contacts/:contactId", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
+  fastify.patch("/contacts/:contactId", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
     const { contactId } = request.params as any;
     return fastify.customerService.updateContact(contactId, request.body as any);
   });

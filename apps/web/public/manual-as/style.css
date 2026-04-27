@@ -1,0 +1,174 @@
+/* AS 매뉴얼 PDF 출력용 스타일 */
+
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=D2Coding&display=swap');
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+  line-height: 1.6;
+  color: #1f2937;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 60px;
+  background: #fff;
+}
+
+h1 {
+  font-size: 2em;
+  border-bottom: 3px solid #2563eb;
+  padding-bottom: 0.4em;
+  margin-top: 1.2em;
+  margin-bottom: 0.8em;
+  color: #1e3a8a;
+  page-break-before: always;
+}
+
+h1:first-of-type {
+  page-break-before: auto;
+  margin-top: 0;
+}
+
+h2 {
+  font-size: 1.5em;
+  border-bottom: 2px solid #93c5fd;
+  padding-bottom: 0.3em;
+  margin-top: 1.8em;
+  color: #1e40af;
+}
+
+h3 {
+  font-size: 1.2em;
+  color: #1e40af;
+  margin-top: 1.5em;
+}
+
+h4 {
+  font-size: 1.05em;
+  color: #374151;
+  margin-top: 1.2em;
+}
+
+p { margin: 0.7em 0; }
+
+ul, ol {
+  margin: 0.7em 0;
+  padding-left: 1.6em;
+}
+
+li { margin: 0.3em 0; }
+
+code {
+  font-family: 'D2Coding', 'Consolas', 'Monaco', monospace;
+  font-size: 0.92em;
+  background: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #be185d;
+}
+
+pre {
+  background: #1f2937;
+  color: #e5e7eb;
+  padding: 1em;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-family: 'D2Coding', 'Consolas', 'Monaco', monospace;
+  font-size: 0.85em;
+  line-height: 1.5;
+  page-break-inside: avoid;
+}
+
+pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  border-radius: 0;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+  font-size: 0.94em;
+  page-break-inside: avoid;
+}
+
+th, td {
+  border: 1px solid #d1d5db;
+  padding: 0.5em 0.8em;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: #eff6ff;
+  color: #1e40af;
+  font-weight: 700;
+}
+
+tr:nth-child(even) { background: #f9fafb; }
+
+blockquote {
+  border-left: 4px solid #93c5fd;
+  padding-left: 1em;
+  color: #4b5563;
+  font-style: italic;
+  margin: 1em 0;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid #e5e7eb;
+  margin: 2em 0;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1em auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  page-break-inside: avoid;
+}
+
+a {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+a:hover { text-decoration: underline; }
+
+strong { color: #111827; }
+
+/* 프린트 최적화 */
+@media print {
+  body {
+    padding: 0;
+    max-width: none;
+    font-size: 11pt;
+  }
+  @page {
+    size: A4;
+    margin: 18mm 16mm 18mm 16mm;
+  }
+  h1 { page-break-before: always; }
+  h1:first-of-type { page-break-before: auto; }
+  h2, h3 { page-break-after: avoid; }
+  table, pre, img { page-break-inside: avoid; }
+  a { color: #1e40af; }
+  /* 긴 코드블록은 줄바꿈 허용 */
+  pre { white-space: pre-wrap; }
+}
+
+/* 체크박스 스타일 */
+input[type="checkbox"] {
+  margin-right: 0.5em;
+  transform: scale(1.1);
+}
+
+/* 강조 블록 (>) */
+blockquote p:first-child { margin-top: 0; }
+blockquote p:last-child { margin-bottom: 0; }

@@ -862,6 +862,8 @@ export const repairApi = {
     request<any>(`/shipments/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   changeShipmentStatus: (id: string, data: { status: string }) =>
     request<any>(`/shipments/${id}/status`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteShipment: (id: string) =>
+    request<void>(`/shipments/${id}`, { method: "DELETE" }),
 
   // 통계
   getRepairStatsSummary: () => request<any>("/repair-stats/summary"),

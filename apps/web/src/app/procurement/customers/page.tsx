@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { repairApi } from "@/lib/api";
 
 export default function CustomersPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const basePath = pathname.startsWith("/repair") ? "/repair/customers" : "/procurement/customers";
   const [customers, setCustomers] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -166,7 +168,7 @@ export default function CustomersPage() {
               <>
                 <tr key={c.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2.5 font-medium cursor-pointer hover:text-blue-600"
-                    onClick={() => router.push(`/procurement/customers/${c.id}`)}>{c.name}</td>
+                    onClick={() => router.push(`${basePath}/${c.id}`)}>{c.name}</td>
                   <td className="px-4 py-2.5 text-gray-500 font-mono">{c.businessNo || "-"}</td>
                   <td className="px-4 py-2.5 text-gray-500">{c.phone || "-"}</td>
                   <td className="px-4 py-2.5 text-gray-500">{c.email || "-"}</td>
