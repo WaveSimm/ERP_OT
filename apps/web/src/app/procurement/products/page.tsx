@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { procurementApi, supplierApi } from "@/lib/api";
 import SearchableSelect from "@/components/SearchableSelect";
+import Pagination from "@/components/Pagination";
 
 const CURRENCY_LABELS: Record<string, string> = { EUR: "EUR", GBP: "GBP", USD: "USD", KRW: "KRW" };
 const PAGE_SIZE = 50;
@@ -170,35 +171,7 @@ export default function ProductMasterPage() {
           </tbody>
         </table>
 
-        {/* Pagination */}
-        <div className="px-4 py-2 border-t flex items-center justify-between">
-          <span className="text-xs text-gray-400">
-            {total > 0 ? `${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} / 총 ${total}건` : "0건"}
-          </span>
-          {totalPages > 1 && (
-            <div className="flex gap-1">
-              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}
-                className="px-2 py-1 border rounded text-xs disabled:opacity-30 hover:bg-gray-50">이전</button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
-                .reduce<(number | string)[]>((acc, p, i, arr) => {
-                  if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push("...");
-                  acc.push(p);
-                  return acc;
-                }, [])
-                .map((p, i) =>
-                  typeof p === "string" ? (
-                    <span key={`e${i}`} className="px-1 py-1 text-xs text-gray-400">…</span>
-                  ) : (
-                    <button key={p} onClick={() => setPage(p)}
-                      className={`px-2 py-1 border rounded text-xs ${page === p ? "bg-blue-600 text-white border-blue-600" : "hover:bg-gray-50"}`}>{p}</button>
-                  )
-                )}
-              <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                className="px-2 py-1 border rounded text-xs disabled:opacity-30 hover:bg-gray-50">다음</button>
-            </div>
-          )}
-        </div>
+        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} />
       </div>
 
       {/* Form Modal */}

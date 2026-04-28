@@ -40,8 +40,10 @@ export class RepairOrderService {
     search?: string;
     page?: number;
     limit?: number;
+    sortBy?: string;
+    sortOrder?: "asc" | "desc";
   } = {}) {
-    const { status, statusGroup, customerId, search, page = 1, limit = 50 } = params;
+    const { status, statusGroup, customerId, search, page = 1, limit = 50, sortBy, sortOrder } = params;
     const where: any = {};
 
     if (status) {
@@ -70,6 +72,22 @@ export class RepairOrderService {
       ];
     }
 
+    // 정렬: 컬럼별 매핑. 알 수 없는 sortBy는 기본 receivedAt desc로 fallback.
+    const order = sortOrder === "asc" ? "asc" : "desc";
+    const sortMap: Record<string, any> = {
+      orderNumber:  { orderNumber: order },
+      customer:     { customer: { name: order } },
+      asset:        { customerAsset: { name: order } },
+      serialNumber: { customerAsset: { serialNumber: order } },
+      status:       { status: order },
+      techStatus:   { techStatus: order },
+      salesStatus:  { salesStatus: order },
+      priority:     { priority: order },
+      assignee:     { assigneeName: order },
+      receivedAt:   { receivedAt: order },
+    };
+    const orderBy = (sortBy && sortMap[sortBy]) ? sortMap[sortBy] : { receivedAt: "desc" };
+
     const [items, total] = await Promise.all([
       this.prisma.repairOrder.findMany({
         where,
@@ -79,7 +97,7 @@ export class RepairOrderService {
           equipment: { select: { id: true, name: true, serialNumber: true } },
           sensor: { select: { id: true, name: true, serialNumber: true } },
         },
-        orderBy: { receivedAt: "desc" },
+        orderBy,
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -318,6 +336,19 @@ export class RepairOrderService {
 
   async updateSalesStatus(id: string, salesStatus: string) {
     return this.prisma.repairOrder.update({ where: { id }, data: { salesStatus } });
+  }
+
+  // 취소된 수리건을 RECEIVED 단계로 복구
+  async restore(id: string) {
+    const order = await this.prisma.repairOrder.findUnique({ where: { id } });
+    if (!order) throw new Error("AS 접수를 찾을 수 없습니다.");
+    if (order.status !== "CANCELLED") {
+      throw new Error("취소 상태에서만 복구할 수 있습니다.");
+    }
+    return this.prisma.repairOrder.update({
+      where: { id },
+      data: { status: "RECEIVED" },
+    });
   }
 
   async remove(id: string) {

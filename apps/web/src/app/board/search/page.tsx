@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -9,7 +11,20 @@ import SearchBar from "@/components/board/SearchBar";
 import SearchResultCard from "@/components/board/SearchResultCard";
 import { searchApi, type SearchResultItem } from "@/lib/api";
 
-type Scope = "all" | "posts" | "worklogs";
+type Scope = "all" | "notice" | "wiki" | "worklogs";
+
+const TAB_LABEL: Record<Scope, string> = {
+  all: "전체",
+  notice: "공지사항",
+  wiki: "게시판",
+  worklogs: "프로젝트",
+};
+
+function matchScope(item: SearchResultItem, s: Scope): boolean {
+  if (s === "all") return true;
+  if (s === "worklogs") return item.type === "worklog";
+  return item.type === "post" && item.url.startsWith(`/board/${s}/`);
+}
 
 export default function SearchPage() {
   const router = useRouter();
@@ -39,7 +54,7 @@ export default function SearchPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await searchApi.search(q, { scope, limit: 30 });
+      const result = await searchApi.search(q, { scope: "all", limit: 30 });
       setItems(result.items ?? []);
       setTook(result.took ?? 0);
     } catch (e: any) {
@@ -48,16 +63,17 @@ export default function SearchPage() {
     } finally {
       setLoading(false);
     }
-  }, [q, scope]);
+  }, [q]);
 
   useEffect(() => {
     if (mounted) void runSearch();
   }, [mounted, runSearch]);
 
-  const counts = {
+  const counts: Record<Scope, number> = {
     all: items.length,
-    posts: items.filter((i) => i.type === "post").length,
-    worklogs: items.filter((i) => i.type === "worklog").length,
+    notice: items.filter((i) => matchScope(i, "notice")).length,
+    wiki: items.filter((i) => matchScope(i, "wiki")).length,
+    worklogs: items.filter((i) => matchScope(i, "worklogs")).length,
   };
 
   if (!mounted) {
@@ -99,8 +115,8 @@ export default function SearchPage() {
               <>
                 {/* 탭 + 메타 */}
                 <div className="flex items-center gap-1 mb-3 border-b border-gray-200">
-                  {(["all", "posts", "worklogs"] as Scope[]).map((s) => {
-                    const label = s === "all" ? "전체" : s === "posts" ? "게시판" : "프로젝트 비고";
+                  {(["all", "notice", "wiki", "worklogs"] as Scope[]).map((s) => {
+                    const label = TAB_LABEL[s];
                     const count = counts[s];
                     return (
                       <button
@@ -112,7 +128,7 @@ export default function SearchPage() {
                             : "border-transparent text-gray-500 hover:text-gray-700"
                         }`}
                       >
-                        {label} {scope === "all" && s !== "all" ? `(${count})` : s === scope ? `(${count})` : ""}
+                        {label} ({count})
                       </button>
                     );
                   })}
@@ -143,7 +159,7 @@ export default function SearchPage() {
                 ) : (
                   <div className="space-y-3">
                     {items
-                      .filter((i) => scope === "all" || i.type === (scope === "posts" ? "post" : "worklog"))
+                      .filter((i) => matchScope(i, scope))
                       .map((item) => (
                         <SearchResultCard key={`${item.type}-${item.id}`} item={item} />
                       ))}

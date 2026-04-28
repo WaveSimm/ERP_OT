@@ -116,22 +116,6 @@ export default function UnifiedBoardSidebar() {
             <span className="ml-auto text-xs text-gray-400">{projects.length}</span>
           </Link>
           <nav className="py-1 max-h-[260px] overflow-y-auto">
-            {/* 전체 (모든 프로젝트의 비고 통합) */}
-            <Link
-              href="/work-logs/all"
-              className={`block px-4 py-1.5 hover:bg-gray-50 ${
-                pathname === "/work-logs/all" ? "bg-blue-50" : ""
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-gray-400 text-xs">📂</span>
-                <span className={`text-sm truncate ${
-                  pathname === "/work-logs/all" ? "text-blue-700 font-medium" : "text-gray-700 font-medium"
-                }`}>
-                  전체
-                </span>
-              </div>
-            </Link>
             {projects.length === 0 ? (
               <div className="px-4 py-3 text-xs text-gray-400">
                 참여 프로젝트 없음

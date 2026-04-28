@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -76,7 +78,7 @@ export default function SensorDetailPage() {
     try {
       await maintenanceApi.create({ ...maintForm, sensorId: id, cost: maintForm.cost ? parseFloat(maintForm.cost) : undefined });
       setShowMaintForm(false);
-      setMaintForm({ type: "PREVENTIVE", title: "", description: "", performedBy: "", performedAt: new Date().toISOString().slice(0, 10), cost: "" });
+      setMaintForm({ type: "PREVENTIVE", title: "", description: "", performedBy: "", performedAt: new Date().toISOString().slice(0, 10), cost: "", startDate: "", endDate: "" });
       sensorApi.getMaintenance(id).then((r) => setMaintenance(r.items ?? []));
     } catch (err: any) { alert(err.message); }
   };

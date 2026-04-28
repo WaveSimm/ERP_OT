@@ -104,6 +104,16 @@ export default function RepairOrderDetailPage() {
     }
   };
 
+  const restoreOrder = async () => {
+    if (!confirm(`AS 접수 "${order?.orderNumber}"을(를) 접수 단계로 복구하시겠습니까?`)) return;
+    try {
+      await repairApi.restoreRepairOrder(id);
+      await load();
+    } catch (e: any) {
+      alert(e.message || "복구 실패");
+    }
+  };
+
   const load = useCallback(async () => {
     try {
       const [o, t] = await Promise.all([
@@ -179,6 +189,12 @@ export default function RepairOrderDetailPage() {
             <span className={`px-3 py-1 rounded-lg text-sm font-semibold ${STATUS_COLORS[order.status]}`}>
               {STATUS_LABELS[order.status]}
             </span>
+            {order.status === "CANCELLED" && getUser()?.role !== "VIEWER" && (
+              <button onClick={restoreOrder}
+                className="px-3 py-1 text-xs text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 hover:border-blue-300">
+                복구
+              </button>
+            )}
             {isAdmin && (
               <button onClick={deleteOrder}
                 className="px-3 py-1 text-xs text-red-500 border border-red-200 rounded-lg hover:bg-red-50 hover:border-red-300">

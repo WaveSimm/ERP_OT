@@ -22,7 +22,7 @@ export interface UpdateProjectDto {
   ownerId?: string;
 }
 
-export interface ProjectListItem extends Omit<Project, never> {
+export interface ProjectListItem extends Omit<Project, "effectiveStartDate" | "effectiveEndDate" | "overallProgress"> {
   effectiveStartDate: string | null;
   effectiveEndDate: string | null;
   overallProgress: number | null;

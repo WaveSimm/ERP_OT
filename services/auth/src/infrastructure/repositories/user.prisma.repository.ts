@@ -1,6 +1,17 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import type { IUserRepository, CreateUserData, UpdateUserData, UserProfileData } from "../../domain/repositories/user.repository";
 import type { User } from "../../domain/entities/user.entity";
+
+// 부하테스트 PDCA — 일반 조회에서 부하 사용자 자동 제외
+// findById/findByEmail은 명시적 ID/email이므로 필터 미적용
+const HIDE_LOAD_TEST = process.env.HIDE_LOAD_TEST !== "false";
+const LOAD_TEST_DOMAIN = process.env.LOAD_TEST_DOMAIN ?? "@erp-ot.load";
+
+function loadTestExcludeWhere(): Prisma.UserWhereInput {
+  return HIDE_LOAD_TEST
+    ? { NOT: { email: { endsWith: LOAD_TEST_DOMAIN } } }
+    : {};
+}
 
 export class UserPrismaRepository implements IUserRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -18,6 +29,7 @@ export class UserPrismaRepository implements IUserRepository {
   async findAll(): Promise<(User & { profile?: UserProfileData | null; isOnline?: boolean })[]> {
     const now = new Date();
     const rows = await this.prisma.user.findMany({
+      where: loadTestExcludeWhere(),
       orderBy: { createdAt: "asc" },
       include: {
         profile: true,

@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import AppLayout from "@/components/AppLayout";
 
 const TABS = [
-  { key: "orders", label: "AS 접수", href: "/repair" },
+  { key: "orders", label: "AS 현황", href: "/repair" },
   { key: "parts", label: "부품/재고", href: "/repair/parts" },
   { key: "customers", label: "고객사", href: "/repair/customers" },
   { key: "suppliers", label: "제조사/공급사", href: "/repair/suppliers" },

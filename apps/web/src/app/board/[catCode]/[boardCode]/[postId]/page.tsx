@@ -7,6 +7,7 @@ import AppLayout from "@/components/AppLayout";
 import PostMarkdownView from "@/components/board/PostMarkdownView";
 import PostAttachmentList from "@/components/board/PostAttachmentList";
 import CommentTree from "@/components/board/CommentTree";
+import SearchBar from "@/components/board/SearchBar";
 import { postApi, getUser } from "@/lib/api";
 
 export default function PostDetailPage({ params }: { params: { catCode: string; boardCode: string; postId: string } }) {
@@ -106,6 +107,10 @@ export default function PostDetailPage({ params }: { params: { catCode: string; 
           <Link href={`/board/${catCode}`} className="hover:text-gray-700">{catCode}</Link>
           <span>›</span>
           <Link href={`/board/${catCode}/${boardCode}`} className="hover:text-gray-700">{post.board.name}</Link>
+        </div>
+
+        <div className="mb-5">
+          <SearchBar />
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl">

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { repairApi, getUser } from "@/lib/api";
 import SearchableSelect from "@/components/SearchableSelect";
 import FilterableSelect from "@/components/FilterableSelect";
+import Pagination from "@/components/Pagination";
 
 const STATUS_LABELS: Record<string, string> = {
   RECEIVED: "접수", INSPECTING_1ST: "1차점검", QUOTED: "견적발행",
@@ -51,6 +52,8 @@ function daysSince(dateStr: string) {
   return Math.floor(diff / 86400000);
 }
 
+type SortKey = "orderNumber" | "customer" | "asset" | "serialNumber" | "status" | "techStatus" | "salesStatus" | "priority" | "assignee" | "receivedAt";
+
 export default function RepairOrdersPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<any[]>([]);
@@ -60,11 +63,36 @@ export default function RepairOrdersPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
+  // 정렬 상태: 기본은 receivedAt desc (전체 리스트 시 접수일 최신 우선). 헤더 클릭 시 toggle.
+  const [sortBy, setSortBy] = useState<SortKey>("receivedAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const PAGE_SIZE = 50;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const handleSort = (key: SortKey) => {
+    if (sortBy === key) {
+      // 같은 컬럼 재클릭: asc ↔ desc 토글
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(key);
+      setSortOrder("asc");
+    }
+    setPage(1);
+  };
+
+  const sortIndicator = (key: SortKey) =>
+    sortBy === key ? (sortOrder === "asc" ? " ▲" : " ▼") : "";
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await repairApi.getRepairOrders({ statusGroup: statusGroup || undefined, search: search || undefined, page });
+      const res = await repairApi.getRepairOrders({
+        statusGroup: statusGroup || undefined,
+        search: search || undefined,
+        page,
+        sortBy,
+        sortOrder,
+      });
       setOrders(res.items);
       setTotal(res.total);
     } catch (e: any) {
@@ -72,7 +100,7 @@ export default function RepairOrdersPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusGroup, search, page]);
+  }, [statusGroup, search, page, sortBy, sortOrder]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -122,16 +150,16 @@ export default function RepairOrdersPage() {
             </colgroup>
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500">접수번호</th>
-                <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500">고객</th>
-                <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500">장비</th>
-                <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500">S.N</th>
-                <th className="px-2 py-2.5 text-center text-xs font-semibold text-gray-500">상태</th>
-                <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500">점검상황</th>
-                <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500">영업상황</th>
-                <th className="px-2 py-2.5 text-center text-xs font-semibold text-gray-500">우선도</th>
-                <th className="px-2 py-2.5 text-left text-xs font-semibold text-gray-500">담당자</th>
-                <th className="px-2 py-2.5 text-center text-xs font-semibold text-gray-500">접수일</th>
+                <th onClick={() => handleSort("orderNumber")}  className="px-2 py-2.5 text-left   text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">접수번호{sortIndicator("orderNumber")}</th>
+                <th onClick={() => handleSort("customer")}     className="px-2 py-2.5 text-left   text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">고객{sortIndicator("customer")}</th>
+                <th onClick={() => handleSort("asset")}        className="px-2 py-2.5 text-left   text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">장비{sortIndicator("asset")}</th>
+                <th onClick={() => handleSort("serialNumber")} className="px-2 py-2.5 text-left   text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">S.N{sortIndicator("serialNumber")}</th>
+                <th onClick={() => handleSort("status")}       className="px-2 py-2.5 text-center text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">상태{sortIndicator("status")}</th>
+                <th onClick={() => handleSort("techStatus")}   className="px-2 py-2.5 text-left   text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">점검상황{sortIndicator("techStatus")}</th>
+                <th onClick={() => handleSort("salesStatus")}  className="px-2 py-2.5 text-left   text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">영업상황{sortIndicator("salesStatus")}</th>
+                <th onClick={() => handleSort("priority")}     className="px-2 py-2.5 text-center text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">우선도{sortIndicator("priority")}</th>
+                <th onClick={() => handleSort("assignee")}     className="px-2 py-2.5 text-left   text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">담당자{sortIndicator("assignee")}</th>
+                <th onClick={() => handleSort("receivedAt")}   className="px-2 py-2.5 text-center text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">접수일{sortIndicator("receivedAt")}</th>
                 <th className="px-2 py-2.5 text-center text-xs font-semibold text-gray-500">경과</th>
               </tr>
             </thead>
@@ -176,19 +204,7 @@ export default function RepairOrdersPage() {
           </table>
         </div>
 
-        {/* 페이지네이션 */}
-        {total > 50 && (
-          <div className="px-4 py-3 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500">
-            <span>총 {total}건</span>
-            <div className="flex gap-1">
-              <button disabled={page <= 1} onClick={() => setPage(page - 1)}
-                className="px-2 py-1 rounded border border-gray-200 disabled:opacity-30">이전</button>
-              <span className="px-2 py-1">{page}</span>
-              <button disabled={page * 50 >= total} onClick={() => setPage(page + 1)}
-                className="px-2 py-1 rounded border border-gray-200 disabled:opacity-30">다음</button>
-            </div>
-          </div>
-        )}
+        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} />
       </div>
 
       {/* AS 접수 모달 */}

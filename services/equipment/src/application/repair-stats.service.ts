@@ -35,52 +35,70 @@ export class RepairStatsService {
   }
 
   async byEquipment() {
-    // FK 연결된 장비 통계
+    // 제품 단위 집계 (제조사 + 모델명) — 동일 제품의 여러 자산은 합산
+    // 1. customerAssetId로 그룹핑된 결과
     const fkResult = await this.prisma.repairOrder.groupBy({
       by: ["customerAssetId"],
       _count: { id: true },
-      orderBy: { _count: { id: "desc" } },
-      take: 20,
     });
 
     const assetIds = fkResult.filter((r) => r.customerAssetId).map((r) => r.customerAssetId!);
     const assets = await this.prisma.customerAsset.findMany({
       where: { id: { in: assetIds } },
-      select: { id: true, name: true, serialNumber: true },
+      select: { id: true, name: true, manufacturer: true },
     });
     const assetMap = new Map(assets.map((a) => [a.id, a]));
 
-    const fkItems = fkResult
-      .filter((r) => r.customerAssetId)
-      .map((r) => ({
-        assetId: r.customerAssetId,
-        asset: assetMap.get(r.customerAssetId!) || null,
-        count: r._count.id,
-      }));
+    // 정규화: 모든 공백 제거 + 소문자. "UV센서" = "UV 센서", "Idronaut" = "idronaut"
+    const normalize = (s: string | null | undefined) =>
+      (s || "").replace(/\s+/g, "").toLowerCase();
 
-    // productName 필드로 집계 (FK 미연결 데이터)
-    if (fkItems.length >= 10) return fkItems;
-
-    const orders = await this.prisma.repairOrder.findMany({
-      where: { customerAssetId: null, productName: { not: null } },
-      select: { productName: true },
-    });
-    const productCounts: Record<string, number> = {};
-    for (const o of orders) {
-      if (o.productName) {
-        productCounts[o.productName] = (productCounts[o.productName] || 0) + 1;
+    // 2. (제조사 + 자산명) 조합으로 재그룹핑하여 동일 제품 합산
+    const productCounts: Record<string, { name: string; manufacturer: string | null; count: number }> = {};
+    for (const r of fkResult) {
+      if (!r.customerAssetId) continue;
+      const a = assetMap.get(r.customerAssetId);
+      if (!a) continue;
+      const key = `${normalize(a.manufacturer)}||${normalize(a.name)}`;
+      if (!productCounts[key]) {
+        productCounts[key] = {
+          name: (a.name || "(이름없음)").trim().replace(/\s+/g, " "),
+          manufacturer: a.manufacturer ? a.manufacturer.trim() : null,
+          count: 0,
+        };
       }
+      productCounts[key].count += r._count.id;
     }
-    const noteItems = Object.entries(productCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 20)
-      .map(([name, count]) => ({
-        assetId: null,
-        asset: { id: name, name, serialNumber: null },
-        count,
-      }));
 
-    return [...fkItems, ...noteItems].sort((a, b) => b.count - a.count).slice(0, 20);
+    // 3. FK 미연결 (productName 텍스트)도 동일 키로 합산
+    const looseOrders = await this.prisma.repairOrder.findMany({
+      where: { customerAssetId: null, productName: { not: null } },
+      select: { productName: true, productMaker: true },
+    });
+    for (const o of looseOrders) {
+      if (!o.productName) continue;
+      const key = `${normalize(o.productMaker)}||${normalize(o.productName)}`;
+      if (!productCounts[key]) {
+        productCounts[key] = {
+          name: o.productName.trim().replace(/\s+/g, " "),
+          manufacturer: o.productMaker ? o.productMaker.trim() : null,
+          count: 0,
+        };
+      }
+      productCounts[key].count += 1;
+    }
+
+    return Object.values(productCounts)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 20)
+      .map((p) => ({
+        asset: {
+          id: `${p.manufacturer || ""}||${p.name}`,
+          name: p.manufacturer ? `${p.name} (${p.manufacturer})` : p.name,
+          serialNumber: null,
+        },
+        count: p.count,
+      }));
   }
 
   async monthly(months = 12) {

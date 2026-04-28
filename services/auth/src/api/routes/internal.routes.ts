@@ -2,7 +2,18 @@ import { FastifyInstance } from "fastify";
 import { ApprovalLineService } from "../../application/approval-line.service.js";
 import { DepartmentService } from "../../application/department.service.js";
 import { CalendarService } from "../../application/calendar.service.js";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
+
+// 부하테스트 — 일반 조회용 internal API에서 부하 사용자 자동 제외
+// /users/bulk는 명시적 ID 요청이므로 필터 미적용 (load test가 본인 정보 fetch 가능)
+const HIDE_LOAD_TEST = process.env.HIDE_LOAD_TEST !== "false";
+const LOAD_TEST_DOMAIN = process.env.LOAD_TEST_DOMAIN ?? "@erp-ot.load";
+
+function loadTestUserExclude(): Prisma.UserWhereInput {
+  return HIDE_LOAD_TEST
+    ? { NOT: { email: { endsWith: LOAD_TEST_DOMAIN } } }
+    : {};
+}
 
 export async function internalRoutes(
   fastify: FastifyInstance,
@@ -75,9 +86,10 @@ export async function internalRoutes(
     });
   });
 
-  // GET /internal/users/all — 전체 사용자 ID+이름 목록
+  // GET /internal/users/all — 전체 사용자 ID+이름 목록 (부하 사용자 자동 제외)
   fastify.get("/users/all", async (req, reply) => {
     const users = await prisma.user.findMany({
+      where: loadTestUserExclude(),
       select: { id: true, name: true, email: true },
     });
     return reply.send(users);
@@ -121,9 +133,12 @@ export async function internalRoutes(
       }
     }
 
-    // 해당 부서들의 모든 멤버 조회
+    // 해당 부서들의 모든 멤버 조회 (부하 사용자 자동 제외)
     const profiles = await prisma.userProfile.findMany({
-      where: { departmentId: { in: Array.from(allDeptIds) } },
+      where: {
+        departmentId: { in: Array.from(allDeptIds) },
+        ...(HIDE_LOAD_TEST ? { user: loadTestUserExclude() } : {}),
+      },
       select: { userId: true, user: { select: { id: true, name: true, email: true } } },
     });
 
@@ -131,9 +146,10 @@ export async function internalRoutes(
     return reply.send(users);
   });
 
-  // GET /internal/users/all-with-departments — 전체 사용자 + 부서 정보
+  // GET /internal/users/all-with-departments — 전체 사용자 + 부서 정보 (부하 사용자 자동 제외)
   fastify.get("/users/all-with-departments", async (req, reply) => {
     const profiles = await prisma.userProfile.findMany({
+      where: HIDE_LOAD_TEST ? { user: loadTestUserExclude() } : {},
       include: {
         user: { select: { id: true, name: true, email: true } },
         department: { select: { id: true, name: true, sortOrder: true } },
@@ -147,10 +163,13 @@ export async function internalRoutes(
       departmentName: p.department?.name ?? null,
       departmentSortOrder: p.department?.sortOrder ?? 999,
     }));
-    // UserProfile 없는 사용자도 포함
+    // UserProfile 없는 사용자도 포함 (부하 사용자 제외)
     const profileUserIds = new Set(profiles.map((p) => p.userId));
     const orphans = await prisma.user.findMany({
-      where: { id: { notIn: Array.from(profileUserIds) } },
+      where: {
+        id: { notIn: Array.from(profileUserIds) },
+        ...loadTestUserExclude(),
+      },
       select: { id: true, name: true, email: true },
     });
     for (const u of orphans) {

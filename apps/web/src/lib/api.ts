@@ -750,7 +750,7 @@ export const repairApi = {
     request<void>(`/customer-assets/${id}`, { method: "DELETE" }),
 
   // 수리 접수
-  getRepairOrders: (params?: { status?: string; statusGroup?: string; customerId?: string; search?: string; page?: number; limit?: number }) => {
+  getRepairOrders: (params?: { status?: string; statusGroup?: string; customerId?: string; search?: string; page?: number; limit?: number; sortBy?: string; sortOrder?: "asc" | "desc" }) => {
     const q = new URLSearchParams();
     if (params?.status) q.set("status", params.status);
     if (params?.statusGroup) q.set("statusGroup", params.statusGroup);
@@ -758,6 +758,8 @@ export const repairApi = {
     if (params?.search) q.set("search", params.search);
     if (params?.page) q.set("page", String(params.page));
     if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.sortBy) q.set("sortBy", params.sortBy);
+    if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
     const qs = q.toString();
     return request<any>(`/repair-orders${qs ? `?${qs}` : ""}`);
   },
@@ -774,6 +776,8 @@ export const repairApi = {
     request<any>(`/repair-orders/${id}/sales-status`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteRepairOrder: (id: string) =>
     request<void>(`/repair-orders/${id}`, { method: "DELETE" }),
+  restoreRepairOrder: (id: string) =>
+    request<any>(`/repair-orders/${id}/restore`, { method: "POST" }),
   getTransitions: (id: string) => request<any>(`/repair-orders/${id}/transitions`),
 
   // 점검보고서

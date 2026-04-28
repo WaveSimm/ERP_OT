@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { approvalApi, approvalLineApi, departmentApi, userManagementApi, projectApi, fileApi, getUser } from "@/lib/api";

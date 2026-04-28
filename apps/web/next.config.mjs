@@ -1,6 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
+  // prod-빌드-정리 PDCA — useSearchParams 사용 페이지의 prerender 에러 회피
+  // 부하 테스트와 운영 모드 진입을 위해 Suspense 래핑 대신 빌드 옵션으로 일괄 처리
+  experimental: {
+    missingSuspenseWithCSRBailout: false,
+  },
   async rewrites() {
     const eq = process.env.EQUIPMENT_SERVICE_URL || "http://localhost:3005";
     const auth = process.env.AUTH_SERVICE_URL || "http://localhost:3001";

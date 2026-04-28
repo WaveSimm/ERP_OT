@@ -104,6 +104,11 @@ model Project {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
+  // 캐시 — 모든 leaf task segment 평균/min/max (TaskService hook으로 갱신)
+  overallProgress     Float?    @map("overall_progress")
+  effectiveStartDate  DateTime? @map("effective_start_date")
+  effectiveEndDate    DateTime? @map("effective_end_date")
+
   milestones       Milestone[]
   tasks            Task[]
   baselines        ProjectBaseline[]
@@ -148,6 +153,10 @@ model Task {
   createdBy       String
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
+
+  // 캐시 — 자기 task의 segments min/max (TaskService hook으로 갱신)
+  effectiveStartDate  DateTime? @map("effective_start_date")
+  effectiveEndDate    DateTime? @map("effective_end_date")
 
   project           Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
   milestone         Milestone?           @relation(fields: [milestoneId], references: [id])

@@ -21,19 +21,34 @@ interface ProjectGroup {
   tasks: Omit<MyTask, "project">[];
 }
 
+// project schema의 TaskStatus enum: TODO, IN_PROGRESS, ON_HOLD, DONE, BLOCKED, CANCELLED
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  NOT_STARTED: { label: "대기", color: "bg-gray-100 text-gray-600" },
+  TODO: { label: "대기", color: "bg-gray-100 text-gray-600" },
   IN_PROGRESS: { label: "진행", color: "bg-blue-100 text-blue-700" },
-  COMPLETED: { label: "완료", color: "bg-green-100 text-green-700" },
+  DONE: { label: "완료", color: "bg-green-100 text-green-700" },
   ON_HOLD: { label: "보류", color: "bg-amber-100 text-amber-700" },
   BLOCKED: { label: "막힘", color: "bg-red-100 text-red-700" },
   CANCELLED: { label: "취소", color: "bg-gray-100 text-gray-500" },
 };
 
+// 로컬 시간대 기준 오늘 날짜 (YYYY-MM-DD)
+function todayLocal() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// 날짜 문자열 단위 D-day 계산 (timezone 영향 없음)
 function dDay(endDate: string | null): { label: string; color: string } | null {
   if (!endDate) return null;
-  const days = Math.ceil((new Date(endDate).getTime() - Date.now()) / 86400000);
-  if (days === 0) return { label: "D-Day", color: "bg-red-100 text-red-700" };
+  const today = todayLocal();
+  // 같은 날짜 → D-Day
+  if (endDate === today) return { label: "D-Day", color: "bg-red-100 text-red-700" };
+  // 일자 차이 (현지 자정 기준)
+  const [ty, tm, td] = today.split("-").map(Number) as [number, number, number];
+  const [ey, em, ed] = endDate.split("-").map(Number) as [number, number, number];
+  const days = Math.round(
+    (Date.UTC(ey, em - 1, ed) - Date.UTC(ty, tm - 1, td)) / 86400000,
+  );
   if (days < 0) return { label: `D+${-days}`, color: "bg-red-100 text-red-700" };
   if (days <= 3) return { label: `D-${days}`, color: "bg-amber-100 text-amber-700" };
   return { label: `D-${days}`, color: "bg-gray-100 text-gray-500" };
@@ -63,19 +78,18 @@ export default function MyTasksCard() {
   }, []);
 
   // 정렬: 미완료 우선 → 마감 임박순 (endDate 빠른 순) → 미완료 작업 안에 endDate 없으면 후순위
-  const sorted = [...tasks].sort((a, b) => {
-    const aDone = a.taskStatus === "COMPLETED" ? 1 : 0;
-    const bDone = b.taskStatus === "COMPLETED" ? 1 : 0;
-    if (aDone !== bDone) return aDone - bDone;
+  const isDone = (s: string) => s === "DONE" || s === "CANCELLED";
+
+  // 완료/취소된 태스크는 "내 작업" 위젯에서 제외 (할 일 위주)
+  const active = tasks.filter((t) => !isDone(t.taskStatus));
+
+  const sorted = [...active].sort((a, b) => {
     if (!a.endDate) return 1;
     if (!b.endDate) return -1;
     return a.endDate.localeCompare(b.endDate);
   });
 
-  const dueToday = tasks.filter((t) => {
-    const today = new Date().toISOString().slice(0, 10);
-    return t.endDate === today && t.taskStatus !== "COMPLETED";
-  }).length;
+  const dueToday = active.filter((t) => t.endDate === todayLocal()).length;
 
   return (
     <HomeCard
@@ -88,21 +102,25 @@ export default function MyTasksCard() {
           <span className="bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 min-w-[16px] text-center">
             오늘 {dueToday}
           </span>
-        ) : tasks.length > 0 ? (
-          <span className="text-xs text-gray-500">{tasks.length}건</span>
+        ) : active.length > 0 ? (
+          <span className="text-xs text-gray-500">{active.length}건</span>
         ) : null
       }
       loading={loading}
-      empty={!loading && tasks.length === 0}
+      empty={!loading && active.length === 0}
     >
       <ul className="space-y-2">
         {sorted.slice(0, 5).map((t) => {
-          const st = STATUS_LABELS[t.taskStatus] ?? { label: t.taskStatus, color: "bg-gray-100 text-gray-600" };
+          // 미완료 + endDate 지난 경우 "지연" 라벨로 강조 표시
+          const overdue = !isDone(t.taskStatus) && t.endDate && t.endDate < todayLocal();
+          const st = overdue
+            ? { label: "지연", color: "bg-red-100 text-red-700" }
+            : STATUS_LABELS[t.taskStatus] ?? { label: t.taskStatus, color: "bg-gray-100 text-gray-600" };
           const dd = dDay(t.endDate);
           return (
             <li key={t.taskId}>
               <Link
-                href={`/projects/${t.project.id}`}
+                href={`/projects/${t.project.id}?taskId=${t.taskId}`}
                 className="block text-sm hover:bg-gray-50 -mx-2 px-2 py-1 rounded"
               >
                 <div className="flex items-center gap-2">

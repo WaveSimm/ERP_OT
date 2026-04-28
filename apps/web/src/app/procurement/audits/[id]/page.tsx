@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { auditApi } from "@/lib/api";
+import Pagination from "@/components/Pagination";
 
 const ITEM_STATUS_COLORS: Record<string, string> = {
   PENDING: "bg-gray-100 text-gray-600",
@@ -288,22 +289,7 @@ export default function AuditDetailPage() {
       ) : (
         <>
           <div className="space-y-2">{paged.map(renderItem)}</div>
-          {/* 페이지네이션 */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-6 mb-4">
-              <button onClick={() => setPage(1)} disabled={page === 1}
-                className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-30 hover:bg-gray-50">처음</button>
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-30 hover:bg-gray-50">이전</button>
-              <span className="text-sm text-gray-600 px-3">
-                {page} / {totalPages} 페이지 <span className="text-gray-400">({sorted.length}건)</span>
-              </span>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-30 hover:bg-gray-50">다음</button>
-              <button onClick={() => setPage(totalPages)} disabled={page === totalPages}
-                className="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-30 hover:bg-gray-50">마지막</button>
-            </div>
-          )}
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={sorted.length} className="mt-6 mb-4 border rounded-lg" />
         </>
       )}
 

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { repairApi } from "@/lib/api";
+import Pagination from "@/components/Pagination";
 
 export default function CustomersPage() {
   const router = useRouter();
@@ -246,41 +247,7 @@ export default function CustomersPage() {
         </table>
       </div>
 
-      {/* 페이지네이션 */}
-      {total > 50 && (
-        <div className="flex items-center justify-between mt-4">
-          <span className="text-sm text-gray-500">
-            {(page - 1) * 50 + 1}–{Math.min(page * 50, total)} / 총 {total}건
-          </span>
-          <div className="flex gap-1">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page <= 1}
-              className="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              이전
-            </button>
-            {Array.from({ length: Math.ceil(total / 50) }, (_, i) => i + 1).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPage(p)}
-                className={`px-3 py-1.5 text-sm border rounded-lg ${
-                  page === p ? "bg-blue-600 text-white border-blue-600" : "hover:bg-gray-50"
-                }`}
-              >
-                {p}
-              </button>
-            ))}
-            <button
-              onClick={() => setPage((p) => Math.min(Math.ceil(total / 50), p + 1))}
-              disabled={page >= Math.ceil(total / 50)}
-              className="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              다음
-            </button>
-          </div>
-        </div>
-      )}
+      <Pagination page={page} totalPages={Math.ceil(total / 50)} onPageChange={setPage} total={total} className="mt-4 border rounded-lg" />
 
       {/* 고객사 등록/수정 Modal */}
       {showForm && (

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ocrApi } from "@/lib/api";
+import Pagination from "@/components/Pagination";
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   PROCESSING: { label: "처리중", color: "bg-blue-100 text-blue-800" },
@@ -142,26 +143,7 @@ export default function OcrHistoryPage() {
         </table>
       </div>
 
-      {/* 페이징 */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-4">
-          <button
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-            className="px-3 py-1.5 border rounded text-sm disabled:opacity-40"
-          >
-            &lsaquo; 이전
-          </button>
-          <span className="text-sm text-gray-600">{page} / {totalPages}</span>
-          <button
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-            className="px-3 py-1.5 border rounded text-sm disabled:opacity-40"
-          >
-            다음 &rsaquo;
-          </button>
-        </div>
-      )}
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} className="mt-4 border rounded-lg" />
     </div>
   );
 }

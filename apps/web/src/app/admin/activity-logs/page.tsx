@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { activityLogApi, userManagementApi, getUser } from "@/lib/api";
+import Pagination from "@/components/Pagination";
 
 const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   // ─── 프로젝트/태스크 ───
@@ -198,26 +199,7 @@ export default function ActivityLogsPage() {
         </div>
       )}
 
-      {/* 페이지네이션 */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 pt-2">
-          <button
-            onClick={() => setPage(Math.max(1, page - 1))}
-            disabled={page <= 1}
-            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40"
-          >
-            이전
-          </button>
-          <span className="text-sm text-gray-600">{page} / {totalPages}</span>
-          <button
-            onClick={() => setPage(Math.min(totalPages, page + 1))}
-            disabled={page >= totalPages}
-            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40"
-          >
-            다음
-          </button>
-        </div>
-      )}
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} className="mt-2 border rounded-lg" />
     </div>
   );
 }

@@ -213,23 +213,30 @@ export async function meRoutes(fastify: FastifyInstance) {
       },
     });
 
+    // 본인 배정된 프로젝트 ID 수집 + 본인 segment count
     const projectMap = new Map<string, any>();
     for (const a of assignments as any[]) {
       const proj = a.segment.task.project;
       if (!projectMap.has(proj.id)) {
-        projectMap.set(proj.id, { ...proj, segmentCount: 0, avgProgress: 0, _totalProgress: 0 });
+        projectMap.set(proj.id, { id: proj.id, name: proj.name, status: proj.status, segmentCount: 0 });
       }
-      const p = projectMap.get(proj.id);
-      p.segmentCount++;
-      p._totalProgress += a.segment.progressPercent;
+      projectMap.get(proj.id).segmentCount++;
     }
+
+    // 캐시 필드 직접 read — 프로젝트-진도율-캐시 PDCA로 도입된 Project.overallProgress
+    const projectIds = Array.from(projectMap.keys());
+    const dbProjects = await fastify.prisma.project.findMany({
+      where: { id: { in: projectIds } },
+      select: { id: true, overallProgress: true },
+    });
+    const avgMap = new Map(dbProjects.map((p) => [p.id, p.overallProgress ?? 0]));
 
     const projects = Array.from(projectMap.values()).map((p) => ({
       projectId: p.id,
       projectName: p.name,
       status: p.status,
       segmentCount: p.segmentCount,
-      avgProgress: p.segmentCount > 0 ? Math.round(p._totalProgress / p.segmentCount) : 0,
+      avgProgress: Math.round(avgMap.get(p.id) ?? 0),
     }));
 
     return reply.send(projects);

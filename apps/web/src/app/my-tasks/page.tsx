@@ -367,6 +367,8 @@ export default function MyTasksPage() {
                         {group.tasks.map((task: any) => {
                           const multiSeg = (task.mySegments?.length ?? 0) > 1;
                           const displayStatus = task.taskStatus;
+                          const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })();
+                          const overdue = displayStatus !== "DONE" && displayStatus !== "CANCELLED" && task.endDate && task.endDate < today;
                           return (
                             <div key={task.taskId}>
                               {/* Multi-segment: task summary header */}
@@ -401,9 +403,9 @@ export default function MyTasksPage() {
                                     ) : (
                                       <span
                                         onClick={(e) => { e.stopPropagation(); setStatusEditId(task.taskId); }}
-                                        className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium cursor-pointer hover:opacity-75 ${STATUS_COLOR[displayStatus] ?? "bg-gray-100 text-gray-600"}`}
+                                        className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium cursor-pointer hover:opacity-75 ${overdue ? "bg-red-100 text-red-700" : (STATUS_COLOR[displayStatus] ?? "bg-gray-100 text-gray-600")}`}
                                       >
-                                        {STATUS_LABEL[displayStatus] ?? displayStatus}
+                                        {overdue ? "지연" : (STATUS_LABEL[displayStatus] ?? displayStatus)}
                                       </span>
                                     )}
                                   </div>
@@ -475,9 +477,9 @@ export default function MyTasksPage() {
                                         ) : (
                                           <span
                                             onClick={(e) => { e.stopPropagation(); setStatusEditId(task.taskId); }}
-                                            className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium cursor-pointer hover:opacity-75 ${STATUS_COLOR[displayStatus] ?? "bg-gray-100 text-gray-600"}`}
+                                            className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium cursor-pointer hover:opacity-75 ${overdue ? "bg-red-100 text-red-700" : (STATUS_COLOR[displayStatus] ?? "bg-gray-100 text-gray-600")}`}
                                           >
-                                            {STATUS_LABEL[displayStatus] ?? displayStatus}
+                                            {overdue ? "지연" : (STATUS_LABEL[displayStatus] ?? displayStatus)}
                                           </span>
                                         )
                                       )}

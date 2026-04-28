@@ -10,6 +10,9 @@ import {
 import type { EmbeddingService } from "./embedding.service";
 import { searchConfig } from "./search-config";
 
+// 부하테스트 — 일반 검색에서 부하 사용자 작성 비고 자동 제외
+const HIDE_LOAD_TEST = process.env.HIDE_LOAD_TEST !== "false";
+
 export class WorkLogError extends Error {
   constructor(public readonly code: string, message: string, public readonly statusCode = 400) {
     super(message);
@@ -305,6 +308,7 @@ export class WorkLogService {
           JOIN project.projects p ON p.id = t."projectId"
           LEFT JOIN project.task_segments s ON s.id = w.segment_id
           WHERE w.embedding IS NOT NULL AND w.is_deleted = false
+            ${HIDE_LOAD_TEST ? Prisma.sql`AND w.author_id NOT LIKE 'loadtest-%'` : Prisma.empty}
           ORDER BY w.embedding <=> ${literal}::vector
           LIMIT ${k3}
         ),
@@ -339,6 +343,7 @@ export class WorkLogService {
           LEFT JOIN project.task_segments s ON s.id = w.segment_id
           WHERE w.embedding IS NOT NULL AND w.is_deleted = false
             AND t."projectId" = ANY(${projectIds})
+            ${HIDE_LOAD_TEST ? Prisma.sql`AND w.author_id NOT LIKE 'loadtest-%'` : Prisma.empty}
           ORDER BY w.embedding <=> ${literal}::vector
           LIMIT ${k3}
         ),

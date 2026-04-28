@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppLayout from "@/components/AppLayout";
 import PostEditor from "@/components/board/PostEditor";
+import SearchBar from "@/components/board/SearchBar";
 import { boardApi, postApi, getUser } from "@/lib/api";
 
 export default function WritePostPage({
@@ -100,6 +101,10 @@ export default function WritePostPage({
           <Link href={`/board/${catCode}/${boardCode}`} className="hover:text-gray-700">{board.name}</Link>
           <span>›</span>
           <span className="text-gray-700 font-medium">새 글 작성</span>
+        </div>
+
+        <div className="mb-5">
+          <SearchBar />
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl p-6">

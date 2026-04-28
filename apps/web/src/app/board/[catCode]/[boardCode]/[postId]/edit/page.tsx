@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppLayout from "@/components/AppLayout";
 import PostEditor from "@/components/board/PostEditor";
+import SearchBar from "@/components/board/SearchBar";
 import { postApi, getUser } from "@/lib/api";
 
 export default function EditPostPage({
@@ -119,6 +120,10 @@ export default function EditPostPage({
           <Link href={`/board/${catCode}/${boardCode}/${postId}`} className="hover:text-gray-700 truncate max-w-[200px]">{post.title}</Link>
           <span>›</span>
           <span className="text-gray-700 font-medium">수정</span>
+        </div>
+
+        <div className="mb-5">
+          <SearchBar />
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl p-6">

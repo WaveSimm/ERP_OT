@@ -204,7 +204,7 @@ function CheckInWidget({ today, onAction }: { today: TodayRecord | null; onActio
 
 // ─── Time Input (HH:mm, 시/분 개별 클릭 편집) ───────────────────────────────
 
-function TimeInput({ value, onChange, nextRef, hInputRef }: { value: string; onChange: (v: string) => void; nextRef?: React.RefObject<HTMLInputElement | null>; hInputRef?: React.RefObject<HTMLInputElement | null> }) {
+function TimeInput({ value, onChange, nextRef, hInputRef }: { value: string; onChange: (v: string) => void; nextRef?: React.MutableRefObject<HTMLInputElement | null>; hInputRef?: React.MutableRefObject<HTMLInputElement | null> }) {
   const [h, m] = value.split(":");
   const [hDraft, setHDraft] = useState(h);
   const [mDraft, setMDraft] = useState(m);

@@ -815,7 +815,18 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
 
         {/* Status + Progress (always visible) */}
         <div className="px-6 py-3 border-b border-gray-100 space-y-3 bg-gray-50/50">
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
+            {(() => {
+              // 지연 판정 — 미완료 + endDate 지남
+              const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })();
+              const overdue = task.status !== "DONE" && task.status !== "CANCELLED"
+                && task.effectiveEndDate && task.effectiveEndDate < today;
+              return overdue ? (
+                <span className="px-2 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-bold border-2 border-red-300">
+                  ⚠️ 지연
+                </span>
+              ) : null;
+            })()}
             {STATUS_OPTIONS.map((s) => (
               <button
                 key={s.value}

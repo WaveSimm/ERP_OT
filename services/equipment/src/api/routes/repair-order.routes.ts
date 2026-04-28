@@ -4,15 +4,18 @@ import { requireRole } from "../middleware/auth.middleware.js";
 export async function repairOrderRoutes(fastify: FastifyInstance) {
   // 목록
   fastify.get("/", async (request) => {
-    const { status, statusGroup, customerId, search, page, limit } = request.query as any;
-    return fastify.repairOrderService.list({
+    const { status, statusGroup, customerId, search, page, limit, sortBy, sortOrder } = request.query as any;
+    const listParams: any = {
       status: status || undefined,
       statusGroup: statusGroup || undefined,
       customerId: customerId || undefined,
       search: search || undefined,
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 50,
-    });
+      sortBy: sortBy || undefined,
+    };
+    if (sortOrder === "asc" || sortOrder === "desc") listParams.sortOrder = sortOrder;
+    return fastify.repairOrderService.list(listParams);
   });
 
   // 상세
@@ -59,6 +62,11 @@ export async function repairOrderRoutes(fastify: FastifyInstance) {
     const { id } = request.params as any;
     const { salesStatus } = request.body as any;
     return fastify.repairOrderService.updateSalesStatus(id, salesStatus);
+  });
+
+  // 복구 — CANCELLED → RECEIVED
+  fastify.post("/:id/restore", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
+    return fastify.repairOrderService.restore((request.params as any).id);
   });
 
   // 삭제

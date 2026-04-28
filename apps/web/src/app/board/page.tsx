@@ -100,7 +100,7 @@ export default function BoardLandingPage() {
                   emptyText="등록된 공지가 없습니다."
                 />
                 <FeedSection
-                  title="📚 자료실"
+                  title="📚 게시판"
                   items={wikiItems}
                   catCode="wiki"
                   emptyText="등록된 자료가 없습니다."

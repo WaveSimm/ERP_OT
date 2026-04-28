@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { inventoryApi } from "@/lib/api";
+import Pagination from "@/components/Pagination";
 
 const PAGE_SIZE = 50;
 
@@ -156,25 +157,7 @@ export default function LocationsPage() {
         </table>
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4">
-          <span className="text-sm text-gray-500">
-            {page}/{totalPages} 페이지
-          </span>
-          <div className="flex items-center gap-1">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-              className="px-3 py-1 text-sm rounded bg-white border hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">
-              이전
-            </button>
-            {renderPageButtons()}
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-              className="px-3 py-1 text-sm rounded bg-white border hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">
-              다음
-            </button>
-          </div>
-        </div>
-      )}
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} className="mt-4 border rounded-lg" />
 
       {/* Form Modal */}
       {showForm && (

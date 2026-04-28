@@ -3,6 +3,7 @@ import { AppError } from "@erp-ot/shared";
 import { TaskEntity } from "../domain/entities/task.entity.js";
 import { ProjectCacheService } from "../infrastructure/cache/project.cache.js";
 import { ProjectGateway } from "../infrastructure/websocket/project.gateway.js";
+import { AggregateService } from "./aggregate.service.js";
 
 const STATUS_KO: Record<string, string> = {
   TODO: "예정", IN_PROGRESS: "진행중", DONE: "완료", BLOCKED: "차단",
@@ -53,11 +54,15 @@ export interface UpsertAssignmentDto {
 }
 
 export class TaskService {
+  private readonly aggregate: AggregateService;
+
   constructor(
     private readonly prisma: PrismaClient,
     private readonly cache: ProjectCacheService,
     private readonly gateway: ProjectGateway,
-  ) {}
+  ) {
+    this.aggregate = new AggregateService(prisma);
+  }
 
   async getProjectTasks(projectId: string): Promise<Task[]> {
     return this.prisma.task.findMany({
@@ -103,6 +108,7 @@ export class TaskService {
       { taskName: task.name },
     );
 
+    await this.aggregate.recomputeProject(projectId);
     await this.cache.invalidateProjectSummary(projectId);
     this.gateway.emitToProject(projectId, "task:created", { projectId, taskId: task.id });
     return task;
@@ -146,6 +152,14 @@ export class TaskService {
         { taskName: existing.name, note: dto.description ?? "" });
     }
 
+    // 진도율·구조 변경 시 캐시 갱신 (이름/설명 변경은 영향 없음)
+    if (dto.overallProgress !== undefined
+        || dto.parentId !== undefined
+        || dto.isMilestone !== undefined
+        || dto.status !== undefined) {
+      await this.aggregate.recomputeProject(existing.projectId);
+    }
+
     await this.cache.invalidateProjectSummary(existing.projectId);
     this.gateway.emitToProject(existing.projectId, "task:updated", { projectId: existing.projectId, taskId });
     return updated;
@@ -162,6 +176,7 @@ export class TaskService {
     }
 
     await this.prisma.task.delete({ where: { id: taskId } });
+    await this.aggregate.recomputeProject(task.projectId);
     await this.cache.invalidateProjectSummary(task.projectId);
     this.gateway.emitToProject(task.projectId, "task:deleted", { projectId: task.projectId, taskId });
   }
@@ -223,6 +238,7 @@ export class TaskService {
     });
 
     await this.recalculateTaskProgress(taskId);
+    await this.aggregate.recomputeTaskAndProject(taskId, task.projectId);
     await this.cache.invalidateProjectSummary(task.projectId);
     this.gateway.emitToProject(task.projectId, "segment:created", {
       projectId: task.projectId,
@@ -254,6 +270,7 @@ export class TaskService {
 
     await this.prisma.taskSegment.delete({ where: { id: segmentId } });
     await this.recalculateTaskProgress(segment.taskId);
+    await this.aggregate.recomputeTaskAndProject(segment.taskId, segment.task.projectId);
     await this.cache.invalidateProjectSummary(segment.task.projectId);
     this.gateway.emitToProject(segment.task.projectId, "segment:deleted", {
       projectId: segment.task.projectId,
@@ -330,6 +347,7 @@ export class TaskService {
     }
 
     await this.recalculateTaskProgress(segment.taskId);
+    await this.aggregate.recomputeTaskAndProject(segment.taskId, segment.task.projectId);
     await this.cache.invalidateProjectSummary(segment.task.projectId);
 
     // 활동 로그

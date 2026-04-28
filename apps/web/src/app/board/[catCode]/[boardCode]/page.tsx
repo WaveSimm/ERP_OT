@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppLayout from "@/components/AppLayout";
 import UnifiedBoardSidebar from "@/components/board/UnifiedBoardSidebar";
+import SearchBar from "@/components/board/SearchBar";
 import PostList from "@/components/board/PostList";
 import { boardApi } from "@/lib/api";
 
@@ -66,6 +67,10 @@ export default function BoardPage({ params }: { params: { catCode: string; board
           >
             + 글쓰기
           </Link>
+        </div>
+
+        <div className="mb-5">
+          <SearchBar />
         </div>
 
         <div className="flex gap-6">

@@ -1,9 +1,13 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import type { FastifyBaseLogger } from "fastify";
 import type { EmbeddingService } from "./embedding.service";
 import { canRead } from "./board-permissions";
 import type { AuthUserContext } from "../domain/board.types";
 import { searchConfig } from "./search-config";
+
+// 부하테스트 — 일반 검색에서 부하 사용자 작성 글 자동 제외
+const HIDE_LOAD_TEST = process.env.HIDE_LOAD_TEST !== "false";
+const LOAD_TEST_DOMAIN = process.env.LOAD_TEST_DOMAIN ?? "@erp-ot.load";
 
 const PROJECT_INTERNAL_URL = process.env.PROJECT_SERVICE_URL ?? "http://project-service:3003";
 const INTERNAL_TOKEN = process.env.INTERNAL_API_TOKEN ?? "";
@@ -122,6 +126,7 @@ export class SearchService {
         JOIN public.board_categories c ON c.id = b.category_id
         JOIN public.auth_users u ON u.id = p.author_id
         WHERE p.embedding IS NOT NULL AND p.is_deleted = false
+          ${HIDE_LOAD_TEST ? Prisma.sql`AND u.email NOT LIKE '%' || ${LOAD_TEST_DOMAIN}` : Prisma.empty}
         ORDER BY p.embedding <=> ${literal}::vector
         LIMIT ${k3}
       ),

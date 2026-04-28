@@ -75,6 +75,8 @@ services:
       SEARCH_TITLE_TRGM_WEIGHT: "0.20"
       SEARCH_CONTENT_TRGM_WEIGHT: "0.10"
       SEARCH_KEYWORD_MATCH_BONUS: "0.20"
+      HIDE_LOAD_TEST: "${HIDE_LOAD_TEST:-true}"
+      LOAD_TEST_DOMAIN: "${LOAD_TEST_DOMAIN:-@erp-ot.load}"
     ports:
       - "3001:3001"
     depends_on:
@@ -133,6 +135,8 @@ services:
       SEARCH_CONTENT_EXACT_BONUS: "0.15"
       SEARCH_CONTENT_TRGM_WEIGHT: "0.10"
       SEARCH_KEYWORD_MATCH_BONUS: "0.20"
+      HIDE_LOAD_TEST: "${HIDE_LOAD_TEST:-true}"
+      LOAD_TEST_DOMAIN: "${LOAD_TEST_DOMAIN:-@erp-ot.load}"
     ports:
       - "3003:3003"
     depends_on:

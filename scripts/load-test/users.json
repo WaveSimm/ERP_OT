@@ -1,0 +1,452 @@
+[
+  {
+    "id": "loadtest-001",
+    "email": "loadtest-001@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-002",
+    "email": "loadtest-002@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-003",
+    "email": "loadtest-003@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-004",
+    "email": "loadtest-004@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-005",
+    "email": "loadtest-005@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-006",
+    "email": "loadtest-006@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-007",
+    "email": "loadtest-007@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-008",
+    "email": "loadtest-008@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-009",
+    "email": "loadtest-009@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-010",
+    "email": "loadtest-010@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-011",
+    "email": "loadtest-011@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-012",
+    "email": "loadtest-012@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-013",
+    "email": "loadtest-013@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-014",
+    "email": "loadtest-014@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-015",
+    "email": "loadtest-015@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-016",
+    "email": "loadtest-016@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-017",
+    "email": "loadtest-017@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-018",
+    "email": "loadtest-018@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-019",
+    "email": "loadtest-019@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-020",
+    "email": "loadtest-020@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-021",
+    "email": "loadtest-021@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-022",
+    "email": "loadtest-022@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-023",
+    "email": "loadtest-023@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-024",
+    "email": "loadtest-024@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-025",
+    "email": "loadtest-025@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-026",
+    "email": "loadtest-026@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-027",
+    "email": "loadtest-027@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-028",
+    "email": "loadtest-028@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-029",
+    "email": "loadtest-029@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-030",
+    "email": "loadtest-030@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-031",
+    "email": "loadtest-031@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-032",
+    "email": "loadtest-032@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-033",
+    "email": "loadtest-033@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-034",
+    "email": "loadtest-034@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-035",
+    "email": "loadtest-035@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-036",
+    "email": "loadtest-036@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-037",
+    "email": "loadtest-037@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-038",
+    "email": "loadtest-038@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-039",
+    "email": "loadtest-039@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-040",
+    "email": "loadtest-040@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-041",
+    "email": "loadtest-041@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-042",
+    "email": "loadtest-042@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-043",
+    "email": "loadtest-043@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-044",
+    "email": "loadtest-044@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-045",
+    "email": "loadtest-045@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-046",
+    "email": "loadtest-046@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-047",
+    "email": "loadtest-047@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-048",
+    "email": "loadtest-048@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-049",
+    "email": "loadtest-049@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-050",
+    "email": "loadtest-050@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-051",
+    "email": "loadtest-051@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-052",
+    "email": "loadtest-052@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-053",
+    "email": "loadtest-053@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-054",
+    "email": "loadtest-054@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-055",
+    "email": "loadtest-055@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-056",
+    "email": "loadtest-056@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-057",
+    "email": "loadtest-057@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-058",
+    "email": "loadtest-058@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-059",
+    "email": "loadtest-059@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-060",
+    "email": "loadtest-060@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-061",
+    "email": "loadtest-061@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-062",
+    "email": "loadtest-062@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-063",
+    "email": "loadtest-063@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-064",
+    "email": "loadtest-064@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-065",
+    "email": "loadtest-065@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-066",
+    "email": "loadtest-066@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-067",
+    "email": "loadtest-067@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-068",
+    "email": "loadtest-068@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-069",
+    "email": "loadtest-069@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-070",
+    "email": "loadtest-070@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-071",
+    "email": "loadtest-071@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-072",
+    "email": "loadtest-072@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-073",
+    "email": "loadtest-073@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-074",
+    "email": "loadtest-074@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-075",
+    "email": "loadtest-075@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-076",
+    "email": "loadtest-076@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-077",
+    "email": "loadtest-077@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-078",
+    "email": "loadtest-078@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-079",
+    "email": "loadtest-079@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-080",
+    "email": "loadtest-080@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-081",
+    "email": "loadtest-081@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-082",
+    "email": "loadtest-082@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-083",
+    "email": "loadtest-083@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-084",
+    "email": "loadtest-084@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-085",
+    "email": "loadtest-085@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-086",
+    "email": "loadtest-086@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-087",
+    "email": "loadtest-087@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-088",
+    "email": "loadtest-088@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-089",
+    "email": "loadtest-089@erp-ot.load",
+    "password": "loadtest123!"
+  },
+  {
+    "id": "loadtest-090",
+    "email": "loadtest-090@erp-ot.load",
+    "password": "loadtest123!"
+  }
+]

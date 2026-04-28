@@ -362,7 +362,20 @@
       "Bash(grep -n \"^  const latest\\\\|latest?.segments\\\\|task\\\\\\\\.segments\" /e/claude/ERP_OT/apps/web/src/components/TaskDrawer.tsx)",
       "Bash(nvidia-smi)",
       "Bash(docker port *)",
-      "Bash(jq --version)"
+      "Bash(jq --version)",
+      "Bash(bash scripts/load-test/run-round.sh scenario-a-morning-burst.js)",
+      "Bash(bash scripts/load-test/run-round.sh scenario-b-mixed.js)",
+      "Bash(bash scripts/load-test/run-round.sh scenario-c-search-burst.js)",
+      "Bash(MSYS_NO_PATHCONV=1 docker compose -f docker-compose.yml -f docker-compose.prod-test.yml up -d --build web)",
+      "Bash(MSYS_NO_PATHCONV=1 docker compose -f docker-compose.yml -f docker-compose.prod-test.yml build web)",
+      "Bash(docker kill *)",
+      "Bash(pkill -f \"node server.js\")",
+      "Bash(MSYS_NO_PATHCONV=1 docker run --rm -v \"$\\(pwd\\)/apps/web:/work\" alpine sh -c \"rm -rf /work/.next/standalone /work/.next/cache 2>&1 | head -5; echo 'cleanup done'\")",
+      "Bash(taskkill /F /PID 13700)",
+      "Bash(MSYS_NO_PATHCONV=1 docker run --rm -v \"$\\(pwd\\)/apps/web:/work\" alpine sh -c \"rm -rf /work/.next/standalone 2>&1 | head -3; ls /work/.next/ 2>&1 | head -10\")",
+      "PowerShell(Stop-Process *)",
+      "Bash(echo \"---exit code: $?\")",
+      "Bash(echo \"exit: $?\")"
     ]
   }
 }

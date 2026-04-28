@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppLayout from "@/components/AppLayout";
 import UnifiedBoardSidebar from "@/components/board/UnifiedBoardSidebar";
+import SearchBar from "@/components/board/SearchBar";
 
 interface MyProjectBoardItem {
   projectId: string;
@@ -42,6 +43,8 @@ export default function ProjectBoardPage({ params }: { params: { projectId: stri
   const [to, setTo] = useState<string>(dateAdd(0));
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [searchText, setSearchText] = useState<string>("");
+  const [appliedSearch, setAppliedSearch] = useState<string>("");
 
   // 프로젝트 사이드바 로드
   useEffect(() => {
@@ -101,6 +104,16 @@ export default function ProjectBoardPage({ params }: { params: { projectId: stri
     await reload();
   };
 
+  const visibleLogs = appliedSearch
+    ? logs.filter((l) => {
+        const q = appliedSearch.toLowerCase();
+        return (
+          (l.content ?? "").toLowerCase().includes(q) ||
+          (l.taskName ?? "").toLowerCase().includes(q)
+        );
+      })
+    : logs;
+
   // 작성자 목록 (현재 결과에서 추출)
   const authorOptions = Array.from(
     new Map(logs.map((l) => [l.authorId, l.authorName])).entries(),
@@ -128,6 +141,10 @@ export default function ProjectBoardPage({ params }: { params: { projectId: stri
               </p>
             )}
           </div>
+        </div>
+
+        <div className="mb-5">
+          <SearchBar />
         </div>
 
         <div className="flex gap-6">
@@ -185,6 +202,40 @@ export default function ProjectBoardPage({ params }: { params: { projectId: stri
               </div>
             </div>
 
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setAppliedSearch(searchText.trim());
+              }}
+              className="flex gap-2 mb-3"
+            >
+              <input
+                type="text"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                placeholder="제목·본문 검색"
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+              />
+              {appliedSearch && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchText("");
+                    setAppliedSearch("");
+                  }}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  지우기
+                </button>
+              )}
+              <button
+                type="submit"
+                className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                검색
+              </button>
+            </form>
+
             {error && (
               <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 mb-4">
                 {error}
@@ -197,8 +248,13 @@ export default function ProjectBoardPage({ params }: { params: { projectId: stri
               </div>
             ) : (
               <>
+                {appliedSearch && (
+                  <div className="text-xs text-gray-400 mb-2">
+                    검색 결과 {visibleLogs.length}건 (전체 {logs.length}건 중)
+                  </div>
+                )}
                 <WorkLogTimeline
-                  logs={logs}
+                  logs={visibleLogs}
                   currentUserId={me?.id ?? ""}
                   isAdmin={isAdmin}
                   showTaskName

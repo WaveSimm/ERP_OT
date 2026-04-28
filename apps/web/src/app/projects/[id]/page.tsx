@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef, Fragment } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { projectApi, taskApi, resourceApi, baselineApi, commentApi, templateApi, deploymentApi, userManagementApi } from "@/lib/api";
 import dynamic from "next/dynamic";
 import { usePermission } from "@/hooks/usePermission";
@@ -55,6 +55,16 @@ const TASK_STATUS_LABELS: Record<string, string> = {
   TODO: "예정", IN_PROGRESS: "진행중", ON_HOLD: "보류", DONE: "완료", BLOCKED: "차단",
 };
 
+// 지연 판정: 미완료 + endDate가 오늘 이전
+function isOverdue(task: { status?: string; effectiveEndDate?: string | null }) {
+  if (!task) return false;
+  if (task.status === "DONE" || task.status === "CANCELLED") return false;
+  if (!task.effectiveEndDate) return false;
+  const d = new Date();
+  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return task.effectiveEndDate < today;
+}
+
 // 자원 이름 → 아바타 배경색 (해시 기반)
 const AVATAR_COLORS = [
   "bg-blue-500", "bg-emerald-500", "bg-violet-500", "bg-orange-500",
@@ -70,6 +80,10 @@ export default function ProjectDetailPage() {
   const router = useRouter();
   const params = useParams();
   const projectId = params.id as string;
+  const searchParams = useSearchParams();
+  const initialTaskId = searchParams.get("taskId");
+  // ?taskId=... 자동 drawer 오픈은 1회만 (사용자가 닫고 다른 작업 후 무한 재오픈 방지)
+  const initialTaskAppliedRef = useRef(false);
   const { isManager, isOperator } = usePermission();
 
   const [ganttData, setGanttData] = useState<any>(null);
@@ -165,6 +179,17 @@ export default function ProjectDetailPage() {
       setLoading(false);
     }
   }, [projectId]);
+
+  // ?taskId=... 자동 drawer 오픈 (홈 → 내 작업 → 태스크 클릭 흐름)
+  useEffect(() => {
+    if (initialTaskAppliedRef.current) return;
+    if (!initialTaskId || !ganttData?.tasks) return;
+    const target = (ganttData.tasks as any[]).find((t) => t.id === initialTaskId);
+    if (target) {
+      setSelectedTask({ ...target, _projectName: ganttData?.project?.name ?? "" });
+      initialTaskAppliedRef.current = true;
+    }
+  }, [initialTaskId, ganttData]);
 
   // 드로어·인라인 편집용: 스피너 없이 ganttData만 갱신
   const loadSilent = useCallback(async () => {
@@ -1452,11 +1477,16 @@ export default function ProjectDetailPage() {
                                 className="text-[10px] w-full border border-blue-400 rounded px-1 py-0.5 bg-white focus:outline-none">
                                 {Object.entries(TASK_STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                               </select>
-                            ) : (
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium cursor-pointer hover:opacity-75 ${TASK_STATUS_COLORS[task.status] ?? ""}`}>
-                                {TASK_STATUS_LABELS[task.status] ?? task.status}
-                              </span>
-                            )}
+                            ) : (() => {
+                              const overdue = isOverdue(task);
+                              const cls = overdue ? "bg-red-100 text-red-700" : (TASK_STATUS_COLORS[task.status] ?? "");
+                              const label = overdue ? "지연" : (TASK_STATUS_LABELS[task.status] ?? task.status);
+                              return (
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium cursor-pointer hover:opacity-75 ${cls}`}>
+                                  {label}
+                                </span>
+                              );
+                            })()}
                           </td>
                         );
                         if (col === "dates") return (

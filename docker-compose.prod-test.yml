@@ -1,0 +1,17 @@
+# 부하테스트 — production 빌드 web 컨테이너 override
+# 사용:
+#   docker compose -f docker-compose.yml -f docker-compose.prod-test.yml up -d --build web
+# 복귀:
+#   docker compose up -d web   (원래 dev 모드)
+
+services:
+  web:
+    image:    # 기본 image: node:20-alpine 무효화하고 build로 전환
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: runner
+    command: []                        # Dockerfile의 CMD ["node", "server.js"] 사용
+    working_dir: /app
+    environment:
+      NODE_ENV: production
