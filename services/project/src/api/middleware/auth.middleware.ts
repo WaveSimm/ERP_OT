@@ -5,6 +5,7 @@ declare module "fastify" {
   interface FastifyRequest {
     userId: string;
     userEmail: string;
+    userName: string;
     userRole: "ADMIN" | "MANAGER" | "OPERATOR" | "VIEWER";
   }
 }
@@ -12,17 +13,21 @@ declare module "fastify" {
 export const authMiddleware = fp(async (fastify: FastifyInstance) => {
   fastify.decorateRequest("userId", "");
   fastify.decorateRequest("userEmail", "");
+  fastify.decorateRequest("userName", "");
   fastify.decorateRequest("userRole", "VIEWER");
 
   fastify.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
     // 헬스체크 제외
     if (request.url === "/health") return;
+    // 내부 API는 X-Internal-Token으로 별도 인증 (auth-service ↔ project-service)
+    if (request.url.startsWith("/internal/")) return;
 
     try {
       await request.jwtVerify();
-      const payload = request.user as { sub: string; email: string; role: string };
+      const payload = request.user as { sub: string; email: string; role: string; name?: string };
       request.userId = payload.sub;
       request.userEmail = payload.email ?? "";
+      request.userName = payload.name ?? "";
       request.userRole = payload.role as any;
     } catch {
       reply.status(401).send({ code: "UNAUTHORIZED", message: "인증이 필요합니다." });

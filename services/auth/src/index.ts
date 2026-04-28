@@ -16,6 +16,8 @@ import { boardRoutes } from "./api/routes/board.routes";
 import { postRoutes } from "./api/routes/post.routes";
 import { commentRoutes } from "./api/routes/comment.routes";
 import { attachmentRoutes } from "./api/routes/attachment.routes";
+import { calendarRoutes } from "./api/routes/calendar.routes";
+import { searchRoutes } from "./api/routes/search.routes";
 import { DepartmentService } from "./application/department.service";
 import { ApprovalLineService } from "./application/approval-line.service";
 import { BoardService } from "./application/board.service";
@@ -23,6 +25,9 @@ import { PostService } from "./application/post.service";
 import { CommentService } from "./application/comment.service";
 import { AttachmentService } from "./application/attachment.service";
 import { NoticeNotifyHook } from "./application/notice-notify.hook";
+import { CalendarService } from "./application/calendar.service";
+import { EmbeddingService } from "./application/embedding.service";
+import { SearchService } from "./application/search.service";
 import { LocalFsStorage, ATTACHMENT_MAX_SIZE } from "./infrastructure/attachment-storage";
 import { closePublisher } from "./infrastructure/event-publisher";
 
@@ -63,6 +68,12 @@ const commentService = new CommentService(prisma);
 const attachmentStorage = new LocalFsStorage();
 const attachmentService = new AttachmentService(prisma, attachmentStorage);
 const noticeNotifyHook = new NoticeNotifyHook(prisma, app.log);
+const calendarService = new CalendarService(prisma);
+const embeddingService = new EmbeddingService(app.log);
+const searchService = new SearchService(prisma, embeddingService, app.log);
+
+// PostService에 임베딩 주입 (fire-and-forget hook 활성)
+postService.setEmbedding(embeddingService, app.log);
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get("/health", async () => {
@@ -74,13 +85,19 @@ app.register(authRoutes, { prefix: "/api/v1/auth", authService, userRepo });
 app.register(userRoutes, { prefix: "/api/v1/users", userService, authService });
 app.register(departmentRoutes, { prefix: "/api/v1/departments", deptService, authService });
 app.register(approvalLineRoutes, { prefix: "/api/v1/approval-lines", approvalLineService, authService });
-app.register(internalRoutes, { prefix: "/internal", approvalLineService, deptService, prisma });
+app.register(internalRoutes, { prefix: "/internal", approvalLineService, deptService, calendarService, prisma });
 
 // 게시판 라우트 (prefix: /api/v1)
 app.register(boardRoutes, { prefix: "/api/v1", boardService, authService });
 app.register(postRoutes, { prefix: "/api/v1", postService, boardService, authService, noticeNotifyHook, prisma });
 app.register(commentRoutes, { prefix: "/api/v1", commentService, authService });
 app.register(attachmentRoutes, { prefix: "/api/v1", attachmentService, authService, prisma });
+
+// 회사 달력 라우트
+app.register(calendarRoutes, { prefix: "/api/v1/calendar", calendarService, authService });
+
+// 자연어 검색 라우트
+app.register(searchRoutes, { prefix: "/api/v1", searchService, authService, prisma });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 const PORT = parseInt(process.env.PORT || "3001", 10);

@@ -1252,6 +1252,202 @@ export const ocrApi = {
   getStats: () => request<any>("/ocr/stats"),
 };
 
+// ─── 게시판 ────────────────────────────────────────────────────────────────
+
+export const boardApi = {
+  listCategories: () => request<any[]>("/board-categories"),
+  listBoards: (categoryCode?: string) =>
+    request<any[]>(`/boards${categoryCode ? `?categoryCode=${encodeURIComponent(categoryCode)}` : ""}`),
+  getBoard: (code: string) => request<any>(`/boards/${encodeURIComponent(code)}`),
+};
+
+export const postApi = {
+  list: (
+    boardCode: string,
+    params?: { page?: number; pageSize?: number; search?: string; publishingDeptId?: string; priority?: number },
+  ) => {
+    const q = new URLSearchParams();
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.pageSize) q.set("pageSize", String(params.pageSize));
+    if (params?.search) q.set("search", params.search);
+    if (params?.publishingDeptId) q.set("publishingDeptId", params.publishingDeptId);
+    if (typeof params?.priority === "number") q.set("priority", String(params.priority));
+    const qs = q.toString();
+    return request<{ items: any[]; total: number; page: number; pageSize: number }>(
+      `/boards/${encodeURIComponent(boardCode)}/posts${qs ? `?${qs}` : ""}`,
+    );
+  },
+  feed: (params?: { categoryCode?: string; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.categoryCode) q.set("categoryCode", params.categoryCode);
+    if (params?.limit) q.set("limit", String(params.limit));
+    const qs = q.toString();
+    return request<{ items: any[] }>(`/posts/feed${qs ? `?${qs}` : ""}`);
+  },
+  unreadCount: (categoryCode?: string) => {
+    const qs = categoryCode ? `?categoryCode=${encodeURIComponent(categoryCode)}` : "";
+    return request<{ total: number; byCategory: Record<string, number> }>(
+      `/posts/me/unread-count${qs}`,
+    );
+  },
+  get: (id: string) => request<any>(`/posts/${id}`),
+  create: (
+    boardCode: string,
+    data: { title: string; content: string; priority?: number; expiresAt?: string | null; attachmentIds?: string[] },
+  ) =>
+    request<any>(`/boards/${encodeURIComponent(boardCode)}/posts`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  update: (
+    id: string,
+    data: { title?: string; content?: string; priority?: number; expiresAt?: string | null },
+  ) =>
+    request<any>(`/posts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  remove: (id: string) => request<void>(`/posts/${id}`, { method: "DELETE" }),
+  togglePin: (id: string, isPinned: boolean) =>
+    request<{ id: string; isPinned: boolean }>(`/posts/${id}/pin`, {
+      method: "POST",
+      body: JSON.stringify({ isPinned }),
+    }),
+};
+
+export const boardCommentApi = {
+  list: (postId: string) => request<any[]>(`/posts/${postId}/comments`),
+  create: (postId: string, data: { content: string; parentId?: string }) =>
+    request<any>(`/posts/${postId}/comments`, { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, content: string) =>
+    request<any>(`/comments/${id}`, { method: "PATCH", body: JSON.stringify({ content }) }),
+  remove: (id: string) => request<void>(`/comments/${id}`, { method: "DELETE" }),
+};
+
+export const attachmentApi = {
+  upload: async (file: File, isInline = false): Promise<{ id: string; url: string; fileName: string; fileSize: number; mimeType: string; isInline: boolean }> => {
+    const token = getToken();
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch(`${API_PREFIX}/attachments/upload?isInline=${isInline}`, {
+      method: "POST",
+      headers,
+      body: fd,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message ?? err.message ?? "업로드 실패");
+    }
+    return res.json();
+  },
+  downloadUrl: (id: string) => `${API_PREFIX}/attachments/${id}`,
+};
+
+// ─── 작업비고 (WorkLog) ────────────────────────────────────────────────────
+
+export const workLogApi = {
+  listByTask: (taskId: string, params?: { segmentId?: string; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.segmentId) q.set("segmentId", params.segmentId);
+    if (params?.limit) q.set("limit", String(params.limit));
+    const qs = q.toString();
+    return request<any[]>(`/tasks/${taskId}/work-logs${qs ? `?${qs}` : ""}`);
+  },
+  create: (
+    taskId: string,
+    data: { content: string; workedAt: string; segmentId?: string },
+  ) =>
+    request<any>(`/tasks/${taskId}/work-logs`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  update: (id: string, data: { content?: string; workedAt?: string }) =>
+    request<any>(`/work-logs/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  remove: (id: string) => request<void>(`/work-logs/${id}`, { method: "DELETE" }),
+
+  listByProject: (
+    projectId: string,
+    params?: { from?: string; to?: string; authorId?: string; taskId?: string; limit?: number; cursor?: string },
+  ) => {
+    const q = new URLSearchParams();
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
+    if (params?.authorId) q.set("authorId", params.authorId);
+    if (params?.taskId) q.set("taskId", params.taskId);
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.cursor) q.set("cursor", params.cursor);
+    const qs = q.toString();
+    return request<{ items: any[]; nextCursor: string | null }>(
+      `/projects/${projectId}/work-logs${qs ? `?${qs}` : ""}`,
+    );
+  },
+
+  listMine: (params?: { from?: string; to?: string; projectId?: string; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
+    if (params?.projectId) q.set("projectId", params.projectId);
+    if (params?.limit) q.set("limit", String(params.limit));
+    const qs = q.toString();
+    return request<any[]>(`/me/work-logs${qs ? `?${qs}` : ""}`);
+  },
+
+  myProjects: () => request<any[]>("/me/work-log-projects"),
+
+  feed: (params?: { limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.limit) q.set("limit", String(params.limit));
+    const qs = q.toString();
+    return request<any[]>(`/me/work-log-feed${qs ? `?${qs}` : ""}`);
+  },
+};
+
+// ─── 자연어 검색 ───────────────────────────────────────────────────
+
+export interface SearchResultItem {
+  type: "post" | "worklog";
+  id: string;
+  title: string;
+  snippet: string;
+  author: string;
+  publishedAt: string;
+  url: string;
+  boardName?: string;
+  projectName?: string;
+  taskName?: string;
+  score: number;
+}
+
+export const searchApi = {
+  search: (q: string, params?: { scope?: "all" | "posts" | "worklogs"; limit?: number }) => {
+    const sp = new URLSearchParams({ q });
+    if (params?.scope) sp.set("scope", params.scope);
+    if (params?.limit) sp.set("limit", String(params.limit));
+    return request<{ query: string; took: number; items: SearchResultItem[] }>(
+      `/search?${sp.toString()}`,
+    );
+  },
+};
+
+// ─── 회사 달력 ─────────────────────────────────────────────────────
+
+export const calendarApi = {
+  list: (params?: { from?: string; to?: string; type?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
+    if (params?.type) q.set("type", params.type);
+    const qs = q.toString();
+    return request<any[]>(`/calendar${qs ? `?${qs}` : ""}`);
+  },
+  upcoming: (days = 14) => request<any[]>(`/calendar/upcoming?days=${days}`),
+  get: (id: string) => request<any>(`/calendar/${id}`),
+  create: (data: { type: string; title: string; description?: string | null; startDate: string; endDate: string; color?: string | null }) =>
+    request<any>("/calendar", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: { type?: string; title?: string; description?: string | null; startDate?: string; endDate?: string; color?: string | null }) =>
+    request<any>(`/calendar/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  remove: (id: string) => request<void>(`/calendar/${id}`, { method: "DELETE" }),
+};
+
 /** @deprecated Use authApi.login instead */
 export async function devLogin(username: string, _password: string) {
   // Legacy dev login kept for backward compatibility — redirects through authApi

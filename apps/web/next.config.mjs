@@ -66,6 +66,29 @@ const nextConfig = {
       { source: "/api/v1/departments/:path*", destination: `${auth}/api/v1/departments/:path*` },
       { source: "/api/v1/approval-lines", destination: `${auth}/api/v1/approval-lines` },
       { source: "/api/v1/approval-lines/:path*", destination: `${auth}/api/v1/approval-lines/:path*` },
+      // 회사 달력 (auth-service 확장)
+      { source: "/api/v1/calendar", destination: `${auth}/api/v1/calendar` },
+      { source: "/api/v1/calendar/:path*", destination: `${auth}/api/v1/calendar/:path*` },
+      // 자연어 검색 (auth-service)
+      { source: "/api/v1/search", destination: `${auth}/api/v1/search` },
+      // 게시판 도메인 (auth-service 확장)
+      { source: "/api/v1/board-categories", destination: `${auth}/api/v1/board-categories` },
+      { source: "/api/v1/board-categories/:path*", destination: `${auth}/api/v1/board-categories/:path*` },
+      { source: "/api/v1/boards", destination: `${auth}/api/v1/boards` },
+      { source: "/api/v1/boards/:path*", destination: `${auth}/api/v1/boards/:path*` },
+      { source: "/api/v1/posts", destination: `${auth}/api/v1/posts` },
+      { source: "/api/v1/posts/:path*", destination: `${auth}/api/v1/posts/:path*` },
+      { source: "/api/v1/comments", destination: `${auth}/api/v1/comments` },
+      { source: "/api/v1/comments/:path*", destination: `${auth}/api/v1/comments/:path*` },
+      { source: "/api/v1/attachments", destination: `${auth}/api/v1/attachments` },
+      { source: "/api/v1/attachments/:path*", destination: `${auth}/api/v1/attachments/:path*` },
+
+      // 작업비고 (WorkLog) — project-service
+      { source: "/api/v1/work-logs", destination: `${proj}/api/v1/work-logs` },
+      { source: "/api/v1/work-logs/:path*", destination: `${proj}/api/v1/work-logs/:path*` },
+      { source: "/api/v1/me/work-logs", destination: `${proj}/api/v1/me/work-logs` },
+      { source: "/api/v1/me/work-log-projects", destination: `${proj}/api/v1/me/work-log-projects` },
+      { source: "/api/v1/me/work-log-feed", destination: `${proj}/api/v1/me/work-log-feed` },
 
       // ── attendance-service ──
       { source: "/api/v1/attendance/:path*", destination: `${att}/api/v1/attendance/:path*` },

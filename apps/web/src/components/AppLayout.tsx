@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { clearToken, getUser, setUser, myProfileApi, notificationApi, attendanceApi } from "@/lib/api";
 import clsx from "clsx";
+import NoticeBadge from "./board/NoticeBadge";
 
 const NAV = [
   { href: "/me/dashboard",   label: "내 대시보드", icon: "🗂", managerOnly: false },
@@ -13,8 +14,8 @@ const NAV = [
   { href: "/equipment",      label: "장비 관리",  icon: "🔧", managerOnly: false },
   { href: "/repair",         label: "수리 관리",  icon: "🛠", managerOnly: false },
   { href: "/procurement",    label: "구매/회계",  icon: "📦", managerOnly: false },
-  { href: "/ocr",            label: "문서인식",  icon: "📄", managerOnly: false },
   { href: "/approval",       label: "결재",      icon: "📝", managerOnly: false },
+  { href: "/board",          label: "게시판",     icon: "📋", managerOnly: false },
 ];
 
 const STORAGE_KEY = "erp_last_path";
@@ -55,6 +56,13 @@ function CheckInWidget() {
   }, []);
 
   useEffect(() => { load(); }, []);
+
+  // 다른 컴포넌트(예: 홈 카드)에서 근태 변경 이벤트 발신 시 동기화
+  useEffect(() => {
+    const handler = () => { void load(); };
+    window.addEventListener("attendance-updated", handler);
+    return () => window.removeEventListener("attendance-updated", handler);
+  }, [load]);
 
   // 1분마다 현재 시각 갱신 (실시간 근무시간 계산용)
   useEffect(() => {
@@ -276,12 +284,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
         <div className="max-w-full px-6 h-14 flex items-center gap-4">
-          <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => router.push("/home")}
+            className="flex items-center gap-2 shrink-0 hover:opacity-80 transition-opacity cursor-pointer"
+            title="홈으로"
+          >
             <div className="w-7 h-7 bg-blue-600 rounded-md flex items-center justify-center">
               <span className="text-white text-xs font-bold">ERP</span>
             </div>
             <span className="font-semibold text-gray-900 text-sm">OT 관리</span>
-          </div>
+          </button>
 
           <nav className="flex items-center gap-1">
             {NAV.filter((n) => !n.managerOnly || isManager).map((n) => (
@@ -304,6 +316,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <CheckInWidget />
 
           <div className="ml-auto flex items-center gap-3">
+            {/* 공지사항 뱃지 */}
+            <NoticeBadge />
+
             {/* 알림 벨 */}
             <button
               onClick={() => router.push("/me/notifications")}
@@ -348,7 +363,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   관리 <span className="text-xs">{showAdminMenu ? "▴" : "▾"}</span>
                 </button>
                 {showAdminMenu && (
-                  <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-50">
+                  <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-50">
                     <button onClick={() => { router.push("/resources?tab=users"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
                       사용자 관리
                     </button>
@@ -357,6 +372,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     </button>
                     <button onClick={() => { router.push("/admin/approval-lines"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
                       결재라인
+                    </button>
+                    <button onClick={() => { router.push("/admin/calendar"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                      📅 회사 달력
                     </button>
                     <button onClick={() => { router.push("/admin/activity-logs"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
                       시스템 이력

@@ -357,7 +357,12 @@
       "Bash(cp \"/e/Users/yunsi/OneDrive/Screenshots/스크린샷 2026-04-24 155121.png\" /e/claude/ERP_OT/docs/assets/manual-as/03-shipment-edit.png)",
       "Bash(cp \"/e/Users/yunsi/OneDrive/Screenshots/스크린샷 2026-04-24 083014.png\" /e/claude/ERP_OT/docs/assets/manual-as/04-as-header.png)",
       "Bash(cp \"/e/Users/yunsi/OneDrive/Screenshots/스크린샷 2026-04-24 081208.png\" /e/claude/ERP_OT/docs/assets/manual-as/05-contacts-table.png)",
-      "Bash(pandoc --version)"
+      "Bash(pandoc --version)",
+      "Bash(grep -rn \"tasks/mine\\\\|tasks\\\\\\\\.mine\\\\|router.get.*\\\\\"/mine\\\\\"\" services/project/src/)",
+      "Bash(grep -n \"^  const latest\\\\|latest?.segments\\\\|task\\\\\\\\.segments\" /e/claude/ERP_OT/apps/web/src/components/TaskDrawer.tsx)",
+      "Bash(nvidia-smi)",
+      "Bash(docker port *)",
+      "Bash(jq --version)"
     ]
   }
 }

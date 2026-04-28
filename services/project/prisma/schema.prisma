@@ -160,6 +160,7 @@ model Task {
   attachments       Attachment[]
   scheduleHistories TaskScheduleHistory[]
   taskBaselines     TaskBaseline[]
+  workLogs          WorkLog[]
 
   @@map("tasks")
   @@schema("project")
@@ -180,8 +181,34 @@ model TaskSegment {
   task             Task                  @relation(fields: [taskId], references: [id], onDelete: Cascade)
   assignments      SegmentAssignment[]
   baselineSegments TaskBaselineSegment[]
+  workLogs         WorkLog[]
 
   @@map("task_segments")
+  @@schema("project")
+}
+
+// ─── 작업비고 (WorkLog) ──────────────────────────────────────────
+model WorkLog {
+  id          String    @id @default(cuid())
+  taskId      String    @map("task_id")
+  segmentId   String?   @map("segment_id")
+  embedding   Unsupported("vector(1024)")?
+  embeddedAt  DateTime?                        @map("embedded_at")
+  authorId    String    @map("author_id")
+  authorName  String    @map("author_name")
+  content     String    @db.Text
+  workedAt    DateTime  @db.Date @map("worked_at")
+  isDeleted   Boolean   @default(false) @map("is_deleted")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  task    Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  segment TaskSegment? @relation(fields: [segmentId], references: [id], onDelete: SetNull)
+
+  @@index([taskId, isDeleted, workedAt(sort: Desc)])
+  @@index([authorId, workedAt(sort: Desc)])
+  @@index([segmentId])
+  @@map("work_logs")
   @@schema("project")
 }
 

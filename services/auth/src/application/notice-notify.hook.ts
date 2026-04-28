@@ -14,6 +14,8 @@ export interface NoticeNotifyContext {
   publishingDepartmentId: string | null;
   readAudience: "ALL" | "DEPARTMENT" | "ROLE";
   audienceTargetId: string | null;
+  // 글 단위 대상 부서 (부서 공지 — 보드 audience보다 우선)
+  targetDepartmentId?: string | null;
 }
 
 export class NoticeNotifyHook {
@@ -65,6 +67,16 @@ export class NoticeNotifyHook {
   }
 
   private async collectUserIds(ctx: NoticeNotifyContext): Promise<string[]> {
+    // 1. 글 단위 targetDepartmentId 지정 시 — 보드 audience보다 우선
+    if (ctx.targetDepartmentId) {
+      const profiles = await this.prisma.userProfile.findMany({
+        where: { departmentId: ctx.targetDepartmentId },
+        select: { userId: true },
+      });
+      return profiles.map((p) => p.userId);
+    }
+
+    // 2. 보드 audience 기반
     switch (ctx.readAudience) {
       case "ALL": {
         const users = await this.prisma.user.findMany({

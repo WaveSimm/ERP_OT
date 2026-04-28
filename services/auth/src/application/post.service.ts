@@ -1,6 +1,8 @@
 import { PrismaClient, Prisma } from "@prisma/client";
 import type { AuthUserContext } from "../domain/board.types";
 import { canRead, canEdit, canDelete, canPin } from "./board-permissions";
+import type { EmbeddingService } from "./embedding.service";
+import type { FastifyBaseLogger } from "fastify";
 
 export class PostError extends Error {
   constructor(public readonly code: string, message: string, public readonly statusCode = 400) {
@@ -10,7 +12,40 @@ export class PostError extends Error {
 }
 
 export class PostService {
+  private embeddingService?: EmbeddingService;
+  private logger?: FastifyBaseLogger;
+
   constructor(private readonly prisma: PrismaClient) {}
+
+  // 선택적 의존성 주입 (없으면 임베딩 비활성)
+  setEmbedding(embeddingService: EmbeddingService, logger: FastifyBaseLogger) {
+    this.embeddingService = embeddingService;
+    this.logger = logger;
+  }
+
+  /**
+   * 글 임베딩 후 DB에 저장 (fire-and-forget).
+   * 실패는 logger.error만, 글 작성에 영향 없음.
+   */
+  private embedAndStorePost(postId: string, title: string, content: string): void {
+    if (!this.embeddingService) return;
+    const text = `${title}\n\n${content}`;
+    void this.embeddingService.embedText(text)
+      .then(async (vec) => {
+        const literal = this.embeddingService!.toSqlLiteral(vec);
+        // $executeRawUnsafe는 cast(::vector) 처리에 이슈 — Prisma.sql + $executeRaw 사용
+        await this.prisma.$executeRaw`
+          UPDATE public.board_posts
+          SET embedding = ${literal}::vector,
+              embedded_at = NOW()
+          WHERE id = ${postId}
+        `;
+        this.logger?.info({ postId, dim: vec.length }, "[embed-post] indexed");
+      })
+      .catch((err) => {
+        this.logger?.error({ err: String(err), postId }, "[embed-post] failed");
+      });
+  }
 
   async list(boardCode: string, params: {
     page?: number | undefined;
@@ -69,6 +104,9 @@ export class PostService {
       publishingDepartment: p.publishingDepartmentId
         ? { id: p.publishingDepartmentId, name: p.publishingDepartmentName ?? "" }
         : null,
+      targetDepartment: p.targetDepartmentId
+        ? { id: p.targetDepartmentId, name: p.targetDepartmentName ?? "" }
+        : null,
       board: { code: board.code, name: board.name },
     }));
 
@@ -124,6 +162,9 @@ export class PostService {
       publishingDepartment: post.publishingDepartmentId
         ? { id: post.publishingDepartmentId, name: post.publishingDepartmentName ?? "" }
         : null,
+      targetDepartment: post.targetDepartmentId
+        ? { id: post.targetDepartmentId, name: post.targetDepartmentName ?? "" }
+        : null,
       board: { code: post.board.code, name: post.board.name },
       attachments: post.attachments.map((a) => ({
         id: a.id,
@@ -143,6 +184,7 @@ export class PostService {
     priority?: number | undefined;
     expiresAt?: string | null | undefined;
     attachmentIds?: string[] | undefined;
+    targetDepartmentId?: string | null | undefined;
   }, user: AuthUserContext): Promise<string> {
     const board = await this.prisma.board.findUnique({ where: { code: boardCode } });
     if (!board) throw new PostError("BOARD_NOT_FOUND", "보드를 찾을 수 없습니다.", 404);
@@ -152,6 +194,17 @@ export class PostService {
       where: { userId: user.id },
       select: { departmentId: true, departmentName: true },
     });
+
+    // 대상 부서 스냅샷 (지정 시)
+    let targetDeptName: string | null = null;
+    if (data.targetDepartmentId) {
+      const target = await this.prisma.department.findUnique({
+        where: { id: data.targetDepartmentId },
+        select: { name: true },
+      });
+      if (!target) throw new PostError("DEPARTMENT_NOT_FOUND", "선택한 부서를 찾을 수 없습니다.", 404);
+      targetDeptName = target.name;
+    }
 
     const post = await this.prisma.$transaction(async (tx) => {
       const created = await tx.post.create({
@@ -164,6 +217,8 @@ export class PostService {
           expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
           publishingDepartmentId: profile?.departmentId ?? null,
           publishingDepartmentName: profile?.departmentName ?? null,
+          targetDepartmentId: data.targetDepartmentId ?? null,
+          targetDepartmentName: targetDeptName,
         },
       });
       if (data.attachmentIds && data.attachmentIds.length > 0) {
@@ -175,6 +230,9 @@ export class PostService {
       return created;
     });
 
+    // 임베딩 (fire-and-forget)
+    this.embedAndStorePost(post.id, data.title, data.content);
+
     return post.id;
   }
 
@@ -183,6 +241,7 @@ export class PostService {
     content?: string | undefined;
     priority?: number | undefined;
     expiresAt?: string | null | undefined;
+    targetDepartmentId?: string | null | undefined;
   }, user: AuthUserContext) {
     const post = await this.prisma.post.findUnique({ where: { id: postId } });
     if (!post) throw new PostError("POST_NOT_FOUND", "글을 찾을 수 없습니다.", 404);
@@ -193,8 +252,29 @@ export class PostService {
     if (data.content !== undefined) updateData.content = data.content;
     if (data.priority !== undefined) updateData.priority = data.priority;
     if (data.expiresAt !== undefined) updateData.expiresAt = data.expiresAt ? new Date(data.expiresAt) : null;
+    if (data.targetDepartmentId !== undefined) {
+      if (data.targetDepartmentId) {
+        const target = await this.prisma.department.findUnique({
+          where: { id: data.targetDepartmentId },
+          select: { name: true },
+        });
+        if (!target) throw new PostError("DEPARTMENT_NOT_FOUND", "선택한 부서를 찾을 수 없습니다.", 404);
+        updateData.targetDepartmentId = data.targetDepartmentId;
+        updateData.targetDepartmentName = target.name;
+      } else {
+        updateData.targetDepartmentId = null;
+        updateData.targetDepartmentName = null;
+      }
+    }
 
-    return this.prisma.post.update({ where: { id: postId }, data: updateData });
+    const updated = await this.prisma.post.update({ where: { id: postId }, data: updateData });
+
+    // 본문/제목 변경 시 재임베딩
+    if (data.title !== undefined || data.content !== undefined) {
+      this.embedAndStorePost(updated.id, updated.title, updated.content);
+    }
+
+    return updated;
   }
 
   async softDelete(postId: string, user: AuthUserContext) {

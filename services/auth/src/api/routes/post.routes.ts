@@ -128,6 +128,7 @@ export async function postRoutes(
           publishingDepartmentId: created.publishingDepartment?.id ?? null,
           readAudience: board.readAudience as any,
           audienceTargetId: board.audienceTargetId,
+          targetDepartmentId: dto.targetDepartmentId ?? null,
         });
       }
 

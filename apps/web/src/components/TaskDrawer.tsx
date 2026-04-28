@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { taskApi, commentApi, resourceApi, deploymentApi, equipmentApi, sensorApi } from "@/lib/api";
 import clsx from "clsx";
 import DateInput from "./DateInput";
+import WorkLogTab from "./work-log/WorkLogTab";
 
 const STATUS_OPTIONS = [
   { value: "TODO",        label: "예정",  color: "bg-gray-100 text-gray-700" },
@@ -1331,6 +1332,17 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
                 ))}
               </div>
             )}
+          </div>
+
+          <div className="border-t border-gray-100" />
+
+          {/* ── 비고 (작업일지) ── */}
+          <div className="px-6 py-4">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase mb-4">📋 비고 (작업일지)</h3>
+            <WorkLogTab
+              taskId={task.id}
+              segments={(task.segments ?? []).map((s: any) => ({ id: s.id, name: s.name }))}
+            />
           </div>
 
           <div className="border-t border-gray-100" />

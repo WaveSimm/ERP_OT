@@ -19,7 +19,7 @@ export default function LoginPage() {
       const { accessToken, user } = await authApi.login(email, password);
       setToken(accessToken);
       setUser({ id: user.id, name: user.name, role: user.role });
-      router.push("/projects");
+      router.push("/home");
     } catch (err: any) {
       setError(err.message ?? "로그인에 실패했습니다.");
     } finally {

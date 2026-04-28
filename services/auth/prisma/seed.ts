@@ -52,10 +52,10 @@ async function seedBoards() {
   }> = [
     { categoryId: noticeCat.id, code: "notice-company", name: "전사 공지", description: "전 직원 대상 공지사항", sortOrder: 1 },
     { categoryId: noticeCat.id, code: "notice-dept", name: "부서 공지", description: "부서별 공지사항", sortOrder: 2 },
-    { categoryId: wikiCat.id, code: "wiki-debug", name: "디버깅·트러블슈팅", description: "장비·시스템 문제 해결 노하우", sortOrder: 1 },
+    { categoryId: wikiCat.id, code: "wiki-debug", name: "장비 관련", description: "장비 설치·점검·트러블슈팅 노하우", sortOrder: 1 },
     { categoryId: wikiCat.id, code: "wiki-field", name: "현장 업무", description: "현장 업무 진행 자료·노하우", sortOrder: 2 },
-    { categoryId: wikiCat.id, code: "wiki-tech", name: "기술 정보·매뉴얼", description: "기술 자료, 매뉴얼, 문서", sortOrder: 3 },
-    { categoryId: wikiCat.id, code: "wiki-misc", name: "기타·자유", description: "자유 게시판", sortOrder: 4 },
+    { categoryId: wikiCat.id, code: "wiki-tech", name: "기술 정보", description: "기술 자료, 매뉴얼, 문서", sortOrder: 3 },
+    { categoryId: wikiCat.id, code: "wiki-misc", name: "기타 자유", description: "자유 게시판", sortOrder: 4 },
   ];
 
   for (const b of boards) {

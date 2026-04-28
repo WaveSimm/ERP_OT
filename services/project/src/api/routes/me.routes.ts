@@ -284,4 +284,41 @@ export async function meRoutes(fastify: FastifyInstance) {
 
     return reply.send(stale);
   });
+
+  // ─── GET /api/v1/me/work-logs ─────────────────────────────────────────────
+  fastify.get("/work-logs", async (req, reply) => {
+    const q = req.query as { from?: string; to?: string; projectId?: string; limit?: string };
+    const params: any = {};
+    if (q.from) params.from = q.from;
+    if (q.to) params.to = q.to;
+    if (q.projectId) params.projectId = q.projectId;
+    if (q.limit) params.limit = parseInt(q.limit, 10);
+    const items = await fastify.workLogService.listMine(
+      { id: req.userId, email: req.userEmail, role: req.userRole },
+      params,
+    );
+    return reply.send(items);
+  });
+
+  // ─── GET /api/v1/me/work-log-projects ─────────────────────────────────────
+  fastify.get("/work-log-projects", async (req, reply) => {
+    const items = await fastify.workLogService.listMyProjects({
+      id: req.userId,
+      email: req.userEmail,
+      role: req.userRole,
+    });
+    return reply.send(items);
+  });
+
+  // ─── GET /api/v1/me/work-log-feed ─────────────────────────────────────────
+  fastify.get("/work-log-feed", async (req, reply) => {
+    const q = req.query as { limit?: string };
+    const params: { limit?: number } = {};
+    if (q.limit) params.limit = parseInt(q.limit, 10);
+    const items = await fastify.workLogService.listFeed(
+      { id: req.userId, email: req.userEmail, role: req.userRole },
+      params,
+    );
+    return reply.send(items);
+  });
 }

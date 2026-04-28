@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { ApprovalLineService } from "../../application/approval-line.service.js";
 import { DepartmentService } from "../../application/department.service.js";
+import { CalendarService } from "../../application/calendar.service.js";
 import { PrismaClient } from "@prisma/client";
 
 export async function internalRoutes(
@@ -8,10 +9,11 @@ export async function internalRoutes(
   opts: {
     approvalLineService: ApprovalLineService;
     deptService: DepartmentService;
+    calendarService: CalendarService;
     prisma: PrismaClient;
   },
 ) {
-  const { approvalLineService: alSvc, deptService: deptSvc, prisma } = opts;
+  const { approvalLineService: alSvc, deptService: deptSvc, calendarService: calSvc, prisma } = opts;
 
   // 내부 API 인증 훅
   fastify.addHook("onRequest", async (req, reply) => {
@@ -165,5 +167,15 @@ export async function internalRoutes(
     const { id } = req.params as { id: string };
     const members = await deptSvc.getMembers(id);
     return reply.send(members);
+  });
+
+  // GET /internal/calendar/holidays?from&to — 일자별 정규화된 휴일 목록 (attendance/project 소비용)
+  fastify.get("/calendar/holidays", async (req, reply) => {
+    const q = req.query as { from?: string; to?: string };
+    if (!q.from || !q.to) {
+      return reply.status(400).send({ code: "BAD_REQUEST", message: "from, to (YYYY-MM-DD) required" });
+    }
+    const holidays = await calSvc.holidaysByDate(q.from, q.to);
+    return reply.send(holidays);
   });
 }

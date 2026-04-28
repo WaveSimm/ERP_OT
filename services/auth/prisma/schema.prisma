@@ -157,9 +157,15 @@ model Post {
   id              String   @id @default(cuid())
   boardId         String   @map("board_id")
   authorId        String   @map("author_id")
+  embedding       Unsupported("vector(1024)")?
+  embeddedAt      DateTime?                        @map("embedded_at")
 
   publishingDepartmentId   String? @map("publishing_department_id")
   publishingDepartmentName String? @map("publishing_department_name")
+
+  // 대상 부서 (부서 공지에서만 사용 — 작성자가 공지할 부서 선택)
+  targetDepartmentId   String? @map("target_department_id")
+  targetDepartmentName String? @map("target_department_name")
 
   title           String
   content         String   @db.Text
@@ -185,6 +191,7 @@ model Post {
   @@index([boardId, isDeleted, isPinned, publishedAt(sort: Desc)])
   @@index([authorId])
   @@index([publishingDepartmentId])
+  @@index([targetDepartmentId])
   @@map("board_posts")
 }
 
@@ -243,4 +250,38 @@ enum BoardAudience {
   ALL
   DEPARTMENT
   ROLE
+}
+
+// ─── 회사 달력 ─────────────────────────────────────────────────────
+
+model CompanyCalendarEntry {
+  id          String              @id @default(cuid())
+  type        CalendarEntryType
+  title       String
+  description String?
+  startDate   DateTime            @db.Date @map("start_date")
+  endDate     DateTime            @db.Date @map("end_date")
+  isAllDay    Boolean             @default(true) @map("is_all_day")
+  color       String?
+
+  // 2차 활성화 컬럼 (nullable, 1차 미사용)
+  recurrence         String?
+  targetDepartmentId String?  @map("target_department_id")
+  startTime          String?  @map("start_time")
+  endTime            String?  @map("end_time")
+
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([startDate, endDate])
+  @@index([type])
+  @@map("company_calendar_entries")
+}
+
+enum CalendarEntryType {
+  PUBLIC_HOLIDAY
+  COMPANY_HOLIDAY
+  EVENT
+  WORKDAY
 }

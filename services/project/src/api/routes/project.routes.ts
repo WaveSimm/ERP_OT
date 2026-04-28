@@ -164,4 +164,30 @@ export async function projectRoutes(fastify: FastifyInstance) {
     await fastify.prisma.milestone.delete({ where: { id: mid } });
     return reply.status(204).send();
   });
+
+  // GET /api/v1/projects/:projectId/work-logs — 프로젝트 통합 시계열
+  fastify.get("/:projectId/work-logs", async (req, reply) => {
+    const { projectId } = req.params as { projectId: string };
+    const q = req.query as { from?: string; to?: string; authorId?: string; taskId?: string; limit?: string; cursor?: string };
+    const params: any = {};
+    if (q.from) params.from = q.from;
+    if (q.to) params.to = q.to;
+    if (q.authorId) params.authorId = q.authorId;
+    if (q.taskId) params.taskId = q.taskId;
+    if (q.limit) params.limit = parseInt(q.limit, 10);
+    if (q.cursor) params.cursor = q.cursor;
+    try {
+      const result = await fastify.workLogService.listByProject(projectId, params, {
+        id: req.userId,
+        email: req.userEmail,
+        role: req.userRole,
+      });
+      return reply.send(result);
+    } catch (err: any) {
+      if (err?.name === "WorkLogError") {
+        return reply.code(err.statusCode).send({ error: { code: err.code, message: err.message } });
+      }
+      throw err;
+    }
+  });
 }

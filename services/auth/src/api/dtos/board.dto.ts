@@ -6,6 +6,7 @@ export const createPostSchema = z.object({
   priority: z.number().int().min(0).max(2).optional(),
   expiresAt: z.string().datetime().nullable().optional(),
   attachmentIds: z.array(z.string()).optional(),
+  targetDepartmentId: z.string().nullable().optional(),
 });
 
 export const updatePostSchema = z.object({
@@ -13,6 +14,7 @@ export const updatePostSchema = z.object({
   content: z.string().min(1).max(102400).optional(),
   priority: z.number().int().min(0).max(2).optional(),
   expiresAt: z.string().datetime().nullable().optional(),
+  targetDepartmentId: z.string().nullable().optional(),
 });
 
 export const togglePinSchema = z.object({

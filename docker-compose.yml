@@ -3,7 +3,7 @@ version: "3.9"
 services:
   # ─── Databases ─────────────────────────────────────────────────────────────
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: erp-ot-postgres
     restart: unless-stopped
     environment:
@@ -64,6 +64,17 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@erp-ot.local}
       ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:-Admin1234!}
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-erp_user}:${RABBITMQ_PASSWORD:-erp_password}@rabbitmq:5672
+      OLLAMA_URL: http://ollama:11434
+      EMBEDDING_MODEL: bge-m3
+      EMBEDDING_TIMEOUT_MS: "30000"
+      SEARCH_EMBED_WEIGHT: "0.6"
+      SEARCH_KEYWORD_WEIGHT: "0.4"
+      SEARCH_MIN_SCORE: "0.35"
+      SEARCH_TITLE_EXACT_BONUS: "0.30"
+      SEARCH_CONTENT_EXACT_BONUS: "0.15"
+      SEARCH_TITLE_TRGM_WEIGHT: "0.20"
+      SEARCH_CONTENT_TRGM_WEIGHT: "0.10"
+      SEARCH_KEYWORD_MATCH_BONUS: "0.20"
     ports:
       - "3001:3001"
     depends_on:
@@ -113,6 +124,15 @@ services:
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-change_me_in_production}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-erp_user}:${RABBITMQ_PASSWORD:-erp_password}@rabbitmq:5672
+      OLLAMA_URL: http://ollama:11434
+      EMBEDDING_MODEL: bge-m3
+      EMBEDDING_TIMEOUT_MS: "30000"
+      SEARCH_EMBED_WEIGHT: "0.6"
+      SEARCH_KEYWORD_WEIGHT: "0.4"
+      SEARCH_MIN_SCORE: "0.35"
+      SEARCH_CONTENT_EXACT_BONUS: "0.15"
+      SEARCH_CONTENT_TRGM_WEIGHT: "0.10"
+      SEARCH_KEYWORD_MATCH_BONUS: "0.20"
     ports:
       - "3003:3003"
     depends_on:
@@ -359,6 +379,27 @@ services:
     networks:
       - erp-network
 
+  # ─── Ollama (자연어 검색용 임베딩 모델) ──────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: erp-ot-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    environment:
+      OLLAMA_KEEP_ALIVE: "30m"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - erp-network
+
 volumes:
   postgres_data:
   redis_data:
@@ -368,6 +409,7 @@ volumes:
   ocr_uploads:
   ocr_models:
   web_node_modules:
+  ollama_data:
 
 networks:
   erp-network:
