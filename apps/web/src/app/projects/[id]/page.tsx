@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, Fragment } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { projectApi, taskApi, resourceApi, baselineApi, commentApi, templateApi, deploymentApi, userManagementApi } from "@/lib/api";
+import { projectApi, taskApi, resourceApi, baselineApi, commentApi, templateApi, deploymentApi, userManagementApi, folderApi } from "@/lib/api";
 import dynamic from "next/dynamic";
 import { usePermission } from "@/hooks/usePermission";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
@@ -240,21 +240,39 @@ export default function ProjectDetailPage() {
       for (const u of list) map[u.id] = u.name;
       setUserMap(map);
     }).catch(() => {});
-    try {
-      const fRaw = localStorage.getItem("erp_folders_v1");
-      const rawFolders = fRaw ? JSON.parse(fRaw) : [];
-      setPickerFolders(Array.isArray(rawFolders) ? rawFolders : []);
-      const mRaw = localStorage.getItem("erp_proj_folder_v2");
-      const rawMap = mRaw ? JSON.parse(mRaw) : {};
+    // 폴더 데이터: 서버 folderApi 우선 (다른 PC에서도 동일 구조), 실패 시 localStorage fallback
+    folderApi.list().then((apiFolders: any[]) => {
+      setPickerFolders(apiFolders.map((f: any) => ({ id: f.id, name: f.name, parentId: f.parentId ?? null })));
       const map: Record<string, string[]> = {};
-      Object.entries(rawMap ?? {}).forEach(([k, v]) => {
-        if (Array.isArray(v)) map[k] = v as string[];
-        else if (typeof v === "string") map[k] = [v as string];
-      });
+      const order: Record<string, string[]> = {};
+      for (const f of apiFolders) {
+        const items = (f.projects ?? []).slice().sort((a: any, b: any) => a.sortOrder - b.sortOrder);
+        order[f.id] = items.map((it: any) => it.projectId);
+        for (const it of items) {
+          if (!map[it.projectId]) map[it.projectId] = [];
+          map[it.projectId].push(f.id);
+        }
+      }
       setPickerProjMap(map);
-      const oRaw = localStorage.getItem("erp_folder_proj_order_v1");
-      setPickerFolderProjOrder(oRaw ? JSON.parse(oRaw) : {});
-    } catch {}
+      setPickerFolderProjOrder(order);
+    }).catch(() => {
+      // fallback — server 호출 실패 시 localStorage (구 동작 유지)
+      try {
+        const fRaw = localStorage.getItem("erp_folders_v1");
+        const rawFolders = fRaw ? JSON.parse(fRaw) : [];
+        setPickerFolders(Array.isArray(rawFolders) ? rawFolders : []);
+        const mRaw = localStorage.getItem("erp_proj_folder_v2");
+        const rawMap = mRaw ? JSON.parse(mRaw) : {};
+        const map: Record<string, string[]> = {};
+        Object.entries(rawMap ?? {}).forEach(([k, v]) => {
+          if (Array.isArray(v)) map[k] = v as string[];
+          else if (typeof v === "string") map[k] = [v as string];
+        });
+        setPickerProjMap(map);
+        const oRaw = localStorage.getItem("erp_folder_proj_order_v1");
+        setPickerFolderProjOrder(oRaw ? JSON.parse(oRaw) : {});
+      } catch {}
+    });
   }, [load, router]);
 
   useEffect(() => {
