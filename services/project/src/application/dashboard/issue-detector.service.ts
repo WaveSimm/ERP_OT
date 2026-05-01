@@ -220,8 +220,11 @@ export class IssueDetectorService {
       });
     }
 
-    // ─── INFO: 마일스톤 임박 (3일 이내) ────────────────────────────────────────
-    const milestoneTasks = (project as any).tasks.filter((t: any) => t.isMilestone && t.status !== "DONE");
+    // ─── INFO: 시점 task 임박 (3일 이내) ────────────────────────────────────────
+    // 마일스톤은 Task isMilestone=true로 회귀
+    const milestoneTasks = (project as any).tasks.filter((t: any) =>
+      t.isMilestone && t.status !== "DONE"
+    );
     for (const m of milestoneTasks) {
       const dueDate = m.segments[0]?.endDate;
       if (!dueDate) continue;
@@ -233,8 +236,8 @@ export class IssueDetectorService {
           projectId,
           severity: "INFO",
           category: "MILESTONE_DUE",
-          title: `마일스톤 D-${daysUntil}`,
-          description: `마일스톤 "${m.name}"이 ${daysUntil}일 후 완료 예정입니다.`,
+          title: `시점 D-${daysUntil}`,
+          description: `시점 "${m.name}"이 ${daysUntil}일 후 도래합니다.`,
           taskId: m.id,
           taskName: m.name,
           detectedAt,

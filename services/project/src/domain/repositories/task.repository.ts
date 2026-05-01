@@ -1,4 +1,4 @@
-import { Task, TaskSegment, SegmentAssignment, TaskDependency } from "@prisma/client";
+import { Task, TaskSegment, SegmentAssignment, Dependency } from "@prisma/client";
 
 export type TaskWithSegments = Task & {
   segments: (TaskSegment & { assignments: SegmentAssignment[] })[];
@@ -6,8 +6,8 @@ export type TaskWithSegments = Task & {
 
 export type TaskWithDeps = Task & {
   segments: (TaskSegment & { assignments: SegmentAssignment[] })[];
-  predecessorDeps: TaskDependency[];
-  successorDeps: TaskDependency[];
+  predecessorOf: Dependency[];
+  successorOf: Dependency[];
 };
 
 export interface ITaskRepository {

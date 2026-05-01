@@ -375,7 +375,30 @@
       "Bash(MSYS_NO_PATHCONV=1 docker run --rm -v \"$\\(pwd\\)/apps/web:/work\" alpine sh -c \"rm -rf /work/.next/standalone 2>&1 | head -3; ls /work/.next/ 2>&1 | head -10\")",
       "PowerShell(Stop-Process *)",
       "Bash(echo \"---exit code: $?\")",
-      "Bash(echo \"exit: $?\")"
+      "Bash(echo \"exit: $?\")",
+      "Bash(echo \"EXIT_CODE=$?\")",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(taskkill /F /PID 41956)",
+      "Bash(powershell *)",
+      "Bash(type *)",
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
+      "Bash(echo \"---EXIT---$?\")",
+      "Bash(docker compose *)",
+      "Bash(echo \"build started PID $!\")",
+      "Bash(powershell.exe -Command 'Stop-Process -Id 4608 -Force -ErrorAction SilentlyContinue; \"killed\"')",
+      "Bash(echo \"exit=$?, size=$\\(wc -c < /tmp/home.html \\)\")",
+      "Bash(echo \"exit=$?, size=$\\(wc -c < /tmp/r.html\\)\")",
+      "Bash(echo \"exit=$?, size=$\\(wc -c < /tmp/l3.html\\)\")",
+      "Bash(echo \"exit=$?, size=$\\(wc -c < /tmp/h3.html\\)\")",
+      "Bash(echo \"exit=$?, size=$\\(wc -c < /tmp/lf3.html 2>&1\\)\")",
+      "Bash(powershell.exe -Command 'Get-NetFirewallRule -Action Block -Enabled True | Where-Object DisplayName -Match \"node|3000\" | Select DisplayName | Format-List')",
+      "Bash(powershell.exe -Command 'Get-NetTCPConnection -LocalPort 3000 -State Listen | Select LocalAddress,OwningProcess | Format-Table')",
+      "Bash(powershell.exe -Command '\\(Get-CimInstance Win32_Process -Filter \"ProcessId=__TRACKED_VAR__\"\\).CommandLine')",
+      "Bash(docker version *)",
+      "Bash(powershell.exe -Command 'Get-Process | Where-Object { $_.ProcessName -match \"docker|wsl|com.docker\" } | Select ProcessName, Id | Format-Table')",
+      "Bash(powershell.exe -Command ' *)",
+      "Bash(powershell.exe -Command 'Get-Process | Where-Object { $_.ProcessName -match \"docker|com.docker\" } | Select ProcessName,Id | Format-Table')",
+      "Bash(grep -E \"\\\\.env$|\\\\.env\\\\.|secret|credentials|\\\\.key$|\\\\.pem$\")"
     ]
   }
 }

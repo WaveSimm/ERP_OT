@@ -783,9 +783,6 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
         <div className="px-6 py-4 border-b border-gray-200 flex items-start gap-3">
           <div className="flex-1 min-w-0">
             <h2 className="font-bold text-gray-900 text-lg leading-tight">{task.name}</h2>
-            {task.milestoneName && (
-              <p className="text-xs text-gray-500 mt-0.5">📌 {task.milestoneName}</p>
-            )}
           </div>
           {/* Undo / Redo */}
           {onUndo && onRedo && (
@@ -1163,7 +1160,7 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
                   className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none">
                   <option value="">-- 선행 태스크 선택 --</option>
                   {(deps?.allTasks ?? [])
-                    .filter((t: any) => !deps?.predecessors.some((p: any) => p.predecessorId === t.id))
+                    .filter((t: any) => !deps?.predecessors.some((p: any) => p.predecessorTaskId === t.id))
                     .map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
                 <div className="flex gap-2">
@@ -1192,24 +1189,28 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
                 {deps.predecessors.length === 0 && deps.successors.length === 0 && (
                   <p className="text-xs text-gray-400">의존 관계 없음</p>
                 )}
-                {deps.predecessors.map((p: any) => (
-                  <div key={p.predecessorId} className="flex items-center gap-2 bg-orange-50 border border-orange-100 rounded-lg px-2 py-1.5">
+                {deps.predecessors.map((p: any) => {
+                  // 신규 polymorphic Dependency 형식 호환 (predecessorTask + dependencyType + lag)
+                  const predId = p.predecessorTaskId ?? p.predecessorId;
+                  const predName = p.predecessorTask?.name ?? p.predecessor?.name ?? "?";
+                  const depType = p.dependencyType ?? p.type;
+                  const lagVal = p.lag ?? p.lagDays ?? 0;
+                  return (
+                  <div key={predId} className="flex items-center gap-2 bg-orange-50 border border-orange-100 rounded-lg px-2 py-1.5">
                     <span className="text-xs text-orange-400 shrink-0">선행</span>
-                    <span className="text-xs font-medium text-gray-800 flex-1 truncate">{p.predecessor.name}</span>
+                    <span className="text-xs font-medium text-gray-800 flex-1 truncate">{predName}</span>
                     <select
-                      defaultValue={p.type}
+                      defaultValue={depType}
                       onBlur={async (e) => {
                         const newType = e.target.value;
-                        if (newType === p.type) return;
-                        const oldType = p.type;
-                        const predId = p.predecessorId;
-                        const lag = p.lagDays;
+                        if (newType === depType) return;
+                        const oldType = depType;
                         await taskApi.removeDependency(projectId, task.id, predId);
-                        await taskApi.addDependency(projectId, task.id, { predecessorId: predId, type: newType, lagDays: lag });
+                        await taskApi.addDependency(projectId, task.id, { predecessorId: predId, type: newType, lagDays: lagVal });
                         pushUndo?.({
                           label: `"${task.name}" 의존관계 유형 ${oldType} → ${newType}`,
-                          undo: async () => { await taskApi.removeDependency(projectId, task.id, predId); await taskApi.addDependency(projectId, task.id, { predecessorId: predId, type: oldType, lagDays: lag }); },
-                          redo: async () => { await taskApi.removeDependency(projectId, task.id, predId); await taskApi.addDependency(projectId, task.id, { predecessorId: predId, type: newType, lagDays: lag }); },
+                          undo: async () => { await taskApi.removeDependency(projectId, task.id, predId); await taskApi.addDependency(projectId, task.id, { predecessorId: predId, type: oldType, lagDays: lagVal }); },
+                          redo: async () => { await taskApi.removeDependency(projectId, task.id, predId); await taskApi.addDependency(projectId, task.id, { predecessorId: predId, type: newType, lagDays: lagVal }); },
                         });
                         await loadDeps(); onRefresh();
                       }}
@@ -1219,20 +1220,18 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
                     </select>
                     <input
                       type="number"
-                      defaultValue={p.lagDays}
+                      defaultValue={lagVal}
                       onFocus={(e) => (e.target as HTMLInputElement).select()}
                       onBlur={async (e) => {
                         const newLag = Number(e.target.value);
-                        if (newLag === p.lagDays) return;
-                        const oldLag = p.lagDays;
-                        const predId = p.predecessorId;
-                        const type = p.type;
+                        if (newLag === lagVal) return;
+                        const oldLag = lagVal;
                         await taskApi.removeDependency(projectId, task.id, predId);
-                        await taskApi.addDependency(projectId, task.id, { predecessorId: predId, type, lagDays: newLag });
+                        await taskApi.addDependency(projectId, task.id, { predecessorId: predId, type: depType, lagDays: newLag });
                         pushUndo?.({
                           label: `"${task.name}" 의존관계 lag ${oldLag} → ${newLag}일`,
-                          undo: async () => { await taskApi.removeDependency(projectId, task.id, predId); await taskApi.addDependency(projectId, task.id, { predecessorId: predId, type, lagDays: oldLag }); },
-                          redo: async () => { await taskApi.removeDependency(projectId, task.id, predId); await taskApi.addDependency(projectId, task.id, { predecessorId: predId, type, lagDays: newLag }); },
+                          undo: async () => { await taskApi.removeDependency(projectId, task.id, predId); await taskApi.addDependency(projectId, task.id, { predecessorId: predId, type: depType, lagDays: oldLag }); },
+                          redo: async () => { await taskApi.removeDependency(projectId, task.id, predId); await taskApi.addDependency(projectId, task.id, { predecessorId: predId, type: depType, lagDays: newLag }); },
                         });
                         await loadDeps(); onRefresh();
                       }}
@@ -1240,17 +1239,23 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
                       title="lag (일)"
                     />
                     <span className="text-xs text-gray-400 shrink-0">일</span>
-                    <button onClick={() => handleRemoveDep(p.predecessorId)} className="text-gray-300 hover:text-red-500 text-xs shrink-0">×</button>
+                    <button onClick={() => handleRemoveDep(predId)} className="text-gray-300 hover:text-red-500 text-xs shrink-0">×</button>
                   </div>
-                ))}
+                  );
+                })}
                 {/* 후행 태스크 (읽기 전용) */}
-                {deps.successors.map((s: any) => (
-                  <div key={s.successorId} className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-lg px-2 py-1.5">
+                {deps.successors.map((s: any) => {
+                  const succId = s.successorTaskId ?? s.successorId;
+                  const succName = s.successorTask?.name ?? s.successor?.name ?? "?";
+                  const succType = s.dependencyType ?? s.type;
+                  return (
+                  <div key={succId} className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-lg px-2 py-1.5">
                     <span className="text-xs text-blue-400 shrink-0">후행</span>
-                    <span className="text-xs font-medium text-gray-800 flex-1 truncate">{s.successor.name}</span>
-                    <span className="text-xs text-gray-500">{s.type}</span>
+                    <span className="text-xs font-medium text-gray-800 flex-1 truncate">{succName}</span>
+                    <span className="text-xs text-gray-500">{succType}</span>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1378,14 +1383,17 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
                 {comments.length === 0 ? (
                   <p className="text-sm text-gray-400 text-center py-4">댓글이 없습니다.</p>
                 ) : (
-                  comments.map((c: any) => (
+                  comments.map((c: any) => {
+                    const displayName = c.authorName || "—";
+                    const avatar = (c.authorName ?? "?").slice(0, 1).toUpperCase();
+                    return (
                     <div key={c.id} className="flex gap-2 group">
                       <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600 shrink-0 mt-0.5">
-                        {(c.authorId ?? "?").slice(-2).toUpperCase()}
+                        {avatar}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-medium text-gray-700">{c.authorId}</span>
+                          <span className="text-xs font-medium text-gray-700">{displayName}</span>
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <span className="text-xs text-gray-400">
                               {new Date(c.createdAt).toLocaleDateString("ko-KR")}
@@ -1430,7 +1438,8 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
                         )}
                       </div>
                     </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
           </div>

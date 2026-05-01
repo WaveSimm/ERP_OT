@@ -1,35 +1,38 @@
-FROM node:20-alpine AS base
-RUN apk add --no-cache openssl
-RUN corepack enable pnpm
+ARG BUILD_BASE=erp-ot-build-base:latest
+ARG RUNTIME_BASE=erp-ot-runtime-base:latest
 
-FROM base AS builder
-WORKDIR /app
-COPY pnpm-workspace.yaml .npmrc ./
-COPY package.json ./
+# ========== 1) deps ==========
+FROM ${BUILD_BASE} AS deps
+ENV NODE_ENV=development
+COPY pnpm-workspace.yaml .npmrc pnpm-lock.yaml package.json ./
 COPY packages/config/package.json ./packages/config/
 COPY services/shared/package.json ./services/shared/
 COPY services/attendance/package.json ./services/attendance/
-RUN pnpm install
+RUN pnpm install --frozen-lockfile --prod=false
 
+# ========== 2) builder ==========
+FROM deps AS builder
 COPY packages/config ./packages/config
 COPY services/shared ./services/shared
 COPY services/attendance ./services/attendance
 
-RUN cd /app/services/shared     && node /app/node_modules/typescript/bin/tsc
-RUN cd /app/services/attendance && node /app/node_modules/prisma/build/index.js generate
-RUN cd /app/services/attendance && node /app/node_modules/typescript/bin/tsc
+RUN cd /app/services/shared && /app/node_modules/.bin/tsc
+RUN /app/node_modules/.bin/prisma generate --schema services/attendance/prisma/schema.prisma
+RUN cd /app/services/attendance && /app/node_modules/.bin/tsc
 
-FROM base AS runner
-WORKDIR /app
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/node_modules/.pnpm ./node_modules/.pnpm
-COPY --from=builder /app/services/attendance/dist ./dist
-COPY --from=builder /app/services/attendance/prisma ./prisma
-COPY --from=builder /app/services/shared/dist ./node_modules/@erp-ot/shared/dist
-COPY --from=builder /app/services/shared/package.json ./node_modules/@erp-ot/shared/package.json
-COPY services/attendance/entrypoint.sh ./entrypoint.sh
+# ========== 3) runner ==========
+FROM ${RUNTIME_BASE} AS runner
+COPY --from=builder --chown=app:app /app/services/attendance/dist           ./dist
+COPY --from=builder --chown=app:app /app/services/attendance/prisma         ./prisma
+COPY --from=builder --chown=app:app /app/services/attendance/package.json   ./package.json
+COPY --from=builder --chown=app:app /app/node_modules                       ./node_modules
+COPY --from=builder --chown=app:app /app/services/shared/dist               ./node_modules/@erp-ot/shared/dist
+COPY --from=builder --chown=app:app /app/services/shared/package.json       ./node_modules/@erp-ot/shared/package.json
+COPY --chown=app:app services/attendance/entrypoint.sh                      ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
-ENV NODE_ENV=production
+USER app
 EXPOSE 3004
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=20s \
+  CMD wget -q -O- http://localhost:3004/health || exit 1
 ENTRYPOINT ["./entrypoint.sh"]

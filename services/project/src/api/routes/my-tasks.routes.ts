@@ -57,7 +57,6 @@ export async function myTasksRoutes(fastify: FastifyInstance) {
           taskId: task.id,
           taskName: task.name,
           taskStatus: task.status,
-          isMilestone: task.isMilestone,
           sortOrder: task.sortOrder,
           overallProgress,
           startDate: startDate ? startDate.toISOString().slice(0, 10) : null,

@@ -44,14 +44,18 @@ export class ImpactService {
       throw new AppError(400, "INVALID_DELAY", "지연 일수는 1 이상이어야 합니다.");
     }
 
-    // 태스크 + 의존 관계 조회
-    const tasks = await this.prisma.task.findMany({
-      where: { projectId },
-      include: {
-        segments: { orderBy: { sortOrder: "asc" } },
-        predecessorDeps: true,
-      },
-    });
+    // 태스크 + 의존 관계 조회 (Task↔Task 의존성만 — Milestone 영향 분석은 후속)
+    const [tasks, deps] = await Promise.all([
+      this.prisma.task.findMany({
+        where: { projectId },
+        include: {
+          segments: { orderBy: { sortOrder: "asc" } },
+        },
+      }),
+      this.prisma.dependency.findMany({
+        where: { predecessorTask: { projectId } },
+      }),
+    ]);
 
     const triggeredTask = tasks.find((t) => t.id === taskId);
     if (!triggeredTask) {
@@ -71,14 +75,12 @@ export class ImpactService {
     const nodeMap = new Map(cpmResult.tasks.map((n) => [n.taskId, n]));
 
     // 의존 관계 엣지 목록
-    const edges: CpmEdge[] = tasks.flatMap((t) =>
-      t.predecessorDeps.map((dep) => ({
-        predecessorId: dep.predecessorId,
-        successorId: dep.successorId,
-        type: dep.type as "FS" | "SS" | "FF" | "SF",
-        lagDays: dep.lagDays,
-      })),
-    );
+    const edges: CpmEdge[] = deps.map((dep) => ({
+      predecessorId: dep.predecessorTaskId,
+      successorId: dep.successorTaskId,
+      type: dep.dependencyType as "FS" | "SS" | "FF" | "SF",
+      lagDays: dep.lag,
+    }));
 
     // 태스크명 맵
     const nameMap = new Map(tasks.map((t) => [t.id, t.name]));

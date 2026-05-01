@@ -24,7 +24,13 @@ export type ProjectEventName =
   | "dashboard:project_updated"
   | "dashboard:refresh_complete"
   | "risk:delay_detected"
-  | "risk:overload_detected";
+  | "risk:overload_detected"
+  | "milestone:created"
+  | "milestone:updated"
+  | "milestone:deleted"
+  | "milestone:status_changed"
+  | "dependency:created"
+  | "dependency:deleted";
 
 export class ProjectGateway {
   private io: SocketServer | null = null;

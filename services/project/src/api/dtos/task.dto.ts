@@ -3,7 +3,6 @@ import { TaskStatus, DependencyType, AllocationMode } from "@prisma/client";
 export interface CreateTaskDto {
   name: string;
   description?: string;
-  milestoneId?: string;
   parentId?: string;
   sortOrder?: number;
   isMilestone?: boolean;
@@ -13,7 +12,6 @@ export interface UpdateTaskDto {
   name?: string;
   description?: string | null;
   status?: TaskStatus;
-  milestoneId?: string | null;
   parentId?: string | null;
   sortOrder?: number;
   overallProgress?: number;
@@ -44,7 +42,11 @@ export interface UpsertAssignmentDto {
   allocationHoursPerDay?: number;
 }
 
-export interface AddDependencyDto {
+/**
+ * Task ↔ Task 의존성용 (legacy shorthand).
+ * Polymorphic Task ↔ Milestone 의존성은 /dependencies 라우트에서 처리.
+ */
+export interface AddTaskDependencyDto {
   predecessorId: string;
   type?: DependencyType;
   lagDays?: number;

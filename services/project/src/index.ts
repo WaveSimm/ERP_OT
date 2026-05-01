@@ -25,6 +25,7 @@ import { workLogRoutes, workLogItemRoutes } from "./api/routes/work-log.routes.j
 import { internalRoutes as projectInternalRoutes } from "./api/routes/internal.routes.js";
 import { dashboardRoutes } from "./api/routes/dashboard.routes.js";
 import { folderRoutes } from "./api/routes/folder.routes.js";
+import { dependencyRoutes } from "./api/routes/dependency.routes.js";
 
 import { ProjectService } from "./application/project.service.js";
 import { TaskService } from "./application/task.service.js";
@@ -35,6 +36,7 @@ import { BaselineService } from "./application/baseline.service.js";
 import { TemplateService } from "./application/template.service.js";
 import { ResourceService } from "./application/resource.service.js";
 import { CollabService } from "./application/collab.service.js";
+import { DependencyService } from "./application/dependency.service.js";
 
 import { ProjectCacheService } from "./infrastructure/cache/project.cache.js";
 import { ProjectGateway } from "./infrastructure/websocket/project.gateway.js";
@@ -87,6 +89,10 @@ const riskDetectionService = new RiskDetectionService(prisma, gateway);
 const dashboardService = new DashboardService(prisma, redis);
 const folderService = new FolderService(prisma);
 const workLogService = new WorkLogService(prisma);
+const dependencyService = new DependencyService(prisma, gateway);
+
+// CPM 트리거 setter wiring (의존성 변경 시 CPM 재계산)
+dependencyService.setCpmService(cpmService);
 
 // ─── Fastify + Socket.io Setup ────────────────────────────────────────────────
 declare module "fastify" {
@@ -102,6 +108,7 @@ declare module "fastify" {
     collabService: CollabService;
     folderService: FolderService;
     workLogService: WorkLogService;
+    dependencyService: DependencyService;
     prisma: PrismaClient;
     redis: Redis;
   }
@@ -140,6 +147,7 @@ async function buildApp() {
   app.decorate("collabService", collabService);
   app.decorate("folderService", folderService);
   app.decorate("workLogService", workLogService);
+  app.decorate("dependencyService", dependencyService);
 
   // 임베딩 (자연어 검색용 fire-and-forget hook)
   const embeddingService = new EmbeddingService(app.log);
@@ -197,6 +205,7 @@ async function buildApp() {
   app.register(meRoutes, { prefix: "/api/v1/me" });
   app.register(dashboardRoutes, { prefix: "/api/v1/dashboard" });
   app.register(folderRoutes, { prefix: "/api/v1/folders" });
+  app.register(dependencyRoutes, { prefix: "/api/v1" });
   app.register(
     async (instance) => {
       instance.register(taskRoutes, { prefix: "/:projectId/tasks" });
@@ -260,6 +269,8 @@ async function start() {
     }
   });
   app.log.info("Dashboard cache refresh cron job scheduled (every 5 minutes)");
+
+  // ❌ Milestone status sweep cron — "마일스톤-시점태스크-회귀" PDCA에서 폐기
 
   // Graceful shutdown
   const shutdown = async () => {

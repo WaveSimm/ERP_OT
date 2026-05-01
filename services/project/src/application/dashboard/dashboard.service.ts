@@ -84,7 +84,6 @@ export class DashboardService {
             select: {
               id: true,
               parentId: true,
-              isMilestone: true,
               status: true,
               segments: { select: { progressPercent: true } },
             },
@@ -97,10 +96,10 @@ export class DashboardService {
 
     if (!project) throw new Error(`Project ${projectId} not found`);
 
-    // 리프 + 마일스톤 제외 태스크 세그먼트 기반 진행률 계산 (project.service와 동일 기준)
+    // 리프 태스크 세그먼트 기반 진행률 계산 (Milestone은 Task와 분리되어 별도)
     const parentIds = new Set(project.tasks.map((t) => t.parentId).filter(Boolean));
     const leafSegments = project.tasks
-      .filter((t) => !parentIds.has(t.id) && !t.isMilestone)
+      .filter((t) => !parentIds.has(t.id))
       .flatMap((t) => t.segments);
     const overallProgress = leafSegments.length > 0
       ? Math.round(leafSegments.reduce((s, seg) => s + seg.progressPercent, 0) / leafSegments.length)
@@ -517,7 +516,7 @@ export class DashboardService {
 
           const parentIds = new Set(p.tasks.map((t) => t.parentId).filter(Boolean));
           const leafSegs = p.tasks
-            .filter((t) => !parentIds.has(t.id) && !t.isMilestone)
+            .filter((t) => !parentIds.has(t.id))
             .flatMap((t) => t.segments);
           const progress = leafSegs.length > 0
             ? Math.round(leafSegs.reduce((s, seg) => s + seg.progressPercent, 0) / leafSegs.length)

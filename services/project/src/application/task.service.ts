@@ -10,7 +10,6 @@ const STATUS_KO: Record<string, string> = {
 };
 
 export interface CreateTaskDto {
-  milestoneId?: string;
   parentId?: string;
   name: string;
   description?: string;
@@ -22,7 +21,6 @@ export interface UpdateTaskDto {
   name?: string;
   description?: string;
   status?: TaskStatus;
-  milestoneId?: string | null;
   parentId?: string | null;
   sortOrder?: number;
   overallProgress?: number;
@@ -72,10 +70,10 @@ export class TaskService {
           include: { assignments: true },
           orderBy: { sortOrder: "asc" },
         },
-        predecessorDeps: true,
-        successorDeps: true,
+        predecessorOf: true,
+        successorOf: true,
       },
-      orderBy: [{ milestoneId: "asc" }, { sortOrder: "asc" }],
+      orderBy: [{ sortOrder: "asc" }],
     });
   }
 
@@ -83,28 +81,34 @@ export class TaskService {
     const project = await this.prisma.project.findUnique({ where: { id: projectId } });
     if (!project) throw new AppError(404, "PROJECT_NOT_FOUND", "프로젝트를 찾을 수 없습니다.");
 
-    if (dto.milestoneId) {
-      const ms = await this.prisma.milestone.findFirst({ where: { id: dto.milestoneId, projectId } });
-      if (!ms) throw new AppError(404, "MILESTONE_NOT_FOUND", "마일스톤을 찾을 수 없습니다.");
+    // OQ-2: 시점 task(isMilestone=true)는 자식 가질 수 없음 → parent가 시점 task면 거부
+    if (dto.parentId) {
+      const parent = await this.prisma.task.findUnique({
+        where: { id: dto.parentId }, select: { isMilestone: true },
+      });
+      if (parent?.isMilestone) {
+        throw new AppError(409, "MILESTONE_CANNOT_HAVE_CHILDREN",
+          "시점 task는 자식 task를 가질 수 없습니다.");
+      }
     }
 
     const task = await this.prisma.task.create({
       data: {
         projectId,
-        milestoneId: dto.milestoneId ?? null,
         parentId: dto.parentId ?? null,
         name: dto.name,
         description: dto.description ?? null,
         sortOrder: dto.sortOrder ?? 0,
         isMilestone: dto.isMilestone ?? false,
+        isManualProgress: dto.isMilestone ? true : false,  // 시점은 PM 수동
         createdBy: requesterId,
       },
     });
 
     await this.logActivity(projectId, requesterId,
-      dto.isMilestone ? "MILESTONE_CREATED" : "TASK_CREATED",
+      "TASK_CREATED",
       "task", task.id,
-      dto.isMilestone ? `마일스톤 추가: ${task.name}` : `태스크 추가: ${task.name}`,
+      `태스크 추가: ${task.name}`,
       { taskName: task.name },
     );
 
@@ -118,18 +122,44 @@ export class TaskService {
     const existing = await this.prisma.task.findUnique({ where: { id: taskId } });
     if (!existing) throw new AppError(404, "TASK_NOT_FOUND", "태스크를 찾을 수 없습니다.");
 
+    // 완료-작업일지-필수 검증 (수동 100%/DONE 진입 시 work log 1개 이상 필수)
+    // - Q1=(1a) 둘 다 차단, Q2=(2b) 수동만, Q4=(4a) 1개라도 존재
+    const enteringComplete =
+      (dto.overallProgress !== undefined && dto.overallProgress >= 100 && existing.overallProgress < 100) ||
+      (dto.status !== undefined && dto.status === "DONE" && existing.status !== "DONE");
+    if (enteringComplete) {
+      const hasWorkLog = await this.prisma.workLog.findFirst({
+        where: { taskId, isDeleted: false },
+        select: { id: true },
+      });
+      if (!hasWorkLog) {
+        throw new AppError(409, "WORK_LOG_REQUIRED_FOR_COMPLETION",
+          "태스크를 완료(100% 또는 DONE)로 표시하려면 작업일지가 1건 이상 필요합니다.");
+      }
+    }
+
+    // OQ-2: parentId 변경 시 새 부모가 시점 task인지 확인
+    if (dto.parentId !== undefined && dto.parentId) {
+      const parent = await this.prisma.task.findUnique({
+        where: { id: dto.parentId }, select: { isMilestone: true },
+      });
+      if (parent?.isMilestone) {
+        throw new AppError(409, "MILESTONE_CANNOT_HAVE_CHILDREN",
+          "시점 task는 자식 task를 가질 수 없습니다.");
+      }
+    }
+
     const updated = await this.prisma.task.update({
       where: { id: taskId },
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.status !== undefined && { status: dto.status }),
-        ...(dto.milestoneId !== undefined && { milestoneId: dto.milestoneId }),
         ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
         ...(dto.overallProgress !== undefined && { overallProgress: dto.overallProgress }),
         ...(dto.isManualProgress !== undefined && { isManualProgress: dto.isManualProgress }),
-        ...(dto.isMilestone !== undefined && { isMilestone: dto.isMilestone }),
         ...(dto.parentId !== undefined && { parentId: dto.parentId }),
+        ...(dto.isMilestone !== undefined && { isMilestone: dto.isMilestone }),
       },
     });
 
@@ -155,7 +185,6 @@ export class TaskService {
     // 진도율·구조 변경 시 캐시 갱신 (이름/설명 변경은 영향 없음)
     if (dto.overallProgress !== undefined
         || dto.parentId !== undefined
-        || dto.isMilestone !== undefined
         || dto.status !== undefined) {
       await this.aggregate.recomputeProject(existing.projectId);
     }
@@ -192,8 +221,17 @@ export class TaskService {
     });
     if (!task) throw new AppError(404, "TASK_NOT_FOUND", "태스크를 찾을 수 없습니다.");
 
-    const newStart = new Date(dto.startDate);
-    const newEnd = new Date(dto.endDate);
+    let newStart = new Date(dto.startDate);
+    let newEnd = new Date(dto.endDate);
+
+    // 시점 task 검증: segment 1개만 허용 + start=end 강제
+    if (task.isMilestone) {
+      if (task.segments.length > 0) {
+        throw new AppError(409, "MILESTONE_SINGLE_SEGMENT",
+          "시점 task는 segment 1개만 허용됩니다.");
+      }
+      newEnd = newStart;  // 단일 시점 자동 보정
+    }
 
     if (newStart > newEnd) {
       throw new AppError(400, "INVALID_DATE_RANGE", "시작일이 종료일보다 늦을 수 없습니다.");
@@ -291,7 +329,12 @@ export class TaskService {
     if (!segment) throw new AppError(404, "SEGMENT_NOT_FOUND", "세그먼트를 찾을 수 없습니다.");
 
     const newStart = dto.startDate ? new Date(dto.startDate) : segment.startDate;
-    const newEnd = dto.endDate ? new Date(dto.endDate) : segment.endDate;
+    let newEnd = dto.endDate ? new Date(dto.endDate) : segment.endDate;
+
+    // 시점 task: end = start 강제
+    if (segment.task.isMilestone) {
+      newEnd = newStart;
+    }
 
     if (newStart > newEnd) {
       throw new AppError(400, "INVALID_DATE_RANGE", "시작일이 종료일보다 늦을 수 없습니다.");
@@ -314,12 +357,42 @@ export class TaskService {
       }
     }
 
+    // 완료-작업일지-필수 검증 (Q2=(2a) 변경: segment progressPercent 변경으로 task 100% 도달 시도도 차단)
+    // - 다른 segment들 + 본 segment 새 값으로 평균 계산
+    // - 100%로 도달하면서 task가 아직 미완료(< 100%, status != DONE)일 때만 검증
+    if (dto.progressPercent !== undefined && !segment.task.isManualProgress) {
+      const otherSegs = segment.task.segments.filter((s) => s.id !== segmentId);
+      const newSegProgress = dto.progressPercent;
+      const allProgressValues = [...otherSegs.map((s) => s.progressPercent), newSegProgress];
+      const avg = allProgressValues.length > 0
+        ? allProgressValues.reduce((a, b) => a + b, 0) / allProgressValues.length
+        : 0;
+      const taskWillBeComplete = avg >= 100;
+      const taskWasComplete = segment.task.overallProgress >= 100 || segment.task.status === "DONE";
+      if (taskWillBeComplete && !taskWasComplete) {
+        const hasWorkLog = await this.prisma.workLog.findFirst({
+          where: { taskId: segment.taskId, isDeleted: false },
+          select: { id: true },
+        });
+        if (!hasWorkLog) {
+          throw new AppError(409, "WORK_LOG_REQUIRED_FOR_COMPLETION",
+            "이 변경으로 태스크가 완료(100%)에 도달합니다. 작업일지가 1건 이상 필요합니다.");
+        }
+      }
+    }
+
+    // 시점 task: startDate/endDate 어느 쪽 변경이든 둘 다 동기화
+    const milestoneSync = segment.task.isMilestone && (dto.startDate !== undefined || dto.endDate !== undefined);
     const updated = await this.prisma.taskSegment.update({
       where: { id: segmentId },
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
-        ...(dto.startDate !== undefined && { startDate: newStart }),
-        ...(dto.endDate !== undefined && { endDate: newEnd }),
+        ...(milestoneSync
+          ? { startDate: newStart, endDate: newEnd }
+          : {
+              ...(dto.startDate !== undefined && { startDate: newStart }),
+              ...(dto.endDate !== undefined && { endDate: newEnd }),
+            }),
         ...(dto.progressPercent !== undefined && { progressPercent: dto.progressPercent }),
         ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
       },
@@ -362,6 +435,8 @@ export class TaskService {
         { taskName: segment.task.name, segmentName: segment.name },
       );
     }
+
+    // G-1: segment 업데이트 (특히 progressPercent) → milestone 갱신
 
     this.gateway.emitToProject(segment.task.projectId, "segment:updated", {
       projectId: segment.task.projectId,
@@ -475,7 +550,6 @@ export class TaskService {
       task.isCritical,
       task.createdBy,
       task.segments as any,
-      task.milestoneId,
     );
 
     const newProgress = entity.calculateAutoProgress();
@@ -506,7 +580,7 @@ export class TaskService {
       where: { id: projectId },
       include: {
         tasks: {
-          select: { id: true, parentId: true, isMilestone: true, segments: { select: { progressPercent: true } } },
+          select: { id: true, parentId: true, segments: { select: { progressPercent: true } } },
         },
       },
     });
@@ -517,7 +591,7 @@ export class TaskService {
 
     const parentIds = new Set(project.tasks.map((t) => t.parentId).filter(Boolean));
     const leafSegments = project.tasks
-      .filter((t) => !parentIds.has(t.id) && !t.isMilestone)
+      .filter((t) => !parentIds.has(t.id))
       .flatMap((t) => t.segments);
 
     if (leafSegments.length === 0) return;

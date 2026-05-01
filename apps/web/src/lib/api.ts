@@ -94,23 +94,24 @@ export const folderApi = {
     request<any>("/folders/reorder", { method: "PATCH", body: JSON.stringify({ folderIds }) }),
 };
 
-// ─── Milestones ───────────────────────────────────────────────────────────────
+// ─── Dependencies (Task ↔ Task) ────────────────────────────────────────────
+// "마일스톤-시점태스크-회귀" PDCA에서 milestoneApi 폐기, dependencyApi 단순화
 
-export const milestoneApi = {
+export const dependencyApi = {
   list: (projectId: string) =>
-    request<any[]>(`/projects/${projectId}/milestones`),
-  create: (projectId: string, data: { name: string; description?: string; sortOrder?: number }) =>
-    request<any>(`/projects/${projectId}/milestones`, {
+    request<any[]>(`/projects/${projectId}/dependencies`),
+  create: (projectId: string, data: {
+    predecessorTaskId: string;
+    successorTaskId: string;
+    dependencyType?: "FS" | "SS" | "FF" | "SF";
+    lag?: number;
+  }) =>
+    request<any>(`/projects/${projectId}/dependencies`, {
       method: "POST",
       body: JSON.stringify(data),
     }),
-  update: (projectId: string, milestoneId: string, data: any) =>
-    request<any>(`/projects/${projectId}/milestones/${milestoneId}`, {
-      method: "PATCH",
-      body: JSON.stringify(data),
-    }),
-  delete: (projectId: string, milestoneId: string) =>
-    request<void>(`/projects/${projectId}/milestones/${milestoneId}`, { method: "DELETE" }),
+  delete: (id: string) =>
+    request<void>(`/dependencies/${id}`, { method: "DELETE" }),
 };
 
 // ─── Tasks ───────────────────────────────────────────────────────────────────

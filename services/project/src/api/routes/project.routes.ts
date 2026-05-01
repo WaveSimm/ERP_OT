@@ -98,72 +98,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     return reply.status(201).send(project);
   });
 
-  // ─── Milestones ─────────────────────────────────────────────────────────────
-
-  const createMilestoneSchema = z.object({
-    name: z.string().min(1).max(200),
-    description: z.string().max(1000).optional(),
-    sortOrder: z.number().int().optional(),
-  });
-  const updateMilestoneSchema = z.object({
-    name: z.string().min(1).max(200).optional(),
-    description: z.string().max(1000).optional().nullable(),
-    sortOrder: z.number().int().optional(),
-  });
-
-  // GET /api/v1/projects/:id/milestones
-  fastify.get("/:id/milestones", async (req, reply) => {
-    const { id } = req.params as { id: string };
-    const milestones = await fastify.prisma.milestone.findMany({
-      where: { projectId: id },
-      orderBy: { sortOrder: "asc" },
-      include: { _count: { select: { tasks: true } } },
-    });
-    return reply.send(milestones);
-  });
-
-  // POST /api/v1/projects/:id/milestones
-  fastify.post("/:id/milestones", {
-    preHandler: requireManager(),
-  }, async (req, reply) => {
-    const { id } = req.params as { id: string };
-    const dto = createMilestoneSchema.parse(req.body);
-    const milestone = await fastify.prisma.milestone.create({
-      data: {
-        projectId: id,
-        name: dto.name,
-        ...(dto.description ? { description: dto.description } : {}),
-        sortOrder: dto.sortOrder ?? 0,
-      },
-    });
-    return reply.status(201).send(milestone);
-  });
-
-  // PATCH /api/v1/projects/:id/milestones/:mid
-  fastify.patch("/:id/milestones/:mid", {
-    preHandler: requireManager(),
-  }, async (req, reply) => {
-    const { mid } = req.params as { id: string; mid: string };
-    const dto = updateMilestoneSchema.parse(req.body);
-    const milestone = await fastify.prisma.milestone.update({
-      where: { id: mid },
-      data: {
-        ...(dto.name !== undefined ? { name: dto.name } : {}),
-        ...(dto.description !== undefined ? { description: dto.description } : {}),
-        ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}),
-      },
-    });
-    return reply.send(milestone);
-  });
-
-  // DELETE /api/v1/projects/:id/milestones/:mid
-  fastify.delete("/:id/milestones/:mid", {
-    preHandler: requireRole("ADMIN", "MANAGER"),
-  }, async (req, reply) => {
-    const { mid } = req.params as { id: string; mid: string };
-    await fastify.prisma.milestone.delete({ where: { id: mid } });
-    return reply.status(204).send();
-  });
+  // ─── Milestones — milestone.routes.ts로 이동 (재정의된 의미: 시점 이정표) ─
 
   // GET /api/v1/projects/:projectId/work-logs — 프로젝트 통합 시계열
   fastify.get("/:projectId/work-logs", async (req, reply) => {

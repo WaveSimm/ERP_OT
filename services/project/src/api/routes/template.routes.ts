@@ -14,7 +14,6 @@ const createTemplateSchema = z.object({
   tasks: z.array(z.object({
     name: z.string().min(1).max(200),
     description: z.string().optional(),
-    milestoneGroup: z.string().optional(),
     sortOrder: z.number().int().optional(),
     segments: z.array(z.object({
       name: z.string().min(1).max(200),
@@ -80,8 +79,6 @@ const copyTaskSchema = z.object({
 
 const copyMilestoneSchema = z.object({
   targetProjectId: z.string(),
-  includeTasks: z.boolean().default(true),
-  includeSegments: z.boolean().default(true),
   dateOffsetDays: z.number().int().default(0),
 });
 

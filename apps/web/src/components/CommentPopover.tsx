@@ -83,12 +83,13 @@ export default function CommentPopover({ taskId, count }: Props) {
               <p className="text-xs text-gray-400 text-center py-4">댓글이 없습니다.</p>
             ) : (
               <div className="divide-y divide-gray-50">
-                {comments.map((c) => (
+                {comments.map((c: any) => (
                   <div key={c.id} className="px-3 py-2.5">
                     <div className="flex items-center gap-1.5 mb-1">
                       <div className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-[9px] font-bold text-blue-600 shrink-0">
-                        {(c.authorId ?? "?").slice(-2).toUpperCase()}
+                        {(c.authorName ?? "?").slice(0, 1).toUpperCase()}
                       </div>
+                      <span className="text-[10px] font-medium text-gray-600">{c.authorName || "—"}</span>
                       <span className="text-[10px] text-gray-400">
                         {new Date(c.createdAt).toLocaleDateString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                       </span>

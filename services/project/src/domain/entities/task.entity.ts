@@ -19,7 +19,6 @@ export class TaskEntity {
     public isCritical: boolean,
     public createdBy: string,
     public segments: TaskSegmentData[] = [],
-    public milestoneId?: string | null,
     public totalFloat?: number | null,
     public isManualProgress: boolean = false,
   ) {}

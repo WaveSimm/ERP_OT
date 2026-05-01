@@ -19,6 +19,23 @@ import TemplateWizard from "@/components/TemplateWizard";
 const GanttChart = dynamic(() => import("@/components/GanttChart"), { ssr: false });
 
 function toStr(d: Date) { return d.toISOString().slice(0, 10); }
+
+/**
+ * Backend dependency를 GanttChart flat 형식으로 변환.
+ * "마일스톤-시점태스크-회귀" PDCA에서 mergeGanttData (Milestone 합성) 폐기.
+ * Task↔Task 의존성만 처리.
+ */
+function adaptGanttData(data: any): any {
+  if (!data) return data;
+  const flatDeps = (data.dependencies ?? []).map((d: any) => ({
+    id: d.id,
+    predecessorId: d.predecessorTaskId,
+    successorId: d.successorTaskId,
+    type: d.dependencyType ?? "FS",
+    lagDays: d.lag ?? 0,
+  }));
+  return { ...data, dependencies: flatDeps };
+}
 function ganttWeekRange(offsetWeeks: number) {
   const today = new Date();
   const dow = today.getDay();
@@ -149,7 +166,7 @@ export default function ProjectDetailPage() {
   const [drawerRefreshKey, setDrawerRefreshKey] = useState(0);
   const refreshAfterUndoRedo = useCallback(async () => {
     try {
-      const data = await projectApi.gantt(projectId);
+      const data = adaptGanttData(await projectApi.gantt(projectId));
       setGanttData(data);
       setActivityTick((n) => n + 1);
       setDrawerRefreshKey((k) => k + 1);
@@ -167,7 +184,7 @@ export default function ProjectDetailPage() {
     setLoading(true);
     setError("");
     try {
-      const data = await projectApi.gantt(projectId);
+      const data = adaptGanttData(await projectApi.gantt(projectId));
       setGanttData(data);
       // 최초 로드 시에만 프로젝트 전체 기간으로 초기화
       setViewStart((prev) => prev || data?.project?.effectiveStartDate || "");
@@ -194,7 +211,7 @@ export default function ProjectDetailPage() {
   // 드로어·인라인 편집용: 스피너 없이 ganttData만 갱신
   const loadSilent = useCallback(async () => {
     try {
-      const data = await projectApi.gantt(projectId);
+      const data = adaptGanttData(await projectApi.gantt(projectId));
       setGanttData(data);
     } catch { /* ignore */ }
   }, [projectId]);
@@ -484,13 +501,18 @@ export default function ProjectDetailPage() {
     const oldStatus = task?.status ?? "TODO";
     const taskName = task?.name ?? taskId;
     cancelEdit();
-    await taskApi.update(projectId, taskId, { status }).catch(() => {});
-    pushUndo({
-      label: `"${taskName}" 상태 → ${status}`,
-      undo: async () => { await taskApi.update(projectId, taskId, { status: oldStatus }); },
-      redo: async () => { await taskApi.update(projectId, taskId, { status }); },
-    });
-    await load();
+    try {
+      await taskApi.update(projectId, taskId, { status });
+      pushUndo({
+        label: `"${taskName}" 상태 → ${status}`,
+        undo: async () => { await taskApi.update(projectId, taskId, { status: oldStatus }); },
+        redo: async () => { await taskApi.update(projectId, taskId, { status }); },
+      });
+      await load();
+    } catch (e: any) {
+      alert(e?.message ?? "상태 변경 실패");
+      await load();
+    }
   };
 
   const saveProgress = async (taskId: string, progress: number) => {
@@ -507,14 +529,19 @@ export default function ProjectDetailPage() {
         t.id === taskId ? { ...t, overallProgress: rounded } : t
       ),
     } : prev);
-    await taskApi.update(projectId, taskId, { overallProgress: rounded, isManualProgress: true }).catch(() => {});
-    pushUndo({
-      label: `"${taskName}" 진행률 ${oldProgress}% → ${rounded}%`,
-      undo: async () => { await taskApi.update(projectId, taskId, { overallProgress: oldProgress, isManualProgress: true }); },
-      redo: async () => { await taskApi.update(projectId, taskId, { overallProgress: rounded, isManualProgress: true }); },
-    });
-    progressSavingRef.current = false;
-    await loadSilent();
+    try {
+      await taskApi.update(projectId, taskId, { overallProgress: rounded, isManualProgress: true });
+      pushUndo({
+        label: `"${taskName}" 진행률 ${oldProgress}% → ${rounded}%`,
+        undo: async () => { await taskApi.update(projectId, taskId, { overallProgress: oldProgress, isManualProgress: true }); },
+        redo: async () => { await taskApi.update(projectId, taskId, { overallProgress: rounded, isManualProgress: true }); },
+      });
+    } catch (e: any) {
+      alert(e?.message ?? "진행률 변경 실패");
+    } finally {
+      progressSavingRef.current = false;
+      await loadSilent();
+    }
   };
 
   const createInlineTask = async () => {
@@ -1292,7 +1319,9 @@ export default function ProjectDetailPage() {
                 flatItems={flatItems}
                 viewStart={viewStart || undefined}
                 viewEnd={viewEnd || undefined}
-                onTaskClick={(task) => { if (selectedTask?.id === task.id) { setSelectedTask(null); } else { handleTaskClick(task); } }}
+                onTaskClick={(task) => {
+                  if (selectedTask?.id === task.id) { setSelectedTask(null); } else { handleTaskClick(task); }
+                }}
                 baselineSegments={baselineSegments.length > 0 ? baselineSegments : undefined}
                 allResources={resources}
                 onRefresh={loadSilent}
@@ -1454,9 +1483,6 @@ export default function ProjectDetailPage() {
                             <span className="ml-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                               <CommentPopover taskId={task.id} count={task.commentCount} />
                             </span>
-                          )}
-                          {!task.isMilestone && task.milestoneName && (
-                            <span className="ml-1.5 text-[10px] text-gray-400 shrink-0">📌 {task.milestoneName}</span>
                           )}
                         </div>
                       </td>

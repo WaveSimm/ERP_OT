@@ -378,7 +378,7 @@ export default function MyTasksPage() {
                                   style={{ gridTemplateColumns: "1fr 76px 96px 96px 200px 72px", height: 34 }}
                                 >
                                   <div className="flex items-center gap-1.5 min-w-0 cursor-pointer hover:bg-blue-50/60 px-2 rounded" onClick={(e) => handleTaskClick(task, e)}>
-                                    {task.isMilestone && <span className="text-purple-500 text-xs shrink-0">◆</span>}
+                                    
                                     <span className="text-sm font-medium text-gray-800 truncate">{task.taskName}</span>
                                     <span className="text-[10px] text-gray-400 shrink-0">({task.mySegments.length}개 세그먼트)</span>
                                   </div>
@@ -443,7 +443,7 @@ export default function MyTasksPage() {
                                       className={`flex items-center gap-1.5 min-w-0 pl-4 ${!multiSeg ? "cursor-pointer hover:bg-blue-50/60 rounded" : ""}`}
                                       onClick={!multiSeg ? (e) => handleTaskClick(task, e) : undefined}
                                     >
-                                      {!multiSeg && task.isMilestone && <span className="text-purple-500 text-xs shrink-0">◆</span>}
+                                      
                                       <span className={`truncate ${multiSeg ? "text-xs text-gray-500" : "text-sm font-medium text-gray-800"}`}>
                                         {multiSeg ? seg.segmentName : task.taskName}
                                       </span>

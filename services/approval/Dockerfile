@@ -1,38 +1,44 @@
-FROM node:20-alpine AS base
-RUN apk add --no-cache openssl gcompat
-RUN npm install -g pnpm@9
+ARG BUILD_BASE=erp-ot-build-base:latest
+ARG RUNTIME_BASE=erp-ot-runtime-base:latest
 
-FROM base AS builder
-WORKDIR /app
-
-COPY package.json pnpm-workspace.yaml .npmrc ./
+# ========== 1) deps ==========
+FROM ${BUILD_BASE} AS deps
+ENV NODE_ENV=development
+COPY pnpm-workspace.yaml .npmrc pnpm-lock.yaml package.json ./
 COPY packages/config/package.json ./packages/config/
-COPY services/approval/package.json ./services/approval/
 COPY services/shared/package.json ./services/shared/
+COPY services/approval/package.json ./services/approval/
+RUN pnpm install --frozen-lockfile --prod=false
 
-RUN pnpm install
-
+# ========== 2) builder ==========
+FROM deps AS builder
 COPY packages/config ./packages/config
-COPY services/approval/ ./services/approval/
-COPY services/shared/ ./services/shared/
+COPY services/shared ./services/shared
+COPY services/approval ./services/approval
 
-RUN cd /app/services/shared && node /app/node_modules/typescript/bin/tsc
-RUN cd /app/services/approval  && node /app/node_modules/prisma/build/index.js generate
-RUN cd /app/services/approval  && node /app/node_modules/typescript/bin/tsc
+RUN cd /app/services/shared && /app/node_modules/.bin/tsc
+RUN /app/node_modules/.bin/prisma generate --schema services/approval/prisma/schema.prisma
+RUN cd /app/services/approval && /app/node_modules/.bin/tsc
 
-FROM base AS runner
-WORKDIR /app
+# ========== 3) runner ==========
+FROM ${RUNTIME_BASE} AS runner
+# approval-service 전용 native 호환 (OQ-2 결정)
+USER root
+RUN apk add --no-cache gcompat
+USER app
 
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/node_modules/.pnpm ./node_modules/.pnpm
-COPY --from=builder /app/services/approval/dist ./dist
-COPY --from=builder /app/services/approval/prisma ./prisma
-COPY --from=builder /app/services/shared/dist ./node_modules/@erp-ot/shared/dist
-COPY --from=builder /app/services/shared/package.json ./node_modules/@erp-ot/shared/package.json
-COPY services/approval/entrypoint.sh ./entrypoint.sh
-RUN chmod +x ./entrypoint.sh
-RUN mkdir -p /app/uploads
+COPY --from=builder --chown=app:app /app/services/approval/dist           ./dist
+COPY --from=builder --chown=app:app /app/services/approval/prisma         ./prisma
+COPY --from=builder --chown=app:app /app/services/approval/package.json   ./package.json
+COPY --from=builder --chown=app:app /app/node_modules                     ./node_modules
+COPY --from=builder --chown=app:app /app/services/shared/dist             ./node_modules/@erp-ot/shared/dist
+COPY --from=builder --chown=app:app /app/services/shared/package.json     ./node_modules/@erp-ot/shared/package.json
+COPY --chown=app:app services/approval/entrypoint.sh                      ./entrypoint.sh
+USER root
+RUN chmod +x ./entrypoint.sh && mkdir -p /app/uploads && chown -R app:app /app/uploads
+USER app
 
-ENV NODE_ENV=production
 EXPOSE 3006
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=20s \
+  CMD wget -q -O- http://localhost:3006/health || exit 1
 ENTRYPOINT ["./entrypoint.sh"]

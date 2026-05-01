@@ -55,11 +55,32 @@ export class CollabService {
 
   async listComments(taskId: string) {
     await this.requireTask(taskId);
-    return this.prisma.comment.findMany({
+    const comments = await this.prisma.comment.findMany({
       where: { taskId },
       include: { mentions: true },
       orderBy: { createdAt: "asc" },
     });
+    // authorId → authorName 일괄 조회 (auth-service /internal/users/bulk)
+    const authorIds = [...new Set(comments.map((c) => c.authorId).filter(Boolean))];
+    const nameMap = await this.fetchUserNames(authorIds);
+    return comments.map((c) => ({ ...c, authorName: nameMap.get(c.authorId) ?? null }));
+  }
+
+  private async fetchUserNames(ids: string[]): Promise<Map<string, string>> {
+    const map = new Map<string, string>();
+    if (ids.length === 0) return map;
+    try {
+      const authUrl = process.env.AUTH_SERVICE_URL ?? "http://auth-service:3001";
+      const res = await fetch(
+        `${authUrl}/internal/users/bulk?ids=${ids.join(",")}`,
+        { headers: { "X-Internal-Token": process.env.INTERNAL_API_TOKEN ?? "" } },
+      );
+      if (res.ok) {
+        const data = (await res.json()) as Record<string, { name: string }>;
+        Object.entries(data).forEach(([id, u]) => map.set(id, u.name));
+      }
+    } catch { /* ignore */ }
+    return map;
   }
 
   async createComment(taskId: string, dto: CreateCommentDto, authorId: string) {

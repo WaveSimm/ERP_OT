@@ -59,7 +59,7 @@ export class TimelineService {
         isCriticalPath: seg.task.isCritical,
       };
 
-      // 마일스톤
+      // 시점 task: 단일 MILESTONE 이벤트
       if (seg.task.isMilestone) {
         events.push({
           ...base,

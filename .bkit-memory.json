@@ -20,18 +20,44 @@
     "admin": { "port": 3010, "status": "pending" }
   },
   "pdca": {
-    "feature": "인증-시스템",
+    "feature": "마일스톤-시점태스크-회귀",
     "currentPhase": "do",
     "completedPhases": ["plan", "design", "do"],
-    "planFile": "docs/01-plan/features/인증-시스템.plan.md",
-    "designFile": "docs/02-design/features/인증-시스템.design.md"
+    "planFile": "docs/01-plan/features/마일스톤-시점태스크-회귀.plan.md",
+    "designFile": "docs/02-design/features/마일스톤-시점태스크-회귀.design.md",
+    "method": "plan-plus",
+    "startedAt": "2026-05-01",
+    "reverseOf": "프로젝트-마일스톤-재설계"
   },
   "pdcaHistory": [
+    {
+      "feature": "monorepo-dockerfile-정리",
+      "phase": "plan",
+      "planFile": "docs/01-plan/features/monorepo-dockerfile-정리.plan.md",
+      "method": "plan-plus",
+      "startedAt": "2026-04-30",
+      "pendingNext": "design"
+    },
     {
       "feature": "프로젝트-관리",
       "phase": "completed",
       "matchRate": 93,
       "completedAt": "2026-03-19"
+    },
+    {
+      "feature": "프로젝트-마일스톤-재설계",
+      "phase": "act-completed",
+      "matchRate": 93,
+      "matchRateHistory": [
+        { "iteration": 0, "rate": 88, "phase": "check" },
+        { "iteration": 1, "rate": 93, "phase": "act-1" }
+      ],
+      "planFile": "docs/01-plan/features/프로젝트-마일스톤-재설계.plan.md",
+      "designFile": "docs/02-design/features/프로젝트-마일스톤-재설계.design.md",
+      "analysisFile": "docs/03-analysis/프로젝트-마일스톤-재설계.analysis.md",
+      "reportPending": true,
+      "completedAt": "2026-04-30",
+      "method": "plan-plus"
     }
   ]
 }

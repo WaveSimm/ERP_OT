@@ -36,6 +36,18 @@ function toIsoDate(d: Date): string {
 export class CalendarService {
   constructor(private readonly prisma: PrismaClient) {}
 
+  // createdBy → createdByName 일괄 조회 (CompanyCalendar는 auth-service의 User 모델 사용)
+  private async attachCreatedByName<T extends { createdBy: string }>(entries: T[]): Promise<Array<T & { createdByName: string | null }>> {
+    const ids = [...new Set(entries.map((e) => e.createdBy).filter(Boolean))];
+    if (ids.length === 0) return entries.map((e) => ({ ...e, createdByName: null }));
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true },
+    });
+    const nameMap = new Map(users.map((u) => [u.id, u.name]));
+    return entries.map((e) => ({ ...e, createdByName: nameMap.get(e.createdBy) ?? null }));
+  }
+
   async list(params: { from?: string | undefined; to?: string | undefined; type?: CalendarEntryType | undefined }) {
     const now = new Date();
     const defaultFrom = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -53,10 +65,11 @@ export class CalendarService {
     };
     if (params.type) where.type = params.type;
 
-    return this.prisma.companyCalendarEntry.findMany({
+    const entries = await this.prisma.companyCalendarEntry.findMany({
       where,
       orderBy: [{ startDate: "asc" }, { id: "asc" }],
     });
+    return this.attachCreatedByName(entries);
   }
 
   async upcoming(days: number) {
@@ -77,7 +90,8 @@ export class CalendarService {
   async getById(id: string) {
     const entry = await this.prisma.companyCalendarEntry.findUnique({ where: { id } });
     if (!entry) throw new CalendarError("CALENDAR_NOT_FOUND", "항목을 찾을 수 없습니다.", 404);
-    return entry;
+    const [withName] = await this.attachCreatedByName([entry]);
+    return withName;
   }
 
   async create(input: CreateEntryInput, createdBy: string) {

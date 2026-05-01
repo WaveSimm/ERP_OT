@@ -1,6 +1,45 @@
+# Dependencies
 **/node_modules
-**/.next
+**/.pnpm-store
+
+# Build artifacts
 **/dist
+**/.next
 **/.turbo
-**/.git
+**/tsconfig.tsbuildinfo
+
+# Coverage / test
 **/coverage
+**/*.log
+
+# Env / secrets
+**/.env
+**/.env.*
+!**/.env.example
+
+# VCS
+.git
+.github
+
+# IDE
+.vscode
+.idea
+
+# Docs / data (운영 컨테이너에 불필요)
+docs/
+References/
+data/
+backup-*.sql
+tmp/
+
+# Service uploads (volume 마운트로 처리)
+**/uploads/
+services/*/uploads/
+
+# Cache
+**/.cache
+
+# README와 markdown
+README.md
+**/*.md
+!packages/config/**/*.md

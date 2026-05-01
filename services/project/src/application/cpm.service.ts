@@ -33,20 +33,25 @@ export class CpmService {
   }
 
   async runProjectCpm(projectId: string): Promise<CpmRunResult> {
-    const tasks = await this.prisma.task.findMany({
-      where: { projectId },
-      include: {
-        segments: { orderBy: { sortOrder: "asc" } },
-        predecessorDeps: true,
-      },
-    });
+    const [tasks, deps] = await Promise.all([
+      this.prisma.task.findMany({
+        where: { projectId },
+        include: {
+          segments: { orderBy: { sortOrder: "asc" } },
+        },
+      }),
+      this.prisma.dependency.findMany({
+        where: { predecessorTask: { projectId } },
+      }),
+    ]);
 
     if (tasks.length === 0) {
       throw new AppError(400, "NO_TASKS", "태스크가 없어 CPM을 실행할 수 없습니다.");
     }
 
-    // 태스크 기간 계산 (세그먼트 전체 기간 = effectiveEnd - effectiveStart + 1)
+    // 태스크 기간 계산 (시점 task=0, 일반 task=segment min~max+1)
     const cpmInputs = tasks.map((task) => {
+      if (task.isMilestone) return { taskId: task.id, duration: 0 };  // OQ-6: PMBOK 표준
       if (task.segments.length === 0) return { taskId: task.id, duration: 1 };
 
       const startDates = task.segments.map((s) => s.startDate.getTime());
@@ -58,15 +63,13 @@ export class CpmService {
       return { taskId: task.id, duration };
     });
 
-    // 의존 관계 변환
-    const edges: CpmEdge[] = tasks.flatMap((task) =>
-      task.predecessorDeps.map((dep) => ({
-        predecessorId: dep.predecessorId,
-        successorId: dep.successorId,
-        type: dep.type as "FS" | "SS" | "FF" | "SF",
-        lagDays: dep.lagDays,
-      })),
-    );
+    // 의존 관계 변환 (Task↔Task만)
+    const edges: CpmEdge[] = deps.map((dep) => ({
+      predecessorId: dep.predecessorTaskId,
+      successorId: dep.successorTaskId,
+      type: dep.dependencyType as "FS" | "SS" | "FF" | "SF",
+      lagDays: dep.lag,
+    }));
 
     let result: CpmResult;
     try {
@@ -121,18 +124,19 @@ export class CpmService {
     type: DependencyType,
     lagDays: number,
     projectId: string,
+    createdBy: string = "system",
   ): Promise<void> {
     // 순환 감지를 위해 임시 그래프 구성
-    const allDeps = await this.prisma.taskDependency.findMany({
-      where: { predecessor: { projectId } },
+    const allDeps = await this.prisma.dependency.findMany({
+      where: { predecessorTask: { projectId } },
     });
 
     const tempEdges: CpmEdge[] = [
       ...allDeps.map((d) => ({
-        predecessorId: d.predecessorId,
-        successorId: d.successorId,
-        type: d.type as "FS" | "SS" | "FF" | "SF",
-        lagDays: d.lagDays,
+        predecessorId: d.predecessorTaskId,
+        successorId: d.successorTaskId,
+        type: d.dependencyType as "FS" | "SS" | "FF" | "SF",
+        lagDays: d.lag,
       })),
       { predecessorId, successorId, type: type as "FS" | "SS" | "FF" | "SF", lagDays },
     ];
@@ -148,11 +152,26 @@ export class CpmService {
       throw e;
     }
 
-    await this.prisma.taskDependency.upsert({
-      where: { predecessorId_successorId: { predecessorId, successorId } },
-      create: { predecessorId, successorId, type, lagDays },
-      update: { type, lagDays },
+    // 기존 동일 의존성 있으면 update, 없으면 create
+    const existing = await this.prisma.dependency.findFirst({
+      where: { predecessorTaskId: predecessorId, successorTaskId: successorId },
     });
+    if (existing) {
+      await this.prisma.dependency.update({
+        where: { id: existing.id },
+        data: { dependencyType: type, lag: lagDays },
+      });
+    } else {
+      await this.prisma.dependency.create({
+        data: {
+          predecessorTaskId: predecessorId,
+          successorTaskId: successorId,
+          dependencyType: type,
+          lag: lagDays,
+          createdBy,
+        },
+      });
+    }
 
     // ── 일정 자동 반영 (FS/SS only) ──────────────────────────────────────────
     await this.adjustSuccessorSchedule(predecessorId, successorId, type as "FS" | "SS" | "FF" | "SF", lagDays);

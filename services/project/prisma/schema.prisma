@@ -88,6 +88,9 @@ enum TemplateScope {
   @@schema("project")
 }
 
+// ❌ MilestoneStatus, AchievementCriteria 폐기 — "마일스톤-시점태스크-회귀" PDCA에서 reverse
+//    Task.isMilestone 플래그로 회귀, Task.status (TODO/IN_PROGRESS/DONE/BLOCKED) 사용
+
 // ─────────────────────────────────────────────
 // 1. 프로젝트 기본 구조
 // ─────────────────────────────────────────────
@@ -105,11 +108,10 @@ model Project {
   updatedAt     DateTime      @updatedAt
 
   // 캐시 — 모든 leaf task segment 평균/min/max (TaskService hook으로 갱신)
-  overallProgress     Float?    @map("overall_progress")
-  effectiveStartDate  DateTime? @map("effective_start_date")
-  effectiveEndDate    DateTime? @map("effective_end_date")
+  overallProgress    Float?    @map("overall_progress")
+  effectiveStartDate DateTime? @map("effective_start_date")
+  effectiveEndDate   DateTime? @map("effective_end_date")
 
-  milestones       Milestone[]
   tasks            Task[]
   baselines        ProjectBaseline[]
   activityLogs     ActivityLog[]
@@ -119,57 +121,70 @@ model Project {
   @@schema("project")
 }
 
-model Milestone {
-  id          String   @id @default(cuid())
-  projectId   String
-  name        String
-  description String?
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+// ❌ Milestone 모델 폐기 — "마일스톤-시점태스크-회귀" PDCA에서 reverse
+//    Task에 isMilestone 플래그로 회귀, 시점 = 단일 segment(start=end)
+//    마이그레이션은 services/project/prisma/migrations/{ts}_milestone_revert/migration.sql
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tasks   Task[]
+// 단순화된 의존성 — Task ↔ Task만 ("마일스톤-시점태스크-회귀" PDCA에서 polymorphic 폐기)
+model Dependency {
+  id String @id @default(cuid())
 
-  @@map("milestones")
+  predecessorTaskId String
+  successorTaskId   String
+
+  dependencyType DependencyType @default(FS)
+  lag            Int            @default(0) // days, can be negative
+
+  createdBy String
+  createdAt DateTime @default(now())
+
+  predecessorTask Task @relation("PredecessorTask", fields: [predecessorTaskId], references: [id], onDelete: Cascade)
+  successorTask   Task @relation("SuccessorTask", fields: [successorTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([predecessorTaskId, successorTaskId])
+  @@index([predecessorTaskId])
+  @@index([successorTaskId])
+  @@map("dependencies")
   @@schema("project")
 }
 
 // Task = 논리적 컨테이너 (직접 날짜 없음)
+//   isMilestone=true: 시점 task (◆), 단일 segment(start=end), 자식 가질 수 없음
+//   isMilestone=false: 일반 작업, 자식 가능, 다중 segment 가능
 model Task {
-  id              String     @id @default(cuid())
-  projectId       String
-  milestoneId     String?
-  parentId        String?    // WBS 계층 (상위 태스크)
-  name            String
-  description     String?
-  status          TaskStatus @default(TODO)
-  sortOrder       Int        @default(0)
-  overallProgress Float      @default(0) // 0~100
-  isManualProgress Boolean   @default(false)
-  isMilestone     Boolean    @default(false) // 마일스톤 태스크 (startDate=endDate)
-  isCritical      Boolean    @default(false) // CPM 결과
-  totalFloat      Float? // CPM 결과
-  createdBy       String
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  id               String     @id @default(cuid())
+  projectId        String
+  parentId         String? // WBS 계층 (상위 태스크)
+  name             String
+  description      String?
+  status           TaskStatus @default(TODO)
+  sortOrder        Int        @default(0)
+  overallProgress  Float      @default(0) // 0~100
+  isManualProgress Boolean    @default(false)
+  isMilestone      Boolean    @default(false) // 시점 task (◆), CPM duration=0
+  isCritical       Boolean    @default(false) // CPM 결과
+  totalFloat       Float? // CPM 결과
+  createdBy        String
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
   // 캐시 — 자기 task의 segments min/max (TaskService hook으로 갱신)
-  effectiveStartDate  DateTime? @map("effective_start_date")
-  effectiveEndDate    DateTime? @map("effective_end_date")
+  effectiveStartDate DateTime? @map("effective_start_date")
+  effectiveEndDate   DateTime? @map("effective_end_date")
 
-  project           Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  milestone         Milestone?           @relation(fields: [milestoneId], references: [id])
-  parent            Task?                @relation("TaskHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children          Task[]               @relation("TaskHierarchy")
+  project           Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent            Task?                 @relation("TaskHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children          Task[]                @relation("TaskHierarchy")
   segments          TaskSegment[]
-  predecessorDeps   TaskDependency[]     @relation("predecessor")
-  successorDeps     TaskDependency[]     @relation("successor")
   comments          Comment[]
   attachments       Attachment[]
   scheduleHistories TaskScheduleHistory[]
   taskBaselines     TaskBaseline[]
   workLogs          WorkLog[]
+
+  // 의존성 (Task↔Task만)
+  predecessorOf Dependency[] @relation("PredecessorTask")
+  successorOf   Dependency[] @relation("SuccessorTask")
 
   @@map("tasks")
   @@schema("project")
@@ -198,18 +213,18 @@ model TaskSegment {
 
 // ─── 작업비고 (WorkLog) ──────────────────────────────────────────
 model WorkLog {
-  id          String    @id @default(cuid())
-  taskId      String    @map("task_id")
-  segmentId   String?   @map("segment_id")
-  embedding   Unsupported("vector(1024)")?
-  embeddedAt  DateTime?                        @map("embedded_at")
-  authorId    String    @map("author_id")
-  authorName  String    @map("author_name")
-  content     String    @db.Text
-  workedAt    DateTime  @db.Date @map("worked_at")
-  isDeleted   Boolean   @default(false) @map("is_deleted")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id         String                       @id @default(cuid())
+  taskId     String                       @map("task_id")
+  segmentId  String?                      @map("segment_id")
+  embedding  Unsupported("vector(1024)")?
+  embeddedAt DateTime?                    @map("embedded_at")
+  authorId   String                       @map("author_id")
+  authorName String                       @map("author_name")
+  content    String                       @db.Text
+  workedAt   DateTime                     @map("worked_at") @db.Date
+  isDeleted  Boolean                      @default(false) @map("is_deleted")
+  createdAt  DateTime                     @default(now()) @map("created_at")
+  updatedAt  DateTime                     @updatedAt @map("updated_at")
 
   task    Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
   segment TaskSegment? @relation(fields: [segmentId], references: [id], onDelete: SetNull)
@@ -239,21 +254,8 @@ model SegmentAssignment {
   @@schema("project")
 }
 
-// 태스크 간 의존 관계 (CPM 입력)
-model TaskDependency {
-  id            String         @id @default(cuid())
-  predecessorId String
-  successorId   String
-  type          DependencyType @default(FS)
-  lagDays       Int            @default(0)
-
-  predecessor Task @relation("predecessor", fields: [predecessorId], references: [id], onDelete: Cascade)
-  successor   Task @relation("successor", fields: [successorId], references: [id], onDelete: Cascade)
-
-  @@unique([predecessorId, successorId])
-  @@map("task_dependencies")
-  @@schema("project")
-}
+// ❌ TaskDependency 모델 폐기 — 통합 Dependency 모델로 대체 (4c, OQ-6)
+//    백필 SQL: services/project/prisma/migrations/{ts}_milestone_redesign/migration.sql
 
 // ─────────────────────────────────────────────
 // 2. 자원 (Resource)
@@ -268,8 +270,8 @@ model ResourceGroup {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  parent      ResourceGroup?          @relation("ResourceGroupHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children    ResourceGroup[]         @relation("ResourceGroupHierarchy")
+  parent      ResourceGroup?        @relation("ResourceGroupHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    ResourceGroup[]       @relation("ResourceGroupHierarchy")
   memberships ResourceGroupMember[]
 
   @@map("resource_groups")
@@ -331,8 +333,8 @@ model TaskBaseline {
   baselineEffectiveEnd   DateTime @db.Date
   baselineProgress       Float
 
-  baseline         ProjectBaseline      @relation(fields: [baselineId], references: [id], onDelete: Cascade)
-  task             Task                 @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  baseline         ProjectBaseline       @relation(fields: [baselineId], references: [id], onDelete: Cascade)
+  task             Task                  @relation(fields: [taskId], references: [id], onDelete: Cascade)
   segmentSnapshots TaskBaselineSegment[]
 
   @@unique([baselineId, taskId])
@@ -468,13 +470,13 @@ model ProjectTemplate {
 }
 
 model TemplateTask {
-  id             String  @id @default(cuid())
-  templateId     String
-  parentId       String? // WBS 계층 (상위 템플릿 태스크)
-  name           String
-  description    String?
-  milestoneGroup String?
-  sortOrder      Int     @default(0)
+  id          String  @id @default(cuid())
+  templateId  String
+  parentId    String? // WBS 계층 (상위 템플릿 태스크)
+  name        String
+  description String?
+  // ❌ milestoneGroup 폐기 — Milestone 그룹 의미 폐기 (3a, Plan)
+  sortOrder   Int     @default(0)
 
   template        ProjectTemplate      @relation(fields: [templateId], references: [id], onDelete: Cascade)
   parent          TemplateTask?        @relation("TemplateTaskHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
@@ -578,15 +580,15 @@ model ProjectGroupMembership {
 // ─────────────────────────────────────────────
 
 model DashboardConfig {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  visibleGroupIds String[] // 표시할 그룹 ID 목록
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  visibleGroupIds  String[] // 표시할 그룹 ID 목록
   pinnedProjectIds String[] // 상단 고정 프로젝트
-  issueFilter     String   @default("ALL") // ALL | CRITICAL | WARNING
-  timelineRange   Int      @default(7) // ±N일
-  compactView     Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  issueFilter      String   @default("ALL") // ALL | CRITICAL | WARNING
+  timelineRange    Int      @default(7) // ±N일
+  compactView      Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@map("dashboard_configs")
   @@schema("project")
@@ -619,8 +621,8 @@ model ProjectFolder {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  parent   ProjectFolder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
-  children ProjectFolder[] @relation("FolderTree")
+  parent   ProjectFolder?      @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children ProjectFolder[]     @relation("FolderTree")
   projects ProjectFolderItem[]
 
   @@map("project_folders")

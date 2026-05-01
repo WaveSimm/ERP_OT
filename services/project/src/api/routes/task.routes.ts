@@ -6,7 +6,6 @@ import { requireRole, requireManager, requireOperator, requireSelfOrManager } fr
 import { TaskStatus, DependencyType, AllocationMode } from "@prisma/client";
 
 const createTaskSchema = z.object({
-  milestoneId: z.string().optional(),
   parentId: z.string().optional(),
   name: z.string().min(1).max(200),
   description: z.string().max(2000).optional(),
@@ -18,7 +17,6 @@ const updateTaskSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   description: z.string().max(2000).optional().nullable(),
   status: z.nativeEnum(TaskStatus).optional(),
-  milestoneId: z.string().optional().nullable(),
   parentId: z.string().optional().nullable(),
   sortOrder: z.number().int().optional(),
   overallProgress: z.number().min(0).max(100).optional(),
@@ -106,8 +104,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
           include: { assignments: true },
           orderBy: { sortOrder: "asc" },
         },
-        predecessorDeps: true,
-        successorDeps: true,
+        predecessorOf: true,
+        successorOf: true,
       },
     });
     if (!task) {
@@ -272,17 +270,17 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
   // ─── Dependencies ─────────────────────────────────────────────────────────
 
-  // GET /api/v1/projects/:projectId/tasks/:taskId/dependencies
+  // GET /api/v1/projects/:projectId/tasks/:taskId/dependencies — Task↔Task 만 (legacy)
   fastify.get("/:taskId/dependencies", async (req, reply) => {
     const { projectId, taskId } = req.params as { projectId: string; taskId: string };
     const [predecessors, successors] = await Promise.all([
-      fastify.prisma.taskDependency.findMany({
-        where: { successorId: taskId },
-        include: { predecessor: { select: { id: true, name: true, status: true } } },
+      fastify.prisma.dependency.findMany({
+        where: { successorTaskId: taskId },
+        include: { predecessorTask: { select: { id: true, name: true, status: true } } },
       }),
-      fastify.prisma.taskDependency.findMany({
-        where: { predecessorId: taskId },
-        include: { successor: { select: { id: true, name: true, status: true } } },
+      fastify.prisma.dependency.findMany({
+        where: { predecessorTaskId: taskId },
+        include: { successorTask: { select: { id: true, name: true, status: true } } },
       }),
     ]);
     // All other tasks in the project for the picker
@@ -294,7 +292,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     return reply.send({ predecessors, successors, allTasks });
   });
 
-  // POST /api/v1/projects/:projectId/tasks/:taskId/dependencies
+  // POST /api/v1/projects/:projectId/tasks/:taskId/dependencies (Task↔Task 만)
   fastify.post("/:taskId/dependencies", {
     preHandler: requireRole("ADMIN", "MANAGER"),
   }, async (req, reply) => {
@@ -309,8 +307,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
     preHandler: requireRole("ADMIN", "MANAGER"),
   }, async (req, reply) => {
     const { taskId, predecessorId } = req.params as any;
-    await fastify.prisma.taskDependency.delete({
-      where: { predecessorId_successorId: { predecessorId, successorId: taskId } },
+    await fastify.prisma.dependency.deleteMany({
+      where: { predecessorTaskId: predecessorId, successorTaskId: taskId },
     });
     return reply.status(204).send();
   });

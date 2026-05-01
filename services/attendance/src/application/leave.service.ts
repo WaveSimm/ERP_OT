@@ -3,6 +3,40 @@ import { PrismaClient } from "@prisma/client";
 export class LeaveService {
   constructor(private readonly prisma: PrismaClient) {}
 
+  // user/approver ID → name 일괄 lookup (auth-service /internal/users/bulk)
+  private async attachNames<T extends { userId: string; approverId: string | null; secondApproverId: string | null; thirdApproverId: string | null }>(
+    rows: T[],
+  ): Promise<Array<T & { userName: string | null; approverName: string | null; secondApproverName: string | null; thirdApproverName: string | null }>> {
+    const ids = new Set<string>();
+    for (const r of rows) {
+      if (r.userId) ids.add(r.userId);
+      if (r.approverId) ids.add(r.approverId);
+      if (r.secondApproverId) ids.add(r.secondApproverId);
+      if (r.thirdApproverId) ids.add(r.thirdApproverId);
+    }
+    const nameMap = new Map<string, string>();
+    if (ids.size > 0) {
+      try {
+        const authUrl = process.env.AUTH_SERVICE_URL ?? "http://auth-service:3001";
+        const res = await fetch(
+          `${authUrl}/internal/users/bulk?ids=${[...ids].join(",")}`,
+          { headers: { "X-Internal-Token": process.env.INTERNAL_API_TOKEN ?? "" } },
+        );
+        if (res.ok) {
+          const data = (await res.json()) as Record<string, { name: string }>;
+          Object.entries(data).forEach(([id, u]) => nameMap.set(id, u.name));
+        }
+      } catch { /* ignore */ }
+    }
+    return rows.map((r) => ({
+      ...r,
+      userName: nameMap.get(r.userId) ?? null,
+      approverName: r.approverId ? (nameMap.get(r.approverId) ?? null) : null,
+      secondApproverName: r.secondApproverId ? (nameMap.get(r.secondApproverId) ?? null) : null,
+      thirdApproverName: r.thirdApproverId ? (nameMap.get(r.thirdApproverId) ?? null) : null,
+    }));
+  }
+
   async getBalance(userId: string, year: number) {
     let balance = await this.prisma.leaveBalance.findUnique({
       where: { userId_year: { userId, year } },
@@ -54,10 +88,11 @@ export class LeaveService {
   }
 
   async getRequests(userId: string, status?: string) {
-    return this.prisma.leaveRequest.findMany({
+    const rows = await this.prisma.leaveRequest.findMany({
       where: { userId, ...(status ? { status: status as any } : {}) },
       orderBy: { createdAt: "desc" },
     });
+    return this.attachNames(rows);
   }
 
   async cancelRequest(id: string, userId: string) {
@@ -81,7 +116,7 @@ export class LeaveService {
   }
 
   async getPending(approverId: string) {
-    return this.prisma.leaveRequest.findMany({
+    const rows = await this.prisma.leaveRequest.findMany({
       where: {
         OR: [
           { approverId, status: "PENDING" },
@@ -91,6 +126,7 @@ export class LeaveService {
       },
       orderBy: { createdAt: "asc" },
     });
+    return this.attachNames(rows);
   }
 
   async approve(id: string, approverId: string) {

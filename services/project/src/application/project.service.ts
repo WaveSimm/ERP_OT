@@ -75,7 +75,6 @@ export class ProjectService {
             select: {
               id: true,
               parentId: true,
-              isMilestone: true,
               segments: { select: { startDate: true, endDate: true, progressPercent: true } },
             },
           },
@@ -104,9 +103,9 @@ export class ProjectService {
     const items: ProjectListItem[] = projects.map((p) => {
       // 부모 역할을 하는 task id 집합 (자식이 있는 task)
       const parentIds = new Set(p.tasks.map((t) => t.parentId).filter(Boolean));
-      // 리프 태스크 + 마일스톤 제외 → 프론트엔드 rollup 기준과 동일
+      // 리프 태스크 → 프론트엔드 rollup 기준과 동일 (Milestone은 별도 도메인)
       const segments = p.tasks
-        .filter((t) => !parentIds.has(t.id) && !t.isMilestone)
+        .filter((t) => !parentIds.has(t.id))
         .flatMap((t) => t.segments);
       let effectiveStartDate: string | null = null;
       let effectiveEndDate: string | null = null;
@@ -129,10 +128,7 @@ export class ProjectService {
   }
 
   async getProject(id: string): Promise<Project> {
-    const project = await this.prisma.project.findUnique({
-      where: { id },
-      include: { milestones: { orderBy: { sortOrder: "asc" } } },
-    });
+    const project = await this.prisma.project.findUnique({ where: { id } });
     if (!project) throw new AppError(404, "PROJECT_NOT_FOUND", "프로젝트를 찾을 수 없습니다.");
     return project;
   }
@@ -228,13 +224,12 @@ export class ProjectService {
     const source = await this.prisma.project.findUnique({
       where: { id },
       include: {
-        milestones: true,
         tasks: {
           include: {
             segments: {
               include: { assignments: true },
             },
-            predecessorDeps: true,
+            predecessorOf: true,
           },
         },
       },
@@ -253,30 +248,17 @@ export class ProjectService {
       },
     });
 
-    // 마일스톤 복사
-    const milestoneIdMap = new Map<string, string>();
-    for (const ms of source.milestones) {
-      const newMs = await this.prisma.milestone.create({
-        data: {
-          projectId: newProject.id,
-          name: ms.name,
-          description: ms.description,
-          sortOrder: ms.sortOrder,
-        },
-      });
-      milestoneIdMap.set(ms.id, newMs.id);
-    }
-
-    // 태스크 복사
+    // 태스크 복사 (시점 task 포함)
     const taskIdMap = new Map<string, string>();
     for (const task of source.tasks) {
       const newTask = await this.prisma.task.create({
         data: {
           projectId: newProject.id,
-          milestoneId: task.milestoneId ? (milestoneIdMap.get(task.milestoneId) ?? null) : null,
           name: task.name,
           description: task.description ?? null,
           sortOrder: task.sortOrder,
+          isMilestone: task.isMilestone,
+          isManualProgress: task.isManualProgress,
           createdBy: requesterId,
         },
       });
@@ -318,19 +300,20 @@ export class ProjectService {
       }
     }
 
-    // 의존 관계 복사
+    // 의존 관계 복사 (Task↔Task만)
     if (options.includeDependencies) {
       for (const task of source.tasks) {
-        for (const dep of task.predecessorDeps) {
-          const newPredId = taskIdMap.get(dep.predecessorId);
-          const newSuccId = taskIdMap.get(dep.successorId);
+        for (const dep of task.predecessorOf) {
+          const newPredId = taskIdMap.get(dep.predecessorTaskId);
+          const newSuccId = taskIdMap.get(dep.successorTaskId);
           if (newPredId && newSuccId) {
-            await this.prisma.taskDependency.create({
+            await this.prisma.dependency.create({
               data: {
-                predecessorId: newPredId,
-                successorId: newSuccId,
-                type: dep.type,
-                lagDays: dep.lagDays,
+                predecessorTaskId: newPredId,
+                successorTaskId: newSuccId,
+                dependencyType: dep.dependencyType,
+                lag: dep.lag,
+                createdBy: requesterId,
               },
             });
           }
@@ -366,23 +349,14 @@ export class ProjectService {
     });
     if (!template) return;
 
-    // 마일스톤 그룹 처리
-    const milestoneGroupMap = new Map<string, string>();
-    for (const tt of template.templateTasks) {
-      if (tt.milestoneGroup && !milestoneGroupMap.has(tt.milestoneGroup)) {
-        const ms = await this.prisma.milestone.create({
-          data: { projectId, name: tt.milestoneGroup, sortOrder: milestoneGroupMap.size },
-        });
-        milestoneGroupMap.set(tt.milestoneGroup, ms.id);
-      }
-    }
+    // milestoneGroup 폐기 — 템플릿 마일스톤 자동 생성 제거 (Plan 3a)
+    // 필요하면 사용자가 인스턴스화 후 직접 마일스톤 추가
 
     const taskIdMap = new Map<string, string>();
     for (const tt of template.templateTasks) {
       const task = await this.prisma.task.create({
         data: {
           projectId,
-          milestoneId: tt.milestoneGroup ? (milestoneGroupMap.get(tt.milestoneGroup) ?? null) : null,
           name: tt.name,
           description: tt.description ?? null,
           sortOrder: tt.sortOrder,
@@ -417,14 +391,20 @@ export class ProjectService {
       }
     }
 
-    // 의존 관계 복원
+    // 의존 관계 복원 (통합 Dependency 테이블)
     for (const tt of template.templateTasks) {
       for (const dep of tt.predecessorDeps) {
         const predId = taskIdMap.get(dep.predecessorTemplateTaskId);
         const succId = taskIdMap.get(dep.successorTemplateTaskId);
         if (predId && succId) {
-          await this.prisma.taskDependency.create({
-            data: { predecessorId: predId, successorId: succId, type: dep.type, lagDays: dep.lagDays },
+          await this.prisma.dependency.create({
+            data: {
+              predecessorTaskId: predId,
+              successorTaskId: succId,
+              dependencyType: dep.type,
+              lag: dep.lagDays,
+              createdBy: requesterId,
+            },
           });
         }
       }
@@ -442,19 +422,22 @@ export class ProjectService {
   async getGanttData(projectId: string) {
     const project = await this.getProject(projectId);
 
-    const tasks = await this.prisma.task.findMany({
-      where: { projectId },
-      include: {
-        milestone: true,
-        segments: {
-          include: { assignments: true },
-          orderBy: { sortOrder: "asc" },
+    const [tasks, dependencies] = await Promise.all([
+      this.prisma.task.findMany({
+        where: { projectId },
+        include: {
+          segments: {
+            include: { assignments: true },
+            orderBy: { sortOrder: "asc" },
+          },
+          _count: { select: { comments: true } },
         },
-        predecessorDeps: true,
-        _count: { select: { comments: true } },
-      },
-      orderBy: [{ sortOrder: "asc" }],
-    });
+        orderBy: [{ sortOrder: "asc" }],
+      }),
+      this.prisma.dependency.findMany({
+        where: { predecessorTask: { projectId } },
+      }),
+    ]);
 
     // 자원 이름 조회
     const resourceIds = [
@@ -494,8 +477,6 @@ export class ProjectService {
       return {
         id: task.id,
         name: task.name,
-        milestoneId: task.milestoneId,
-        milestoneName: task.milestone?.name ?? null,
         parentId: task.parentId,
         sortOrder: task.sortOrder,
         status: computedStatus,
@@ -536,7 +517,7 @@ export class ProjectService {
 
     const parentIds = new Set(tasks.map((t) => t.parentId).filter(Boolean));
     const leafSegs = tasks
-      .filter((t) => !parentIds.has(t.id) && !t.isMilestone)
+      .filter((t) => !parentIds.has(t.id))
       .flatMap((t) => t.segments);
     const overallProgress =
       leafSegs.length > 0
@@ -555,15 +536,13 @@ export class ProjectService {
         overallProgress,
       },
       tasks: ganttTasks,
-      dependencies: tasks.flatMap((t) =>
-        t.predecessorDeps.map((d) => ({
-          id: d.id,
-          predecessorId: d.predecessorId,
-          successorId: d.successorId,
-          type: d.type,
-          lagDays: d.lagDays,
-        })),
-      ),
+      dependencies: dependencies.map((d) => ({
+        id: d.id,
+        predecessorTaskId: d.predecessorTaskId,
+        successorTaskId: d.successorTaskId,
+        dependencyType: d.dependencyType,
+        lag: d.lag,
+      })),
       criticalPath: [...criticalSet],
     };
   }

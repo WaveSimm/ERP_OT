@@ -1,6 +1,22 @@
 version: "3.9"
 
 services:
+  # ─── Base Images (build profile only) ────────────────────────────────────
+  # 사용: `docker compose --profile build build` — 평소엔 안 띄움
+  build-base:
+    build:
+      context: .
+      dockerfile: infra/docker/build-base.Dockerfile
+    image: erp-ot-build-base:latest
+    profiles: ["build"]
+
+  runtime-base:
+    build:
+      context: .
+      dockerfile: infra/docker/runtime-base.Dockerfile
+    image: erp-ot-runtime-base:latest
+    profiles: ["build"]
+
   # ─── Databases ─────────────────────────────────────────────────────────────
   postgres:
     image: pgvector/pgvector:pg16
@@ -354,6 +370,8 @@ services:
       - erp-network
 
   # ─── Frontend Apps ──────────────────────────────────────────────────────────
+  # web은 dev 모드 유지 (이번 PDCA 1번 선택 — standalone은 후속 `web-standalone-fix` PDCA)
+  # apps/web/Dockerfile은 standalone 패턴으로 작성되어 있으나 prerender 이슈로 미적용
   web:
     image: node:20-alpine
     container_name: erp-ot-web

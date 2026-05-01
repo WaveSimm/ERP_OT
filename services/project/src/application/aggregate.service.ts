@@ -9,9 +9,11 @@ import { PrismaClient, Prisma } from "@prisma/client";
  *  - Project.effectiveStartDate / EndDate (leaf task segments min/max)
  *
  * 호출 위치 (TaskService hook):
- *  - createTask, updateTask(parentId/isMilestone/progress 변경 시), deleteTask → recomputeProject
+ *  - createTask, updateTask(parentId/progress 변경 시), deleteTask → recomputeProject
  *  - createSegment, updateSegment, deleteSegment → recomputeTaskAndProject
  *  - TemplateService.apply 후 → recomputeProject
+ *
+ * Milestone은 Task와 분리되어 leaf 진도율 계산 대상 아님 (자체 linkedProgress 캐시 사용)
  */
 export class AggregateService {
   constructor(private readonly prisma: PrismaClient | Prisma.TransactionClient) {}
@@ -38,13 +40,14 @@ export class AggregateService {
   async recomputeProject(projectId: string): Promise<void> {
     const allTasks = await this.prisma.task.findMany({
       where: { projectId },
-      select: { id: true, parentId: true, isMilestone: true },
+      select: { id: true, parentId: true },
     });
     const parentIds = new Set(
       allTasks.filter((t) => t.parentId).map((t) => t.parentId!),
     );
+    // 마일스톤은 Task와 분리됨 — Task 중에 isMilestone 분기 더 이상 필요 없음
     const leafIds = allTasks
-      .filter((t) => !parentIds.has(t.id) && !t.isMilestone)
+      .filter((t) => !parentIds.has(t.id))
       .map((t) => t.id);
 
     if (leafIds.length === 0) {

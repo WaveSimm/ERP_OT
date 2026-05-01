@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { taskApi, milestoneApi, resourceApi } from "@/lib/api";
+import { taskApi, resourceApi } from "@/lib/api";
 
 interface Props {
   projectId: string;
@@ -14,10 +14,9 @@ interface Props {
 export default function AddTaskModal({ projectId, defaultParentId, defaultSortOrder, onSuccess, onClose }: Props) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [milestoneId, setMilestoneId] = useState("");
   const [isMilestone, setIsMilestone] = useState(false);
 
-  // Regular task segment fields
+  // Task segment fields
   const [segName, setSegName] = useState("");
   const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [endDate, setEndDate] = useState(() => {
@@ -26,7 +25,7 @@ export default function AddTaskModal({ projectId, defaultParentId, defaultSortOr
     return d.toISOString().slice(0, 10);
   });
 
-  // Milestone task — single date
+  // Milestone (시점) — 단일 날짜
   const [milestoneDate, setMilestoneDate] = useState(() => new Date().toISOString().slice(0, 10));
 
   const [resourceId, setResourceId] = useState("");
@@ -34,13 +33,11 @@ export default function AddTaskModal({ projectId, defaultParentId, defaultSortOr
   const [allocationPercent, setAllocationPercent] = useState(100);
   const [allocationHoursPerDay, setAllocationHoursPerDay] = useState(8);
 
-  const [milestones, setMilestones] = useState<any[]>([]);
   const [resources, setResources] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    milestoneApi.list(projectId).then(setMilestones).catch(() => {});
     resourceApi.list({ isActive: true }).then(setResources).catch(() => {});
   }, [projectId]);
 
@@ -52,7 +49,6 @@ export default function AddTaskModal({ projectId, defaultParentId, defaultSortOr
     try {
       const taskData: any = { name: name.trim(), isMilestone };
       if (description.trim()) taskData.description = description.trim();
-      if (milestoneId) taskData.milestoneId = milestoneId;
       if (defaultParentId) taskData.parentId = defaultParentId;
       if (defaultSortOrder !== undefined) taskData.sortOrder = defaultSortOrder;
 
@@ -61,12 +57,12 @@ export default function AddTaskModal({ projectId, defaultParentId, defaultSortOr
       const segStart = isMilestone ? milestoneDate : startDate;
       const segEnd = isMilestone ? milestoneDate : endDate;
       const segment = await taskApi.createSegment(projectId, task.id, {
-        name: isMilestone ? "마일스톤" : (segName.trim() || name.trim()),
+        name: isMilestone ? "시점" : (segName.trim() || name.trim()),
         startDate: segStart,
         endDate: segEnd,
       });
 
-      if (!isMilestone && resourceId) {
+      if (resourceId) {
         const payload: any = { resourceId, allocationMode };
         if (allocationMode === "PERCENT") payload.allocationPercent = allocationPercent;
         else payload.allocationHoursPerDay = allocationHoursPerDay;
@@ -112,7 +108,7 @@ export default function AddTaskModal({ projectId, defaultParentId, defaultSortOr
               />
             </div>
             <span className="text-sm font-medium text-gray-700">
-              {isMilestone ? "◆ 마일스톤 태스크" : "일반 태스크"}
+              {isMilestone ? "◆ 시점 마일스톤 (입찰 확인·납품 등)" : "일반 태스크"}
             </span>
           </label>
 
@@ -127,27 +123,11 @@ export default function AddTaskModal({ projectId, defaultParentId, defaultSortOr
             />
           </div>
 
-          {/* Milestone group */}
-          {!isMilestone && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">마일스톤 그룹</label>
-              <select
-                value={milestoneId} onChange={(e) => setMilestoneId(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              >
-                <option value="">-- 마일스톤 없음 --</option>
-                {milestones.map((m: any) => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
           {/* Date section */}
           {isMilestone ? (
             /* Milestone: single date */
             <div className="border-t border-purple-100 pt-4">
-              <p className="text-xs font-semibold text-purple-500 uppercase mb-3">◆ 마일스톤 날짜</p>
+              <p className="text-xs font-semibold text-purple-500 uppercase mb-3">◆ 시점</p>
               <div className="max-w-xs">
                 <label className="block text-sm font-medium text-gray-700 mb-1">날짜 *</label>
                 <input
@@ -159,7 +139,6 @@ export default function AddTaskModal({ projectId, defaultParentId, defaultSortOr
               </div>
             </div>
           ) : (
-            /* Regular: start ~ end with segment name */
             <div className="border-t border-gray-100 pt-4">
               <p className="text-xs font-semibold text-gray-500 uppercase mb-3">초기 구간</p>
               <div>
@@ -191,8 +170,8 @@ export default function AddTaskModal({ projectId, defaultParentId, defaultSortOr
             </div>
           )}
 
-          {/* Resource assignment — only for regular tasks */}
-          {!isMilestone && resources.length > 0 && (
+          {/* Resource assignment */}
+          {resources.length > 0 && (
             <div className="border-t border-gray-100 pt-4">
               <p className="text-xs font-semibold text-gray-500 uppercase mb-3">초기 자원 배정 (선택)</p>
               <select

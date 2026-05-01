@@ -598,7 +598,7 @@ export default function ProjectsPage() {
     const st = STATUS_CFG[p.status] ?? STATUS_CFG.PLANNING;
     const prog = p.overallProgress ?? null;
     const isDragging = dragging?.type === "project" && dragging.id === p.id;
-    const ownerDisplay = p.ownerName ?? (p.ownerId ? p.ownerId.slice(-8) : "—");
+    const ownerDisplay = p.ownerName || "—";
     const showGapBefore = folderId && projGap?.folderId === folderId && projGap.refId === p.id && projGap.pos === "before";
     const showGapAfter  = folderId && projGap?.folderId === folderId && projGap.refId === p.id && projGap.pos === "after";
 

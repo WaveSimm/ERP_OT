@@ -18,11 +18,10 @@ interface GanttSegment {
 interface GanttTask {
   id: string;
   name: string;
-  milestoneName?: string | null;
   sortOrder: number;
   status: string;
   overallProgress: number;
-  isMilestone: boolean;
+  isMilestone: boolean;          // true: 시점 task (◆), 단일 segment(start=end)
   isCritical: boolean;
   effectiveStartDate?: string | null;
   effectiveEndDate?: string | null;
@@ -30,7 +29,7 @@ interface GanttTask {
 }
 
 interface GanttDependency {
-  predecessorId: string;
+  predecessorId: string;        // Task↔Task만 (polymorphic 폐기)
   successorId: string;
   type: string;
   lagDays: number;
@@ -415,31 +414,54 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
       const predMx = pred.effectiveStartDate ? daysBetween(rangeStart, parseDate(pred.effectiveStartDate)) * dayPx : 0;
       const succMx = succ.effectiveStartDate ? daysBetween(rangeStart, parseDate(succ.effectiveStartDate)) * dayPx : 0;
 
+      // 4가지 의존 타입 모두 처리 (FS / SS / FF / SF)
+      const predLeftX = pred.isMilestone ? predMx - DIAMOND_TIP : predMx;
+      const predRightX = pred.isMilestone
+        ? predMx + DIAMOND_TIP
+        : (pred.effectiveEndDate ? (daysBetween(rangeStart, parseDate(pred.effectiveEndDate)) + 1) * dayPx : 0);
+      const succLeftX = succ.isMilestone ? succMx - DIAMOND_TIP : succMx;
+      const succRightX = succ.isMilestone
+        ? succMx + DIAMOND_TIP
+        : (succ.effectiveEndDate ? (daysBetween(rangeStart, parseDate(succ.effectiveEndDate)) + 1) * dayPx : 0);
+
       let startX: number, endX: number;
-      if (dep.type === "SS") {
-        // Start-to-Start: exit from left edge/tip of pred, enter left edge/tip of succ
-        startX = pred.isMilestone ? predMx - DIAMOND_TIP : predMx;
-        endX   = succ.isMilestone ? succMx - DIAMOND_TIP : succMx;
-      } else {
-        // FS (default): exit from right edge/tip of pred, enter left edge/tip of succ
-        startX = pred.isMilestone
-          ? predMx + DIAMOND_TIP
-          : (pred.effectiveEndDate ? (daysBetween(rangeStart, parseDate(pred.effectiveEndDate)) + 1) * dayPx : 0);
-        endX = succ.isMilestone ? succMx - DIAMOND_TIP : succMx;
+      switch (dep.type) {
+        case "SS":  // Start-to-Start: 둘 다 좌측
+          startX = predLeftX; endX = succLeftX; break;
+        case "FF":  // Finish-to-Finish: 둘 다 우측 (동시 완료)
+          startX = predRightX; endX = succRightX; break;
+        case "SF":  // Start-to-Finish: pred 좌측 → succ 우측
+          startX = predLeftX; endX = succRightX; break;
+        case "FS":  // Finish-to-Start: pred 우측 → succ 좌측 (default)
+        default:
+          startX = predRightX; endX = succLeftX; break;
       }
 
-      // Build path — arrowhead always arrives going right (→)
+      // Build path — Planner 스타일: 화살표가 외부에서 진입
+      //   - SS: 좌측 외부 경유 → 좌측 진입 (→)
+      //   - FF: 우측 외부 경유 → 우측 진입 (←)
+      //   - SF: 우측 외부 경유 → 우측 진입 (←)
+      //   - FS: 일반 순방향이면 단순 elbow, 역방향이면 우회
+      // marker `orient="auto"`는 마지막 세그먼트 방향에 자동 회전
       const HORIZ_EXT = 12;
       let path: string;
-      if (endX > startX + HORIZ_EXT) {
-        // Forward: simple elbow, final H goes right naturally
+      if (dep.type === "SS") {
+        // 좌측 외부로 빠져나갔다가 다시 우측으로 진입 (final →)
+        const outX = Math.min(startX, endX) - HORIZ_EXT;
+        path = `M ${startX} ${predY} H ${outX} V ${succY} H ${endX}`;
+      } else if (dep.type === "FF" || dep.type === "SF") {
+        // 우측 외부로 빠져나갔다가 우측에서 좌측으로 진입 (final ←)
+        const outX = Math.max(startX, endX) + HORIZ_EXT;
+        path = `M ${startX} ${predY} H ${outX} V ${succY} H ${endX}`;
+      } else if (endX > startX + HORIZ_EXT) {
+        // FS 순방향: 단순 elbow, final →
         const midX = (startX + endX) / 2;
         path = `M ${startX} ${predY} H ${midX} V ${succY} H ${endX}`;
       } else {
-        // Backward or overlap: route below the lower row so the final H always goes right
-        const exitX = startX + HORIZ_EXT;  // small rightward exit
-        const entryX = endX - HORIZ_EXT;  // approach from the left (always < endX)
-        const midY = (predY + succY) / 2; // ㄹ 중간 가로선 높이
+        // FS 역방향/겹침: 중간 행 가로지르기 (final →)
+        const exitX = startX + HORIZ_EXT;
+        const entryX = endX - HORIZ_EXT;
+        const midY = (predY + succY) / 2;
         path = `M ${startX} ${predY} H ${exitX} V ${midY} H ${entryX} V ${succY} H ${endX}`;
       }
 
@@ -555,7 +577,12 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                     task.isMilestone ? "text-purple-700" : task.isCritical ? "text-red-700" : "text-gray-800",
                   )}>
                     {task.isMilestone
-                      ? <span className="mr-0.5 text-purple-500">◆</span>
+                      ? <span className={clsx("mr-0.5",
+                          task.status === "DONE"        ? "text-emerald-500" :
+                          task.status === "IN_PROGRESS" ? "text-amber-500"   :
+                          task.status === "BLOCKED"     ? "text-red-500"     :
+                          "text-gray-500"
+                        )}>◆</span>
                       : task.isCritical && <span className="mr-0.5">🔴</span>}
                     {task.name}
                   </p>
@@ -752,10 +779,18 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
               {rows.map(({ task }, i) => {
                 const y = i * ROW_H;
 
-                // Milestone task: render diamond at the date
+                // 시점 task (isMilestone=true): ◆ 다이아몬드 + Task.status 색상
                 if (task.isMilestone && task.effectiveStartDate) {
                   const mx = daysBetween(rangeStart, parseDate(task.effectiveStartDate)) * dayPx;
                   const diamondSize = ROW_H - 16;
+                  const colorClass =
+                    task.status === "DONE"        ? "bg-emerald-500" :
+                    task.status === "IN_PROGRESS" ? "bg-amber-500"   :
+                    task.status === "BLOCKED"     ? "bg-red-500"     :
+                    "bg-gray-400"; // TODO
+                  const tipTitle = `◆ ${task.name}\n` +
+                    `상태: ${task.status}` +
+                    `\n예정: ${task.effectiveStartDate}`;
                   return (
                     <div
                       key={task.id}
@@ -765,10 +800,10 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                       <div
                         className="absolute flex items-center justify-center"
                         style={{ left: mx - diamondSize / 2, top: (ROW_H - diamondSize) / 2, width: diamondSize, height: diamondSize }}
-                        title={`◆ ${task.name}\n${task.effectiveStartDate}`}
+                        title={tipTitle}
                       >
                         <div
-                          className="bg-purple-500 shadow-sm"
+                          className={clsx(colorClass, "shadow-sm", task.isCritical && "ring-2 ring-red-600")}
                           style={{
                             width: diamondSize * 0.7,
                             height: diamondSize * 0.7,

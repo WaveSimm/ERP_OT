@@ -16,7 +16,6 @@ export interface CreateTemplateDto {
 export interface CreateTemplateTaskDto {
   name: string;
   description?: string;
-  milestoneGroup?: string;
   sortOrder?: number;
   segments?: CreateTemplateSegmentDto[];
   dependencies?: { predecessorIndex: number; type?: string; lagDays?: number }[];
@@ -70,7 +69,6 @@ export interface SaveAsTemplateDto {
 export interface TemplatePreviewTask {
   templateTaskId: string;
   name: string;
-  milestoneGroup: string | null;
   sortOrder: number;
   segments: {
     templateSegmentId: string;
@@ -148,7 +146,6 @@ export class TemplateService {
             templateId: template.id,
             name: tt.name,
             description: tt.description ?? null,
-            milestoneGroup: tt.milestoneGroup ?? null,
             sortOrder: tt.sortOrder ?? i,
           },
         });
@@ -242,7 +239,6 @@ export class TemplateService {
     const previewTasks: TemplatePreviewTask[] = tasks.map((tt) => ({
       templateTaskId: tt.id,
       name: tt.name,
-      milestoneGroup: tt.milestoneGroup,
       sortOrder: tt.sortOrder,
       segments: tt.segments.map((ts) => {
         const segStart = new Date(base);
@@ -301,20 +297,7 @@ export class TemplateService {
         },
       });
 
-      // 마일스톤 그룹 처리
-      const milestoneGroupMap = new Map<string, string>();
-      for (const tt of tasks) {
-        if (tt.milestoneGroup && !milestoneGroupMap.has(tt.milestoneGroup)) {
-          const ms = await tx.milestone.create({
-            data: {
-              projectId: project.id,
-              name: tt.milestoneGroup,
-              sortOrder: milestoneGroupMap.size,
-            },
-          });
-          milestoneGroupMap.set(tt.milestoneGroup, ms.id);
-        }
-      }
+      // milestoneGroup 폐기 — 템플릿에서 자동 마일스톤 생성 제거 (Plan 3a)
 
       // 태스크 생성 (1차: parentId 없이)
       const taskIdMap = new Map<string, string>(); // templateTaskId → taskId
@@ -322,9 +305,6 @@ export class TemplateService {
         const task = await tx.task.create({
           data: {
             projectId: project.id,
-            milestoneId: tt.milestoneGroup
-              ? (milestoneGroupMap.get(tt.milestoneGroup) ?? null)
-              : null,
             name: tt.name,
             description: tt.description ?? null,
             sortOrder: tt.sortOrder,
@@ -384,19 +364,20 @@ export class TemplateService {
         }
       }
 
-      // 3차: 의존 관계 복원
+      // 3차: 의존 관계 복원 (통합 Dependency)
       for (const tt of tasks) {
         for (const dep of tt.predecessorDeps) {
           if (!selectedTemplateTaskIds.has(dep.predecessorTemplateTaskId)) continue;
           const predId = taskIdMap.get(dep.predecessorTemplateTaskId);
           const succId = taskIdMap.get(dep.successorTemplateTaskId);
           if (predId && succId) {
-            await tx.taskDependency.create({
+            await tx.dependency.create({
               data: {
-                predecessorId: predId,
-                successorId: succId,
-                type: dep.type,
-                lagDays: dep.lagDays,
+                predecessorTaskId: predId,
+                successorTaskId: succId,
+                dependencyType: dep.type,
+                lag: dep.lagDays,
+                createdBy: userId,
               },
             });
           }
@@ -426,11 +407,10 @@ export class TemplateService {
         tasks: {
           include: {
             segments: { include: { assignments: true }, orderBy: { sortOrder: "asc" } },
-            predecessorDeps: true,
+            predecessorOf: true,
           },
           orderBy: { sortOrder: "asc" },
         },
-        milestones: true,
       },
     });
     if (!project) throw new AppError(404, "PROJECT_NOT_FOUND", "프로젝트를 찾을 수 없습니다.");
@@ -447,9 +427,6 @@ export class TemplateService {
     const projectStartMs = Math.min(...allStartDates);
     const MS_PER_DAY = 86_400_000;
 
-    // 마일스톤 이름 맵
-    const milestoneNameMap = new Map(project.milestones.map((m) => [m.id, m.name]));
-
     return this.prisma.$transaction(async (tx) => {
       const template = await tx.projectTemplate.create({
         data: {
@@ -464,16 +441,13 @@ export class TemplateService {
 
       const taskIdMap = new Map<string, string>(); // projectTaskId → templateTaskId
 
-      // 1차: parentId 없이 모든 태스크 생성
+      // 1차: parentId 없이 모든 태스크 생성 (milestoneGroup 폐기)
       for (const task of project.tasks) {
         const tt = await tx.templateTask.create({
           data: {
             templateId: template.id,
             name: task.name,
             description: task.description ?? null,
-            milestoneGroup: task.milestoneId
-              ? (milestoneNameMap.get(task.milestoneId) ?? null)
-              : null,
             sortOrder: task.sortOrder,
           },
         });
@@ -526,21 +500,23 @@ export class TemplateService {
         }
       }
 
-      // 3차: 의존 관계 저장 (task = 선행, dep.successorId = 후행)
+      // 3차: 의존 관계 저장 (통합 Dependency — Task↔Task만 템플릿화)
       for (const task of project.tasks) {
         const predTemplateId = taskIdMap.get(task.id);
         if (!predTemplateId) continue;
 
-        for (const dep of task.predecessorDeps) {
-          const succTemplateId = taskIdMap.get(dep.successorId);
+        for (const dep of task.predecessorOf) {
+          // Task↔Task만 템플릿화 (Milestone은 인스턴스마다 다시 그림)
+          if (!dep.successorTaskId) continue;
+          const succTemplateId = taskIdMap.get(dep.successorTaskId);
           if (!succTemplateId || succTemplateId === predTemplateId) continue;
 
           await tx.templateDependency.createMany({
             data: [{
               predecessorTemplateTaskId: predTemplateId,
               successorTemplateTaskId: succTemplateId,
-              type: dep.type,
-              lagDays: dep.lagDays,
+              type: dep.dependencyType,
+              lagDays: dep.lag,
             }],
             skipDuplicates: true,
           });
@@ -616,71 +592,19 @@ export class TemplateService {
   }
 
   // ─── #25 마일스톤 복사 ───────────────────────────────────────────────────
+  // (이전: 마일스톤 모델 → 시점 task로 회귀. copyMilestone은 task 복제로 처리)
 
   async copyMilestone(
     milestoneId: string,
     targetProjectId: string,
-    options: { includeTasks: boolean; includeSegments: boolean; dateOffsetDays: number },
+    options: { dateOffsetDays: number },
     userId: string,
   ) {
-    const ms = await this.prisma.milestone.findUnique({
-      where: { id: milestoneId },
-      include: {
-        tasks: {
-          include: {
-            segments: { include: { assignments: true }, orderBy: { sortOrder: "asc" } },
-          },
-          orderBy: { sortOrder: "asc" },
-        },
-      },
-    });
-    if (!ms) throw new AppError(404, "MILESTONE_NOT_FOUND", "마일스톤을 찾을 수 없습니다.");
-
-    return this.prisma.$transaction(async (tx) => {
-      const newMs = await tx.milestone.create({
-        data: {
-          projectId: targetProjectId,
-          name: `${ms.name} (복사)`,
-          description: ms.description ?? null,
-          sortOrder: ms.sortOrder,
-        },
-      });
-
-      if (options.includeTasks) {
-        for (const task of ms.tasks) {
-          const newTask = await tx.task.create({
-            data: {
-              projectId: targetProjectId,
-              milestoneId: newMs.id,
-              name: task.name,
-              description: task.description ?? null,
-              sortOrder: task.sortOrder,
-              createdBy: userId,
-            },
-          });
-
-          if (options.includeSegments) {
-            for (const seg of task.segments) {
-              const newStart = new Date(seg.startDate);
-              const newEnd = new Date(seg.endDate);
-              newStart.setDate(newStart.getDate() + options.dateOffsetDays);
-              newEnd.setDate(newEnd.getDate() + options.dateOffsetDays);
-
-              await tx.taskSegment.create({
-                data: {
-                  taskId: newTask.id,
-                  name: seg.name,
-                  sortOrder: seg.sortOrder,
-                  startDate: newStart,
-                  endDate: newEnd,
-                },
-              });
-            }
-          }
-        }
-      }
-
-      return newMs;
-    });
+    // 마일스톤은 이제 isMilestone=true Task — task 복제 호출
+    return this.copyTask(milestoneId, targetProjectId, {
+      includeSegments: true,
+      includeAssignments: false,
+      dateOffsetDays: options.dateOffsetDays,
+    }, userId);
   }
 }
