@@ -27,7 +27,9 @@ export async function userRoutes(
     const filtered = all === "true"
       ? users.filter((u) => u.isActive)
       : users.filter((u) => u.isActive && (u.role === "MANAGER" || u.role === "ADMIN"));
-    return reply.code(200).send(filtered.map((u) => ({ id: u.id, name: u.name, departmentId: u.profile?.departmentId ?? null, departmentName: u.profile?.departmentName ?? null, position: u.profile?.position ?? null })));
+    // 보안 일괄패치 PDCA Layer 4 (NEW-9): 사회공학 자료 수집 차단 — departmentName/position 응답 제외
+    // (사용자 picker는 id+name만 필요. 부서·직급이 진짜 필요한 화면이 발견되면 별도 라우트로 분리)
+    return reply.code(200).send(filtered.map((u) => ({ id: u.id, name: u.name, departmentId: u.profile?.departmentId ?? null })));
   });
 
   // POST /api/v1/users

@@ -4,13 +4,15 @@ import { requireRole, requireManager, requireAdmin } from "../middleware/auth.mi
 export async function folderRoutes(fastify: FastifyInstance) {
   // 전체 폴더 목록
   fastify.get("/", async (request) => {
-    const userId = (request as any).userId || (request as any).user?.id || "unknown";
+    // 보안 일괄패치 PDCA Layer 4 (NEW-1): "unknown" fallback 제거 — Layer 2 requireAuth가 userId 보장
+    const userId = request.userId;
     return fastify.folderService.list(userId);
   });
 
   // 폴더 생성
   fastify.post("/", { preHandler: requireManager() }, async (request, reply) => {
-    const userId = (request as any).userId || (request as any).user?.id || "unknown";
+    // 보안 일괄패치 PDCA Layer 4 (NEW-1): "unknown" fallback 제거 — Layer 2 requireAuth가 userId 보장
+    const userId = request.userId;
     const result = await fastify.folderService.create(request.body as any, userId);
     return reply.status(201).send(result);
   });
