@@ -24,7 +24,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-erp_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-erp_password}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required - generate with openssl rand -hex 16}
       POSTGRES_DB: ${POSTGRES_DB:-erp_ot}
     ports:
       - "5432:5432"
@@ -38,7 +38,7 @@ services:
     image: redis:7-alpine
     container_name: erp-ot-redis
     restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_password}
+    command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD required - generate with openssl rand -hex 16}
     ports:
       - "6379:6379"
     volumes:
@@ -52,7 +52,7 @@ services:
     restart: unless-stopped
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-erp_user}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-erp_password}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD required - generate with openssl rand -hex 16}
     ports:
       - "5672:5672"
       - "15672:15672"  # Management UI
@@ -71,15 +71,15 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 3001
-      DATABASE_URL: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:-erp_password}@postgres:5432/${POSTGRES_DB:-erp_ot}
-      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_password}@redis:6379
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change_me_in_production}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_in_production}
-      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-dev_internal_token_min32chars_change}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required - generate with openssl rand -hex 16}@postgres:5432/${POSTGRES_DB:-erp_ot}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD required - generate with openssl rand -hex 16}@redis:6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET required - min 32 chars - openssl rand -hex 32}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET required - min 32 chars - openssl rand -hex 32}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?INTERNAL_API_TOKEN required - min 16 chars - openssl rand -hex 16}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@erp-ot.local}
-      ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:-Admin1234!}
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-erp_user}:${RABBITMQ_PASSWORD:-erp_password}@rabbitmq:5672
+      ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:?ADMIN_INITIAL_PASSWORD required - min 12 chars}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-erp_user}:${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD required}@rabbitmq:5672
       OLLAMA_URL: http://ollama:11434
       EMBEDDING_MODEL: bge-m3
       EMBEDDING_TIMEOUT_MS: "30000"
@@ -111,11 +111,11 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 3002
-      DATABASE_URL: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:-erp_password}@postgres:5432/${POSTGRES_DB:-erp_ot}
-      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_password}@redis:6379
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-erp_user}:${RABBITMQ_PASS:-erp_password}@rabbitmq:5672
+      DATABASE_URL: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required - generate with openssl rand -hex 16}@postgres:5432/${POSTGRES_DB:-erp_ot}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD required - generate with openssl rand -hex 16}@redis:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-erp_user}:${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD required}@rabbitmq:5672
       AUTH_SERVICE_URL: http://auth-service:3001
-      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-change_me_in_production}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?INTERNAL_API_TOKEN required - min 16 chars - openssl rand -hex 16}
     ports:
       - "3002:3002"
     depends_on:
@@ -134,14 +134,14 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 3003
-      DATABASE_URL: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:-erp_password}@postgres:5432/${POSTGRES_DB:-erp_ot}
-      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_password}@redis:6379
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change_me_in_production}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required - generate with openssl rand -hex 16}@postgres:5432/${POSTGRES_DB:-erp_ot}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD required - generate with openssl rand -hex 16}@redis:6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET required - min 32 chars - openssl rand -hex 32}
       AUTH_SERVICE_URL: http://auth-service:3001
       USER_SERVICE_URL: http://user-service:3002
-      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-change_me_in_production}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?INTERNAL_API_TOKEN required - min 16 chars - openssl rand -hex 16}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-erp_user}:${RABBITMQ_PASSWORD:-erp_password}@rabbitmq:5672
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-erp_user}:${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD required}@rabbitmq:5672
       OLLAMA_URL: http://ollama:11434
       EMBEDDING_MODEL: bge-m3
       EMBEDDING_TIMEOUT_MS: "30000"
@@ -175,13 +175,13 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 3004
-      DATABASE_URL: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:-erp_password}@postgres:5432/${POSTGRES_DB:-erp_ot}
-      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_password}@redis:6379
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change_me_in_production}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required - generate with openssl rand -hex 16}@postgres:5432/${POSTGRES_DB:-erp_ot}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD required - generate with openssl rand -hex 16}@redis:6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET required - min 32 chars - openssl rand -hex 32}
       AUTH_SERVICE_URL: http://auth-service:3001
       USER_SERVICE_URL: http://user-service:3002
       PROJECT_SERVICE_URL: http://project-service:3003
-      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-change_me_in_production}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?INTERNAL_API_TOKEN required - min 16 chars - openssl rand -hex 16}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
     ports:
       - "3004:3004"
@@ -201,11 +201,11 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 3005
-      DATABASE_URL: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:-erp_password}@postgres:5432/${POSTGRES_DB:-erp_ot}
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change_me_in_production}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required - generate with openssl rand -hex 16}@postgres:5432/${POSTGRES_DB:-erp_ot}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET required - min 32 chars - openssl rand -hex 32}
       AUTH_SERVICE_URL: http://auth-service:3001
       PROJECT_SERVICE_URL: http://project-service:3003
-      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-dev_internal_token_min32chars_change}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?INTERNAL_API_TOKEN required - min 16 chars - openssl rand -hex 16}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
     ports:
       - "3005:3005"
@@ -224,12 +224,12 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 3006
-      DATABASE_URL: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:-erp_password}@postgres:5432/${POSTGRES_DB:-erp_ot}
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change_me_in_production}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required - generate with openssl rand -hex 16}@postgres:5432/${POSTGRES_DB:-erp_ot}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET required - min 32 chars - openssl rand -hex 32}
       AUTH_SERVICE_URL: http://auth-service:3001
       EQUIPMENT_SERVICE_URL: http://equipment-service:3005
       ATTENDANCE_SERVICE_URL: http://attendance-service:3004
-      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-dev_internal_token_min32chars_change}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?INTERNAL_API_TOKEN required - min 16 chars - openssl rand -hex 16}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
     ports:
       - "3006:3006"
@@ -293,12 +293,12 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 3007
-      DATABASE_URL: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:-erp_password}@postgres:5432/${POSTGRES_DB:-erp_ot}?schema=ocr
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change_me_in_production}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required - generate with openssl rand -hex 16}@postgres:5432/${POSTGRES_DB:-erp_ot}?schema=ocr
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET required - min 32 chars - openssl rand -hex 32}
       OCR_ENGINE_URL: http://ocr-engine:8000
       EQUIPMENT_SERVICE_URL: http://equipment-service:3005
       AUTH_SERVICE_URL: http://auth-service:3001
-      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:-dev_internal_token_min32chars_change}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?INTERNAL_API_TOKEN required - min 16 chars - openssl rand -hex 16}
       CORS_ORIGIN: "*"
       UPLOAD_DIR: /app/uploads
       MAX_FILE_SIZE_MB: "10"
@@ -359,7 +359,7 @@ services:
         done
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-erp_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-erp_password}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required - generate with openssl rand -hex 16}
       POSTGRES_DB: ${POSTGRES_DB:-erp_ot}
     volumes:
       - ./backups:/backups
@@ -387,7 +387,7 @@ services:
       EQUIPMENT_SERVICE_URL: http://equipment-service:3005
       APPROVAL_SERVICE_URL: http://approval-service:3006
       OCR_SERVICE_URL: http://ocr-service:3007
-      JWT_SECRET: ${JWT_ACCESS_SECRET:-change_me_in_production}
+      JWT_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET required - min 32 chars - openssl rand -hex 32}
       WATCHPACK_POLLING: "true"
       CHOKIDAR_USEPOLLING: "true"
     ports:

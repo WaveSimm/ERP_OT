@@ -20,7 +20,12 @@ const envSchema = z.object({
   JWT_ACCESS_SECRET: z.string().min(16),
   PORT: z.string().default("3006"),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error"]).default("info"),
-  CORS_ORIGIN: z.string().default("http://localhost:3000"),
+  // 보안 일괄패치 PDCA Layer 1 (NEW-14): * 차단 + 빈 값 차단
+  CORS_ORIGIN: z
+    .string()
+    .min(1, "CORS_ORIGIN required")
+    .refine((v) => v !== "*", "CORS_ORIGIN cannot be '*' with credentials")
+    .default("http://localhost:3000"),
   INTERNAL_API_TOKEN: z.string().min(16),
   EQUIPMENT_SERVICE_URL: z.string().default("http://equipment-service:3005"),
   ATTENDANCE_SERVICE_URL: z.string().default("http://attendance-service:3004"),

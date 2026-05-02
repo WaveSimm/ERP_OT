@@ -11,6 +11,9 @@ dist/
 .env
 .env.local
 .env.*.local
+.env.bak*
+.env.backup*
+.env.*.bak
 
 # DB Backups
 backups/

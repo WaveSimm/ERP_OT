@@ -73,7 +73,8 @@ export class CollabService {
       const authUrl = process.env.AUTH_SERVICE_URL ?? "http://auth-service:3001";
       const res = await fetch(
         `${authUrl}/internal/users/bulk?ids=${ids.join(",")}`,
-        { headers: { "X-Internal-Token": process.env.INTERNAL_API_TOKEN ?? "" } },
+        // 보안 일괄패치 PDCA Layer 1 (C3): startup-time Zod env 검증으로 보장
+        { headers: { "X-Internal-Token": process.env.INTERNAL_API_TOKEN as string } },
       );
       if (res.ok) {
         const data = (await res.json()) as Record<string, { name: string }>;

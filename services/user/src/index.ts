@@ -8,14 +8,26 @@ const app = Fastify({
   },
 });
 
+// 보안 일괄패치 PDCA Layer 1 (C2 + NEW-14): inline 검증 (user-service는 작은 서비스라 별도 envSchema 미적용)
+const corsOrigin = (() => {
+  const v = process.env.CORS_ORIGIN || "http://localhost:3000";
+  if (v === "*") throw new Error("CORS_ORIGIN cannot be '*' with credentials");
+  return v;
+})();
+const jwtSecret = (() => {
+  const v = process.env.JWT_ACCESS_SECRET;
+  if (!v || v.length < 32) throw new Error("JWT_ACCESS_SECRET required (min 32 chars)");
+  return v;
+})();
+
 // ─── Plugins ──────────────────────────────────────────────────────────────────
 app.register(fastifyCors, {
-  origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+  origin: corsOrigin,
   credentials: true,
 });
 
 app.register(fastifyJwt, {
-  secret: process.env.JWT_ACCESS_SECRET || "dev_secret_change_in_production",
+  secret: jwtSecret,
 });
 
 // ─── Health Check ─────────────────────────────────────────────────────────────

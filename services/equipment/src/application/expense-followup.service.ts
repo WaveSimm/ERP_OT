@@ -123,7 +123,8 @@ export class ExpenseFollowUpService {
     if (docIds.length === 0) return {};
 
     const approvalUrl = process.env.APPROVAL_SERVICE_URL || "http://approval-service:3006";
-    const token = process.env.INTERNAL_API_TOKEN || "";
+    // 보안 일괄패치 PDCA Layer 1 (C3): startup-time Zod env 검증으로 보장
+    const token = process.env.INTERNAL_API_TOKEN as string;
     const result: Record<string, any> = {};
 
     for (const docId of docIds) {

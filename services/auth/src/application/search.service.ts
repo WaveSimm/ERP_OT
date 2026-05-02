@@ -10,7 +10,8 @@ const HIDE_LOAD_TEST = process.env.HIDE_LOAD_TEST !== "false";
 const LOAD_TEST_DOMAIN = process.env.LOAD_TEST_DOMAIN ?? "@erp-ot.load";
 
 const PROJECT_INTERNAL_URL = process.env.PROJECT_SERVICE_URL ?? "http://project-service:3003";
-const INTERNAL_TOKEN = process.env.INTERNAL_API_TOKEN ?? "";
+// 보안 일괄패치 PDCA Layer 1 (C3): startup-time Zod env 검증으로 보장
+const INTERNAL_TOKEN = process.env.INTERNAL_API_TOKEN as string;
 
 export class SearchError extends Error {
   constructor(public readonly code: string, message: string, public readonly statusCode = 400) {

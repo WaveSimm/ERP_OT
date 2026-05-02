@@ -379,7 +379,8 @@ export class DocumentService {
   private async resolveUserName(userId: string): Promise<string | null> {
     try {
       const authUrl = process.env.AUTH_SERVICE_URL || "http://auth-service:3001";
-      const token = process.env.INTERNAL_API_TOKEN || "";
+      // 보안 일괄패치 PDCA Layer 1 (C3): startup-time Zod env 검증으로 보장
+    const token = process.env.INTERNAL_API_TOKEN as string;
       const resp = await fetch(`${authUrl}/internal/users/${userId}/profile`, {
         headers: { "X-Internal-Token": token },
       });
@@ -407,7 +408,8 @@ export class DocumentService {
 
   private async executePostReject(action: string, doc: any, comment: string): Promise<void> {
     const attendanceUrl = process.env.ATTENDANCE_SERVICE_URL || "http://attendance-service:3004";
-    const token = process.env.INTERNAL_API_TOKEN || "";
+    // 보안 일괄패치 PDCA Layer 1 (C3): startup-time Zod env 검증으로 보장
+    const token = process.env.INTERNAL_API_TOKEN as string;
     try {
       const endpoint = action === "LEAVE_APPROVE"
         ? `${attendanceUrl}/internal/leave/${doc.referenceId}/framework-approve`
@@ -425,7 +427,8 @@ export class DocumentService {
   private async executePostAction(action: string, doc: any): Promise<void> {
     const equipmentUrl = process.env.EQUIPMENT_SERVICE_URL || "http://equipment-service:3005";
     const attendanceUrl = process.env.ATTENDANCE_SERVICE_URL || "http://attendance-service:3004";
-    const token = process.env.INTERNAL_API_TOKEN || "";
+    // 보안 일괄패치 PDCA Layer 1 (C3): startup-time Zod env 검증으로 보장
+    const token = process.env.INTERNAL_API_TOKEN as string;
 
     try {
       switch (action) {

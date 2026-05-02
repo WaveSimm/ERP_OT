@@ -410,7 +410,8 @@
       "Bash(LABEL=round-6-dev-search-stress STRESS=true DURATION=360 bash *)",
       "Bash(xxd -p)",
       "Bash(gzip -t docs/04-operation/backups/2026-05-02-pre-security-pdca.sql.gz)",
-      "Bash(grep -E \"^\\\\.env$|^\\\\.env\\\\b\" .gitignore)"
+      "Bash(grep -E \"^\\\\.env$|^\\\\.env\\\\b\" .gitignore)",
+      "Bash(openssl rand *)"
     ]
   }
 }

@@ -19,7 +19,8 @@ export async function documentRoutes(fastify: FastifyInstance) {
     if (steps.length === 0) {
       try {
         const authUrl = process.env.AUTH_SERVICE_URL || "http://auth-service:3001";
-        const token = process.env.INTERNAL_API_TOKEN || "";
+        // 보안 일괄패치 PDCA Layer 1 (C3): startup-time Zod env 검증으로 보장
+        const token = process.env.INTERNAL_API_TOKEN as string;
         const resp = await fetch(`${authUrl}/internal/users/${request.userId}/approver`, {
           headers: { "X-Internal-Token": token },
         });
@@ -38,7 +39,8 @@ export async function documentRoutes(fastify: FastifyInstance) {
     if (!department || !requesterName) {
       try {
         const authUrl = process.env.AUTH_SERVICE_URL || "http://auth-service:3001";
-        const token = process.env.INTERNAL_API_TOKEN || "";
+        // 보안 일괄패치 PDCA Layer 1 (C3): startup-time Zod env 검증으로 보장
+        const token = process.env.INTERNAL_API_TOKEN as string;
         const resp = await fetch(`${authUrl}/internal/users/${request.userId}/profile`, {
           headers: { "X-Internal-Token": token },
         });

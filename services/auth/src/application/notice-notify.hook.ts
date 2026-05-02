@@ -2,7 +2,8 @@ import { PrismaClient, UserRole } from "@prisma/client";
 import type { FastifyBaseLogger } from "fastify";
 
 const ATTENDANCE_URL = process.env.ATTENDANCE_SERVICE_URL ?? "http://attendance-service:3004";
-const INTERNAL_TOKEN = process.env.INTERNAL_API_TOKEN ?? "";
+// 보안 일괄패치 PDCA Layer 1 (C3): startup-time Zod env 검증으로 보장
+const INTERNAL_TOKEN = process.env.INTERNAL_API_TOKEN as string;
 
 export interface NoticeNotifyContext {
   postId: string;
