@@ -411,7 +411,11 @@
       "Bash(xxd -p)",
       "Bash(gzip -t docs/04-operation/backups/2026-05-02-pre-security-pdca.sql.gz)",
       "Bash(grep -E \"^\\\\.env$|^\\\\.env\\\\b\" .gitignore)",
-      "Bash(openssl rand *)"
+      "Bash(openssl rand *)",
+      "Bash(echo \"  project: $\\(curl -s -o /dev/null -w '%{http_code}' http://localhost:3003/internal/work-logs/semantic-search -X POST -H 'Content-Type: application/json' -d '{}'\\)\")",
+      "Bash(echo \"  attendance: $\\(curl -s -o /dev/null -w '%{http_code}' http://localhost:3004/internal/notifications/bulk -X POST -H 'Content-Type: application/json' -d '{}'\\)\")",
+      "Bash(echo \"  approval: $\\(curl -s -o /dev/null -w '%{http_code}' http://localhost:3006/internal/x -X POST -H 'Content-Type: application/json' -d '{}'\\)\")",
+      "Bash(echo \"  equipment: $\\(curl -s -o /dev/null -w '%{http_code}' http://localhost:3005/internal/x -X POST -H 'Content-Type: application/json' -d '{}'\\)\")"
     ]
   }
 }

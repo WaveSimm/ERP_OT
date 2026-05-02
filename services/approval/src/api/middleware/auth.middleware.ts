@@ -1,44 +1,21 @@
-import { FastifyRequest, FastifyReply, FastifyInstance } from "fastify";
-import fp from "fastify-plugin";
+// 보안 일괄패치 PDCA Layer 2 (C7 + NEW-8): @erp-ot/shared로 위임 + 호환성 wrapper
+// NEW-8: 기존 X-Internal-Token 자동 ADMIN 승격 패턴은 shared의 requireInternal로 폐기됨
+//        (now: userRole = "OPERATOR" with explicit assignment)
 
-declare module "fastify" {
-  interface FastifyRequest {
-    userId: string;
-    userEmail: string;
-    userRole: "ADMIN" | "MANAGER" | "OPERATOR" | "VIEWER";
-  }
-}
+import type { FastifyInstance } from "fastify";
+import fp from "fastify-plugin";
+import {
+  requireAuth,
+  requireInternal,
+  requireRole as sharedRequireRole,
+  type Role,
+} from "@erp-ot/shared";
 
 export const authMiddleware = fp(async (fastify: FastifyInstance) => {
-  fastify.decorateRequest("userId", "");
-  fastify.decorateRequest("userEmail", "");
-  fastify.decorateRequest("userRole", "VIEWER");
-
-  fastify.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
-    if (request.url === "/health") return;
-    // Internal API via X-Internal-Token
-    const internalToken = request.headers["x-internal-token"] as string;
-    if (internalToken && internalToken === process.env.INTERNAL_API_TOKEN) {
-      request.userId = "system";
-      request.userRole = "ADMIN";
-      return;
-    }
-    try {
-      await request.jwtVerify();
-      const payload = request.user as { sub: string; email: string; role: string };
-      request.userId = payload.sub;
-      request.userEmail = payload.email ?? "";
-      request.userRole = payload.role as any;
-    } catch {
-      reply.status(401).send({ code: "UNAUTHORIZED", message: "인증이 필요합니다." });
-    }
-  });
+  await fastify.register(requireAuth);
+  await fastify.register(requireInternal);
 });
 
 export function requireRole(...roles: string[]) {
-  return async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!roles.includes(request.userRole)) {
-      reply.status(403).send({ code: "FORBIDDEN", message: "권한이 없습니다." });
-    }
-  };
+  return sharedRequireRole(...(roles as Role[]));
 }

@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-05-02T10:40:08.274Z",
+  "lastUpdated": "2026-05-02T10:54:02.352Z",
   "activeFeatures": [
     "ERP_OT",
     "auth",
@@ -92,7 +92,9 @@
     "부하테스트",
     "prod-빌드-정리",
     "프로젝트-마일스톤-재설계 (88%)",
-    "health"
+    "health",
+    "jwt",
+    "errors"
   ],
   "primaryFeature": "프로젝트-관리",
   "features": {
@@ -120,9 +122,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-26T11:04:21.037Z",
-        "lastUpdated": "2026-04-11T07:37:39.398Z"
+        "lastUpdated": "2026-05-02T10:46:07.737Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\tmp_customer_match.py"
+      "lastFile": "E:\\claude\\ERP_OT\\services\\shared\\src\\index.ts"
     },
     "auth": {
       "phase": "do",
@@ -398,9 +400,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-19T03:30:02.061Z",
-        "lastUpdated": "2026-04-27T23:38:25.471Z"
+        "lastUpdated": "2026-05-02T10:54:02.352Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\project\\src\\api\\middleware\\auth.middleware.ts"
+      "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\api\\middleware\\auth.middleware.ts"
     },
     "prisma": {
       "phase": "do",
@@ -1313,6 +1315,32 @@
         "lastUpdated": "2026-05-01T15:46:38.035Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\api\\health\\route.ts"
+    },
+    "jwt": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-05-02T10:44:57.363Z",
+        "lastUpdated": "2026-05-02T10:44:57.363Z"
+      },
+      "lastFile": "E:\\claude\\ERP_OT\\services\\shared\\src\\jwt\\verify-options.ts"
+    },
+    "errors": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-05-02T10:45:03.081Z",
+        "lastUpdated": "2026-05-02T10:45:07.334Z"
+      },
+      "lastFile": "E:\\claude\\ERP_OT\\services\\shared\\src\\errors\\error-format.ts"
     }
   },
   "pipeline": {
@@ -1323,7 +1351,7 @@
   "session": {
     "startedAt": "2026-02-26T10:52:05.428Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-05-02T10:40:08.274Z"
+    "lastActivity": "2026-05-02T10:54:02.352Z"
   },
   "history": [
     {
@@ -25521,6 +25549,102 @@
     {
       "timestamp": "2026-05-02T10:40:08.273Z",
       "feature": "user",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T10:44:57.363Z",
+      "feature": "jwt",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T10:45:03.081Z",
+      "feature": "errors",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T10:45:07.334Z",
+      "feature": "errors",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T10:45:16.155Z",
+      "feature": "middleware",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T10:45:29.100Z",
+      "feature": "middleware",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T10:45:33.005Z",
+      "feature": "middleware",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T10:45:35.116Z",
+      "feature": "ERP_OT",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T10:46:07.737Z",
+      "feature": "ERP_OT",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T10:46:11.389Z",
+      "feature": "middleware",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T10:47:16.208Z",
+      "feature": "middleware",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T10:48:35.923Z",
+      "feature": "middleware",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T10:49:28.060Z",
+      "feature": "middleware",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T10:49:29.973Z",
+      "feature": "middleware",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T10:52:24.527Z",
+      "feature": "middleware",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T10:52:25.138Z",
+      "feature": "middleware",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T10:54:02.352Z",
+      "feature": "middleware",
       "phase": "do",
       "action": "updated"
     }

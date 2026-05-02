@@ -1,71 +1,44 @@
-import { FastifyRequest, FastifyReply, FastifyInstance } from "fastify";
+// 보안 일괄패치 PDCA Layer 2 (C7): @erp-ot/shared로 위임 + 호환성 wrapper
+// 라우트 12개의 import 경로 유지를 위해 thin proxy 유지
+
+import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import fp from "fastify-plugin";
+import {
+  requireAuth,
+  requireInternal,
+  requireRole as sharedRequireRole,
+  type Role,
+} from "@erp-ot/shared";
 
-declare module "fastify" {
-  interface FastifyRequest {
-    userId: string;
-    userEmail: string;
-    userName: string;
-    userRole: "ADMIN" | "MANAGER" | "OPERATOR" | "VIEWER";
-  }
-}
-
+// authMiddleware: requireAuth + requireInternal 조합 (기존 API 호환)
 export const authMiddleware = fp(async (fastify: FastifyInstance) => {
-  fastify.decorateRequest("userId", "");
-  fastify.decorateRequest("userEmail", "");
-  fastify.decorateRequest("userName", "");
-  fastify.decorateRequest("userRole", "VIEWER");
-
-  fastify.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
-    // 헬스체크 제외
-    if (request.url === "/health") return;
-    // 내부 API는 X-Internal-Token으로 별도 인증 (auth-service ↔ project-service)
-    if (request.url.startsWith("/internal/")) return;
-
-    try {
-      await request.jwtVerify();
-      const payload = request.user as { sub: string; email: string; role: string; name?: string };
-      request.userId = payload.sub;
-      request.userEmail = payload.email ?? "";
-      request.userName = payload.name ?? "";
-      request.userRole = payload.role as any;
-    } catch {
-      reply.status(401).send({ code: "UNAUTHORIZED", message: "인증이 필요합니다." });
-    }
-  });
+  await fastify.register(requireAuth);
+  await fastify.register(requireInternal);
 });
 
-/** 역할 기반 권한 검사 데코레이터 */
+// 라우트 단위 권한 검사 (기존 호출 패턴: requireRole("ADMIN", "MANAGER"))
 export function requireRole(...roles: string[]) {
-  return async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!roles.includes(request.userRole)) {
-      reply.status(403).send({ code: "FORBIDDEN", message: "권한이 없습니다." });
-    }
-  };
+  return sharedRequireRole(...(roles as Role[]));
 }
 
-/** MANAGER 이상 (MANAGER + ADMIN) */
+// MANAGER 이상 (factory 패턴 — 기존 호출: preHandler: requireManager())
 export function requireManager() {
-  return requireRole("ADMIN", "MANAGER");
+  return sharedRequireRole("ADMIN", "MANAGER");
 }
 
-/** ADMIN 전용 */
+// ADMIN 전용
 export function requireAdmin() {
-  return requireRole("ADMIN");
+  return sharedRequireRole("ADMIN");
 }
 
-/**
- * MANAGER 이상이거나 본인인 경우 허용
- * 핸들러에서 req.userId로 본인 여부를 직접 확인한 후 이 함수를 활용
- * 예: if (!isManager && ownerId !== req.userId) return 403
- */
+// OPERATOR 이상
+export function requireOperator() {
+  return sharedRequireRole("ADMIN", "MANAGER", "OPERATOR");
+}
+
+// MANAGER 이상이거나 본인인 경우 (라우트 핸들러에서 직접 호출)
 export function requireSelfOrManager(req: FastifyRequest, ownerId: string): boolean {
   const role = req.userRole;
   if (role === "ADMIN" || role === "MANAGER") return true;
   return req.userId === ownerId;
-}
-
-/** OPERATOR 이상 (OPERATOR + MANAGER + ADMIN) */
-export function requireOperator() {
-  return requireRole("ADMIN", "MANAGER", "OPERATOR");
 }
