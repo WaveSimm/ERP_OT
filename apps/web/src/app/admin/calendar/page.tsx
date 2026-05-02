@@ -35,7 +35,7 @@ export default function AdminCalendarPage() {
 
   // 마운트 후 클라이언트 전용 초기화
   useEffect(() => {
-    const token = localStorage.getItem("erp_token");
+    const token = localStorage.getItem("erp_user");
     if (!token) {
       router.push("/login");
       return;

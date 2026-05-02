@@ -15,7 +15,7 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("erp_token") : null;
+    const token = typeof window !== "undefined" ? localStorage.getItem("erp_user") : null;
     if (!token) router.push("/login");
   }, [router]);
 

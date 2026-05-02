@@ -48,7 +48,7 @@ export default function ProjectBoardPage({ params }: { params: { projectId: stri
 
   // 프로젝트 사이드바 로드
   useEffect(() => {
-    const token = localStorage.getItem("erp_token");
+    const token = localStorage.getItem("erp_user");
     if (!token) {
       router.push("/login");
       return;

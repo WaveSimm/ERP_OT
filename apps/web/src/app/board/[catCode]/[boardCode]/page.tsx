@@ -18,7 +18,7 @@ export default function BoardPage({ params }: { params: { catCode: string; board
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("erp_token");
+    const token = localStorage.getItem("erp_user");
     if (!token) {
       router.push("/login");
       return;

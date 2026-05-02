@@ -28,7 +28,7 @@ export default function CategoryPage({ params }: { params: { catCode: string } }
   const [appliedSearch, setAppliedSearch] = useState("");
 
   useEffect(() => {
-    const token = localStorage.getItem("erp_token");
+    const token = localStorage.getItem("erp_user");
     if (!token) {
       router.push("/login");
       return;

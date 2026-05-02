@@ -231,7 +231,7 @@ export default function ProjectDetailPage() {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem("erp_token");
+    const token = localStorage.getItem("erp_user");
     if (!token) { router.push("/login"); return; }
     load();
     projectApi.list().then((r: any) => setAllProjects(r.items ?? [])).catch(() => {});

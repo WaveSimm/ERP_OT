@@ -51,7 +51,7 @@ export default function BoardLandingPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("erp_token");
+    const token = localStorage.getItem("erp_user");
     if (!token) {
       router.push("/login");
       return;

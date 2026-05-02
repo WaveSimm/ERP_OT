@@ -206,7 +206,7 @@ export default function ResourcesPage() {
   const [savingAlloc, setSavingAlloc] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("erp_token");
+    const token = localStorage.getItem("erp_user");
     if (!token) { router.push("/login"); return; }
     setIsAdmin(getUser()?.role === "ADMIN");
     // sessionStorage 복원 (hydration 이후 클라이언트에서만)

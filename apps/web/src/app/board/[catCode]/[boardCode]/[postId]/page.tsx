@@ -25,7 +25,7 @@ export default function PostDetailPage({ params }: { params: { catCode: string; 
   const canEdit = isAdmin || isAuthor;
 
   useEffect(() => {
-    const token = localStorage.getItem("erp_token");
+    const token = localStorage.getItem("erp_user");
     if (!token) {
       router.push("/login");
       return;
