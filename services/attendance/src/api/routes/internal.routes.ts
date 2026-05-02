@@ -6,13 +6,8 @@ export async function internalRoutes(fastify: FastifyInstance) {
   const otSvc = fastify.overtimeService;
   const notifSvc = fastify.notificationService;
 
-  // Internal API 인증
-  fastify.addHook("onRequest", async (req, reply) => {
-    const token = req.headers["x-internal-token"];
-    if (token !== process.env.INTERNAL_API_TOKEN) {
-      return reply.status(403).send({ code: "FORBIDDEN", message: "Invalid internal token" });
-    }
-  });
+  // 보안 일괄패치 iterate-1: inline hook 제거 — shared requireInternal이 글로벌 onRequest로 처리
+  // (services/shared/src/middleware/require-internal.ts 참고)
 
   // POST /internal/leave/:id/framework-approve — 전자결재에서 휴가 승인
   fastify.post("/leave/:id/framework-approve", async (req, reply) => {

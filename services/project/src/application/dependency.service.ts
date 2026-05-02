@@ -32,7 +32,8 @@ export class DependencyService {
   private triggerCpmRecalc(projectId: string): void {
     if (!this.cpmService) return;
     void this.cpmService.runProjectCpm(projectId).catch((err) => {
-      console.error("CPM recalc after dependency change failed:", err);
+      // TODO: inject logger — DependencyService에 FastifyBaseLogger 주입 후 this.log.error로 교체
+      console.error("CPM recalc after dependency change failed:", err); // eslint-disable-line no-console
     });
   }
 

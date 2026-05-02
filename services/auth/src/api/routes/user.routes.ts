@@ -5,6 +5,7 @@ import type { AuthService } from "../../application/auth.service";
 import { createAuthHook, requireRole } from "../middleware/auth.middleware";
 import { AuthError } from "../../application/auth.service";
 import { publishActivity } from "../../infrastructure/event-publisher";
+import { errorResponse, ErrorCode } from "@erp-ot/shared";
 
 export async function userRoutes(
   app: FastifyInstance,
@@ -36,7 +37,7 @@ export async function userRoutes(
   app.post("/", { preHandler: [authenticate, adminOnly] }, async (req, reply) => {
     const body = createUserSchema.safeParse(req.body);
     if (!body.success) {
-      return reply.code(400).send({ error: body.error.issues[0]?.message });
+      return reply.code(400).send(errorResponse(ErrorCode.INVALID_INPUT, body.error.issues[0]?.message ?? "입력값 오류"));
     }
 
     try {
@@ -52,7 +53,7 @@ export async function userRoutes(
       return reply.code(201).send(user);
     } catch (e) {
       if (e instanceof AuthError) {
-        return reply.code(e.statusCode).send({ error: e.message });
+        return reply.code(e.statusCode).send(errorResponse(e.code ?? ErrorCode.INTERNAL_ERROR, e.message));
       }
       throw e;
     }
@@ -63,7 +64,7 @@ export async function userRoutes(
     const { id } = req.params as { id: string };
     const body = updateUserSchema.safeParse(req.body);
     if (!body.success) {
-      return reply.code(400).send({ error: body.error.issues[0]?.message });
+      return reply.code(400).send(errorResponse(ErrorCode.INVALID_INPUT, body.error.issues[0]?.message ?? "입력값 오류"));
     }
 
     try {
@@ -83,7 +84,7 @@ export async function userRoutes(
       return reply.code(200).send(user);
     } catch (e) {
       if (e instanceof AuthError) {
-        return reply.code(e.statusCode).send({ error: e.message });
+        return reply.code(e.statusCode).send(errorResponse(e.code ?? ErrorCode.INTERNAL_ERROR, e.message));
       }
       throw e;
     }
@@ -94,7 +95,7 @@ export async function userRoutes(
     const { id } = req.params as { id: string };
     const body = resetPasswordSchema.safeParse(req.body);
     if (!body.success) {
-      return reply.code(400).send({ error: body.error.issues[0]?.message });
+      return reply.code(400).send(errorResponse(ErrorCode.INVALID_INPUT, body.error.issues[0]?.message ?? "입력값 오류"));
     }
 
     try {
@@ -109,7 +110,7 @@ export async function userRoutes(
       return reply.code(204).send();
     } catch (e) {
       if (e instanceof AuthError) {
-        return reply.code(e.statusCode).send({ error: e.message });
+        return reply.code(e.statusCode).send(errorResponse(e.code ?? ErrorCode.INTERNAL_ERROR, e.message));
       }
       throw e;
     }
@@ -119,7 +120,7 @@ export async function userRoutes(
   app.delete("/:id", { preHandler: [authenticate, adminOnly] }, async (req, reply) => {
     const { id } = req.params as { id: string };
     if (id === req.userId) {
-      return reply.code(400).send({ error: "본인 계정은 삭제할 수 없습니다." });
+      return reply.code(400).send(errorResponse(ErrorCode.INVALID_INPUT, "본인 계정은 삭제할 수 없습니다."));
     }
     try {
       await userService.delete(id);
@@ -133,7 +134,7 @@ export async function userRoutes(
       return reply.code(204).send();
     } catch (e) {
       if (e instanceof AuthError) {
-        return reply.code(e.statusCode).send({ error: e.message });
+        return reply.code(e.statusCode).send(errorResponse(e.code ?? ErrorCode.INTERNAL_ERROR, e.message));
       }
       throw e;
     }
@@ -143,13 +144,13 @@ export async function userRoutes(
   app.get("/:id/profile", { preHandler: [authenticate] }, async (req, reply) => {
     const { id } = req.params as { id: string };
     if (req.userId !== id && req.userRole !== "ADMIN") {
-      return reply.code(403).send({ error: "권한이 없습니다." });
+      return reply.code(403).send(errorResponse(ErrorCode.FORBIDDEN, "권한이 없습니다."));
     }
     try {
       const result = await userService.getProfile(id);
       return reply.code(200).send(result);
     } catch (e) {
-      if (e instanceof AuthError) return reply.code(e.statusCode).send({ error: e.message });
+      if (e instanceof AuthError) return reply.code(e.statusCode).send(errorResponse(e.code ?? ErrorCode.INTERNAL_ERROR, e.message));
       throw e;
     }
   });
@@ -158,17 +159,17 @@ export async function userRoutes(
   app.patch("/:id/profile", { preHandler: [authenticate] }, async (req, reply) => {
     const { id } = req.params as { id: string };
     if (req.userId !== id && req.userRole !== "ADMIN") {
-      return reply.code(403).send({ error: "권한이 없습니다." });
+      return reply.code(403).send(errorResponse(ErrorCode.FORBIDDEN, "권한이 없습니다."));
     }
     const body = upsertProfileSchema.safeParse(req.body);
     if (!body.success) {
-      return reply.code(400).send({ error: body.error.issues[0]?.message });
+      return reply.code(400).send(errorResponse(ErrorCode.INVALID_INPUT, body.error.issues[0]?.message ?? "입력값 오류"));
     }
     try {
       const result = await userService.upsertProfile(id, body.data);
       return reply.code(200).send(result);
     } catch (e) {
-      if (e instanceof AuthError) return reply.code(e.statusCode).send({ error: e.message });
+      if (e instanceof AuthError) return reply.code(e.statusCode).send(errorResponse(e.code ?? ErrorCode.INTERNAL_ERROR, e.message));
       throw e;
     }
   });

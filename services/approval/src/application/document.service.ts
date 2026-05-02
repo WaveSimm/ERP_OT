@@ -420,7 +420,8 @@ export class DocumentService {
         body: JSON.stringify({ approverId: doc.requestedBy, action: "REJECT", rejectReason: comment }),
       });
     } catch (err) {
-      console.error(`Post-reject action failed: ${action}`, err);
+      // TODO: inject logger — DocumentService에 FastifyBaseLogger 주입 후 this.log.error로 교체
+      console.error(`Post-reject action failed: ${action}`, err); // eslint-disable-line no-console
     }
   }
 
@@ -468,7 +469,8 @@ export class DocumentService {
           break;
       }
     } catch (err) {
-      console.error(`Post-approval action failed: ${action}`, err);
+      // TODO: inject logger — DocumentService에 FastifyBaseLogger 주입 후 this.log.error로 교체
+      console.error(`Post-approval action failed: ${action}`, err); // eslint-disable-line no-console
     }
   }
 }

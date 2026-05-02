@@ -79,6 +79,14 @@ export class CommentService {
     });
   }
 
+  // 보안 일괄패치 iterate-1 (G6): 라우트 단계 사전 검증용 — authorId만 반환
+  async findRaw(commentId: string): Promise<{ id: string; authorId: string } | null> {
+    return this.prisma.comment.findUnique({
+      where: { id: commentId },
+      select: { id: true, authorId: true },
+    });
+  }
+
   async update(commentId: string, content: string, user: AuthUserContext) {
     const c = await this.prisma.comment.findUnique({ where: { id: commentId } });
     if (!c) throw new CommentError("COMMENT_NOT_FOUND", "댓글을 찾을 수 없습니다.", 404);

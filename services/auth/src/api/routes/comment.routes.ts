@@ -1,9 +1,10 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import type { CommentService } from "../../application/comment.service";
 import { CommentError } from "../../application/comment.service";
 import type { AuthService } from "../../application/auth.service";
 import { createAuthHook } from "../middleware/auth.middleware";
 import { createCommentSchema, updateCommentSchema } from "../dtos/board.dto";
+import { errorResponse, ErrorCode } from "@erp-ot/shared";
 
 function handleError(reply: any, err: any) {
   if (err instanceof CommentError) {
@@ -13,6 +14,32 @@ function handleError(reply: any, err: any) {
     return reply.code(400).send({ error: { code: "INVALID_INPUT", message: err.issues?.[0]?.message } });
   }
   throw err;
+}
+
+// 보안 일괄패치 iterate-1 (G6/FR-19): 라우트 단계 comment owner 사전 검증
+// service 계층 검증(line 85,94)에 더해 라우트 단계에서도 명시적으로 차단 (defense-in-depth)
+async function requireCommentOwnerOrAdmin(
+  commentService: CommentService,
+  req: FastifyRequest,
+  reply: FastifyReply,
+): Promise<boolean> {
+  const { id } = req.params as { id: string };
+  const userId = (req as any).userId as string;
+  const userRole = (req as any).userRole as string;
+
+  // ADMIN은 무조건 통과
+  if (userRole === "ADMIN") return true;
+
+  const comment = await commentService.findRaw(id);
+  if (!comment) {
+    reply.code(404).send(errorResponse(ErrorCode.NOT_FOUND, "댓글을 찾을 수 없습니다."));
+    return false;
+  }
+  if (comment.authorId !== userId) {
+    reply.code(403).send(errorResponse(ErrorCode.FORBIDDEN, "권한이 없습니다."));
+    return false;
+  }
+  return true;
 }
 
 export async function commentRoutes(
@@ -48,6 +75,9 @@ export async function commentRoutes(
 
   // PATCH /api/v1/comments/:id
   app.patch("/comments/:id", { preHandler: [authenticate] }, async (req, reply) => {
+    // G6: 라우트 단계 owner 사전 검증
+    const allowed = await requireCommentOwnerOrAdmin(commentService, req, reply);
+    if (!allowed) return;
     try {
       const { id } = req.params as { id: string };
       const dto = updateCommentSchema.parse(req.body);
@@ -61,6 +91,9 @@ export async function commentRoutes(
 
   // DELETE /api/v1/comments/:id
   app.delete("/comments/:id", { preHandler: [authenticate] }, async (req, reply) => {
+    // G6: 라우트 단계 owner 사전 검증
+    const allowed = await requireCommentOwnerOrAdmin(commentService, req, reply);
+    if (!allowed) return;
     try {
       const { id } = req.params as { id: string };
       const user = { id: (req as any).userId, role: (req as any).userRole };

@@ -12,7 +12,7 @@ import { createAuthHook } from "../middleware/auth.middleware";
 import { AuthError } from "../../application/auth.service";
 import { publishActivity } from "../../infrastructure/event-publisher";
 // 보안 일괄패치 PDCA Layer 5 (H1)
-import { rateLimitPolicies, rateLimitErrorResponseBuilder } from "@erp-ot/shared";
+import { rateLimitPolicies, rateLimitErrorResponseBuilder, errorResponse, ErrorCode } from "@erp-ot/shared";
 
 // 쿠키 표준 옵션 (Layer 3: path 통일, sameSite strict, httpOnly)
 const COOKIE_BASE = {
@@ -90,7 +90,7 @@ export async function authRoutes(app: FastifyInstance, opts: { authService: Auth
   }, async (req, reply) => {
     const body = loginSchema.safeParse(req.body);
     if (!body.success) {
-      return reply.code(400).send({ error: body.error.issues[0]?.message });
+      return reply.code(400).send(errorResponse(ErrorCode.INVALID_INPUT, body.error.issues[0]?.message ?? "입력값 오류"));
     }
 
     const ipAddress = getClientIp(req);
@@ -134,7 +134,7 @@ export async function authRoutes(app: FastifyInstance, opts: { authService: Auth
           description: `로그인 실패`,
           metadata: { attemptedEmail: body.data.email, ipAddress, userAgent: userAgent?.slice(0, 200), errorCode: e.code },
         });
-        return reply.code(e.statusCode).send({ error: e.message });
+        return reply.code(e.statusCode).send(errorResponse(e.code ?? ErrorCode.INTERNAL_ERROR, e.message));
       }
       throw e;
     }
@@ -149,7 +149,7 @@ export async function authRoutes(app: FastifyInstance, opts: { authService: Auth
   }, async (req, reply) => {
     const refreshToken = (req.cookies as Record<string, string>)["refreshToken"];
     if (!refreshToken) {
-      return reply.code(401).send({ error: "refresh token이 없습니다." });
+      return reply.code(401).send(errorResponse(ErrorCode.NO_REFRESH_TOKEN, "refresh token이 없습니다."));
     }
 
     const ipAddress = getClientIp(req);
@@ -174,7 +174,7 @@ export async function authRoutes(app: FastifyInstance, opts: { authService: Auth
         if (e.code === "REFRESH_REUSE_DETECTED") {
           clearAuthCookies(reply);
         }
-        return reply.code(e.statusCode).send({ error: e.message, code: e.code });
+        return reply.code(e.statusCode).send(errorResponse(e.code ?? ErrorCode.INTERNAL_ERROR, e.message));
       }
       throw e;
     }
@@ -200,7 +200,7 @@ export async function authRoutes(app: FastifyInstance, opts: { authService: Auth
   app.post("/logout-all", { preHandler: [authenticate] }, async (req, reply) => {
     const deviceId = (req.cookies as Record<string, string>)["deviceId"];
     if (!deviceId) {
-      return reply.code(400).send({ error: "디바이스 식별 불가" });
+      return reply.code(400).send(errorResponse(ErrorCode.INVALID_INPUT, "디바이스 식별 불가"));
     }
     await authService.logoutOtherDevices(req.userId, deviceId);
     publishActivity({
@@ -224,7 +224,7 @@ export async function authRoutes(app: FastifyInstance, opts: { authService: Auth
   // GET /api/v1/auth/me
   app.get("/me", { preHandler: [authenticate] }, async (req, reply) => {
     const user = await userRepo.findById(req.userId);
-    if (!user) return reply.code(404).send({ error: "사용자를 찾을 수 없습니다." });
+    if (!user) return reply.code(404).send(errorResponse(ErrorCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
     const { passwordHash: _passwordHash, ...rest } = user;
     return reply.code(200).send(rest);
   });
@@ -233,14 +233,14 @@ export async function authRoutes(app: FastifyInstance, opts: { authService: Auth
   app.patch("/me", { preHandler: [authenticate] }, async (req, reply) => {
     const { name } = req.body as { name?: string };
     if (!name || name.trim().length === 0) {
-      return reply.code(400).send({ error: "이름을 입력하세요." });
+      return reply.code(400).send(errorResponse(ErrorCode.INVALID_INPUT, "이름을 입력하세요."));
     }
     try {
       const updated = await userRepo.update(req.userId, { name: name.trim() });
       const { passwordHash: _passwordHash, ...rest } = updated;
       return reply.code(200).send(rest);
     } catch (e) {
-      if (e instanceof AuthError) return reply.code(e.statusCode).send({ error: e.message });
+      if (e instanceof AuthError) return reply.code(e.statusCode).send(errorResponse(e.code ?? ErrorCode.INTERNAL_ERROR, e.message));
       throw e;
     }
   });
@@ -249,7 +249,7 @@ export async function authRoutes(app: FastifyInstance, opts: { authService: Auth
   app.patch("/me/password", { preHandler: [authenticate] }, async (req, reply) => {
     const body = changePasswordSchema.safeParse(req.body);
     if (!body.success) {
-      return reply.code(422).send({ error: body.error.issues[0]?.message });
+      return reply.code(422).send(errorResponse(ErrorCode.INVALID_INPUT, body.error.issues[0]?.message ?? "입력값 오류"));
     }
 
     try {
@@ -266,7 +266,7 @@ export async function authRoutes(app: FastifyInstance, opts: { authService: Auth
       return reply.code(204).send();
     } catch (e) {
       if (e instanceof AuthError) {
-        return reply.code(e.statusCode).send({ error: e.message });
+        return reply.code(e.statusCode).send(errorResponse(e.code ?? ErrorCode.INTERNAL_ERROR, e.message));
       }
       throw e;
     }

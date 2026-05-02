@@ -2,7 +2,7 @@ import Fastify from "fastify";
 import fastifyCors from "@fastify/cors";
 import fastifyHelmet from "@fastify/helmet";
 import fastifyRateLimit from "@fastify/rate-limit";
-import { rateLimitPolicies, rateLimitErrorResponseBuilder } from "@erp-ot/shared";
+import { rateLimitPolicies, rateLimitErrorResponseBuilder, requireInternal } from "@erp-ot/shared";
 import fastifyJwt from "@fastify/jwt";
 import fastifyCookie from "@fastify/cookie";
 import { PrismaClient } from "@prisma/client";
@@ -100,6 +100,9 @@ async function buildApp() {
   app.decorate("prisma", prisma);
 
   await app.register(authMiddleware);
+
+  // 보안 일괄패치 iterate-1 (G5/FR-06): /internal/* 글로벌 토큰 검증
+  await app.register(requireInternal);
 
   // 에러 핸들러
   app.setErrorHandler((error, _req, reply) => {
