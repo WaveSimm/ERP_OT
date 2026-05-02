@@ -1,101 +1,13 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-05-02T12:33:30.387Z",
+  "lastUpdated": "2026-05-02T12:50:37.169Z",
   "activeFeatures": [
-    "ERP_OT",
-    "auth",
-    "user",
-    "ui",
-    "api-client",
     "지휘센터-대시보드",
-    "project",
-    "entities",
-    "application",
-    "routes",
-    "websocket",
-    "web",
-    "login",
-    "projects",
-    "[id]",
-    "[...path]",
-    "resources",
-    "repositories",
-    "dtos",
-    "my-tasks",
-    "middleware",
-    "prisma",
-    "refresh",
-    "users",
-    "attendance",
-    "dashboard",
-    "notifications",
-    "team",
-    "me",
-    "infrastructure",
-    "departments",
-    "approval-lines",
-    "부서-결재라인: Gap Analysis",
-    "org-chart",
-    "admin",
     "부서-결재라인",
     "개인대시보드",
-    "지휘센터-대시보드 Gap Analysis",
-    "equipment",
-    "sensors",
-    "schedule",
-    "stats",
-    "scripts",
-    "repair",
-    "customers",
-    "parts",
-    "activity-logs",
-    "state-machine",
-    "procurement",
-    "products",
-    "contracts",
-    "new",
-    "approval",
-    "inventory",
-    "expenses",
-    "settlements",
-    "audits",
-    "edit",
-    "suppliers",
-    "locations",
-    "Downloads",
-    "config",
-    "engines",
-    "erp",
-    "ocr",
-    "engine",
-    "scan",
-    "templates",
-    "domain",
-    "board",
-    "[catCode]",
-    "[boardCode]",
-    "[postId]",
-    "home",
-    "write",
-    "게시판 Gap 분석",
-    "work-log",
-    "work-logs",
-    "[projectId]",
-    "작업비고 Gap 분석",
-    "calendar",
-    "회사달력 Gap 분석",
-    "all",
-    "search",
-    "자연어검색 Gap 분석",
     "검색개선",
-    "load-test",
     "부하테스트",
-    "prod-빌드-정리",
-    "프로젝트-마일스톤-재설계 (88%)",
-    "health",
-    "jwt",
-    "errors",
-    "rate-limit"
+    "prod-빌드-정리"
   ],
   "primaryFeature": "프로젝트-관리",
   "features": {
@@ -113,71 +25,6 @@
         "started": "2026-02-26T00:00:00.000Z",
         "lastUpdated": "2026-02-27T00:00:00.000Z"
       }
-    },
-    "ERP_OT": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-02-26T11:04:21.037Z",
-        "lastUpdated": "2026-05-02T12:23:13.168Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\shared\\src\\index.ts"
-    },
-    "auth": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-02-26T11:04:44.698Z",
-        "lastUpdated": "2026-05-02T12:23:35.292Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\index.ts"
-    },
-    "user": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-02-26T11:05:12.781Z",
-        "lastUpdated": "2026-05-02T12:26:01.226Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\user\\src\\index.ts"
-    },
-    "ui": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-02-26T11:05:31.747Z",
-        "lastUpdated": "2026-02-26T11:05:31.747Z"
-      },
-      "lastFile": "E:/claude/ERP_OT/packages/ui/src/index.ts"
-    },
-    "api-client": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-02-26T11:05:37.432Z",
-        "lastUpdated": "2026-02-26T11:05:47.743Z"
-      },
-      "lastFile": "E:/claude/ERP_OT/packages/api-client/src/auth.ts"
     },
     "지휘센터-대시보드": {
       "phase": "design",
@@ -210,344 +57,6 @@
       "previousPhase": "check",
       "autoAdvanced": true
     },
-    "project": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-02-26T22:19:54.538Z",
-        "lastUpdated": "2026-05-02T12:25:51.628Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\project\\src\\index.ts"
-    },
-    "entities": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-17T01:23:36.038Z",
-        "lastUpdated": "2026-04-30T08:24:03.020Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\project\\src\\domain\\entities\\task.entity.ts"
-    },
-    "application": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-17T01:24:05.309Z",
-        "lastUpdated": "2026-05-02T12:14:23.768Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\application\\board-permissions.ts"
-    },
-    "routes": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-17T01:25:35.966Z",
-        "lastUpdated": "2026-05-02T12:24:07.902Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\api\\routes\\search.routes.ts"
-    },
-    "websocket": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-17T02:09:26.620Z",
-        "lastUpdated": "2026-04-30T08:32:02.908Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\project\\src\\infrastructure\\websocket\\project.gateway.ts"
-    },
-    "web": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-17T02:39:41.101Z",
-        "lastUpdated": "2026-05-02T11:46:27.951Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\middleware.ts"
-    },
-    "login": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-17T02:40:05.977Z",
-        "lastUpdated": "2026-05-02T11:19:55.041Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\login\\page.tsx"
-    },
-    "projects": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-17T02:41:26.063Z",
-        "lastUpdated": "2026-05-01T13:03:29.985Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\projects\\page.tsx"
-    },
-    "[id]": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-17T02:43:06.008Z",
-        "lastUpdated": "2026-05-01T17:10:53.271Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\projects\\[id]\\page.tsx"
-    },
-    "[...path]": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-17T02:55:32.910Z",
-        "lastUpdated": "2026-05-02T11:25:46.477Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\api\\v1\\[...path]\\route.ts"
-    },
-    "resources": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-17T03:04:10.454Z",
-        "lastUpdated": "2026-04-27T01:14:13.669Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\resources\\page.tsx"
-    },
-    "repositories": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-18T08:59:40.865Z",
-        "lastUpdated": "2026-04-30T08:24:06.500Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\project\\src\\domain\\repositories\\task.repository.ts"
-    },
-    "dtos": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-18T10:01:42.535Z",
-        "lastUpdated": "2026-05-01T08:59:02.098Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\project\\src\\api\\dtos\\task.dto.ts"
-    },
-    "my-tasks": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-19T01:00:18.355Z",
-        "lastUpdated": "2026-04-28T08:38:06.482Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\my-tasks\\page.tsx"
-    },
-    "middleware": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-19T03:30:02.061Z",
-        "lastUpdated": "2026-05-02T11:42:33.492Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\api\\middleware\\auth.middleware.ts"
-    },
-    "prisma": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-19T03:30:49.132Z",
-        "lastUpdated": "2026-05-02T11:11:59.701Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\prisma\\seed.ts"
-    },
-    "refresh": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-19T03:31:36.208Z",
-        "lastUpdated": "2026-05-02T11:18:59.664Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\api\\auth\\refresh\\route.ts"
-    },
-    "users": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-19T03:33:31.478Z",
-        "lastUpdated": "2026-04-03T17:15:17.474Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\admin\\users\\page.tsx"
-    },
-    "attendance": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-21T06:26:00.321Z",
-        "lastUpdated": "2026-05-02T12:25:56.275Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\attendance\\src\\index.ts"
-    },
-    "dashboard": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-21T06:39:21.588Z",
-        "lastUpdated": "2026-05-01T09:01:10.413Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\project\\src\\application\\dashboard\\timeline.service.ts"
-    },
-    "notifications": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-21T06:41:13.034Z",
-        "lastUpdated": "2026-03-21T06:41:13.034Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\me\\notifications\\page.tsx"
-    },
-    "team": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-21T06:41:59.206Z",
-        "lastUpdated": "2026-04-07T23:23:03.923Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\me\\team\\page.tsx"
-    },
-    "me": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-21T06:42:43.075Z",
-        "lastUpdated": "2026-03-21T06:42:46.484Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\me\\page.tsx"
-    },
-    "infrastructure": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-21T08:08:24.674Z",
-        "lastUpdated": "2026-05-02T11:17:39.917Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\infrastructure\\event-publisher.ts"
-    },
-    "departments": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-21T13:45:39.703Z",
-        "lastUpdated": "2026-04-11T08:20:59.955Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\admin\\departments\\page.tsx"
-    },
-    "approval-lines": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-21T13:46:22.913Z",
-        "lastUpdated": "2026-04-08T07:08:43.703Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\admin\\approval-lines\\page.tsx"
-    },
     "부서-결재라인": {
       "phase": "report",
       "matchRate": 93,
@@ -560,675 +69,6 @@
       "timestamps": {
         "lastUpdated": "2026-03-25T11:23:44.444Z"
       }
-    },
-    "부서-결재라인: Gap Analysis": {
-      "phase": "act",
-      "phaseNumber": 5,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-22T05:16:12.234Z",
-        "lastUpdated": "2026-03-22T05:16:12.235Z"
-      },
-      "previousPhase": "check",
-      "autoAdvanced": true
-    },
-    "org-chart": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-22T05:21:06.025Z",
-        "lastUpdated": "2026-04-08T07:08:20.337Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\admin\\org-chart\\page.tsx"
-    },
-    "admin": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-22T06:12:06.403Z",
-        "lastUpdated": "2026-03-22T06:12:06.403Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\admin\\layout.tsx"
-    },
-    "지휘센터-대시보드 Gap Analysis": {
-      "phase": "act",
-      "phaseNumber": 5,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-03-26T23:34:29.403Z",
-        "lastUpdated": "2026-03-26T23:34:29.403Z"
-      },
-      "previousPhase": "check",
-      "autoAdvanced": true
-    },
-    "equipment": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-06T04:16:53.693Z",
-        "lastUpdated": "2026-05-02T12:25:54.011Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\equipment\\src\\index.ts"
-    },
-    "sensors": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-06T04:23:55.700Z",
-        "lastUpdated": "2026-04-06T22:28:12.123Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\equipment\\sensors\\page.tsx"
-    },
-    "schedule": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-06T04:24:50.938Z",
-        "lastUpdated": "2026-04-07T00:08:38.348Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\equipment\\schedule\\page.tsx"
-    },
-    "stats": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-06T11:55:52.162Z",
-        "lastUpdated": "2026-04-10T18:25:47.437Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\repair\\stats\\page.tsx"
-    },
-    "scripts": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-07T08:51:58.487Z",
-        "lastUpdated": "2026-05-01T14:55:29.655Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\scripts\\import-planner.py"
-    },
-    "repair": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-08T05:31:41.575Z",
-        "lastUpdated": "2026-04-28T08:17:39.286Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\repair\\layout.tsx"
-    },
-    "customers": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-08T05:34:35.521Z",
-        "lastUpdated": "2026-04-28T08:03:17.540Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\customers\\page.tsx"
-    },
-    "parts": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-08T05:35:23.504Z",
-        "lastUpdated": "2026-04-10T18:03:23.051Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\repair\\parts\\page.tsx"
-    },
-    "activity-logs": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-08T07:48:59.958Z",
-        "lastUpdated": "2026-04-28T08:07:40.243Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\admin\\activity-logs\\page.tsx"
-    },
-    "state-machine": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-10T07:41:44.041Z",
-        "lastUpdated": "2026-04-11T03:30:44.215Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\equipment\\src\\domain\\state-machine\\order.fsm.ts"
-    },
-    "procurement": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-10T07:52:02.528Z",
-        "lastUpdated": "2026-04-28T08:05:50.891Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\page.tsx"
-    },
-    "products": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-10T07:53:43.715Z",
-        "lastUpdated": "2026-04-28T08:05:16.271Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\products\\page.tsx"
-    },
-    "contracts": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-10T07:54:18.687Z",
-        "lastUpdated": "2026-04-11T04:31:37.866Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\contracts\\page.tsx"
-    },
-    "new": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-10T07:55:38.172Z",
-        "lastUpdated": "2026-04-19T23:01:23.381Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\approval\\new\\page.tsx"
-    },
-    "approval": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-10T08:09:16.475Z",
-        "lastUpdated": "2026-05-02T12:25:58.175Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\approval\\src\\index.ts"
-    },
-    "inventory": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-10T08:37:24.648Z",
-        "lastUpdated": "2026-04-28T08:04:47.868Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\inventory\\page.tsx"
-    },
-    "expenses": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-10T08:43:48.523Z",
-        "lastUpdated": "2026-04-11T01:49:31.218Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\expenses\\page.tsx"
-    },
-    "settlements": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-10T08:44:05.811Z",
-        "lastUpdated": "2026-04-11T02:12:04.966Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\settlements\\page.tsx"
-    },
-    "audits": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-10T09:28:25.148Z",
-        "lastUpdated": "2026-04-12T22:53:08.405Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\audits\\page.tsx"
-    },
-    "edit": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-10T10:40:25.721Z",
-        "lastUpdated": "2026-04-28T09:28:35.167Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\board\\[catCode]\\[boardCode]\\[postId]\\edit\\page.tsx"
-    },
-    "suppliers": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-10T17:55:19.081Z",
-        "lastUpdated": "2026-04-28T08:02:46.279Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\suppliers\\page.tsx"
-    },
-    "locations": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-11T01:21:44.423Z",
-        "lastUpdated": "2026-04-28T08:07:03.030Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\locations\\page.tsx"
-    },
-    "Downloads": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-12T08:49:36.569Z",
-        "lastUpdated": "2026-04-12T22:35:23.028Z"
-      },
-      "lastFile": "E:\\Downloads\\create_erp_ppt.js"
-    },
-    "config": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-15T07:53:56.496Z",
-        "lastUpdated": "2026-04-15T08:20:43.318Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\ocr\\src\\config\\env.ts"
-    },
-    "engines": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-15T07:54:08.458Z",
-        "lastUpdated": "2026-04-16T04:00:37.636Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\ocr\\src\\infrastructure\\engines\\paddle-ocr.client.ts"
-    },
-    "erp": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-15T07:54:19.702Z",
-        "lastUpdated": "2026-04-15T07:54:19.702Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\ocr\\src\\infrastructure\\erp\\equipment.client.ts"
-    },
-    "ocr": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-15T07:56:10.297Z",
-        "lastUpdated": "2026-04-28T08:03:42.262Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\ocr\\page.tsx"
-    },
-    "engine": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-15T07:56:32.374Z",
-        "lastUpdated": "2026-04-19T23:14:04.318Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\ocr\\engine\\main.py"
-    },
-    "scan": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-16T02:11:14.990Z",
-        "lastUpdated": "2026-04-16T02:11:14.990Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\ocr\\scan\\page.tsx"
-    },
-    "templates": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-16T02:11:38.952Z",
-        "lastUpdated": "2026-04-16T02:11:38.952Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\ocr\\templates\\page.tsx"
-    },
-    "domain": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-27T05:44:23.504Z",
-        "lastUpdated": "2026-04-27T05:44:23.504Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\domain\\board.types.ts"
-    },
-    "board": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-27T06:03:36.783Z",
-        "lastUpdated": "2026-04-28T09:33:44.210Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\components\\board\\UnifiedBoardSidebar.tsx"
-    },
-    "[catCode]": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-27T06:04:57.426Z",
-        "lastUpdated": "2026-04-28T09:42:47.835Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\board\\[catCode]\\page.tsx"
-    },
-    "[boardCode]": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-27T06:05:08.570Z",
-        "lastUpdated": "2026-04-28T09:26:12.854Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\board\\[catCode]\\[boardCode]\\page.tsx"
-    },
-    "[postId]": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-27T06:05:32.874Z",
-        "lastUpdated": "2026-04-28T09:27:32.796Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\board\\[catCode]\\[boardCode]\\[postId]\\page.tsx"
-    },
-    "home": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-27T07:44:23.630Z",
-        "lastUpdated": "2026-04-28T08:33:31.757Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\components\\home\\MyTasksCard.tsx"
-    },
-    "write": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-27T08:47:27.457Z",
-        "lastUpdated": "2026-04-28T09:26:52.931Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\board\\[catCode]\\[boardCode]\\write\\page.tsx"
-    },
-    "게시판 Gap 분석": {
-      "phase": "act",
-      "phaseNumber": 5,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-27T09:13:11.714Z",
-        "lastUpdated": "2026-04-27T09:13:11.715Z"
-      },
-      "previousPhase": "check",
-      "autoAdvanced": true
-    },
-    "work-log": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-27T09:32:29.679Z",
-        "lastUpdated": "2026-04-27T22:48:45.581Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\components\\work-log\\WorkLogTimeline.tsx"
-    },
-    "work-logs": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-27T09:38:27.234Z",
-        "lastUpdated": "2026-04-28T09:40:42.073Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\work-logs\\page.tsx"
-    },
-    "[projectId]": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-27T09:38:55.906Z",
-        "lastUpdated": "2026-04-28T09:41:09.093Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\work-logs\\[projectId]\\page.tsx"
-    },
-    "작업비고 Gap 분석": {
-      "phase": "act",
-      "phaseNumber": 5,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-27T10:16:48.506Z",
-        "lastUpdated": "2026-04-27T10:16:48.507Z"
-      },
-      "previousPhase": "check",
-      "autoAdvanced": true
-    },
-    "calendar": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-27T11:09:42.996Z",
-        "lastUpdated": "2026-04-27T11:20:47.950Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\admin\\calendar\\page.tsx"
-    },
-    "회사달력 Gap 분석": {
-      "phase": "act",
-      "phaseNumber": 5,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-27T11:25:30.727Z",
-        "lastUpdated": "2026-04-27T11:25:30.727Z"
-      },
-      "previousPhase": "check",
-      "autoAdvanced": true
-    },
-    "all": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-27T22:47:58.566Z",
-        "lastUpdated": "2026-04-28T09:34:28.652Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\work-logs\\all\\page.tsx"
-    },
-    "search": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-27T23:27:55.812Z",
-        "lastUpdated": "2026-04-28T09:45:53.700Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\board\\search\\page.tsx"
-    },
-    "자연어검색 Gap 분석": {
-      "phase": "act",
-      "phaseNumber": 5,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-27T23:44:35.307Z",
-        "lastUpdated": "2026-04-27T23:44:35.307Z"
-      },
-      "previousPhase": "check",
-      "autoAdvanced": true
     },
     "자연어검색": {
       "phase": "check",
@@ -1259,19 +99,6 @@
       },
       "matchRate": 96
     },
-    "load-test": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-28T01:46:56.329Z",
-        "lastUpdated": "2026-05-02T06:35:38.456Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\scripts\\load-test\\scenario-b-mixed.js"
-    },
     "prod-빌드-정리": {
       "phase": "check",
       "startedAt": "2026-04-28T04:44:23.326Z",
@@ -1289,72 +116,6 @@
       "matchRate": 95,
       "startedAt": "2026-04-28T09:21:49.917Z",
       "lastUpdated": "2026-04-28T09:21:49.918Z"
-    },
-    "프로젝트-마일스톤-재설계 (88%)": {
-      "phase": "act",
-      "phaseNumber": 5,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-04-30T13:52:35.861Z",
-        "lastUpdated": "2026-04-30T13:52:35.861Z"
-      },
-      "previousPhase": "check",
-      "autoAdvanced": true
-    },
-    "health": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-05-01T15:46:38.035Z",
-        "lastUpdated": "2026-05-01T15:46:38.035Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\api\\health\\route.ts"
-    },
-    "jwt": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-05-02T10:44:57.363Z",
-        "lastUpdated": "2026-05-02T10:44:57.363Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\shared\\src\\jwt\\verify-options.ts"
-    },
-    "errors": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-05-02T10:45:03.081Z",
-        "lastUpdated": "2026-05-02T10:45:07.334Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\shared\\src\\errors\\error-format.ts"
-    },
-    "rate-limit": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-05-02T12:23:09.578Z",
-        "lastUpdated": "2026-05-02T12:33:30.387Z"
-      },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\shared\\src\\rate-limit\\policies.ts"
     }
   },
   "pipeline": {
@@ -1365,7 +126,7 @@
   "session": {
     "startedAt": "2026-02-26T10:52:05.428Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-05-02T12:33:30.387Z"
+    "lastActivity": "2026-05-02T12:50:37.169Z"
   },
   "history": [
     {
@@ -25959,6 +24720,186 @@
     {
       "timestamp": "2026-05-02T12:33:30.387Z",
       "feature": "rate-limit",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:44:07.514Z",
+      "feature": "보안-일괄패치 Gap Analysis",
+      "phase": "act",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:46:53.794Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:46:57.709Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:47:04.405Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:47:08.853Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:47:14.889Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:47:21.088Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:47:25.244Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:47:31.265Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:47:38.614Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:47:45.786Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:47:53.216Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:48:02.487Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:48:08.978Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:48:15.461Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:48:25.273Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:48:31.270Z",
+      "feature": "infrastructure",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:48:36.050Z",
+      "feature": "infrastructure",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:48:41.616Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:48:46.026Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:48:50.032Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:48:58.893Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:49:06.214Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:49:28.368Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:49:36.779Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:49:42.034Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:50:21.771Z",
+      "feature": "project",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:50:25.890Z",
+      "feature": "project",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:50:30.868Z",
+      "feature": "attendance",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T12:50:37.169Z",
+      "feature": "attendance",
       "phase": "do",
       "action": "updated"
     }

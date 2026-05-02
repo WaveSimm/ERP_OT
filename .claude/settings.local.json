@@ -422,7 +422,12 @@
       "Bash(echo \"  /me/kanban without auth: $\\(curl -s -o /dev/null -w '%{http_code}' http://localhost:3003/api/v1/me/kanban\\) \\(401 기대\\)\")",
       "Bash(sed -n '120,130p' /e/claude/ERP_OT/services/auth/src/application/post.service.ts)",
       "Bash(sed -n '55,65p' /e/claude/ERP_OT/services/auth/src/application/attachment.service.ts)",
-      "Bash(echo \" /me/kanban: $\\(curl -s -o /dev/null -w '%{http_code}' -b /tmp/cookies.txt http://localhost:3000/api/v1/me/kanban\\)\")"
+      "Bash(echo \" /me/kanban: $\\(curl -s -o /dev/null -w '%{http_code}' -b /tmp/cookies.txt http://localhost:3000/api/v1/me/kanban\\)\")",
+      "Bash(echo \"  /me/kanban: $\\(curl -s -o /dev/null -w '%{http_code}' -b /tmp/cookies.txt http://localhost:3000/api/v1/me/kanban\\)\")",
+      "Bash(echo \"  /attendance/today: $\\(curl -s -o /dev/null -w '%{http_code}' -b /tmp/cookies.txt http://localhost:3000/api/v1/attendance/today\\)\")",
+      "Bash(echo \"  /approval/documents/pending: $\\(curl -s -o /dev/null -w '%{http_code}' -b /tmp/cookies.txt 'http://localhost:3000/api/v1/approval/documents/pending?limit=3'\\)\")",
+      "Bash(echo \"  project no-token POST /internal/work-logs/semantic-search: $\\(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3003/internal/work-logs/semantic-search -H 'Content-Type: application/json' -d '{}'\\)\")",
+      "Bash(echo \"  attendance no-token POST /internal/notifications/bulk: $\\(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3004/internal/notifications/bulk -H 'Content-Type: application/json' -d '{}'\\)\")"
     ]
   }
 }
