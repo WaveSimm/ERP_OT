@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import fastifyCors from "@fastify/cors";
 import fastifyJwt from "@fastify/jwt";
+import fastifyCookie from "@fastify/cookie";
 import fastifyMultipart from "@fastify/multipart";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
@@ -58,7 +59,9 @@ async function buildApp() {
   const app = Fastify({ logger: { level: env.LOG_LEVEL } });
 
   await app.register(fastifyCors, { origin: env.CORS_ORIGIN, credentials: true });
-  await app.register(fastifyJwt, { secret: env.JWT_ACCESS_SECRET });
+  // 보안 일괄패치 PDCA Layer 3 (C1): cookie 파서 + JWT cookie 인식
+  await app.register(fastifyCookie);
+  await app.register(fastifyJwt, { secret: env.JWT_ACCESS_SECRET, cookie: { cookieName: "accessToken", signed: false } });
   await app.register(fastifyMultipart, { limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB
 
   app.decorate("templateService", templateService);

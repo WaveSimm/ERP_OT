@@ -2,9 +2,10 @@ import amqplib from "amqplib";
 
 const EXCHANGE_NAME = "erp.activity";
 
+// 보안 일괄패치 PDCA Layer 3 (H2): 로그인 실패 등 인증 전 이벤트 시 userId=null 허용
 export interface ActivityEvent {
   action: string;
-  userId: string;
+  userId: string | null;
   entityType: string;
   entityId: string;
   description: string;

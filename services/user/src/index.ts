@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import fastifyJwt from "@fastify/jwt";
+import fastifyCookie from "@fastify/cookie";
 import fastifyCors from "@fastify/cors";
 
 const app = Fastify({
@@ -26,8 +27,11 @@ app.register(fastifyCors, {
   credentials: true,
 });
 
+// 보안 일괄패치 PDCA Layer 3 (C1): cookie 파서 + JWT cookie 인식
+app.register(fastifyCookie);
 app.register(fastifyJwt, {
   secret: jwtSecret,
+  cookie: { cookieName: "accessToken", signed: false },
 });
 
 // ─── Health Check ─────────────────────────────────────────────────────────────

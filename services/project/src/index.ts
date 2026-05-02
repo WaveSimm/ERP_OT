@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import fastifyCors from "@fastify/cors";
 import fastifyJwt from "@fastify/jwt";
+import fastifyCookie from "@fastify/cookie";
 import fastifyMultipart from "@fastify/multipart";
 import fastifyPlugin from "fastify-plugin";
 import { Server } from "socket.io";
@@ -130,9 +131,11 @@ async function buildApp() {
     credentials: true,
   });
 
-  // JWT
+  // 보안 일괄패치 PDCA Layer 3 (C1): cookie 파서 + JWT cookie 인식
+  await app.register(fastifyCookie);
   await app.register(fastifyJwt, {
     secret: env.JWT_ACCESS_SECRET,
+    cookie: { cookieName: "accessToken", signed: false },
   });
 
   // Multipart (파일 업로드)

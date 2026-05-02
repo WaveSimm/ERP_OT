@@ -28,15 +28,17 @@ async function seedAdmin() {
 async function seedBoards() {
   const categories: Array<{ code: string; name: string; icon: string; sortOrder: number; isVisible: boolean }> = [
     { code: "notice", name: "공지사항", icon: "📢", sortOrder: 1, isVisible: true },
-    { code: "wiki", name: "자료실", icon: "📚", sortOrder: 2, isVisible: true },
+    { code: "wiki", name: "게시판", icon: "📚", sortOrder: 2, isVisible: true },
     { code: "department", name: "부서별 게시판", icon: "🏢", sortOrder: 3, isVisible: false },
   ];
 
   for (const c of categories) {
+    // 보안 일괄패치 PDCA Layer 1 회귀 방지: 운영자가 카테고리 name을 수정한 값을 보존
+    // create 시점만 name 설정, update에서는 name 제외 (운영자 자율)
     await prisma.boardCategory.upsert({
       where: { code: c.code },
       create: c,
-      update: { name: c.name, icon: c.icon, sortOrder: c.sortOrder, isVisible: c.isVisible },
+      update: { icon: c.icon, sortOrder: c.sortOrder, isVisible: c.isVisible },
     });
   }
 

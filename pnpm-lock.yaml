@@ -111,6 +111,9 @@ importers:
       '@erp-ot/shared':
         specifier: workspace:*
         version: link:../shared
+      '@fastify/cookie':
+        specifier: ^9.4.0
+        version: 9.4.0
       '@fastify/cors':
         specifier: ^9.0.1
         version: 9.0.1
@@ -157,6 +160,9 @@ importers:
       '@erp-ot/shared':
         specifier: workspace:*
         version: link:../shared
+      '@fastify/cookie':
+        specifier: ^9.4.0
+        version: 9.4.0
       '@fastify/cors':
         specifier: ^9.0.1
         version: 9.0.1
@@ -270,6 +276,9 @@ importers:
       '@erp-ot/shared':
         specifier: workspace:*
         version: link:../shared
+      '@fastify/cookie':
+        specifier: ^9.4.0
+        version: 9.4.0
       '@fastify/cors':
         specifier: ^9.0.1
         version: 9.0.1
@@ -368,6 +377,9 @@ importers:
       '@erp-ot/shared':
         specifier: workspace:*
         version: link:../shared
+      '@fastify/cookie':
+        specifier: ^9.4.0
+        version: 9.4.0
       '@fastify/cors':
         specifier: ^9.0.1
         version: 9.0.1
@@ -444,6 +456,9 @@ importers:
       '@erp-ot/shared':
         specifier: workspace:*
         version: link:../shared
+      '@fastify/cookie':
+        specifier: ^9.4.0
+        version: 9.4.0
       '@fastify/cors':
         specifier: ^9.0.1
         version: 9.0.1

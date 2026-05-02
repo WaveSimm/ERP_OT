@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-05-02T10:54:02.352Z",
+  "lastUpdated": "2026-05-02T11:42:33.492Z",
   "activeFeatures": [
     "ERP_OT",
     "auth",
@@ -135,7 +135,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-26T11:04:44.698Z",
-        "lastUpdated": "2026-05-02T10:36:35.376Z"
+        "lastUpdated": "2026-05-02T11:16:28.655Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\index.ts"
     },
@@ -148,7 +148,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-26T11:05:12.781Z",
-        "lastUpdated": "2026-05-02T10:40:08.273Z"
+        "lastUpdated": "2026-05-02T11:42:20.541Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\services\\user\\src\\index.ts"
     },
@@ -218,7 +218,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-26T22:19:54.538Z",
-        "lastUpdated": "2026-05-02T10:39:45.217Z"
+        "lastUpdated": "2026-05-02T11:35:16.948Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\services\\project\\src\\index.ts"
     },
@@ -244,9 +244,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-17T01:24:05.309Z",
-        "lastUpdated": "2026-05-02T10:38:43.777Z"
+        "lastUpdated": "2026-05-02T11:16:05.281Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\project\\src\\application\\resource.service.ts"
+      "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\application\\auth.service.ts"
     },
     "routes": {
       "phase": "do",
@@ -257,9 +257,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-17T01:25:35.966Z",
-        "lastUpdated": "2026-05-02T10:37:31.450Z"
+        "lastUpdated": "2026-05-02T11:17:12.637Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\approval\\src\\api\\routes\\document.routes.ts"
+      "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\api\\routes\\auth.routes.ts"
     },
     "websocket": {
       "phase": "do",
@@ -283,9 +283,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-17T02:39:41.101Z",
-        "lastUpdated": "2026-05-01T16:25:49.984Z"
+        "lastUpdated": "2026-05-02T11:20:35.705Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\layout.tsx"
+      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\lib\\api.ts"
     },
     "login": {
       "phase": "do",
@@ -296,7 +296,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-17T02:40:05.977Z",
-        "lastUpdated": "2026-04-27T07:46:14.934Z"
+        "lastUpdated": "2026-05-02T11:19:55.041Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\login\\page.tsx"
     },
@@ -335,7 +335,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-17T02:55:32.910Z",
-        "lastUpdated": "2026-03-21T13:39:24.990Z"
+        "lastUpdated": "2026-05-02T11:25:46.477Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\api\\v1\\[...path]\\route.ts"
     },
@@ -400,7 +400,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-19T03:30:02.061Z",
-        "lastUpdated": "2026-05-02T10:54:02.352Z"
+        "lastUpdated": "2026-05-02T11:42:33.492Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\api\\middleware\\auth.middleware.ts"
     },
@@ -413,9 +413,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-19T03:30:49.132Z",
-        "lastUpdated": "2026-04-28T01:46:12.420Z"
+        "lastUpdated": "2026-05-02T11:11:59.701Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\project\\prisma\\seed-load-test.ts"
+      "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\prisma\\seed.ts"
     },
     "refresh": {
       "phase": "do",
@@ -426,7 +426,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-19T03:31:36.208Z",
-        "lastUpdated": "2026-03-19T03:31:36.208Z"
+        "lastUpdated": "2026-05-02T11:18:59.664Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\api\\auth\\refresh\\route.ts"
     },
@@ -452,7 +452,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-21T06:26:00.321Z",
-        "lastUpdated": "2026-05-02T10:40:03.183Z"
+        "lastUpdated": "2026-05-02T11:42:17.640Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\services\\attendance\\src\\index.ts"
     },
@@ -517,9 +517,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-03-21T08:08:24.674Z",
-        "lastUpdated": "2026-04-27T05:44:50.639Z"
+        "lastUpdated": "2026-05-02T11:17:39.917Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\infrastructure\\attachment-storage.ts"
+      "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\infrastructure\\event-publisher.ts"
     },
     "departments": {
       "phase": "do",
@@ -623,7 +623,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-04-06T04:16:53.693Z",
-        "lastUpdated": "2026-05-02T10:39:58.236Z"
+        "lastUpdated": "2026-05-02T11:42:16.507Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\services\\equipment\\src\\index.ts"
     },
@@ -805,7 +805,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-04-10T08:09:16.475Z",
-        "lastUpdated": "2026-05-02T10:40:00.516Z"
+        "lastUpdated": "2026-05-02T11:42:18.788Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\services\\approval\\src\\index.ts"
     },
@@ -1351,7 +1351,7 @@
   "session": {
     "startedAt": "2026-02-26T10:52:05.428Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-05-02T10:54:02.352Z"
+    "lastActivity": "2026-05-02T11:42:33.492Z"
   },
   "history": [
     {
@@ -25644,6 +25644,192 @@
     },
     {
       "timestamp": "2026-05-02T10:54:02.352Z",
+      "feature": "middleware",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:11:59.701Z",
+      "feature": "prisma",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:16:05.281Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:16:28.655Z",
+      "feature": "auth",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:17:12.637Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:17:39.917Z",
+      "feature": "infrastructure",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:18:14.872Z",
+      "feature": "web",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:18:55.099Z",
+      "feature": "login",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:18:59.664Z",
+      "feature": "refresh",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:19:37.650Z",
+      "feature": "[...path]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:19:50.151Z",
+      "feature": "web",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:19:51.578Z",
+      "feature": "login",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:19:55.041Z",
+      "feature": "login",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:20:35.705Z",
+      "feature": "web",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:24:00.938Z",
+      "feature": "[...path]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:25:46.477Z",
+      "feature": "[...path]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:33:48.625Z",
+      "feature": "project",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:33:50.140Z",
+      "feature": "equipment",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:33:51.583Z",
+      "feature": "attendance",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:33:53.494Z",
+      "feature": "approval",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:34:04.177Z",
+      "feature": "user",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:35:09.653Z",
+      "feature": "project",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:35:16.948Z",
+      "feature": "project",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:35:19.224Z",
+      "feature": "equipment",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:35:21.593Z",
+      "feature": "attendance",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:35:23.426Z",
+      "feature": "approval",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:35:25.867Z",
+      "feature": "user",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:42:16.507Z",
+      "feature": "equipment",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:42:17.640Z",
+      "feature": "attendance",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:42:18.788Z",
+      "feature": "approval",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:42:20.541Z",
+      "feature": "user",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T11:42:33.492Z",
       "feature": "middleware",
       "phase": "do",
       "action": "updated"

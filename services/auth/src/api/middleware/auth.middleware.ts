@@ -6,12 +6,17 @@ import type { AuthService } from "../../application/auth.service";
 
 export function createAuthHook(authService: AuthService) {
   return async function authenticate(req: FastifyRequest, reply: FastifyReply) {
+    // 보안 일괄패치 PDCA Layer 3 (C1): Authorization 헤더 + cookie accessToken 둘 다 지원
     const auth = req.headers["authorization"];
-    if (!auth || !auth.startsWith("Bearer ")) {
+    let token: string | undefined;
+    if (auth && auth.startsWith("Bearer ")) {
+      token = auth.slice(7);
+    } else if ((req as any).cookies?.accessToken) {
+      token = (req as any).cookies.accessToken;
+    }
+    if (!token) {
       return reply.code(401).send({ error: "인증이 필요합니다." });
     }
-
-    const token = auth.slice(7);
     try {
       const payload = authService.verifyAccess(token);
       req.userId = payload.sub;

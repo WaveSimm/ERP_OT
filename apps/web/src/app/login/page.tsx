@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { authApi, setToken, setUser } from "@/lib/api";
+import { authApi, setToken, setUser, clearToken } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,8 +16,11 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      const { accessToken, user } = await authApi.login(email, password);
-      setToken(accessToken);
+      // 보안 일괄패치 PDCA Layer 3 (C1): accessToken은 응답 본문 없음 (cookie로만)
+      // 기존 erp_token localStorage가 남아 있다면 정리
+      clearToken();
+      const { user } = await authApi.login(email, password);
+      setToken(""); // no-op (호환), 잔존 정리
       setUser({ id: user.id, name: user.name, role: user.role });
       router.push("/home");
     } catch (err: any) {

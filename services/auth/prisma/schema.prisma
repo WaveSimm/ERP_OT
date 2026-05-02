@@ -86,16 +86,28 @@ model ApprovalLine {
   @@map("approval_lines")
 }
 
+// 보안 일괄패치 PDCA Layer 3 (C5 + NEW-7 + reuse detection)
+//   token (평문) → tokenHash (sha256 hex 64자)
+//   deviceId/userAgent/ipAddress: NEW-7 다기기 식별 + audit
+//   lastUsedAt/rotatedAt/rotatedToId: refresh reuse detection
 model RefreshToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
-  userId    String   @map("user_id")
-  expiresAt DateTime @map("expires_at")
-  createdAt DateTime @default(now()) @map("created_at")
+  id          String    @id @default(cuid())
+  tokenHash   String    @unique @map("token_hash") // SHA-256 hex
+  userId      String    @map("user_id")
+  deviceId    String?   @map("device_id")
+  userAgent   String?   @map("user_agent")
+  ipAddress   String?   @map("ip_address")
+  expiresAt   DateTime  @map("expires_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  lastUsedAt  DateTime  @default(now()) @map("last_used_at")
+  rotatedAt   DateTime? @map("rotated_at")
+  rotatedToId String?   @map("rotated_to_id")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([tokenHash])
+  @@index([userId, deviceId])
   @@map("auth_refresh_tokens")
 }
 

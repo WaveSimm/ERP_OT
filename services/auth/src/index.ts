@@ -91,7 +91,8 @@ const ACCESS_SECRET = env.JWT_ACCESS_SECRET;
 const REFRESH_SECRET = env.JWT_REFRESH_SECRET;
 
 const userRepo = new UserPrismaRepository(prisma);
-const authService = new AuthService(userRepo, prisma, ACCESS_SECRET, REFRESH_SECRET);
+// 보안 일괄패치 PDCA Layer 3: logger 전달 (reuse detection alert용)
+const authService = new AuthService(userRepo, prisma, ACCESS_SECRET, REFRESH_SECRET, app.log);
 const userService = new UserService(userRepo);
 const deptService = new DepartmentService(prisma);
 const approvalLineService = new ApprovalLineService(prisma);
