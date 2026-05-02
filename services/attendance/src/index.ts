@@ -1,5 +1,8 @@
 import Fastify from "fastify";
 import fastifyCors from "@fastify/cors";
+import fastifyHelmet from "@fastify/helmet";
+import fastifyRateLimit from "@fastify/rate-limit";
+import { rateLimitPolicies, rateLimitErrorResponseBuilder } from "@erp-ot/shared";
 import fastifyJwt from "@fastify/jwt";
 import fastifyCookie from "@fastify/cookie";
 import { PrismaClient } from "@prisma/client";
@@ -78,6 +81,9 @@ declare module "fastify" {
 async function buildApp() {
   const app = Fastify({ logger: { level: env.LOG_LEVEL } });
 
+  // 보안 일괄패치 PDCA Layer 5 (H1)
+  await app.register(fastifyHelmet, { contentSecurityPolicy: false, crossOriginEmbedderPolicy: false, hsts: { maxAge: 63072000, includeSubDomains: true, preload: true } });
+  await app.register(fastifyRateLimit, { ...rateLimitPolicies.default, errorResponseBuilder: rateLimitErrorResponseBuilder });
   await app.register(fastifyCors, { origin: env.CORS_ORIGIN, credentials: true });
   // 보안 일괄패치 PDCA Layer 3 (C1): cookie 파서 + JWT cookie 인식
   await app.register(fastifyCookie);

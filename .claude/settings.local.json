@@ -421,7 +421,8 @@
       "Bash(echo \"  /tasks/mine without auth: $\\(curl -s -o /dev/null -w '%{http_code}' http://localhost:3003/api/v1/tasks/mine\\) \\(401 기대\\)\")",
       "Bash(echo \"  /me/kanban without auth: $\\(curl -s -o /dev/null -w '%{http_code}' http://localhost:3003/api/v1/me/kanban\\) \\(401 기대\\)\")",
       "Bash(sed -n '120,130p' /e/claude/ERP_OT/services/auth/src/application/post.service.ts)",
-      "Bash(sed -n '55,65p' /e/claude/ERP_OT/services/auth/src/application/attachment.service.ts)"
+      "Bash(sed -n '55,65p' /e/claude/ERP_OT/services/auth/src/application/attachment.service.ts)",
+      "Bash(echo \" /me/kanban: $\\(curl -s -o /dev/null -w '%{http_code}' -b /tmp/cookies.txt http://localhost:3000/api/v1/me/kanban\\)\")"
     ]
   }
 }

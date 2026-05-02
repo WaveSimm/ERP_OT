@@ -1,5 +1,8 @@
 import Fastify from "fastify";
 import fastifyCors from "@fastify/cors";
+import fastifyHelmet from "@fastify/helmet";
+import fastifyRateLimit from "@fastify/rate-limit";
+import { rateLimitPolicies, rateLimitErrorResponseBuilder } from "@erp-ot/shared";
 import fastifyJwt from "@fastify/jwt";
 import fastifyCookie from "@fastify/cookie";
 import fastifyMultipart from "@fastify/multipart";
@@ -123,6 +126,17 @@ declare module "fastify" {
 async function buildApp() {
   const app = Fastify({
     logger: { level: env.LOG_LEVEL },
+  });
+
+  // 보안 일괄패치 PDCA Layer 5 (H1): Helmet + Rate-limit
+  await app.register(fastifyHelmet, {
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    hsts: { maxAge: 63072000, includeSubDomains: true, preload: true },
+  });
+  await app.register(fastifyRateLimit, {
+    ...rateLimitPolicies.default,
+    errorResponseBuilder: rateLimitErrorResponseBuilder,
   });
 
   // CORS

@@ -1,10 +1,35 @@
 /** @type {import('next').NextConfig} */
+// 보안 일괄패치 PDCA Layer 5 (FR-31): 보안 헤더 5종
+//   HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy
+//   CSP는 Report-Only로 시작 (2-3일 모니터링 후 정식 — Design v1.1)
+const securityHeaders = [
+  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  // CSP Report-Only — 2-3일 콘솔 monitoring 후 Content-Security-Policy로 전환
+  {
+    key: "Content-Security-Policy-Report-Only",
+    value:
+      "default-src 'self'; " +
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+      "style-src 'self' 'unsafe-inline'; " +
+      "img-src 'self' data: blob:; " +
+      "connect-src 'self' http://localhost:* ws://localhost:*; " +
+      "frame-ancestors 'none'",
+  },
+];
+
 const nextConfig = {
   output: "standalone",
   // prod-빌드-정리 PDCA — useSearchParams 사용 페이지의 prerender 에러 회피
   // 부하 테스트와 운영 모드 진입을 위해 Suspense 래핑 대신 빌드 옵션으로 일괄 처리
   experimental: {
     missingSuspenseWithCSRBailout: false,
+  },
+  async headers() {
+    return [{ source: "/:path*", headers: securityHeaders }];
   },
   async rewrites() {
     const eq = process.env.EQUIPMENT_SERVICE_URL || "http://localhost:3005";

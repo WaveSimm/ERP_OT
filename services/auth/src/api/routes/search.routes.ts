@@ -4,6 +4,8 @@ import type { SearchService } from "../../application/search.service";
 import { SearchError } from "../../application/search.service";
 import type { AuthService } from "../../application/auth.service";
 import { createAuthHook } from "../middleware/auth.middleware";
+// 보안 일괄패치 PDCA Layer 5 (H1)
+import { rateLimitPolicies, rateLimitErrorResponseBuilder } from "@erp-ot/shared";
 
 const querySchema = z.object({
   q: z.string().min(1),
@@ -18,7 +20,17 @@ export async function searchRoutes(
   const { searchService, authService, prisma } = opts;
   const authenticate = createAuthHook(authService);
 
-  app.get("/search", { preHandler: [authenticate] }, async (req: any, reply) => {
+  app.get("/search", {
+    preHandler: [authenticate],
+    config: {
+      // Layer 5 H1: 임베딩 비용 방어
+      rateLimit: {
+        ...rateLimitPolicies.search,
+        keyGenerator: (req: any) => req.userId || req.ip,
+        errorResponseBuilder: rateLimitErrorResponseBuilder,
+      },
+    },
+  }, async (req: any, reply) => {
     try {
       const q = querySchema.parse(req.query);
       const profile = await prisma.userProfile.findUnique({

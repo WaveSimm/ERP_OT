@@ -16,3 +16,6 @@ export * from "./errors/error-format";
 export * from "./middleware/require-auth";
 export * from "./middleware/require-internal";
 export * from "./middleware/require-role";
+
+// 보안 일괄패치 PDCA Layer 5: rate-limit 정책 SSOT
+export * from "./rate-limit/policies";

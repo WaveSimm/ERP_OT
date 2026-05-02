@@ -2,8 +2,13 @@ import Fastify from "fastify";
 import fastifyCookie from "@fastify/cookie";
 import fastifyCors from "@fastify/cors";
 import fastifyMultipart from "@fastify/multipart";
+// 보안 일괄패치 PDCA Layer 5 (H1)
+import fastifyHelmet from "@fastify/helmet";
+import fastifyRateLimit from "@fastify/rate-limit";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
+// 보안 일괄패치 PDCA Layer 5 — rate-limit 정책 SSOT
+import { rateLimitPolicies, rateLimitErrorResponseBuilder } from "@erp-ot/shared";
 
 import { UserPrismaRepository } from "./infrastructure/repositories/user.prisma.repository";
 import { AuthService } from "./application/auth.service";
@@ -75,6 +80,17 @@ const app = Fastify({
 const prisma = new PrismaClient();
 
 // ─── Plugins ──────────────────────────────────────────────────────────────────
+// 보안 일괄패치 PDCA Layer 5 (H1): Helmet 보안 헤더 + Rate-limit
+app.register(fastifyHelmet, {
+  contentSecurityPolicy: false, // Next.js apps/web에서 처리
+  crossOriginEmbedderPolicy: false,
+  hsts: { maxAge: 63072000, includeSubDomains: true, preload: true },
+});
+app.register(fastifyRateLimit, {
+  ...rateLimitPolicies.default,
+  errorResponseBuilder: rateLimitErrorResponseBuilder,
+});
+
 app.register(fastifyCors, {
   origin: env.CORS_ORIGIN,
   credentials: true,

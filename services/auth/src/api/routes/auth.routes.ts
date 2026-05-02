@@ -11,6 +11,8 @@ import type { IUserRepository } from "../../domain/repositories/user.repository"
 import { createAuthHook } from "../middleware/auth.middleware";
 import { AuthError } from "../../application/auth.service";
 import { publishActivity } from "../../infrastructure/event-publisher";
+// 보안 일괄패치 PDCA Layer 5 (H1)
+import { rateLimitPolicies, rateLimitErrorResponseBuilder } from "@erp-ot/shared";
 
 // 쿠키 표준 옵션 (Layer 3: path 통일, sameSite strict, httpOnly)
 const COOKIE_BASE = {
@@ -80,8 +82,12 @@ export async function authRoutes(app: FastifyInstance, opts: { authService: Auth
   const { authService, userRepo } = opts;
   const authenticate = createAuthHook(authService);
 
-  // POST /api/v1/auth/login
-  app.post("/login", async (req, reply) => {
+  // POST /api/v1/auth/login (Layer 5 H1: brute-force 방어)
+  app.post("/login", {
+    config: {
+      rateLimit: { ...rateLimitPolicies.login, errorResponseBuilder: rateLimitErrorResponseBuilder },
+    },
+  }, async (req, reply) => {
     const body = loginSchema.safeParse(req.body);
     if (!body.success) {
       return reply.code(400).send({ error: body.error.issues[0]?.message });
@@ -135,7 +141,12 @@ export async function authRoutes(app: FastifyInstance, opts: { authService: Auth
   });
 
   // POST /api/v1/auth/refresh — cookie 기반 (NEW-4 algorithms 명시 + reuse detection)
-  app.post("/refresh", async (req, reply) => {
+  // Layer 5 H1: refresh replay 방어
+  app.post("/refresh", {
+    config: {
+      rateLimit: { ...rateLimitPolicies.refresh, errorResponseBuilder: rateLimitErrorResponseBuilder },
+    },
+  }, async (req, reply) => {
     const refreshToken = (req.cookies as Record<string, string>)["refreshToken"];
     if (!refreshToken) {
       return reply.code(401).send({ error: "refresh token이 없습니다." });

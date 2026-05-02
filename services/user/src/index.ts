@@ -1,4 +1,7 @@
 import Fastify from "fastify";
+import fastifyHelmet from "@fastify/helmet";
+import fastifyRateLimit from "@fastify/rate-limit";
+import { rateLimitPolicies, rateLimitErrorResponseBuilder } from "@erp-ot/shared";
 import fastifyJwt from "@fastify/jwt";
 import fastifyCookie from "@fastify/cookie";
 import fastifyCors from "@fastify/cors";
@@ -22,6 +25,10 @@ const jwtSecret = (() => {
 })();
 
 // ─── Plugins ──────────────────────────────────────────────────────────────────
+// 보안 일괄패치 PDCA Layer 5 (H1)
+app.register(fastifyHelmet, { contentSecurityPolicy: false, crossOriginEmbedderPolicy: false, hsts: { maxAge: 63072000, includeSubDomains: true, preload: true } });
+app.register(fastifyRateLimit, { ...rateLimitPolicies.default, errorResponseBuilder: rateLimitErrorResponseBuilder });
+
 app.register(fastifyCors, {
   origin: corsOrigin,
   credentials: true,
