@@ -412,6 +412,8 @@ services:
       - "11434:11434"
     environment:
       OLLAMA_KEEP_ALIVE: "30m"
+      # 검색 회귀 진단 2026-05-02: 60 VU 부하에서 직렬 처리 병목 (요청당 embed 2회 호출)
+      OLLAMA_NUM_PARALLEL: "4"
     deploy:
       resources:
         reservations:

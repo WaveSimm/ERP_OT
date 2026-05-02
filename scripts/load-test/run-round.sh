@@ -40,14 +40,20 @@ bash scripts/load-test/capture-metrics.sh "$DURATION" "$LABEL" &
 CAPTURE_PID=$!
 
 # k6 실행
-docker run --rm --add-host=host.docker.internal:host-gateway \
+# MSYS_NO_PATHCONV=1: Git Bash가 컨테이너 내부 경로(/scripts/...)를 Windows 경로로 변환하지 않도록
+# k6는 threshold 실패 시 exit 99로 종료하므로 set -e 우회용 || true 처리 (baseline 측정에서는 실패도 데이터)
+set +e
+MSYS_NO_PATHCONV=1 docker run --rm --add-host=host.docker.internal:host-gateway \
   -v "$(pwd)/scripts/load-test:/scripts" \
   -e STRESS="$STRESS" \
   -e BASE_URL="$BASE_URL" \
   grafana/k6 run \
-    --out json="/scripts/_results.json" \
-    --summary-export="/scripts/_summary.json" \
-    "/scripts/$SCENARIO" 2>&1 | tee "$OUT_DIR/k6.log"
+    --out json=/scripts/_results.json \
+    --summary-export=/scripts/_summary.json \
+    /scripts/"$SCENARIO" 2>&1 | tee "$OUT_DIR/k6.log"
+K6_EXIT=${PIPESTATUS[0]}
+set -e
+echo "[run-round] k6 exit code: $K6_EXIT (99=threshold failure, 0=ok)"
 
 # 결과 이동
 mv scripts/load-test/_results.json "$OUT_DIR/k6-results.json" 2>/dev/null || true

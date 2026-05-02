@@ -398,7 +398,19 @@
       "Bash(powershell.exe -Command 'Get-Process | Where-Object { $_.ProcessName -match \"docker|wsl|com.docker\" } | Select ProcessName, Id | Format-Table')",
       "Bash(powershell.exe -Command ' *)",
       "Bash(powershell.exe -Command 'Get-Process | Where-Object { $_.ProcessName -match \"docker|com.docker\" } | Select ProcessName,Id | Format-Table')",
-      "Bash(grep -E \"\\\\.env$|\\\\.env\\\\.|secret|credentials|\\\\.key$|\\\\.pem$\")"
+      "Bash(grep -E \"\\\\.env$|\\\\.env\\\\.|secret|credentials|\\\\.key$|\\\\.pem$\")",
+      "Bash(LABEL=round-1-dev-burst bash scripts/load-test/run-round.sh scenario-a-morning-burst.js)",
+      "Bash(mv scripts/load-test/_results.json docs/04-operation/load-test-results/round-1-dev-burst/k6-results.json)",
+      "Bash(mv scripts/load-test/_summary.json docs/04-operation/load-test-results/round-1-dev-burst/k6-summary.json)",
+      "Read(//e/e/claude/ERP_OT/docs/04-operation/load-test-results/**)",
+      "Bash(LABEL=round-2-dev-mix DURATION=720 bash *)",
+      "Bash(LABEL=round-3-dev-search DURATION=360 bash *)",
+      "Bash(LABEL=round-4-dev-burst-stress STRESS=true bash *)",
+      "Bash(LABEL=round-5-dev-mix-stress STRESS=true DURATION=720 bash *)",
+      "Bash(LABEL=round-6-dev-search-stress STRESS=true DURATION=360 bash *)",
+      "Bash(xxd -p)",
+      "Bash(gzip -t docs/04-operation/backups/2026-05-02-pre-security-pdca.sql.gz)",
+      "Bash(grep -E \"^\\\\.env$|^\\\\.env\\\\b\" .gitignore)"
     ]
   }
 }

@@ -36,7 +36,7 @@ export default function () {
   if (action < 0.30) {
     // 30% 게시판 + 검색
     http.get(`${BASE}/api/v1/boards`, { ...auth, tags: { name: 'board_list' } });
-    http.get(`${BASE}/api/v1/posts?categoryCode=notice&limit=20`, { ...auth, tags: { name: 'post_list' } });
+    http.get(`${BASE}/api/v1/posts/feed?categoryCode=notice&limit=20`, { ...auth, tags: { name: 'post_list' } });
     if (Math.random() < 0.5) {
       const kw = pickKeyword();
       http.get(`${BASE}/api/v1/search?q=${encodeURIComponent(kw)}&limit=20`,
@@ -44,13 +44,16 @@ export default function () {
     }
   } else if (action < 0.55) {
     // 25% 작업비고 (5% 신규 작성 → 임베딩 부하)
+    // NOTE: loadtest 사용자는 segment_assignments가 0이라 kanban이 비어 → POST는 실제 실행 안 됨
+    //       임베딩 부하 측정이 필요하면 seed-load-test에서 segment_assignments도 시드해야 함
     http.get(`${BASE}/api/v1/me/work-log-feed?limit=20`, { ...auth, tags: { name: 'worklog_feed' } });
     if (Math.random() < 0.2) {
-      // 자기 프로젝트의 태스크 ID 알아내기
-      const r = http.get(`${BASE}/api/v1/me/tasks?limit=5`, auth);
+      const r = http.get(`${BASE}/api/v1/me/kanban`, { ...auth, tags: { name: 'kanban_for_write' } });
       if (r.status === 200) {
         const data = r.json();
-        const taskId = Array.isArray(data?.items) && data.items.length > 0 ? data.items[0].id : null;
+        const cols = data?.columns || {};
+        const cards = [...(cols.IN_PROGRESS || []), ...(cols.DUE_SOON || []), ...(cols.UPCOMING || [])];
+        const taskId = cards.length > 0 ? cards[0].taskId : null;
         if (taskId) {
           http.post(`${BASE}/api/v1/tasks/${taskId}/work-logs`,
             JSON.stringify({
@@ -68,10 +71,10 @@ export default function () {
   } else if (action < 0.90) {
     // 15% 프로젝트
     http.get(`${BASE}/api/v1/projects?limit=10`, { ...auth, tags: { name: 'project_list' } });
-    http.get(`${BASE}/api/v1/me/tasks?limit=20`, { ...auth, tags: { name: 'my_tasks' } });
+    http.get(`${BASE}/api/v1/me/kanban`, { ...auth, tags: { name: 'my_kanban' } });
   } else {
     // 10% 대시보드/알림
-    http.get(`${BASE}/api/v1/dashboard/personal`, { ...auth, tags: { name: 'dashboard' } });
+    http.get(`${BASE}/api/v1/dashboard`, { ...auth, tags: { name: 'dashboard' } });
     http.get(`${BASE}/api/v1/notifications?limit=10`, { ...auth, tags: { name: 'notifications' } });
   }
 

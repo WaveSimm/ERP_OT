@@ -73,7 +73,18 @@ function fetchPostText(id) {
 }
 
 function fetchWorkLogText(id) {
-  const sql = `SELECT encode(convert_to(COALESCE(content,''), 'UTF8'), 'base64') FROM project.work_logs WHERE id = '${id.replace(/'/g, "''")}';`;
+  // 운영 hook(work-log.service.ts:embedAndStoreWorkLog)과 동일한 형식: "[taskName] segmentName : content"
+  const sql = `
+    SELECT encode(convert_to(
+      '[' || COALESCE(t.name,'') || '] ' ||
+      CASE WHEN s.name IS NOT NULL THEN s.name || ' ' ELSE '' END ||
+      ': ' || COALESCE(w.content,''),
+      'UTF8'), 'base64')
+    FROM project.work_logs w
+    LEFT JOIN project.tasks t ON t.id = w.task_id
+    LEFT JOIN project.task_segments s ON s.id = w.segment_id
+    WHERE w.id = '${id.replace(/'/g, "''")}';
+  `.replace(/\s+/g, ' ');
   const b64 = psqlSelect(sql).trim();
   return Buffer.from(b64, "base64").toString("utf8");
 }
