@@ -4,6 +4,87 @@
 
 ---
 
+## [2026-05-02] - 보안-일괄패치 PDCA 완료
+
+### Security (Critical 0건 달성)
+
+**OWASP Top 10 Critical 패치**:
+- **A01 (Broken Access Control)**: C7 미들웨어 표준화 + NEW-1 folder 인가 + NEW-8 approval 자동ADMIN 제거 + NEW-3 board targetDepartmentId + NEW-2 comment IDOR
+- **A02 (Cryptographic Failures)**: C5 Refresh token sha256 hash 저장 + NEW-4 JWT algorithms 명시 + INF-1/2/3 시크릿 회전 + C2 Zod env 검증
+- **A07 (ID & Auth Failures)**: C2 JWT secret fallback 제거 + H1 rate-limit (login 5/min/IP, refresh 10/min/IP) + C5 hash + C8 cookie path + NEW-7 다기기+reuse detection
+
+### Added
+
+- **services/shared/** — 통합 미들웨어 + 에러 표준 + JWT 옵션 + rate-limit 정책
+  - `middleware/{require-auth, require-internal, require-role}.ts` (C7)
+  - `errors/{error-codes, error-format}.ts` (FR-32)
+  - `jwt/verify-options.ts` (algorithms: ["HS256"], NEW-4)
+  - `rate-limit/policies.ts` (H1)
+- **Auth service**:
+  - Zod env validation (JWT_ACCESS/REFRESH ≥32, INTERNAL ≥16, C2)
+  - RefreshToken sha256 hash 저장 (C5)
+  - Login 트랜잭션 원자화 (H5)
+  - Refresh reuse detection (NEW-7)
+  - Access TTL 1h (NEW-4)
+  - Refresh cookie path `/` (C8)
+  - Error response 통일 `{error: {code, message}}` (FR-32)
+- **Web app**:
+  - localStorage → httpOnly cookie (C1)
+  - CSRF 더블 서브밋 토큰 (FR-09) — `apps/web/src/middleware.ts`, `/api/csrf/route.ts`
+  - 프록시 헤더 forward (C6) — cookie, x-forwarded-for, x-real-ip, user-agent
+  - 보안 헤더 5종 (FR-31) — HSTS, nosniff, DENY, CSP-RO, Referrer
+- **Database**:
+  - Refresh token hash migration (token → token_hash sha256, 기존 113건 세션 무효화)
+- **Infrastructure**:
+  - docker-compose `${VAR:?required}` 일괄 치환 (FR-02)
+  - @fastify/helmet + @fastify/rate-limit 7개 서비스 (H1, FR-26)
+
+### Changed
+
+- **project/equipment/attendance/approval/user** — shared middleware 마이그레이션 (C7)
+- **folder.routes.ts** — preHandler 추가, unknown fallback 제거 (NEW-1)
+- **comment.routes.ts** — PATCH/DELETE preCheck owner 검증 추가 (NEW-2)
+- **board-permissions.ts** — canRead에 post.targetDepartmentId 반영 (NEW-3)
+- **user.routes.ts** — /users/members 응답 필드 축소 (NEW-9), errorResponse 통일
+- **docker-compose.yml** — 시크릿 fallback 제거 (${VAR:?})
+
+### Fixed
+
+- **approval middleware** — X-Internal-Token 일치 시 자동 ADMIN 승격 제거 (NEW-8)
+- **CORS origin** — Zod 배열 검증 + `*` 차단 (NEW-14)
+- **console.log** — 5곳 TODO:inject-logger 마킹 (FR-29, 70%)
+- **attendance/project inline hooks** — requireInternal 글로벌로 통합 (FR-06)
+
+### Docs
+
+- **Plan**: `docs/01-plan/features/보안-일괄패치.plan.md` (32 FR, 6 Layer, 사용자 결정 6개)
+- **Design v1.1**: `docs/02-design/features/보안-일괄패치.design.md` (Layer 의존성, DB migration, test plan)
+- **Analysis**: `docs/03-analysis/보안-일괄패치.analysis.md` (Match 91%, OWASP Critical 0건)
+- **Report**: `docs/04-report/features/보안-일괄패치-v1.md` (완료 보고서)
+- **OWASP 매핑**: `docs/04-operation/2026-05-02-OWASP-매핑.md` (14개 신규 발견 + kill-chain)
+
+### Stats
+
+- **Match Rate**: 91% (90%+ 달성)
+- **OWASP Critical**: 0건 ✓
+- 신규 파일: 8개 | 변경 파일: 42개 | Git 커밋: 11개
+- 소요시간: 약 33h (초기 계획 42h 대비 6% 단축)
+
+### Deferred (별도 PDCA)
+
+- **G1 FR-30** — Internal JWT Big Bang (4-6h, High) — `/internal/service-token` 미구현
+- **G4 FR-14** — 활성 세션 UI (2-3h, Medium) — 백엔드 OK, UI 미구현
+- **G7 FR-15** — RabbitMQ security.alert (Low) — Pino warn만, publish 미발행
+- **G8 FR-17** — Resource ID 통합 (Out-of-scope) — email→userId schema 변경
+
+### Notes
+
+- k6 baseline 재실행 미수행 (Design §8.5) — **이관 전 1회 추가 권장**
+- 마이그레이션 SQL 실행으로 기존 refresh token 전부 무효화 → 1회 강제 재로그인 필요
+- 다기기 동시 로그인 가능 (이전: 자동 로그아웃) — UX 개선
+
+---
+
 ## [2026-03-19] - 프로젝트 관리 v1.0 완료
 
 ### Added
