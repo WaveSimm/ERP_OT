@@ -192,6 +192,18 @@ export const taskApi = {
   delete: (projectId: string, taskId: string) =>
     request<void>(`/projects/${projectId}/tasks/${taskId}`, { method: "DELETE" }),
 
+  // 프로젝트-관리 PDCA US-32: 태스크 복사 (백엔드 template.service.copyTask 활용)
+  copy: (projectId: string, taskId: string, data: {
+    targetProjectId: string;
+    includeSegments: boolean;
+    includeAssignments: boolean;
+    dateOffsetDays: number;
+  }) =>
+    request<any>(`/projects/${projectId}/tasks/${taskId}/copy`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   // Segments
   createSegment: (projectId: string, taskId: string, data: any) =>
     request<any>(`/projects/${projectId}/tasks/${taskId}/segments`, {

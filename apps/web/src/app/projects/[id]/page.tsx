@@ -9,6 +9,7 @@ import { useUndoRedo } from "@/hooks/useUndoRedo";
 import UndoRedoControls from "@/components/UndoRedoControls";
 import AddTaskModal from "@/components/AddTaskModal";
 import TaskDrawer from "@/components/TaskDrawer";
+import CopyTaskModal from "@/components/CopyTaskModal";
 import DateInput from "@/components/DateInput";
 import AppLayout from "@/components/AppLayout";
 import CommentPopover from "@/components/CommentPopover";
@@ -118,6 +119,8 @@ export default function ProjectDetailPage() {
   const [pickerFolderProjOrder, setPickerFolderProjOrder] = useState<Record<string, string[]>>({});
   const [showAddTask, setShowAddTask] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
+  // 프로젝트-관리 PDCA US-32: 태스크 복사 다이얼로그 — 단일 또는 다중 태스크
+  const [copyTargets, setCopyTargets] = useState<Array<{ id: string; name: string; projectId: string }> | null>(null);
   const [inlineTaskName, setInlineTaskName] = useState("");
   const [inlineAdding, setInlineAdding] = useState(false);
 
@@ -1340,6 +1343,7 @@ export default function ProjectDetailPage() {
                 onTaskClick={(task) => {
                   if (selectedTask?.id === task.id) { setSelectedTask(null); } else { handleTaskClick(task); }
                 }}
+                onTaskCopy={isManager ? (task) => setCopyTargets([{ id: task.id, name: task.name, projectId }]) : undefined}
                 baselineSegments={baselineSegments.length > 0 ? baselineSegments : undefined}
                 allResources={resources}
                 onRefresh={loadSilent}
@@ -1383,6 +1387,21 @@ export default function ProjectDetailPage() {
                   → 들여쓰기
                 </button>
                 <div className="h-3 w-px bg-blue-200" />
+                {isManager && (
+                  <button
+                    onClick={() => {
+                      const targets = Array.from(selected)
+                        .map((id) => tasks.find((t: any) => t.id === id))
+                        .filter(Boolean)
+                        .map((t: any) => ({ id: t.id, name: t.name, projectId }));
+                      if (targets.length > 0) setCopyTargets(targets);
+                    }}
+                    className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded border border-blue-200"
+                    title="선택한 태스크를 다른 프로젝트로 복사"
+                  >
+                    📋 복사
+                  </button>
+                )}
                 {isManager && (
                   <button onClick={handleDeleteSelected}
                     className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded border border-red-200">
@@ -1974,6 +1993,20 @@ export default function ProjectDetailPage() {
         })()}
       </div>
 
+      {copyTargets && (
+        <CopyTaskModal
+          tasks={copyTargets}
+          currentProjectId={projectId}
+          onClose={() => setCopyTargets(null)}
+          onSuccess={async () => {
+            setCopyTargets(null);
+            setSelected(new Set());
+            await load();
+            refreshActivities();
+          }}
+        />
+      )}
+
       {showAddTask && (
         <AddTaskModal
           projectId={projectId}
@@ -2006,6 +2039,7 @@ export default function ProjectDetailPage() {
           task={selectedTask}
           projectId={projectId}
           isParent={selectedTaskIsParent}
+          onCopy={(t) => setCopyTargets([t])}
           hiddenSegIds={hiddenSegIds}
           onToggleSeg={toggleSegVisibility}
           onClose={() => setSelectedTask(null)}

@@ -25,6 +25,7 @@ interface Props {
   task: any;
   projectId: string;
   isParent?: boolean;
+  onCopy?: (task: { id: string; name: string; projectId: string }) => void;
   hiddenSegIds?: Set<string>;
   onToggleSeg?: (segId: string) => void;
   onClose: () => void;
@@ -420,7 +421,7 @@ function SegmentCard({
 
 // ─── TaskDrawer ───────────────────────────────────────────────────────────────
 
-export default function TaskDrawer({ task, projectId, isParent = false, hiddenSegIds, onToggleSeg, onClose, onRefresh, pushUndo, onUndo, onRedo, undoCount = 0, redoCount = 0, undoLabel, redoLabel, toast, refreshKey = 0 }: Props) {
+export default function TaskDrawer({ task, projectId, isParent = false, onCopy, hiddenSegIds, onToggleSeg, onClose, onRefresh, pushUndo, onUndo, onRedo, undoCount = 0, redoCount = 0, undoLabel, redoLabel, toast, refreshKey = 0 }: Props) {
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState("");
   const [postingComment, setPostingComment] = useState(false);
@@ -807,6 +808,16 @@ export default function TaskDrawer({ task, projectId, isParent = false, hiddenSe
           >
             이력
           </button>
+          {/* 프로젝트-관리 PDCA US-32: 태스크 복사 */}
+          {onCopy && !isParent && (
+            <button
+              onClick={() => onCopy({ id: task.id, name: task.name, projectId })}
+              className="text-xs text-blue-600 hover:bg-blue-50 border border-blue-200 hover:border-blue-300 px-2.5 py-1 rounded-lg transition-colors shrink-0"
+              title="다른 프로젝트로 복사"
+            >
+              📋 복사
+            </button>
+          )}
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl mt-0.5">×</button>
         </div>
 

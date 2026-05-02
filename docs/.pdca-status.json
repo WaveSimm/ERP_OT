@@ -1,13 +1,15 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-05-02T12:50:37.169Z",
+  "lastUpdated": "2026-05-02T13:47:17.703Z",
   "activeFeatures": [
     "지휘센터-대시보드",
     "부서-결재라인",
     "개인대시보드",
     "검색개선",
     "부하테스트",
-    "prod-빌드-정리"
+    "prod-빌드-정리",
+    "web",
+    "[id]"
   ],
   "primaryFeature": "프로젝트-관리",
   "features": {
@@ -116,6 +118,32 @@
       "matchRate": 95,
       "startedAt": "2026-04-28T09:21:49.917Z",
       "lastUpdated": "2026-04-28T09:21:49.918Z"
+    },
+    "web": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-05-02T13:43:59.921Z",
+        "lastUpdated": "2026-05-02T13:46:59.616Z"
+      },
+      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\components\\GanttChart.tsx"
+    },
+    "[id]": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-05-02T13:44:48.443Z",
+        "lastUpdated": "2026-05-02T13:47:17.703Z"
+      },
+      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\projects\\[id]\\page.tsx"
     }
   },
   "pipeline": {
@@ -126,7 +154,7 @@
   "session": {
     "startedAt": "2026-02-26T10:52:05.428Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-05-02T12:50:37.169Z"
+    "lastActivity": "2026-05-02T13:47:17.703Z"
   },
   "history": [
     {
@@ -24900,6 +24928,90 @@
     {
       "timestamp": "2026-05-02T12:50:37.169Z",
       "feature": "attendance",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T13:43:59.921Z",
+      "feature": "web",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T13:44:21.791Z",
+      "feature": "web",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T13:44:48.443Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T13:44:52.119Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T13:45:01.794Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T13:45:24.467Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T13:46:12.503Z",
+      "feature": "web",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T13:46:12.992Z",
+      "feature": "web",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T13:46:13.253Z",
+      "feature": "web",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T13:46:27.675Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T13:46:47.872Z",
+      "feature": "web",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T13:46:54.939Z",
+      "feature": "web",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T13:46:59.616Z",
+      "feature": "web",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-02T13:47:17.703Z",
+      "feature": "[id]",
       "phase": "do",
       "action": "updated"
     }

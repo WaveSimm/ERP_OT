@@ -81,12 +81,13 @@ function shiftDate(isoDate: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTaskClick, baselineSegments, allResources, onRefresh, pushUndo, projectId, inlineTaskName, onInlineTaskNameChange, inlineAdding, onInlineTaskCreate, selected, onToggleSelect, onToggleAll, dragIds, dropGap, onDragStart, onDragOver, onDrop, onDragEnd, onIndent, onOutdent }: {
+export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTaskClick, onTaskCopy, baselineSegments, allResources, onRefresh, pushUndo, projectId, inlineTaskName, onInlineTaskNameChange, inlineAdding, onInlineTaskCreate, selected, onToggleSelect, onToggleAll, dragIds, dropGap, onDragStart, onDragOver, onDrop, onDragEnd, onIndent, onOutdent }: {
   data: GanttData;
   flatItems?: FlatItem[];
   viewStart?: string;
   viewEnd?: string;
   onTaskClick?: (task: GanttTask) => void;
+  onTaskCopy?: (task: GanttTask) => void;
   baselineSegments?: BaselineSegment[];
   allResources?: any[];
   onRefresh?: () => void;
@@ -515,6 +516,11 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                 key={task.id}
                 style={{ height: ROW_H }}
                 onClick={(e) => { e.stopPropagation(); onTaskClick?.(task); }}
+                onContextMenu={onTaskCopy && !task.isParent ? (e) => {
+                  // 프로젝트-관리 PDCA US-32: 우클릭으로 즉시 복사 다이얼로그
+                  e.preventDefault();
+                  onTaskCopy(task);
+                } : undefined}
                 onDragOver={onDragOver ? (e) => onDragOver(e, task.id) : undefined}
                 onDrop={onDrop ? (e) => { e.preventDefault(); onDrop(e); } : undefined}
                 className={clsx(

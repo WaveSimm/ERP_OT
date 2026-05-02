@@ -1,25 +1,14 @@
 {
   "version": "1.0",
-  "enabled": true,
+  "enabled": false,
   "teamName": "",
   "feature": "프로젝트-관리",
   "pdcaPhase": "do",
   "orchestrationPattern": "leader",
   "ctoAgent": "opus",
   "startedAt": "2026-05-02T13:15:31.704Z",
-  "lastUpdated": "2026-05-02T13:18:38.929Z",
-  "teammates": [
-    {
-      "name": "a7fbfd956c0418c40",
-      "role": "bkit:report-generator",
-      "model": "sonnet",
-      "status": "completed",
-      "currentTask": null,
-      "taskId": null,
-      "startedAt": "2026-05-02T13:15:31.706Z",
-      "lastActivityAt": "2026-05-02T13:18:38.927Z"
-    }
-  ],
+  "lastUpdated": "2026-05-02T13:32:22.535Z",
+  "teammates": [],
   "progress": {
     "totalTasks": 0,
     "completedTasks": 0,
