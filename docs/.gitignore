@@ -1,0 +1,2 @@
+# PDCA status backup files (created before destructive cleanups)
+.pdca-status.json.bak.*
