@@ -4,9 +4,13 @@ import { Fragment, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { resourceApi, resourceGroupApi, taskApi, userManagementApi, getUser } from "@/lib/api";
 import AppLayout from "@/components/AppLayout";
-import UserAccountsTab from "@/components/UserAccountsTab";
 import AttendanceOverview from "@/components/AttendanceOverview";
 import OrgChart from "@/components/OrgChart";
+import { DateInput } from "@/components/ui/DateInput";
+import { ResourceTimeline } from "@/components/ResourceTimeline";
+import { ExternalPersonsPanel } from "@/components/ExternalPersonsPanel";
+import { useHolidaysMap } from "@/hooks/useHolidaysMap";
+import ReservationContainer from "@/components/equipment-reservation/ReservationContainer";
 
 const TYPE_LABELS: Record<string, string> = {
   PERSON: "👤 인력",
@@ -47,10 +51,13 @@ interface Group {
   description?: string | null;
   parentId: string | null;
   sortOrder: number;
-  resourceIds: string[];
+  resourceIds: string[];                     // legacy Resource.id (Phase 4 제거 예정)
+  personUserIds?: string[];                  // 자원-모델-분리 PDCA Phase 3a-4
+  externalPersonIds?: string[];
+  equipmentResourceIds?: string[];
   children?: Group[];
-  isDept?: boolean;  // 부서 그룹 (admin에서 생성, 수정 불가)
-  isProtected?: boolean; // 삭제/수정 불가 보호 그룹
+  isDept?: boolean;
+  isProtected?: boolean;
 }
 
 interface Resource {
@@ -80,6 +87,15 @@ interface DragHandlers {
 }
 
 // ─── 트리 빌더 ────────────────────────────────────────────────────────────────
+
+// 자원-모델-분리 PDCA Phase 3b-5: 그룹의 멤버 ID 검사 (legacy + polymorphic 모두)
+function groupHasResource(g: Group, resourceId: string): boolean {
+  if (g.resourceIds.includes(resourceId)) return true;
+  if (g.personUserIds?.includes(resourceId)) return true;
+  if (g.externalPersonIds?.includes(resourceId)) return true;
+  if (g.equipmentResourceIds?.includes(resourceId)) return true;
+  return false;
+}
 
 function groupSortKey(g: Group): number {
   if (g.name === "전체" || g.description === "__all__") return 0;
@@ -114,22 +130,36 @@ function DropLine() {
 
 // ─── 메인 컴포넌트 ────────────────────────────────────────────────────────────
 
-type ResourceTab = "dashboard" | "people" | "equipment" | "attendance" | "orgchart";
+// 인력자원(people) 탭은 폐기 — /admin/users로 이동 (2026-05-04)
+type ResourceTab = "dashboard" | "external" | "attendance" | "orgchart" | "reservation";
 
 export default function ResourcesPage() {
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
   const [resourceTab, setResourceTab] = useState<ResourceTab>("attendance");
 
+  // 회사달력 v1.2 — 한국 공휴일·자체 휴일 (KASI 자동 갱신 포함)
+  const holidays = useHolidaysMap();
+
   // 탭 복원: SSR 이후 클라이언트에서만 실행 (hydration 안전)
   useEffect(() => {
     const urlTab = new URLSearchParams(window.location.search).get("tab");
     if (urlTab) {
+      // 폐기된 인력자원(users/list/people) URL은 사용자 관리 페이지로 redirect
+      if (urlTab === "users" || urlTab === "list" || urlTab === "people") {
+        router.replace("/admin/users");
+        return;
+      }
+      // 공용자산 탭은 /admin/equipment-resources로 이동 (2026-05-05)
+      if (urlTab === "equipment") {
+        router.replace("/admin/equipment-resources");
+        return;
+      }
       const resolved: ResourceTab =
-        urlTab === "users" || urlTab === "list" || urlTab === "people" ? "people"
-        : urlTab === "equipment" ? "equipment"
-        : urlTab === "attendance" ? "attendance"
+        urlTab === "attendance" ? "attendance"
         : urlTab === "orgchart" ? "orgchart"
+        : urlTab === "reservation" ? "reservation"
+        : urlTab === "external" ? "external"
         : urlTab === "dashboard" ? "dashboard" : "dashboard";
       setResourceTab(resolved);
       try { sessionStorage.setItem(TAB_KEY, resolved); } catch {}
@@ -137,14 +167,15 @@ export default function ResourcesPage() {
     } else {
       try {
         const saved = sessionStorage.getItem(TAB_KEY);
-        if (saved === "list" || saved === "users" || saved === "people") setResourceTab("people");
-        else if (saved === "equipment") setResourceTab("equipment");
-        else if (saved === "attendance") setResourceTab("attendance");
+        if (saved === "attendance") setResourceTab("attendance");
         else if (saved === "orgchart") setResourceTab("orgchart");
+        else if (saved === "reservation") setResourceTab("reservation");
+        else if (saved === "external") setResourceTab("external");
         else if (saved === "dashboard") setResourceTab("dashboard");
+        // 폐기된 "equipment" 저장값은 무시 — 기본 dashboard로 폴백
       } catch {}
     }
-  }, []);
+  }, [router]);
 
   const [groups, setGroups] = useState<Group[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
@@ -247,20 +278,9 @@ export default function ResourcesPage() {
         setAuthUsers(users.map((u: any) => ({ id: u.id, email: u.email, name: u.name })));
       } catch { /* ADMIN 아닌 유저는 빈 배열 사용 */ }
 
-      // ── 3. 유저를 자원으로 자동 등록 ─────────────────────────────────────
-      if (users.length > 0) {
-        const existingEmails = new Set(resources.map((r) => r.userId).filter(Boolean));
-        const newUsers = users.filter((u: any) => u.isActive !== false && !existingEmails.has(u.email));
-        if (newUsers.length > 0) {
-          for (const u of newUsers) {
-            try {
-              const created = await resourceApi.create({ name: u.name, type: "PERSON", dailyCapacityHours: 8 });
-              await resourceApi.update(created.id, { userId: u.email }).catch(() => {});
-            } catch { /* 개별 실패 무시 */ }
-          }
-          resources = await resourceApi.list();
-        }
-      }
+      // ⚠️ 자원-모델-분리 PDCA Phase 3b-4a (2026-05-04): PERSON Resource 자동 등록 폐기.
+      //   인력은 auth_users가 단일 source. dashboard API가 auth_users를 직접 표시.
+      //   기존 PERSON Resource 63건은 Phase 4에서 일괄 정리.
 
       // ── 4. 그룹 마킹 ──────────────────────────────────────────────────────
       // isDept: description === "__dept__" 또는 부서명과 일치하는 그룹
@@ -598,43 +618,13 @@ export default function ResourcesPage() {
     }
   };
 
-  // 일괄 매핑
+  // ⚠️ deprecated — 자원-모델-분리 PDCA Phase 2에서 SQL로 완료. 화면도 Phase 3b-4에서 제거 예정.
   const handleOpenMigrate = async () => {
-    setMigrateModal(true);
-    setMigrateLoading(true);
-    try {
-      const preview = await resourceApi.migratePreview();
-      setMigratePreview(preview);
-      // 자동 매칭된 항목은 기본 선택
-      const autoSelected = new Set(
-        preview.filter((p: any) => p.matchType === "exact").map((p: any) => p.resourceId)
-      );
-      setMigrateSelected(autoSelected);
-    } catch (err: any) {
-      alert("미리보기 실패: " + err.message);
-      setMigrateModal(false);
-    } finally {
-      setMigrateLoading(false);
-    }
+    alert("일괄 계정 매핑은 자원-모델-분리 PDCA Phase 2에서 자동 완료되었습니다.");
   };
 
   const handleApplyMigrate = async () => {
-    const mappings = migratePreview
-      .filter((p: any) => migrateSelected.has(p.resourceId) && p.matchedUserId)
-      .map((p: any) => ({ resourceId: p.resourceId, userId: p.matchedUserId }));
-    if (mappings.length === 0) { alert("적용할 매핑이 없습니다."); return; }
-    if (!confirm(`${mappings.length}건의 계정 연결을 적용할까요?`)) return;
-    setMigrateLoading(true);
-    try {
-      const result = await resourceApi.migrateApply(mappings);
-      alert(`완료: ${result.updated}건 연결, ${result.skipped}건 스킵`);
-      setMigrateModal(false);
-      await load();
-    } catch (err: any) {
-      alert("적용 실패: " + err.message);
-    } finally {
-      setMigrateLoading(false);
-    }
+    alert("일괄 계정 매핑은 자원-모델-분리 PDCA Phase 2에서 자동 완료되었습니다.");
   };
 
   // ─── 렌더 데이터 ─────────────────────────────────────────────────────────
@@ -839,29 +829,19 @@ export default function ResourcesPage() {
                 일괄 계정 매핑
               </button>
             )}
-            {resourceTab === "equipment" && isAdmin && (
-              <>
-                <button onClick={() => openCreateGroup()}
-                  className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors">
-                  + 그룹 추가
-                </button>
-                <button onClick={() => setShowCreateResource(true)}
-                  className="px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors">
-                  + 자원 추가
-                </button>
-              </>
-            )}
           </div>
         </div>
 
         {/* 탭 */}
         <div className="flex gap-1 border-b border-gray-200 mb-6">
           {([
-            { key: "attendance", label: "근태현황" },
-            { key: "dashboard",  label: "운영 현황" },
-            { key: "people",     label: "인력자원" },
-            { key: "equipment",  label: "비인력 자원" },
-            { key: "orgchart",  label: "조직도" },
+            { key: "attendance",  label: "전사근태" },
+            { key: "dashboard",   label: "직원현황" },
+            { key: "reservation", label: "공용자산 예약" },  // 공용자산예약 (2026-05-05)
+            { key: "external",    label: "외부 자원" },        // 자원-모델-분리 PDCA Phase 3b-4b
+            { key: "orgchart",    label: "조직도" },
+            // 인력자원 탭 폐기 (2026-05-04) — /admin/users로 분리
+            // 공용자산 마스터 탭 폐기 (2026-05-05) — /admin/equipment-resources로 이동
           ] as { key: ResourceTab; label: string }[]).map((t) => (
             <button key={t.key}
               onClick={() => { setResourceTab(t.key); try { sessionStorage.setItem(TAB_KEY, t.key); } catch {} }}
@@ -873,60 +853,7 @@ export default function ResourcesPage() {
           ))}
         </div>
 
-        {/* 인력자원 탭 */}
-        {resourceTab === "people" && (
-          <UserAccountsTab onResourcesChanged={load} />
-        )}
-
-        {/* 비인력 자원 탭 */}
-        {resourceTab === "equipment" && (
-          <div>
-            {loading ? (
-              <div className="flex items-center justify-center py-16">
-                <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
-              </div>
-            ) : nonPersonResources.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-                <span className="text-4xl mb-3">🔧</span>
-                <p className="text-sm">등록된 장비·시설 자원이 없습니다.</p>
-                {isAdmin && (
-                  <button onClick={() => setShowCreateResource(true)}
-                    className="mt-4 px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors">
-                    + 자원 추가
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {tree.filter((g) => g.name !== "전체" && g.description !== "__all__" && !g.isDept).map((group) => (
-                  <Fragment key={group.id}>
-                    {dnd.dropIndicator?.targetId === group.id && dnd.dropIndicator.position === "before" && <DropLine />}
-                    <GroupNode
-                      group={group} expanded={expanded} resourceMap={resourceMap} dnd={dnd}
-                      onToggle={toggleExpand} onToggleActive={handleToggleActive}
-                      onDelete={handleDeleteGroup} onRename={openRenameGroup}
-                      onEditMembers={openMemberModal} onEditUserId={undefined}
-                      isAdmin={isAdmin} depth={0}
-                    />
-                    {dnd.dropIndicator?.targetId === group.id && dnd.dropIndicator.position === "after" && <DropLine />}
-                  </Fragment>
-                ))}
-                {nonPersonUngrouped.length > 0 && (
-                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                    <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
-                      <span className="text-base">📦</span>
-                      <span className="font-semibold text-gray-700 text-sm">미분류 자원</span>
-                      <span className="text-xs text-gray-400">{nonPersonUngrouped.length}개</span>
-                    </div>
-                    <ResourceRows resources={nonPersonUngrouped} dnd={dnd} onToggleActive={handleToggleActive} isAdmin={isAdmin} />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* 운영 현황 탭 */}
+        {/* 직원현황 탭 (구 운영 현황) */}
         {resourceTab === "dashboard" && (<div>
             {/* 날짜 필터 */}
             <div className="flex items-center gap-2 mb-4 flex-wrap">
@@ -944,12 +871,12 @@ export default function ResourcesPage() {
               ))}
               <div className="flex-1" />
               {/* 날짜 직접 입력 + 조회 (오른쪽) */}
-              <input type="date" value={startDate} onChange={(e) => {
+              <DateInput value={startDate} onChange={(e) => {
                 setStartDate(e.target.value);
                 try { sessionStorage.setItem(DASH_DATE_KEY, JSON.stringify({ startDate: e.target.value, endDate })); } catch {}
               }} className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               <span className="text-gray-400 text-sm">~</span>
-              <input type="date" value={endDate} onChange={(e) => {
+              <DateInput value={endDate} onChange={(e) => {
                 setEndDate(e.target.value);
                 try { sessionStorage.setItem(DASH_DATE_KEY, JSON.stringify({ startDate, endDate: e.target.value })); } catch {}
               }} className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
@@ -992,18 +919,26 @@ export default function ResourcesPage() {
                   const customGroups = groups
                     .filter((g) => !g.isDept && g.description !== "__all__" && g.name !== "전체")
                     .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
-                  const allGroupedIds = new Set([...deptGroups, ...customGroups].flatMap((g) => g.resourceIds));
+                  // 자원-모델-분리 PDCA Phase 3b-5: legacy resourceIds + polymorphic 모두 포함
+                  const allGroupedIds = new Set(
+                    [...deptGroups, ...customGroups].flatMap((g) => [
+                      ...g.resourceIds,
+                      ...(g.personUserIds ?? []),
+                      ...(g.externalPersonIds ?? []),
+                      ...(g.equipmentResourceIds ?? []),
+                    ]),
+                  );
 
                   const sections: { id: string; name: string; items: any[] }[] = [
                     ...deptGroups.map((g) => ({
                       id: g.id,
                       name: g.name,
-                      items: dashboard.filter((r: any) => g.resourceIds.includes(r.resourceId)),
+                      items: dashboard.filter((r: any) => groupHasResource(g, r.resourceId)),
                     })),
                     ...customGroups.map((g) => ({
                       id: g.id,
                       name: g.name,
-                      items: dashboard.filter((r: any) => g.resourceIds.includes(r.resourceId)),
+                      items: dashboard.filter((r: any) => groupHasResource(g, r.resourceId)),
                     })),
                     {
                       id: "__dash_unassigned__",
@@ -1015,7 +950,7 @@ export default function ResourcesPage() {
                   return sections.map((section) => {
                     const isOpen = dashDeptExpanded.has(section.id);
                     return (
-                      <div key={section.id} className="mb-1">
+                      <div key={section.id} className="mb-2">
                         <button
                           onClick={() => toggleDashDept(section.id)}
                           className="w-full flex items-center gap-2 px-4 py-3 bg-gray-50 rounded-xl border border-gray-200 text-left hover:bg-gray-100 transition-colors"
@@ -1025,8 +960,20 @@ export default function ResourcesPage() {
                           <span className="text-xs text-gray-400">{section.items.length}명</span>
                         </button>
                         {isOpen && (
-                          <div className="mt-1 pl-4 space-y-1">
-                            {section.items.map(renderDashCard)}
+                          <div className="mt-1 px-2 pb-2 bg-white rounded-xl border border-gray-100">
+                            <ResourceTimeline
+                              rows={section.items.map((r: any) => ({
+                                resourceId: r.resourceId,
+                                resourceName: r.resourceName,
+                                dailyCapacityHours: r.dailyCapacityHours,
+                                totalAllocationPercent: r.totalAllocationPercent,
+                                isOverloaded: r.isOverloaded,
+                                dayBreakdown: r.dayBreakdown ?? [],
+                                assignments: r.assignments ?? [],
+                              }))}
+                              startDate={startDate}
+                              endDate={endDate}
+                            />
                           </div>
                         )}
                       </div>
@@ -1040,7 +987,17 @@ export default function ResourcesPage() {
 
         {/* 근태현황 탭 */}
         {resourceTab === "attendance" && (
-          <AttendanceOverview />
+          <AttendanceOverview holidays={holidays} />
+        )}
+
+        {/* 공용자산 예약 탭 (2026-05-05 신규) */}
+        {resourceTab === "reservation" && (
+          <ReservationContainer />
+        )}
+
+        {/* 외부 자원 탭 — 자원-모델-분리 PDCA Phase 3b-4b */}
+        {resourceTab === "external" && (
+          <ExternalPersonsPanel isAdmin={isAdmin} />
         )}
 
         {/* 조직도 탭 */}

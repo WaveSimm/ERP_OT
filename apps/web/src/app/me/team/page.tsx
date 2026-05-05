@@ -53,14 +53,14 @@ function RejectModal({ onConfirm, onClose }: { onConfirm: (reason: string) => vo
 
 function PendingApprovals() {
   const [leaveItems, setLeaveItems] = useState<any[]>([]);
-  const [otItems, setOtItems] = useState<any[]>([]);
+  const [holidayWorkItems, setHolidayWorkItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [rejectTarget, setRejectTarget] = useState<{ type: "leave" | "ot"; id: string } | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<{ type: "leave" | "holiday-work"; id: string } | null>(null);
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([teamApi.getPendingLeave(), teamApi.getPendingOT()])
-      .then(([l, o]) => { setLeaveItems(l); setOtItems(o); })
+    Promise.all([teamApi.getPendingLeave(), teamApi.getPendingHolidayWork()])
+      .then(([l, h]) => { setLeaveItems(l); setHolidayWorkItems(h); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -76,20 +76,20 @@ function PendingApprovals() {
     setRejectTarget(null);
   };
 
-  const approveOT = async (id: string) => {
-    await teamApi.approveOT(id);
-    setOtItems((prev) => prev.filter((i) => i.id !== id));
+  const approveHolidayWork = async (id: string) => {
+    await teamApi.approveHolidayWork(id);
+    setHolidayWorkItems((prev) => prev.filter((i) => i.id !== id));
   };
 
-  const rejectOT = async (id: string, reason: string) => {
-    await teamApi.rejectOT(id, reason);
-    setOtItems((prev) => prev.filter((i) => i.id !== id));
+  const rejectHolidayWork = async (id: string, reason: string) => {
+    await teamApi.rejectHolidayWork(id, reason);
+    setHolidayWorkItems((prev) => prev.filter((i) => i.id !== id));
     setRejectTarget(null);
   };
 
   if (loading) return <div className="text-sm text-gray-400 py-4 text-center">불러오는 중...</div>;
 
-  const total = leaveItems.length + otItems.length;
+  const total = leaveItems.length + holidayWorkItems.length;
 
   return (
     <div className="space-y-3">
@@ -121,24 +121,24 @@ function PendingApprovals() {
         </div>
       ))}
 
-      {otItems.map((item) => (
+      {holidayWorkItems.map((item) => (
         <div key={item.id} className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-0.5">
               <span className="text-sm font-semibold text-gray-900">{item.user?.name ?? "사용자"}</span>
-              <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">OT</span>
+              <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">휴일근무</span>
             </div>
-            <div className="text-xs text-gray-500">{item.date?.slice(0, 10)} · {item.plannedHours}h 예정 · {item.reason}</div>
+            <div className="text-xs text-gray-500">{item.date?.slice(0, 10)} · {item.reason}</div>
           </div>
           <div className="flex gap-1.5 shrink-0">
             <button
-              onClick={() => approveOT(item.id)}
+              onClick={() => approveHolidayWork(item.id)}
               className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700"
             >
               승인
             </button>
             <button
-              onClick={() => setRejectTarget({ type: "ot", id: item.id })}
+              onClick={() => setRejectTarget({ type: "holiday-work", id: item.id })}
               className="px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-medium hover:bg-red-100"
             >
               반려
@@ -152,7 +152,7 @@ function PendingApprovals() {
           onClose={() => setRejectTarget(null)}
           onConfirm={(reason) => {
             if (rejectTarget.type === "leave") rejectLeave(rejectTarget.id, reason);
-            else rejectOT(rejectTarget.id, reason);
+            else rejectHolidayWork(rejectTarget.id, reason);
           }}
         />
       )}
@@ -208,7 +208,7 @@ function TeamAttendanceTable() {
                 <th className="px-4 py-3 text-center text-xs font-semibold text-red-500">결근</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-blue-500">휴가</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500">총 근무</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-purple-500">OT</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-purple-500">휴일근무</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">

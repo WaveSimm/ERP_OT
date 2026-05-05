@@ -2,19 +2,22 @@
 
 import { useState, useEffect } from "react";
 import { taskApi, resourceApi } from "@/lib/api";
+import { DateInput } from "@/components/ui/DateInput";
 
 interface Props {
   projectId: string;
   defaultParentId?: string | null;
   defaultSortOrder?: number;
+  /** true면 모달이 마일스톤 모드(보라색)로 시작 */
+  defaultIsMilestone?: boolean;
   onSuccess: (taskId?: string, taskName?: string) => void;
   onClose: () => void;
 }
 
-export default function AddTaskModal({ projectId, defaultParentId, defaultSortOrder, onSuccess, onClose }: Props) {
+export default function AddTaskModal({ projectId, defaultParentId, defaultSortOrder, defaultIsMilestone = false, onSuccess, onClose }: Props) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [isMilestone, setIsMilestone] = useState(false);
+  const [isMilestone, setIsMilestone] = useState(defaultIsMilestone);
 
   // Task segment fields
   const [segName, setSegName] = useState("");
@@ -130,8 +133,8 @@ export default function AddTaskModal({ projectId, defaultParentId, defaultSortOr
               <p className="text-xs font-semibold text-purple-500 uppercase mb-3">◆ 시점</p>
               <div className="max-w-xs">
                 <label className="block text-sm font-medium text-gray-700 mb-1">날짜 *</label>
-                <input
-                  type="date" value={milestoneDate}
+                <DateInput
+                   value={milestoneDate}
                   onChange={(e) => setMilestoneDate(e.target.value)}
                   className="w-full px-3 py-2.5 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
                   required
@@ -152,7 +155,7 @@ export default function AddTaskModal({ projectId, defaultParentId, defaultSortOr
               <div className="grid grid-cols-2 gap-3 mt-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">시작일 *</label>
-                  <input type="date" value={startDate}
+                  <DateInput value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                     required
@@ -160,7 +163,7 @@ export default function AddTaskModal({ projectId, defaultParentId, defaultSortOr
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">종료일 *</label>
-                  <input type="date" value={endDate} min={startDate}
+                  <DateInput value={endDate} min={startDate}
                     onChange={(e) => setEndDate(e.target.value)}
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                     required

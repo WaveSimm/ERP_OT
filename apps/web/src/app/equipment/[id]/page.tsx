@@ -7,6 +7,8 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { equipmentApi, maintenanceApi, compatibilityApi, sensorApi, deploymentApi, projectApi, taskApi, equipmentScheduleApi } from "@/lib/api";
 import ScheduleTimeline from "@/components/ScheduleTimeline";
+import { DateInput } from "@/components/ui/DateInput";
+import { useHolidaysMap } from "@/hooks/useHolidaysMap";
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   AVAILABLE: { label: "가용", color: "bg-green-100 text-green-800" },
@@ -27,6 +29,7 @@ export default function EquipmentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const holidays = useHolidaysMap();
   const [equipment, setEquipment] = useState<any>(null);
   const initialTab = (searchParams.get("tab") as Tab) || "info";
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -381,7 +384,7 @@ export default function EquipmentDetailPage() {
               <ScheduleTimeline schedules={[
                 ...schedules,
                 ...maintenance.map((m: any) => ({ id: m.id, type: m.type, title: m.title, startDate: m.performedAt, endDate: m.completedAt || m.performedAt })),
-              ]} />
+              ]} holidays={holidays} />
               <div>
                 <select value={historyFilter} onChange={(e) => setHistoryFilter(e.target.value)} className="border rounded px-3 py-1.5 text-sm">
                   <option value="ALL">전체</option>
@@ -522,7 +525,7 @@ export default function EquipmentDetailPage() {
 
           return (
           <div className="space-y-3">
-            <ScheduleTimeline schedules={maintSchedules} />
+            <ScheduleTimeline schedules={maintSchedules} holidays={holidays} />
             <div className="flex gap-2 flex-wrap">
               {Object.entries(TYPE_INFO).map(([key, info]) => (
                 <button key={key} onClick={() => openForm(key)}
@@ -536,8 +539,8 @@ export default function EquipmentDetailPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <input placeholder="제목 *" value={maintForm.title} onChange={(e) => setMaintForm({ ...maintForm, title: e.target.value })} className="border rounded px-3 py-2 text-sm" />
                   <input placeholder="수행자" value={maintForm.performedBy} onChange={(e) => setMaintForm({ ...maintForm, performedBy: e.target.value })} className="border rounded px-3 py-2 text-sm" />
-                  <input type="date" value={maintForm.startDate} onChange={(e) => setMaintForm({ ...maintForm, startDate: e.target.value, performedAt: e.target.value })} className="border rounded px-3 py-2 text-sm" />
-                  <input type="date" value={maintForm.endDate} onChange={(e) => setMaintForm({ ...maintForm, endDate: e.target.value })} className="border rounded px-3 py-2 text-sm" />
+                  <DateInput value={maintForm.startDate} onChange={(e) => setMaintForm({ ...maintForm, startDate: e.target.value, performedAt: e.target.value })} className="border rounded px-3 py-2 text-sm" />
+                  <DateInput value={maintForm.endDate} onChange={(e) => setMaintForm({ ...maintForm, endDate: e.target.value })} className="border rounded px-3 py-2 text-sm" />
                   <input placeholder="비용 (원)" value={maintForm.cost} onChange={(e) => setMaintForm({ ...maintForm, cost: e.target.value })} className="border rounded px-3 py-2 text-sm" />
                   <input placeholder="설명 (선택)" value={maintForm.description} onChange={(e) => setMaintForm({ ...maintForm, description: e.target.value })} className="border rounded px-3 py-2 text-sm" />
                 </div>
@@ -583,13 +586,13 @@ export default function EquipmentDetailPage() {
                         <td className="p-2">{r.title}{r.description && <span className="text-gray-400 ml-1">- {r.description}</span>}</td>
                         <td className="p-2">
                           {isCompleted ? new Date(r.startDate).toLocaleDateString() : (
-                            <input type="date" defaultValue={r.startDate} onBlur={(e) => { if (e.target.value !== r.startDate) handleDateChange(r.id, "startDate", e.target.value); }}
+                            <DateInput defaultValue={r.startDate} onBlur={(e) => { if (e.target.value !== r.startDate) handleDateChange(r.id, "startDate", e.target.value); }}
                               className="border rounded px-1.5 py-0.5 text-xs w-[120px]" />
                           )}
                         </td>
                         <td className="p-2">
                           {isCompleted ? new Date(r.endDate).toLocaleDateString() : (
-                            <input type="date" defaultValue={r.endDate} onBlur={(e) => { if (e.target.value !== r.endDate) handleDateChange(r.id, "endDate", e.target.value); }}
+                            <DateInput defaultValue={r.endDate} onBlur={(e) => { if (e.target.value !== r.endDate) handleDateChange(r.id, "endDate", e.target.value); }}
                               className="border rounded px-1.5 py-0.5 text-xs w-[120px]" />
                           )}
                         </td>
@@ -656,7 +659,7 @@ export default function EquipmentDetailPage() {
 
           return (
             <div className="space-y-3">
-              <ScheduleTimeline schedules={projectSchedules} />
+              <ScheduleTimeline schedules={projectSchedules} holidays={holidays} />
               <div className="flex gap-2">
                 {(equipment.status === "AVAILABLE" || equipment.status === "IN_OPERATION") && (
                   <button onClick={openDeployForm} className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm">+ 프로젝트에 투입</button>
@@ -687,13 +690,13 @@ export default function EquipmentDetailPage() {
                         <td className="p-2 text-gray-600">{dep?.taskName || s.description || "-"}</td>
                         <td className="p-2">
                           {isCompleted ? new Date(s.startDate).toLocaleDateString() : (
-                            <input type="date" defaultValue={sd} onBlur={(e) => { if (e.target.value !== sd) handleSchedDateChange(s.id, "startDate", e.target.value); }}
+                            <DateInput defaultValue={sd} onBlur={(e) => { if (e.target.value !== sd) handleSchedDateChange(s.id, "startDate", e.target.value); }}
                               className="border rounded px-1.5 py-0.5 text-xs w-[120px]" />
                           )}
                         </td>
                         <td className="p-2">
                           {isCompleted ? new Date(s.endDate).toLocaleDateString() : (
-                            <input type="date" defaultValue={ed} onBlur={(e) => { if (e.target.value !== ed) handleSchedDateChange(s.id, "endDate", e.target.value); }}
+                            <DateInput defaultValue={ed} onBlur={(e) => { if (e.target.value !== ed) handleSchedDateChange(s.id, "endDate", e.target.value); }}
                               className="border rounded px-1.5 py-0.5 text-xs w-[120px]" />
                           )}
                         </td>
@@ -829,7 +832,7 @@ export default function EquipmentDetailPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium mb-1">시작일 *</label>
-                    <input type="date" value={deployForm.startDate} onChange={(e) => {
+                    <DateInput value={deployForm.startDate} onChange={(e) => {
                         const newStart = e.target.value;
                         setDeployForm({ ...deployForm, startDate: newStart, selectedSensors: [] });
                         if (newStart) loadAvailableSensors(newStart, deployForm.endDate);
@@ -838,7 +841,7 @@ export default function EquipmentDetailPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">종료일 (예정)</label>
-                    <input type="date" value={deployForm.endDate} onChange={(e) => {
+                    <DateInput value={deployForm.endDate} onChange={(e) => {
                         const newEnd = e.target.value;
                         setDeployForm({ ...deployForm, endDate: newEnd, selectedSensors: [] });
                         if (deployForm.startDate) loadAvailableSensors(deployForm.startDate, newEnd);

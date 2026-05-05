@@ -102,4 +102,14 @@ export class AuthClient {
   async invalidateApprover(userId: string) {
     await this.redis.del(`approver:${userId}`);
   }
+
+  // 회사달력 휴일 조회 (PUBLIC_HOLIDAY/COMPANY_HOLIDAY) — 휴일근무 신청 날짜 검증용
+  async getHolidays(from: string, to: string): Promise<Array<{ date: string; title: string; type: string }>> {
+    const result = await this.get<Array<{ date: string; title: string; type: string }>>(
+      `/internal/calendar/holidays?from=${from}&to=${to}`,
+      `holidays:${from}:${to}`,
+      300, // 5분 캐시 (휴일은 자주 안 바뀜)
+    );
+    return result ?? [];
+  }
 }

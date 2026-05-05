@@ -428,7 +428,29 @@
       "Bash(echo \"  /approval/documents/pending: $\\(curl -s -o /dev/null -w '%{http_code}' -b /tmp/cookies.txt 'http://localhost:3000/api/v1/approval/documents/pending?limit=3'\\)\")",
       "Bash(echo \"  project no-token POST /internal/work-logs/semantic-search: $\\(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3003/internal/work-logs/semantic-search -H 'Content-Type: application/json' -d '{}'\\)\")",
       "Bash(echo \"  attendance no-token POST /internal/notifications/bulk: $\\(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3004/internal/notifications/bulk -H 'Content-Type: application/json' -d '{}'\\)\")",
-      "Bash(grep -n \"AddTaskModal\\\\s*$\\\\|<AddTaskModal\\\\|showAddTask &&\" /e/claude/ERP_OT/apps/web/src/app/projects/\\\\[id\\\\]/page.tsx)"
+      "Bash(grep -n \"AddTaskModal\\\\s*$\\\\|<AddTaskModal\\\\|showAddTask &&\" /e/claude/ERP_OT/apps/web/src/app/projects/\\\\[id\\\\]/page.tsx)",
+      "Bash(grep -nE \"<tr |^\\\\s*<tr$|key=\\\\{.*\\\\.id.*\\\\}.*tr|flatItems.map|tasks.map\" /e/claude/ERP_OT/apps/web/src/app/projects/\\\\[id\\\\]/page.tsx)",
+      "Bash(grep -n \"</div>\\\\s*$\" /e/claude/ERP_OT/apps/web/src/components/GanttChart.tsx)",
+      "Bash(awk '/{rows\\\\.map/,/}\\\\\\)\\\\\\)}/' /e/claude/ERP_OT/apps/web/src/components/GanttChart.tsx)",
+      "Bash(awk '/^\\\\s+{rows\\\\.map/,/^\\\\s+\\\\\\)\\\\\\)}/' /e/claude/ERP_OT/apps/web/src/components/GanttChart.tsx)",
+      "Bash(grep -n \"rows\\\\.map\\\\|^\\\\s\\\\+\\\\\\)\\\\\\)}\\\\s*$\" /e/claude/ERP_OT/apps/web/src/components/GanttChart.tsx)",
+      "Bash(awk 'NR==514{p=1} p{print NR\": \"$0; if\\($0~/^\\\\s*\\\\\\)\\\\\\)}\\\\s*$/\\){p=0; exit}}' /e/claude/ERP_OT/apps/web/src/components/GanttChart.tsx)",
+      "Bash(grep -nA 18 \"^  project:\" docker-compose.yml)",
+      "Bash(grep -nA 6 \"project-service\" docker-compose.local.yml)",
+      "Bash(wait)",
+      "Bash(MSYS_NO_PATHCONV=1 docker exec erp-ot-approval rm /app/sync.js)",
+      "Bash(bash scripts/cleanup-load-test.sh)",
+      "Bash(bash *)",
+      "Bash(DATABASE_URL=\"postgresql://erp_user:ae84373d75592d05d9f31e0210d5a542@localhost:5432/erp_ot\" pnpm prisma migrate dev --name resource-split-phase1 --skip-seed)",
+      "Bash(DATABASE_URL=\"postgresql://erp_user:ae84373d75592d05d9f31e0210d5a542@localhost:5432/erp_ot\" pnpm prisma migrate dev --create-only --name resource-split-phase1)",
+      "Bash(DATABASE_URL=\"postgresql://erp_user:ae84373d75592d05d9f31e0210d5a542@localhost:5432/erp_ot\" pnpm prisma migrate deploy)",
+      "Bash(DATABASE_URL=\"postgresql://erp_user:ae84373d75592d05d9f31e0210d5a542@localhost:5432/erp_ot\" pnpm prisma migrate resolve --applied 20260504130000_resource_split_phase1)",
+      "Bash(DATABASE_URL=\"postgresql://erp_user:ae84373d75592d05d9f31e0210d5a542@localhost:5432/erp_ot?schema=project\" pnpm prisma migrate resolve --applied 20260504130100_resource_split_phase1)",
+      "Bash(DATABASE_URL=\"postgresql://erp_user:ae84373d75592d05d9f31e0210d5a542@localhost:5432/erp_ot?schema=project\" pnpm prisma migrate status)",
+      "Bash(awk -F= '{print \"Length:\", length\\($2\\), \"chars  / Preview:\", substr\\($2,1,4\\)\"...\"substr\\($2,length\\($2\\)-3\\)}')",
+      "PowerShell(docker compose exec *)",
+      "Bash(grep -n \"equipmentResourceApi\\\\s*=\\\\|^};\\\\s*$\" apps/web/src/lib/api.ts)",
+      "Bash(awk 'NR>=720 && NR<=924' /e/claude/ERP_OT/apps/web/src/app/repair/[id]/page.tsx)"
     ]
   }
 }

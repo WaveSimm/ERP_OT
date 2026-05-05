@@ -26,10 +26,15 @@ export class UserPrismaRepository implements IUserRepository {
     return row ? this.toEntity(row) : null;
   }
 
-  async findAll(): Promise<(User & { profile?: UserProfileData | null; isOnline?: boolean })[]> {
+  async findAll(opts?: { includeRetired?: boolean }): Promise<(User & { profile?: UserProfileData | null; isOnline?: boolean })[]> {
     const now = new Date();
+    const where: Prisma.UserWhereInput = { ...loadTestExcludeWhere() };
+    if (!opts?.includeRetired) {
+      // 자원-모델-분리 PDCA Phase 3a-1: default RETIRED 제외
+      where.status = "ACTIVE";
+    }
     const rows = await this.prisma.user.findMany({
-      where: loadTestExcludeWhere(),
+      where,
       orderBy: { createdAt: "asc" },
       include: {
         profile: true,
@@ -57,6 +62,8 @@ export class UserPrismaRepository implements IUserRepository {
         passwordHash: data.passwordHash,
         role: data.role,
         isActive: data.isActive,
+        status: data.status ?? "ACTIVE",
+        ...(data.retirementDate !== undefined ? { retirementDate: data.retirementDate } : {}),
         lastLoginAt: data.lastLoginAt,
       },
     });
@@ -70,6 +77,8 @@ export class UserPrismaRepository implements IUserRepository {
         ...(data.name !== undefined && { name: data.name }),
         ...(data.role !== undefined && { role: data.role }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
+        ...(data.status !== undefined && { status: data.status }),
+        ...(data.retirementDate !== undefined && { retirementDate: data.retirementDate }),
         ...(data.passwordHash !== undefined && { passwordHash: data.passwordHash }),
       },
     });
@@ -126,6 +135,8 @@ export class UserPrismaRepository implements IUserRepository {
     passwordHash: string;
     role: "ADMIN" | "MANAGER" | "OPERATOR" | "VIEWER";
     isActive: boolean;
+    status: "ACTIVE" | "RETIRED" | "SUSPENDED";
+    retirementDate: Date | null;
     lastLoginAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
@@ -137,6 +148,8 @@ export class UserPrismaRepository implements IUserRepository {
       passwordHash: row.passwordHash,
       role: row.role,
       isActive: row.isActive,
+      status: row.status,
+      retirementDate: row.retirementDate,
       lastLoginAt: row.lastLoginAt,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,

@@ -40,35 +40,21 @@ export default function CopyTaskModal({ tasks, currentProjectId, onClose, onSucc
       setError("대상 프로젝트를 선택하세요.");
       return;
     }
+    if (tasks.length === 0) return;
     setLoading(true);
     setError("");
     try {
-      const dto = {
+      // 단일/다중 모두 bulk-copy 사용 — 선택 세트 내부 parent-child 관계 보존
+      const sourceProjectId = tasks[0]!.projectId;
+      await taskApi.bulkCopy(sourceProjectId, {
+        taskIds: tasks.map((t) => t.id),
         targetProjectId,
         includeSegments,
         includeAssignments,
         dateOffsetDays,
-      };
-      // 다중 복사: 순차 호출 (트랜잭션은 각 복사 단위)
-      let okCount = 0;
-      let failCount = 0;
-      for (const t of tasks) {
-        try {
-          await taskApi.copy(t.projectId, t.id, dto);
-          okCount++;
-        } catch (e) {
-          failCount++;
-          // eslint-disable-next-line no-console
-          console.error("copy failed for", t.id, e);
-        }
-      }
-      if (failCount > 0) {
-        setError(`${okCount}개 성공, ${failCount}개 실패`);
-        if (okCount > 0) onSuccess();
-      } else {
-        onSuccess();
-        onClose();
-      }
+      });
+      onSuccess();
+      onClose();
     } catch (e: any) {
       setError(e?.message ?? "복사 실패");
     } finally {

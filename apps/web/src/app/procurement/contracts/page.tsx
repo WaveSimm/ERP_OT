@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { procurementApi, repairApi, supplierApi } from "@/lib/api";
 import SearchableSelect from "@/components/SearchableSelect";
+import { DateInput } from "@/components/ui/DateInput";
 
 const STATUS_LABELS: Record<string, string> = { ACTIVE: "진행중", COMPLETED: "완료", CANCELLED: "취소" };
 const STATUS_COLORS: Record<string, string> = {
@@ -270,12 +271,12 @@ export default function ContractsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">계약일자</label>
-                  <input type="date" value={form.contractDate} onChange={(e) => setForm({ ...form, contractDate: e.target.value })}
+                  <DateInput value={form.contractDate} onChange={(e) => setForm({ ...form, contractDate: e.target.value })}
                     className="w-full border rounded-lg px-3 py-2 text-sm" />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">납기</label>
-                  <input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })}
+                  <DateInput value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })}
                     className="w-full border rounded-lg px-3 py-2 text-sm" />
                 </div>
               </div>

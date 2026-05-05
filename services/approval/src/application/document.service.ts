@@ -411,14 +411,9 @@ export class DocumentService {
     // 보안 일괄패치 PDCA Layer 1 (C3): startup-time Zod env 검증으로 보장
     const token = process.env.INTERNAL_API_TOKEN as string;
     try {
-      const endpoint = action === "LEAVE_APPROVE"
-        ? `${attendanceUrl}/internal/leave/${doc.referenceId}/framework-approve`
-        : `${attendanceUrl}/internal/overtime/${doc.referenceId}/framework-approve`;
-      await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Internal-Token": token },
-        body: JSON.stringify({ approverId: doc.requestedBy, action: "REJECT", rejectReason: comment }),
-      });
+      // v1.3+ OT_APPROVE / v1.4+ LEAVE_APPROVE: attendance에 pre-created record 없음
+      // (postAction에서만 생성). 따라서 reject 시 attendance에 동기화할 대상 없음 — no-op.
+      if (action === "OT_APPROVE" || action === "LEAVE_APPROVE") return;
     } catch (err) {
       // TODO: inject logger — DocumentService에 FastifyBaseLogger 주입 후 this.log.error로 교체
       console.error(`Post-reject action failed: ${action}`, err); // eslint-disable-line no-console
@@ -450,21 +445,73 @@ export class DocumentService {
           });
           break;
         case "LEAVE_APPROVE":
-          if (doc.referenceId) {
-            await fetch(`${attendanceUrl}/internal/leave/${doc.referenceId}/framework-approve`, {
+          // v1.4+ 휴가: attendance pre-created record 없음 — doc.content에서 정보 추출 후 직접 생성
+          // v1.5: 시간 단위 휴가(반차/1/4연차/가정의날) 시 startTime/endTime도 전달
+          // (※ ApprovalDocument 폼 데이터 컬럼은 `content`, `fields`는 ApprovalTemplate.fields 정의)
+          {
+            const content = ((doc.content ?? doc.fields) as any) ?? {};
+            const leaveType: string | undefined = content.leaveType;
+            const startDate: string | undefined = content.startDate;
+            const endDate: string | undefined = content.endDate;
+            const reason: string | undefined = content.reason;
+            const startTime: string | undefined = content.startTime;
+            const endTime: string | undefined = content.endTime;
+            if (!leaveType || !startDate || !endDate) {
+              console.error("LEAVE_APPROVE: doc.content 누락", { docId: doc.id, content });
+              break;
+            }
+            await fetch(`${attendanceUrl}/internal/leave/from-approval`, {
               method: "POST",
               headers: { "Content-Type": "application/json", "X-Internal-Token": token },
-              body: JSON.stringify({ approverId: doc.requestedBy, action: "APPROVE" }),
+              body: JSON.stringify({
+                userId: doc.requestedBy,
+                type: leaveType,
+                startDate,
+                endDate,
+                reason,
+                ...(startTime ? { startTime } : {}),
+                ...(endTime ? { endTime } : {}),
+                approvalDocumentId: doc.id,
+              }),
             });
           }
           break;
         case "OT_APPROVE":
-          if (doc.referenceId) {
-            await fetch(`${attendanceUrl}/internal/overtime/${doc.referenceId}/framework-approve`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "X-Internal-Token": token },
-              body: JSON.stringify({ approverId: doc.requestedBy, action: "APPROVE" }),
-            });
+          // v1.3+ 휴일근무: workDates 배열에서 N개 HolidayWorkRequest 일괄 생성
+          // (※ doc.content가 폼 데이터, doc.fields는 template 정의)
+          {
+            const content = ((doc.content ?? doc.fields) as any) ?? {};
+            // workDates는 string[] 또는 단일 workDate(legacy fallback)
+            const workDatesRaw = content.workDates ?? (content.workDate ? [content.workDate] : []);
+            const workDates: string[] = Array.isArray(workDatesRaw)
+              ? workDatesRaw.filter((d: any) => typeof d === "string" && d.length > 0)
+              : [];
+            const reason: string | undefined = content.reason;
+            if (workDates.length === 0 || !reason) {
+              console.error("OT_APPROVE: doc.content.workDates / reason 누락", { docId: doc.id, content });
+              break;
+            }
+            // ID 우선 (picker가 저장), 없으면 name
+            const projectId: string | undefined = content.projectId || content.project;
+            const taskId: string | undefined = content.taskId || content.task;
+
+            // 각 날짜마다 attendance internal 호출 (병렬)
+            await Promise.allSettled(
+              workDates.map((date) =>
+                fetch(`${attendanceUrl}/internal/holiday-work/from-approval`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "X-Internal-Token": token },
+                  body: JSON.stringify({
+                    userId: doc.requestedBy,
+                    date,
+                    reason,
+                    ...(projectId ? { projectId } : {}),
+                    ...(taskId ? { taskId } : {}),
+                    approvalDocumentId: doc.id,
+                  }),
+                })
+              )
+            );
           }
           break;
       }

@@ -112,6 +112,15 @@ export class CalendarService {
     const existing = await this.prisma.companyCalendarEntry.findUnique({ where: { id } });
     if (!existing) throw new CalendarError("CALENDAR_NOT_FOUND", "항목을 찾을 수 없습니다.", 404);
 
+    // v1.2 — KASI 자동 갱신 항목 보호: 직접 수정 차단
+    if (existing.source === "KASI") {
+      throw new CalendarError(
+        "KASI_ROW_READONLY",
+        "자동 갱신 항목은 직접 수정할 수 없습니다. 수동 항목으로 새로 등록하세요.",
+        409,
+      );
+    }
+
     const data: Prisma.CompanyCalendarEntryUpdateInput = {};
     if (input.type !== undefined) data.type = input.type;
     if (input.title !== undefined) data.title = input.title;
@@ -133,6 +142,16 @@ export class CalendarService {
   async remove(id: string) {
     const existing = await this.prisma.companyCalendarEntry.findUnique({ where: { id } });
     if (!existing) throw new CalendarError("CALENDAR_NOT_FOUND", "항목을 찾을 수 없습니다.", 404);
+
+    // v1.2 — KASI 자동 갱신 항목 보호: 직접 삭제 차단
+    if (existing.source === "KASI") {
+      throw new CalendarError(
+        "KASI_ROW_READONLY",
+        "자동 갱신 항목은 직접 삭제할 수 없습니다.",
+        409,
+      );
+    }
+
     await this.prisma.companyCalendarEntry.delete({ where: { id } });
   }
 

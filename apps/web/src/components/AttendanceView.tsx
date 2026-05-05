@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { attendanceApi, leaveApi, overtimeApi, approvalLineApi, userManagementApi, attendanceOverviewApi, getUser } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { attendanceApi, leaveApi, holidayWorkApi, approvalLineApi, userManagementApi, attendanceOverviewApi, getUser } from "@/lib/api";
+import { DateInput } from "@/components/ui/DateInput";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -60,9 +62,14 @@ const WORK_ENTRY_TYPES = [
 
 const ENTRY_LABELS: Record<string, string> = {
   WORK: "출근", FIELD: "외근", TRAINING: "교육",
-  BUSINESS_TRIP: "출장", HALF_AM: "오전반차", HALF_PM: "오후반차",
-  QUARTER: "1/4차", FAMILY: "가정의날",
-  ANNUAL: "연차", SICK: "병가", SPECIAL: "특별휴가", OT: "OT",
+  BUSINESS_TRIP: "출장",
+  HALF: "반차",                  // v1.6: HALF_AM/HALF_PM 통합
+  HALF_AM: "오전반차", HALF_PM: "오후반차",  // legacy 호환
+  QUARTER: "1/4연차",
+  FAMILY_DAY: "가정의날", FAMILY_DAY_2H: "가정의날(2H)",  // v1.6
+  FAMILY: "가정의날",            // legacy 호환
+  BEREAVEMENT: "경조사",         // v1.5
+  ANNUAL: "연차", SICK: "병가", SPECIAL: "공가", OT: "휴일근무",
 };
 
 const ENTRY_COLORS: Record<string, string> = {
@@ -70,10 +77,14 @@ const ENTRY_COLORS: Record<string, string> = {
   FIELD: "bg-green-100 text-green-800",
   TRAINING: "bg-purple-100 text-purple-800",
   BUSINESS_TRIP: "bg-orange-100 text-orange-800",
+  HALF: "bg-yellow-100 text-yellow-800",
   HALF_AM: "bg-yellow-100 text-yellow-800",
   HALF_PM: "bg-yellow-100 text-yellow-800",
   QUARTER: "bg-amber-100 text-amber-800",
+  FAMILY_DAY: "bg-emerald-100 text-emerald-800",
+  FAMILY_DAY_2H: "bg-emerald-100 text-emerald-800",
   FAMILY: "bg-emerald-100 text-emerald-800",
+  BEREAVEMENT: "bg-rose-100 text-rose-800",
   ANNUAL: "bg-red-100 text-red-800",
   SICK: "bg-pink-100 text-pink-800",
   SPECIAL: "bg-indigo-100 text-indigo-800",
@@ -204,7 +215,8 @@ function CheckInWidget({ today, onAction }: { today: TodayRecord | null; onActio
 
 // ─── Time Input (HH:mm, 시/분 개별 클릭 편집) ───────────────────────────────
 
-function TimeInput({ value, onChange, nextRef, hInputRef }: { value: string; onChange: (v: string) => void; nextRef?: React.MutableRefObject<HTMLInputElement | null>; hInputRef?: React.MutableRefObject<HTMLInputElement | null> }) {
+// 출퇴근 시간 입력 전용 — H/M 분리 키보드 UX (일반 시간 입력은 @/components/ui/TimeInput)
+function ClockTimeInput({ value, onChange, nextRef, hInputRef }: { value: string; onChange: (v: string) => void; nextRef?: React.MutableRefObject<HTMLInputElement | null>; hInputRef?: React.MutableRefObject<HTMLInputElement | null> }) {
   const [h, m] = value.split(":");
   const [hDraft, setHDraft] = useState(h);
   const [mDraft, setMDraft] = useState(m);
@@ -384,7 +396,7 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete }: {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs text-gray-600 mb-1">시작일</label>
-                  <input type="date" value={startDate} required onChange={(e) => {
+                  <DateInput value={startDate} required onChange={(e) => {
                     setStartDate(e.target.value);
                     if (e.target.value > endDate) setEndDate(e.target.value);
                   }}
@@ -392,25 +404,25 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete }: {
                 </div>
                 <div>
                   <label className="block text-xs text-gray-600 mb-1">종료일</label>
-                  <input type="date" value={endDate} required min={startDate} onChange={(e) => setEndDate(e.target.value)}
+                  <DateInput value={endDate} required min={startDate} onChange={(e) => setEndDate(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
                 </div>
               </div>
             ) : (
               <div>
                 <label className="block text-xs text-gray-600 mb-1">날짜</label>
-                <input type="date" value={startDate} required onChange={(e) => setStartDate(e.target.value)}
+                <DateInput value={startDate} required onChange={(e) => setStartDate(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
               </div>
             ))}
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-xs text-gray-600 mb-1">시작 시간</label>
-                <TimeInput value={startTime} onChange={setStartTime} nextRef={endTimeHRef} />
+                <ClockTimeInput value={startTime} onChange={setStartTime} nextRef={endTimeHRef} />
               </div>
               <div>
                 <label className="block text-xs text-gray-600 mb-1">종료 시간</label>
-                <TimeInput value={endTime} onChange={setEndTime} hInputRef={endTimeHRef} />
+                <ClockTimeInput value={endTime} onChange={setEndTime} hInputRef={endTimeHRef} />
               </div>
             </div>
             <div>
@@ -533,7 +545,7 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged }: {
           <span>결근 <strong className="text-red-600">{summary.absentCount ?? 0}일</strong></span>
           <span>휴가 <strong className="text-blue-600">{summary.leaveCount ?? 0}일</strong></span>
           <span>총 근무 <strong className="text-blue-700">{fmtMinutes(summary.totalWorkMinutes ?? 0)}</strong></span>
-          <span>OT <strong className="text-purple-600">{(summary.totalOtHours ?? 0).toFixed(1)}h</strong></span>
+          <span>휴일근무 <strong className="text-purple-600">{(summary.totalOtHours ?? 0).toFixed(1)}h</strong></span>
         </div>
       )}
       <div className="p-3">
@@ -608,7 +620,7 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged }: {
 
                   {/* OT 표시 */}
                   {cell.otHours > 0 && !dayEntries.some((e) => e.entryType === "OT") && (
-                    <span className="text-[9px] text-purple-500 leading-tight">OT {cell.otHours}h</span>
+                    <span className="text-[9px] text-purple-500 leading-tight">휴일근무</span>
                   )}
                 </div>
               </div>
@@ -679,210 +691,39 @@ const LEAVE_TYPES = [
   { value: "SPECIAL", label: "특별휴가" },
 ];
 
-function LeaveRequestForm({ onSuccess }: { onSuccess: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ type: "ANNUAL", startDate: "", endDate: "", reason: "" });
-  const [leaveStartTime, setLeaveStartTime] = useState("09:30");
-  const [leaveEndTime, setLeaveEndTime] = useState("18:30");
-  const leaveEndTimeHRef = useRef<HTMLInputElement>(null);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [approverId, setApproverId] = useState<string>("");
-  const [members, setMembers] = useState<{ id: string; name: string }[]>([]);
-  const [loadingApprover, setLoadingApprover] = useState(false);
+// ─── 휴가 신청 버튼 (전자결재 시스템으로 redirect) ─────────────────────────────
+// 근태현황 design v1.4 + 옵션 (라): 진입은 근태에서 자연스럽게, 실제 신청은 전자결재로 통합
+// 모든 결재 신청은 /approval/new가 single source of truth (OT와 동일 패턴)
 
-  const openForm = async () => {
-    setOpen(true);
-    setLoadingApprover(true);
-    try {
-      const [info, list] = await Promise.all([approvalLineApi.getMe().catch(() => null), userManagementApi.members().catch(() => [])]);
-      setMembers(list);
-      setApproverId(info?.approverId ?? "");
-    } finally { setLoadingApprover(false); }
-  };
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true); setError(null);
-    try {
-      await leaveApi.create({ ...form, ...(approverId ? { approverId } : {}) });
-      setOpen(false);
-      setForm({ type: "ANNUAL", startDate: "", endDate: "", reason: "" });
-      onSuccess();
-    } catch (e: any) { setError(e.message); }
-    finally { setSaving(false); }
-  };
-
+function LeaveRequestForm({ onSuccess: _onSuccess }: { onSuccess: () => void }) {
+  const router = useRouter();
   return (
-    <>
-      <button onClick={openForm} className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">+ 휴가 신청</button>
-      {open && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setOpen(false)}>
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900">휴가 신청</h3>
-              <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
-            </div>
-            <form onSubmit={submit} className="space-y-3">
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">1차 결재자</label>
-                {loadingApprover ? (
-                  <div className="px-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-400">불러오는 중...</div>
-                ) : (
-                  <select value={approverId} onChange={(e) => setApproverId(e.target.value)} required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="">— 결재자 선택 —</option>
-                    {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-                  </select>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">휴가 유형</label>
-                <select value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  {LEAVE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
-              </div>
-              {["HALF_AM", "HALF_PM", "QUARTER", "FAMILY"].includes(form.type) ? (
-                <>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">날짜</label>
-                    <input type="date" value={form.startDate} required onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value, endDate: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">시작 시간</label>
-                      <TimeInput value={leaveStartTime} onChange={setLeaveStartTime} nextRef={leaveEndTimeHRef} />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">종료 시간</label>
-                      <TimeInput value={leaveEndTime} onChange={setLeaveEndTime} hInputRef={leaveEndTimeHRef} />
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">시작일</label>
-                    <input type="date" value={form.startDate} required onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">종료일</label>
-                    <input type="date" value={form.endDate} required min={form.startDate} onChange={(e) => setForm((p) => ({ ...p, endDate: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  </div>
-                </div>
-              )}
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">사유</label>
-                <input type="text" value={form.reason} required onChange={(e) => setForm((p) => ({ ...p, reason: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              </div>
-              {error && <p className="text-xs text-red-500">{error}</p>}
-              <div className="flex gap-2 pt-1">
-                <button type="button" onClick={() => setOpen(false)} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">취소</button>
-                <button type="submit" disabled={saving} className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
-                  {saving ? "신청 중..." : "신청"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </>
+    <button
+      onClick={() => router.push("/approval/new?template=LEAVE")}
+      className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+    >
+      + 휴가 신청
+    </button>
   );
 }
 
-// ─── OT Request Form ──────────────────────────────────────────────────────────
+// ─── 휴일근무 신청 버튼 (전자결재 시스템으로 redirect) ──────────────────────────
+// 근태현황 design v1.3 + 옵션 (라): 진입은 근태에서 자연스럽게, 실제 신청은 전자결재로 통합
+// 모든 결재 신청은 /approval/new가 single source of truth
 
-function OvertimeRequestForm({ onSuccess }: { onSuccess: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ date: "", plannedHours: "2", reason: "" });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [approverId, setApproverId] = useState<string>("");
-  const [members, setMembers] = useState<{ id: string; name: string }[]>([]);
-  const [loadingApprover, setLoadingApprover] = useState(false);
-
-  const openForm = async () => {
-    setOpen(true);
-    setLoadingApprover(true);
-    try {
-      const [info, list] = await Promise.all([approvalLineApi.getMe().catch(() => null), userManagementApi.members().catch(() => [])]);
-      setMembers(list);
-      setApproverId(info?.approverId ?? "");
-    } finally { setLoadingApprover(false); }
-  };
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true); setError(null);
-    try {
-      await overtimeApi.create({ ...form, plannedHours: parseFloat(form.plannedHours), ...(approverId ? { approverId } : {}) });
-      setOpen(false);
-      setForm({ date: "", plannedHours: "2", reason: "" });
-      onSuccess();
-    } catch (e: any) { setError(e.message); }
-    finally { setSaving(false); }
-  };
-
+function HolidayWorkRequestForm({ onSuccess: _onSuccess }: { onSuccess: () => void }) {
+  const router = useRouter();
   return (
-    <>
-      <button onClick={openForm} className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700">+ OT 신청</button>
-      {open && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setOpen(false)}>
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900">OT 신청</h3>
-              <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
-            </div>
-            <form onSubmit={submit} className="space-y-3">
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">1차 결재자</label>
-                {loadingApprover ? (
-                  <div className="px-3 py-2 border border-gray-200 rounded-lg text-xs text-gray-400">불러오는 중...</div>
-                ) : (
-                  <select value={approverId} onChange={(e) => setApproverId(e.target.value)} required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
-                    <option value="">— 결재자 선택 —</option>
-                    {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-                  </select>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">날짜</label>
-                <input type="date" value={form.date} required onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">예정 시간 (h)</label>
-                <input type="number" min="0.5" max="12" step="0.5" value={form.plannedHours} required
-                  onChange={(e) => setForm((p) => ({ ...p, plannedHours: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">사유</label>
-                <input type="text" value={form.reason} required onChange={(e) => setForm((p) => ({ ...p, reason: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
-              </div>
-              {error && <p className="text-xs text-red-500">{error}</p>}
-              <div className="flex gap-2 pt-1">
-                <button type="button" onClick={() => setOpen(false)} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">취소</button>
-                <button type="submit" disabled={saving} className="flex-1 bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-purple-700 disabled:opacity-50">
-                  {saving ? "신청 중..." : "신청"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </>
+    <button
+      onClick={() => router.push("/approval/new?template=OT")}
+      className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700"
+    >
+      + 휴일근무 신청
+    </button>
   );
 }
 
-// ─── Leave / OT History ───────────────────────────────────────────────────────
+// ─── Leave / 휴일근무 History ─────────────────────────────────────────────────
 
 const APPROVAL_STATUS: Record<string, { label: string; color: string }> = {
   PENDING:   { label: "대기", color: "text-amber-600 bg-amber-50" },
@@ -928,26 +769,18 @@ function LeaveHistory({ refresh }: { refresh: number }) {
   );
 }
 
-function OvertimeHistory({ refresh }: { refresh: number }) {
+function HolidayWorkHistory({ refresh }: { refresh: number }) {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [completingId, setCompletingId] = useState<string | null>(null);
-  const [actualHours, setActualHours] = useState("2");
 
   useEffect(() => {
     setLoading(true);
-    overtimeApi.list().then(setItems).catch(() => {}).finally(() => setLoading(false));
+    holidayWorkApi.list().then(setItems).catch(() => {}).finally(() => setLoading(false));
   }, [refresh]);
 
   const cancel = async (id: string) => {
-    await overtimeApi.cancel(id);
+    await holidayWorkApi.cancel(id);
     setItems((prev) => prev.map((i) => i.id === id ? { ...i, status: "CANCELLED" } : i));
-  };
-
-  const complete = async (id: string) => {
-    await overtimeApi.complete(id, parseFloat(actualHours));
-    setItems((prev) => prev.map((i) => i.id === id ? { ...i, status: "DONE", actualHours: parseFloat(actualHours) } : i));
-    setCompletingId(null);
   };
 
   if (loading) return <div className="text-xs text-gray-400 py-4 text-center">불러오는 중...</div>;
@@ -960,27 +793,14 @@ function OvertimeHistory({ refresh }: { refresh: number }) {
           <div key={item.id} className="px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm">
             <div className="flex items-center gap-3">
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-gray-900">{item.date?.slice(0, 10)} · {item.plannedHours}h 예정</div>
+                <div className="font-medium text-gray-900">{item.date?.slice(0, 10)} · 휴일근무</div>
                 <div className="text-xs text-gray-400 truncate">{item.reason}</div>
               </div>
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.color}`}>{st.label}</span>
-              {item.status === "APPROVED" && (
-                <button onClick={() => setCompletingId(item.id)} className="text-xs text-purple-600 hover:underline">실적 입력</button>
-              )}
               {item.status === "PENDING" && (
                 <button onClick={() => cancel(item.id)} className="text-xs text-gray-400 hover:text-red-500">취소</button>
               )}
             </div>
-            {completingId === item.id && (
-              <div className="mt-2 flex items-center gap-2">
-                <input type="number" min="0.5" max="12" step="0.5" value={actualHours}
-                  onChange={(e) => setActualHours(e.target.value)}
-                  className="w-20 px-2 py-1 border border-gray-300 rounded text-xs" />
-                <span className="text-xs text-gray-500">시간</span>
-                <button onClick={() => complete(item.id)} className="text-xs bg-purple-600 text-white px-2 py-1 rounded hover:bg-purple-700">저장</button>
-                <button onClick={() => setCompletingId(null)} className="text-xs text-gray-400 hover:text-gray-600">취소</button>
-              </div>
-            )}
           </div>
         );
       })}
@@ -1030,7 +850,7 @@ export default function AttendanceView() {
       {/* 신청 버튼 */}
       <div className="flex items-center gap-2 flex-wrap">
         <LeaveRequestForm onSuccess={() => { setRefresh((r) => r + 1); loadBalance(); }} />
-        <OvertimeRequestForm onSuccess={() => setRefresh((r) => r + 1)} />
+        <HolidayWorkRequestForm onSuccess={() => setRefresh((r) => r + 1)} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1054,7 +874,7 @@ export default function AttendanceView() {
         <p className="text-[10px] text-gray-400 mt-1.5 ml-1">날짜를 클릭하여 근태를 추가할 수 있습니다</p>
       </div>
 
-      {/* 휴가 / OT 내역 */}
+      {/* 휴가 / 휴일근무 내역 */}
       <div>
         <div className="flex items-center gap-1 mb-3">
           <button onClick={() => setActiveTab("leave")}
@@ -1063,10 +883,10 @@ export default function AttendanceView() {
           </button>
           <button onClick={() => setActiveTab("ot")}
             className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === "ot" ? "bg-purple-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>
-            OT 내역
+            휴일근무 내역
           </button>
         </div>
-        {activeTab === "leave" ? <LeaveHistory refresh={refresh} /> : <OvertimeHistory refresh={refresh} />}
+        {activeTab === "leave" ? <LeaveHistory refresh={refresh} /> : <HolidayWorkHistory refresh={refresh} />}
       </div>
     </div>
   );

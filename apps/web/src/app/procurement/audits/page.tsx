@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auditApi } from "@/lib/api";
+import { DateInput } from "@/components/ui/DateInput";
 
 const STATUS_COLORS: Record<string, string> = { PLANNED: "bg-gray-100 text-gray-600", IN_PROGRESS: "bg-yellow-100 text-yellow-700", PAUSED: "bg-blue-100 text-blue-700", CANCELLED: "bg-red-100 text-red-700", COMPLETED: "bg-green-100 text-green-700" };
 const STATUS_LABELS: Record<string, string> = { PLANNED: "예정", IN_PROGRESS: "진행중", PAUSED: "일시정지", CANCELLED: "취소", COMPLETED: "완료" };
@@ -75,7 +76,7 @@ export default function AuditsPage() {
               </div>
               <div>
                 <label className="text-sm text-gray-600">예정일</label>
-                <input type="date" value={form.plannedDate} onChange={(e) => setForm(p => ({ ...p, plannedDate: e.target.value }))}
+                <DateInput value={form.plannedDate} onChange={(e) => setForm(p => ({ ...p, plannedDate: e.target.value }))}
                   className="w-full border rounded px-3 py-2 text-sm" />
               </div>
               <div>

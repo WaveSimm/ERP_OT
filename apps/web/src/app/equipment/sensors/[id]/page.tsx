@@ -7,6 +7,8 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { sensorApi, maintenanceApi, equipmentScheduleApi, deploymentApi, projectApi, taskApi, compatibilityApi } from "@/lib/api";
 import ScheduleTimeline from "@/components/ScheduleTimeline";
+import { DateInput } from "@/components/ui/DateInput";
+import { useHolidaysMap } from "@/hooks/useHolidaysMap";
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   AVAILABLE: { label: "가용", color: "bg-green-100 text-green-800" },
@@ -27,6 +29,7 @@ export default function SensorDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const holidays = useHolidaysMap();
   const [sensor, setSensor] = useState<any>(null);
   const initialTab = (searchParams.get("tab") as Tab) || "info";
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -280,7 +283,7 @@ export default function SensorDetailPage() {
               <ScheduleTimeline schedules={[
                 ...sensorSchedules,
                 ...maintenance.map((m: any) => ({ id: m.id, type: m.type, title: m.title, startDate: m.performedAt, endDate: m.completedAt || m.performedAt })),
-              ]} />
+              ]} holidays={holidays} />
               <div>
                 <select value={historyFilter} onChange={(e) => setHistoryFilter(e.target.value)} className="border rounded px-3 py-1.5 text-sm">
                   <option value="ALL">전체</option>
@@ -421,7 +424,7 @@ export default function SensorDetailPage() {
 
           return (
           <div className="space-y-3">
-            <ScheduleTimeline schedules={maintSchedules} />
+            <ScheduleTimeline schedules={maintSchedules} holidays={holidays} />
             <div className="flex gap-2 flex-wrap">
               {Object.entries(TYPE_INFO).map(([key, info]) => (
                 <button key={key} onClick={() => openForm(key)}
@@ -435,8 +438,8 @@ export default function SensorDetailPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <input placeholder="제목 *" value={maintForm.title} onChange={(e) => setMaintForm({ ...maintForm, title: e.target.value })} className="border rounded px-3 py-2 text-sm" />
                   <input placeholder="수행자" value={maintForm.performedBy} onChange={(e) => setMaintForm({ ...maintForm, performedBy: e.target.value })} className="border rounded px-3 py-2 text-sm" />
-                  <input type="date" value={maintForm.startDate} onChange={(e) => setMaintForm({ ...maintForm, startDate: e.target.value, performedAt: e.target.value })} className="border rounded px-3 py-2 text-sm" />
-                  <input type="date" value={maintForm.endDate} onChange={(e) => setMaintForm({ ...maintForm, endDate: e.target.value })} className="border rounded px-3 py-2 text-sm" />
+                  <DateInput value={maintForm.startDate} onChange={(e) => setMaintForm({ ...maintForm, startDate: e.target.value, performedAt: e.target.value })} className="border rounded px-3 py-2 text-sm" />
+                  <DateInput value={maintForm.endDate} onChange={(e) => setMaintForm({ ...maintForm, endDate: e.target.value })} className="border rounded px-3 py-2 text-sm" />
                   <input placeholder="비용 (원)" value={maintForm.cost} onChange={(e) => setMaintForm({ ...maintForm, cost: e.target.value })} className="border rounded px-3 py-2 text-sm" />
                   <input placeholder="설명 (선택)" value={maintForm.description} onChange={(e) => setMaintForm({ ...maintForm, description: e.target.value })} className="border rounded px-3 py-2 text-sm" />
                 </div>
@@ -482,13 +485,13 @@ export default function SensorDetailPage() {
                         <td className="p-2">{r.title}{r.description && <span className="text-gray-400 ml-1">- {r.description}</span>}</td>
                         <td className="p-2">
                           {isCompleted ? new Date(r.startDate).toLocaleDateString() : (
-                            <input type="date" defaultValue={r.startDate} onBlur={(e) => { if (e.target.value !== r.startDate) handleDateChange(r.id, "startDate", e.target.value); }}
+                            <DateInput defaultValue={r.startDate} onBlur={(e) => { if (e.target.value !== r.startDate) handleDateChange(r.id, "startDate", e.target.value); }}
                               className="border rounded px-1.5 py-0.5 text-xs w-[120px]" />
                           )}
                         </td>
                         <td className="p-2">
                           {isCompleted ? new Date(r.endDate).toLocaleDateString() : (
-                            <input type="date" defaultValue={r.endDate} onBlur={(e) => { if (e.target.value !== r.endDate) handleDateChange(r.id, "endDate", e.target.value); }}
+                            <DateInput defaultValue={r.endDate} onBlur={(e) => { if (e.target.value !== r.endDate) handleDateChange(r.id, "endDate", e.target.value); }}
                               className="border rounded px-1.5 py-0.5 text-xs w-[120px]" />
                           )}
                         </td>
@@ -550,7 +553,7 @@ export default function SensorDetailPage() {
 
           return (
             <div className="space-y-3">
-              <ScheduleTimeline schedules={projectSchedules} />
+              <ScheduleTimeline schedules={projectSchedules} holidays={holidays} />
               <div className="flex gap-2">
                 {(sensor.status === "AVAILABLE" || sensor.status === "DEPLOYED") && (
                   <button onClick={openDeployForm} className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm">+ 프로젝트에 투입</button>
@@ -581,13 +584,13 @@ export default function SensorDetailPage() {
                           <td className="p-2 text-gray-600">{dep?.taskName || s.description || "-"}</td>
                           <td className="p-2">
                             {isCompleted ? new Date(s.startDate).toLocaleDateString() : (
-                              <input type="date" defaultValue={sd} onBlur={(e) => { if (e.target.value !== sd) handleSchedDateChange(s.id, "startDate", e.target.value); }}
+                              <DateInput defaultValue={sd} onBlur={(e) => { if (e.target.value !== sd) handleSchedDateChange(s.id, "startDate", e.target.value); }}
                                 className="border rounded px-1.5 py-0.5 text-xs w-[120px]" />
                             )}
                           </td>
                           <td className="p-2">
                             {isCompleted ? new Date(s.endDate).toLocaleDateString() : (
-                              <input type="date" defaultValue={ed} onBlur={(e) => { if (e.target.value !== ed) handleSchedDateChange(s.id, "endDate", e.target.value); }}
+                              <DateInput defaultValue={ed} onBlur={(e) => { if (e.target.value !== ed) handleSchedDateChange(s.id, "endDate", e.target.value); }}
                                 className="border rounded px-1.5 py-0.5 text-xs w-[120px]" />
                             )}
                           </td>
@@ -694,12 +697,12 @@ export default function SensorDetailPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium mb-1">시작일 *</label>
-                    <input type="date" value={deployForm.startDate} onChange={(e) => setDeployForm({ ...deployForm, startDate: e.target.value })}
+                    <DateInput value={deployForm.startDate} onChange={(e) => setDeployForm({ ...deployForm, startDate: e.target.value })}
                       className="w-full border rounded px-3 py-2 text-sm" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">종료일 (예정)</label>
-                    <input type="date" value={deployForm.endDate} onChange={(e) => setDeployForm({ ...deployForm, endDate: e.target.value })}
+                    <DateInput value={deployForm.endDate} onChange={(e) => setDeployForm({ ...deployForm, endDate: e.target.value })}
                       className="w-full border rounded px-3 py-2 text-sm" />
                   </div>
                 </div>

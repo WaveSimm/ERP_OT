@@ -447,6 +447,39 @@ export class TaskService {
     return updated;
   }
 
+  // 자원-모델-분리 PDCA Phase 3a-5: dto.resourceId가 어느 카테고리인지 자동 판별
+  // 우선순위: legacy Resource > EquipmentResource > ExternalPerson > AuthUser
+  //   - legacy Resource: 기존 화면 호환 (Phase 4까지)
+  //   - 나머지: 신규 분리 모델
+  private async resolveResourceCategory(id: string): Promise<{
+    category: "LEGACY" | "PERSON" | "EXTERNAL" | "EQUIPMENT";
+    name: string;
+    polymorphic: { personUserId?: string; externalPersonId?: string; equipmentResourceId?: string };
+  } | null> {
+    // 1. legacy Resource (호환)
+    const legacy = await this.prisma.resource.findUnique({ where: { id } });
+    if (legacy) {
+      return { category: "LEGACY", name: legacy.name, polymorphic: {} };
+    }
+    // 2. EquipmentResource
+    const eq = await this.prisma.equipmentResource.findUnique({ where: { id } });
+    if (eq) return { category: "EQUIPMENT", name: eq.name, polymorphic: { equipmentResourceId: id } };
+    // 3. ExternalPerson
+    const ext = await this.prisma.externalPerson.findUnique({ where: { id } });
+    if (ext) return { category: "EXTERNAL", name: ext.name, polymorphic: { externalPersonId: id } };
+    // 4. AuthUser (cross-service)
+    const authUrl = process.env.AUTH_SERVICE_URL ?? "http://auth-service:3001";
+    const token = process.env.INTERNAL_API_TOKEN as string;
+    try {
+      const r = await fetch(`${authUrl}/internal/users/bulk?ids=${id}`, { headers: { "x-internal-token": token } });
+      if (r.ok) {
+        const map = (await r.json()) as Record<string, { name: string; email: string }>;
+        if (map[id]) return { category: "PERSON", name: map[id]!.name, polymorphic: { personUserId: id } };
+      }
+    } catch { /* ignore */ }
+    return null;
+  }
+
   async upsertAssignment(
     segmentId: string,
     dto: UpsertAssignmentDto,
@@ -458,11 +491,16 @@ export class TaskService {
     });
     if (!segment) throw new AppError(404, "SEGMENT_NOT_FOUND", "세그먼트를 찾을 수 없습니다.");
 
+    const resolved = await this.resolveResourceCategory(dto.resourceId);
+    if (!resolved) throw new AppError(404, "RESOURCE_NOT_FOUND", "자원을 찾을 수 없습니다.");
+
     const assignment = await this.prisma.segmentAssignment.upsert({
       where: { segmentId_resourceId: { segmentId, resourceId: dto.resourceId } },
       create: {
         segmentId,
         resourceId: dto.resourceId,
+        // 신규 polymorphic FK (legacy는 빈 객체 — XOR violation 회피용으로 deprecated 그대로)
+        ...resolved.polymorphic,
         allocationMode: dto.allocationMode,
         allocationPercent: dto.allocationPercent ?? null,
         allocationHoursPerDay: dto.allocationHoursPerDay ?? null,
@@ -471,6 +509,7 @@ export class TaskService {
         allocationMode: dto.allocationMode,
         allocationPercent: dto.allocationPercent ?? null,
         allocationHoursPerDay: dto.allocationHoursPerDay ?? null,
+        ...resolved.polymorphic,
       },
     });
 
@@ -486,10 +525,9 @@ export class TaskService {
       },
     });
 
-    const resource = await this.prisma.resource.findUnique({ where: { id: dto.resourceId } });
     await this.logActivity(segment.task.projectId, requesterId, "ASSIGNMENT_CHANGED", "task", segment.taskId,
-      `자원 배정: ${resource?.name ?? dto.resourceId}`,
-      { taskName: segment.task.name, resourceName: resource?.name ?? dto.resourceId });
+      `자원 배정: ${resolved.name}`,
+      { taskName: segment.task.name, resourceName: resolved.name });
 
     await this.cache.invalidateProjectSummary(segment.task.projectId);
     return assignment;
@@ -505,10 +543,11 @@ export class TaskService {
     });
 
     if (requesterId && segment) {
-      const resource = await this.prisma.resource.findUnique({ where: { id: resourceId } });
+      const resolved = await this.resolveResourceCategory(resourceId);
+      const name = resolved?.name ?? resourceId;
       await this.logActivity(segment.task.projectId, requesterId, "ASSIGNMENT_REMOVED", "task", segment.taskId,
-        `자원 해제: ${resource?.name ?? resourceId}`,
-        { taskName: segment.task.name, resourceName: resource?.name ?? resourceId });
+        `자원 해제: ${name}`,
+        { taskName: segment.task.name, resourceName: name });
     }
   }
 

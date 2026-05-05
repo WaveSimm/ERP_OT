@@ -15,6 +15,13 @@ function loadTestUserExclude(): Prisma.UserWhereInput {
     : {};
 }
 
+// 자원-모델-분리 PDCA Phase 3a-1: 일반 조회는 status=ACTIVE만 (default)
+//   ?includeRetired=true 또는 ?includeAll=true 시 모두 포함
+function activeUserFilter(query: { includeRetired?: string; includeAll?: string }): Prisma.UserWhereInput {
+  const include = query.includeRetired === "true" || query.includeAll === "true";
+  return include ? {} : { status: "ACTIVE" };
+}
+
 export async function internalRoutes(
   fastify: FastifyInstance,
   opts: {
@@ -86,11 +93,12 @@ export async function internalRoutes(
     });
   });
 
-  // GET /internal/users/all — 전체 사용자 ID+이름 목록 (부하 사용자 자동 제외)
+  // GET /internal/users/all — 전체 사용자 ID+이름 목록 (부하 사용자 + RETIRED 자동 제외)
   fastify.get("/users/all", async (req, reply) => {
+    const q = req.query as { includeRetired?: string; includeAll?: string };
     const users = await prisma.user.findMany({
-      where: loadTestUserExclude(),
-      select: { id: true, name: true, email: true },
+      where: { ...loadTestUserExclude(), ...activeUserFilter(q) },
+      select: { id: true, name: true, email: true, status: true },
     });
     return reply.send(users);
   });
@@ -146,12 +154,14 @@ export async function internalRoutes(
     return reply.send(users);
   });
 
-  // GET /internal/users/all-with-departments — 전체 사용자 + 부서 정보 (부하 사용자 자동 제외)
+  // GET /internal/users/all-with-departments — 전체 사용자 + 부서 정보 (부하 사용자 + RETIRED 자동 제외)
   fastify.get("/users/all-with-departments", async (req, reply) => {
+    const q = req.query as { includeRetired?: string; includeAll?: string };
+    const userFilter = { ...loadTestUserExclude(), ...activeUserFilter(q) };
     const profiles = await prisma.userProfile.findMany({
-      where: HIDE_LOAD_TEST ? { user: loadTestUserExclude() } : {},
+      where: { user: userFilter },
       include: {
-        user: { select: { id: true, name: true, email: true } },
+        user: { select: { id: true, name: true, email: true, status: true } },
         department: { select: { id: true, name: true, sortOrder: true } },
       },
     });
@@ -159,22 +169,23 @@ export async function internalRoutes(
       id: p.user.id,
       name: p.user.name,
       email: p.user.email,
+      status: p.user.status,
       departmentId: p.department?.id ?? null,
       departmentName: p.department?.name ?? null,
       departmentSortOrder: p.department?.sortOrder ?? 999,
     }));
-    // UserProfile 없는 사용자도 포함 (부하 사용자 제외)
+    // UserProfile 없는 사용자도 포함
     const profileUserIds = new Set(profiles.map((p) => p.userId));
     const orphans = await prisma.user.findMany({
       where: {
         id: { notIn: Array.from(profileUserIds) },
-        ...loadTestUserExclude(),
+        ...userFilter,
       },
-      select: { id: true, name: true, email: true },
+      select: { id: true, name: true, email: true, status: true },
     });
     for (const u of orphans) {
       result.push({
-        id: u.id, name: u.name, email: u.email,
+        id: u.id, name: u.name, email: u.email, status: u.status,
         departmentId: null, departmentName: null, departmentSortOrder: 999,
       });
     }

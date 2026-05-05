@@ -1,14 +1,14 @@
 import bcrypt from "bcryptjs";
 import type { IUserRepository } from "../domain/repositories/user.repository";
-import type { User } from "../domain/entities/user.entity";
+import type { User, EmployeeStatus } from "../domain/entities/user.entity";
 import type { CreateUserDto, UpdateUserDto, UpsertProfileDto } from "../api/dtos/user.dto";
 import { AuthError } from "./auth.service";
 
 export class UserService {
   constructor(private readonly userRepo: IUserRepository) {}
 
-  async findAll(): Promise<any[]> {
-    const users = await this.userRepo.findAll();
+  async findAll(opts?: { includeRetired?: boolean }): Promise<any[]> {
+    const users = await this.userRepo.findAll(opts);
     return users.map((u) => ({ ...this.sanitize(u), profile: (u as any).profile ?? null, isOnline: (u as any).isOnline ?? false }));
   }
 
@@ -45,6 +45,51 @@ export class UserService {
     const user = await this.userRepo.findById(id);
     if (!user) throw new AuthError(404, "사용자를 찾을 수 없습니다.");
     await this.userRepo.delete(id);
+  }
+
+  // 자원-모델-분리 PDCA Phase 3a-1: 직원 상태 관리
+  async retire(id: string, retirementDate?: Date): Promise<Omit<User, "passwordHash">> {
+    const user = await this.userRepo.findById(id);
+    if (!user) throw new AuthError(404, "사용자를 찾을 수 없습니다.");
+    if (user.status === "RETIRED") throw new AuthError(400, "이미 퇴직 처리된 사용자입니다.");
+    const updated = await this.userRepo.update(id, {
+      status: "RETIRED",
+      isActive: false,
+      retirementDate: retirementDate ?? new Date(),
+    });
+    return this.sanitize(updated);
+  }
+
+  async reactivate(id: string): Promise<Omit<User, "passwordHash">> {
+    const user = await this.userRepo.findById(id);
+    if (!user) throw new AuthError(404, "사용자를 찾을 수 없습니다.");
+    const updated = await this.userRepo.update(id, {
+      status: "ACTIVE",
+      isActive: true,
+      retirementDate: null,
+    });
+    return this.sanitize(updated);
+  }
+
+  async updateStatus(
+    id: string,
+    dto: { status: EmployeeStatus; retirementDate?: Date | null },
+  ): Promise<Omit<User, "passwordHash">> {
+    const user = await this.userRepo.findById(id);
+    if (!user) throw new AuthError(404, "사용자를 찾을 수 없습니다.");
+    // RETIRED 변경 시 isActive=false + retirementDate 자동
+    const data: any = { status: dto.status };
+    if (dto.status === "RETIRED") {
+      data.isActive = false;
+      data.retirementDate = dto.retirementDate ?? new Date();
+    } else if (dto.status === "ACTIVE") {
+      data.isActive = true;
+      data.retirementDate = null;
+    } else if (dto.status === "SUSPENDED") {
+      data.isActive = false;
+    }
+    const updated = await this.userRepo.update(id, data);
+    return this.sanitize(updated);
   }
 
   async resetPassword(id: string, newPassword: string): Promise<void> {

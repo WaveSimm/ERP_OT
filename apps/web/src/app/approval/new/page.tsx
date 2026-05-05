@@ -4,7 +4,9 @@ export const dynamic = 'force-dynamic';
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { approvalApi, approvalLineApi, departmentApi, userManagementApi, projectApi, fileApi, getUser } from "@/lib/api";
+import { approvalApi, approvalLineApi, departmentApi, userManagementApi, projectApi, taskApi, myTasksApi, fileApi, getUser } from "@/lib/api";
+import { DateInput } from "@/components/ui/DateInput";
+import { TimeInput } from "@/components/ui/TimeInput";
 
 export default function NewApprovalPage() {
   const router = useRouter();
@@ -15,7 +17,8 @@ export default function NewApprovalPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<any | null>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [fields, setFields] = useState<Record<string, string>>({});
+  // fields는 string + string[] 둘 다 허용 (workDates 같은 multi-date 필드용)
+  const [fields, setFields] = useState<Record<string, any>>({});
   const [items, setItems] = useState<any[]>([]);
   const [approvalLine, setApprovalLine] = useState<{ userId: string; userName: string; role: string }[]>([]);
   const [saving, setSaving] = useState(false);
@@ -33,9 +36,57 @@ export default function NewApprovalPage() {
   const [projectSearch, setProjectSearch] = useState("");
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
 
-  const filteredProjects = projectSearch
-    ? projects.filter((p) => p.name.toLowerCase().includes(projectSearch.toLowerCase()))
+  // 태스크 드롭다운 (project 선택 후 활성화)
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [taskSearch, setTaskSearch] = useState("");
+  const [showTaskDropdown, setShowTaskDropdown] = useState(false);
+  const [tasksLoading, setTasksLoading] = useState(false);
+
+  // OT 템플릿: 본인 배정된 프로젝트+태스크만 (myTasksApi)
+  // 다른 템플릿(지출결의서 등): 전사 프로젝트 (projectApi.list)
+  const [myProjectGroups, setMyProjectGroups] = useState<any[]>([]); // [{ project, tasks }]
+  const isOTTemplate = selectedTemplate?.code === "OT";
+
+  // OT 템플릿이면 본인 프로젝트(myProjectGroups)만, 그 외엔 전사 projects
+  const projectSource = isOTTemplate
+    ? myProjectGroups.map((g: any) => g.project)
     : projects;
+  const filteredProjects = projectSearch
+    ? projectSource.filter((p: any) => (p.name || "").toLowerCase().includes(projectSearch.toLowerCase()))
+    : projectSource;
+
+  // OT 템플릿 선택 시 본인 프로젝트+태스크 로드
+  useEffect(() => {
+    if (!isOTTemplate) return;
+    myTasksApi.list().then((groups) => setMyProjectGroups(Array.isArray(groups) ? groups : [])).catch(() => setMyProjectGroups([]));
+  }, [isOTTemplate]);
+
+  const filteredTasks = taskSearch
+    ? tasks.filter((t) => ((t.name || t.taskName) || "").toLowerCase().includes(taskSearch.toLowerCase()))
+    : tasks;
+
+  // project 선택 변경 시 task 목록 로드
+  useEffect(() => {
+    const projectName = fields["project"];
+    if (!projectName) { setTasks([]); setTaskSearch(""); return; }
+
+    if (isOTTemplate) {
+      // 본인 배정된 task만 — myProjectGroups에서 매칭
+      const group = myProjectGroups.find((g) => g.project.name === projectName);
+      const list = (group?.tasks ?? []).map((t: any) => ({ id: t.taskId, name: t.taskName, status: t.taskStatus }));
+      setTasks(list);
+      return;
+    }
+
+    // 일반 템플릿: 전체 task
+    const matched = projects.find((p) => p.name === projectName);
+    if (!matched) { setTasks([]); return; }
+    setTasksLoading(true);
+    taskApi.list(matched.id)
+      .then((list) => setTasks(Array.isArray(list) ? list : []))
+      .catch(() => setTasks([]))
+      .finally(() => setTasksLoading(false));
+  }, [fields["project"], projects, isOTTemplate, myProjectGroups]);
 
   const filteredMembers = selectedDeptId
     ? allMembers.filter((m) => m.departmentId === selectedDeptId)
@@ -158,14 +209,103 @@ export default function NewApprovalPage() {
 
   const removeApprover = (idx: number) => setApprovalLine((p) => p.filter((_, i) => i !== idx));
 
+  // OT 자동 제목 생성 (휴일근무신청서)
+  const buildOTTitle = (): string => {
+    const dates: string[] = Array.isArray(fields["workDates"]) ? fields["workDates"].filter(Boolean) : [];
+    const proj = fields["project"];
+    const task = fields["task"];
+    const datesShort = dates.map((d) => d.slice(5).replace("-", "/"));
+    const dateStr = dates.length === 0 ? ""
+      : dates.length === 1 ? ` (${datesShort[0]})`
+      : dates.length <= 3 ? ` ${dates.length}일 (${datesShort.join(", ")})`
+      : ` ${dates.length}일 (${datesShort.slice(0, 3).join(", ")} 외)`;
+    const prefix = proj ? `[${proj}] ` : "";
+    const taskPart = task ? `${task} ` : "";
+    return `${prefix}${taskPart}휴일근무${dateStr}`.trim() || "휴일근무";
+  };
+
+  // LEAVE 자동 제목 생성 — `[연차-3일] 05/07~05/11 - 사유` 또는 `[반차-4시간] 05/07 09:00~13:00 - 사유`
+  const buildLeaveTitle = (): string => {
+    const type = fields["leaveType"];
+    const start = fields["startDate"];
+    const end = fields["endDate"];
+    const startTime = fields["startTime"];
+    const endTime = fields["endTime"];
+    const reason = (fields["reason"] || "").trim();
+    if (!type && !start) return "휴가신청";
+
+    // 라벨에서 "(...)" 괄호 부분 제거 — "연차(1일)" → "연차"
+    const typeName = type ? type.replace(/\s*\([^)]*\)\s*/g, "").trim() : "";
+
+    // duration 계산
+    const isTime = isTimeBasedLeave(type);
+    let durationStr = "";
+    if (isTime) {
+      const minutes = getTimeBasedDuration(type || "");
+      if (minutes >= 60 && minutes % 60 === 0) durationStr = `${minutes / 60}시간`;
+      else if (minutes > 0) durationStr = `${minutes}분`;
+    } else if (start && end) {
+      // 평일 카운트 (월~금만, 토/일 제외)
+      const s = new Date(start);
+      const e = new Date(end);
+      let count = 0;
+      const cur = new Date(s);
+      while (cur <= e) {
+        const dow = cur.getDay();
+        if (dow !== 0 && dow !== 6) count++;
+        cur.setDate(cur.getDate() + 1);
+      }
+      if (count > 0) durationStr = `${count}일`;
+    }
+
+    const typeStr = typeName ? `[${typeName}${durationStr ? `-${durationStr}` : ""}] ` : "";
+
+    // 날짜 범위
+    let dateStr = "";
+    if (start && end && start !== end) {
+      dateStr = `${start.slice(5).replace("-", "/")}~${end.slice(5).replace("-", "/")}`;
+    } else if (start) {
+      dateStr = start.slice(5).replace("-", "/");
+    }
+    // 시간 범위 (시간 단위 휴가)
+    const timeStr = (startTime && endTime) ? ` ${startTime}~${endTime}` : "";
+    const reasonStr = reason ? ` - ${reason.slice(0, 30)}` : "";
+    return `${typeStr}${dateStr}${timeStr}${reasonStr}`.trim();
+  };
+
+  // LEAVE: leaveType별 시간 자동 처리 — 시작 시간만 입력 → type 기반 종료 시간
+  // 반차(4H) 4h / 1/4연차(2H) 2h / 가정의날(1H) 1h / 가정의날(2H) 2h
+  const getTimeBasedDuration = (leaveType: string): number => {
+    if (leaveType === "반차(4H)" || leaveType === "반차") return 240;
+    if (leaveType === "1/4연차(2H)" || leaveType === "1/4연차") return 120;
+    if (leaveType === "가정의날(1H)") return 60;
+    if (leaveType === "가정의날(2H)") return 120;
+    return 0;
+  };
+  const isTimeBasedLeave = (leaveType?: string): boolean => {
+    return ["반차(4H)", "반차", "1/4연차(2H)", "1/4연차", "가정의날(1H)", "가정의날(2H)"].includes(leaveType || "");
+  };
+
+  const computeEndTime = (startTime: string, durationMin: number): string => {
+    const [h, m] = startTime.split(":").map(Number);
+    if ([h, m].some((n) => Number.isNaN(n))) return startTime;
+    const total = Math.min((h! * 60 + m!) + durationMin, 24 * 60 - 1);
+    return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+  };
+
   const handleSave = async (submit: boolean) => {
     if (!selectedTemplate) return;
     setSaving(true);
     try {
       const user = getUser();
+      // 템플릿별 제목 자동 생성, 그 외는 사용자 입력
+      const code = selectedTemplate.code;
+      const finalTitle = code === "OT" ? buildOTTitle()
+        : code === "LEAVE" ? buildLeaveTitle()
+        : title;
       const doc = await approvalApi.createDocument({
         templateId: selectedTemplate.id,
-        title,
+        title: finalTitle,
         body,
         fields,
         items: items.length > 0 ? items : undefined,
@@ -228,19 +368,55 @@ export default function NewApprovalPage() {
         <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">{selectedTemplate.name}</span>
       </div>
 
-      {/* 제목 */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">제목</label>
-        <input
-          value={title} onChange={(e) => setTitle(e.target.value)}
-          className="w-full border rounded-lg px-3 py-2 text-sm"
-        />
-      </div>
+      {/* 제목 — OT/LEAVE는 자동 생성(미리보기), 그 외엔 수동 입력 */}
+      {(selectedTemplate.code === "OT" || selectedTemplate.code === "LEAVE") ? (
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">제목 (자동 생성)</label>
+          <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600 italic">
+            {selectedTemplate.code === "OT" ? buildOTTitle() : buildLeaveTitle()}
+          </div>
+        </div>
+      ) : (
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">제목</label>
+          <input
+            value={title} onChange={(e) => setTitle(e.target.value)}
+            className="w-full border rounded-lg px-3 py-2 text-sm"
+          />
+        </div>
+      )}
 
-      {/* 동적 필드 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+      {/* 동적 필드 — OT/LEAVE는 12-col 커스텀 레이아웃, 그 외는 기본 2-col */}
+      {(() => {
+        const code = selectedTemplate.code;
+        const isOT = code === "OT";
+        const isLeave = code === "LEAVE";
+        const useCustom = isOT || isLeave;
+        const gridClass = useCustom
+          ? "grid grid-cols-1 sm:grid-cols-12 gap-4 mb-4"
+          : "grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4";
+        const getFieldClass = (f: any): string => {
+          if (!useCustom) return "";
+          if (isOT) {
+            if (f.key === "project") return "sm:col-span-6";
+            if (f.key === "task") return "sm:col-span-6";
+            return "sm:col-span-12"; // workDates, reason
+          }
+          if (isLeave) {
+            // LEAVE 레이아웃: row1 leaveType(4)+startDate(4)+endDate(4), row2 startTime(4)+endTime(4)+빈(4), row3 reason(12)
+            if (f.key === "leaveType") return "sm:col-span-4";
+            if (f.key === "startDate") return "sm:col-span-4";
+            if (f.key === "endDate") return "sm:col-span-4";
+            if (f.key === "startTime") return "sm:col-span-4";
+            if (f.key === "endTime") return "sm:col-span-4";
+            return "sm:col-span-12";
+          }
+          return "";
+        };
+        return (
+      <div className={gridClass}>
         {(selectedTemplate.fields || []).map((f: any) => (
-          <div key={f.key}>
+          <div key={f.key} className={getFieldClass(f)}>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               {f.label} {f.required && <span className="text-red-500">*</span>}
             </label>
@@ -264,8 +440,10 @@ export default function NewApprovalPage() {
                         key={p.id}
                         type="button"
                         onClick={() => {
-                          setFields((prev) => ({ ...prev, [f.key]: p.name }));
+                          // 프로젝트 변경 시 task 정보도 reset (project 종속이므로)
+                          setFields((prev) => ({ ...prev, [f.key]: p.name, projectId: p.id, task: "", taskId: "" }));
                           setProjectSearch(p.name);
+                          setTaskSearch("");
                           setShowProjectDropdown(false);
                         }}
                         className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 border-b last:border-b-0"
@@ -277,10 +455,109 @@ export default function NewApprovalPage() {
                   </div>
                 )}
               </div>
+            ) : f.key === "task" ? (
+              <div className="relative" onBlur={() => setTimeout(() => setShowTaskDropdown(false), 200)}>
+                <input
+                  value={taskSearch || fields[f.key] || ""}
+                  onChange={(e) => {
+                    setTaskSearch(e.target.value);
+                    setShowTaskDropdown(true);
+                    if (!e.target.value) setFields((p) => ({ ...p, [f.key]: "" }));
+                  }}
+                  onFocus={() => setShowTaskDropdown(true)}
+                  placeholder={!fields["project"] ? "먼저 프로젝트를 선택하세요" : (tasksLoading ? "로딩 중..." : "태스크명 검색")}
+                  disabled={!fields["project"]}
+                  className="w-full border rounded-lg px-3 py-2 text-sm disabled:bg-gray-50 disabled:text-gray-400"
+                />
+                {showTaskDropdown && fields["project"] && filteredTasks.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {filteredTasks.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => {
+                          setFields((prev) => ({ ...prev, [f.key]: t.name, taskId: t.id }));
+                          setTaskSearch(t.name);
+                          setShowTaskDropdown(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 border-b last:border-b-0"
+                      >
+                        <span className="font-medium">{t.name}</span>
+                        {t.status && <span className="text-xs text-gray-400 ml-2">{t.status}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : f.type === "date-multi" ? (
+              (() => {
+                const dates: string[] = Array.isArray(fields[f.key]) ? fields[f.key] : [];
+                const updateAt = (i: number, val: string) => {
+                  const next = [...dates];
+                  next[i] = val;
+                  setFields((p) => ({ ...p, [f.key]: next }));
+                };
+                const removeAt = (i: number) => {
+                  setFields((p) => ({ ...p, [f.key]: dates.filter((_, idx) => idx !== i) }));
+                };
+                const addOne = () => {
+                  setFields((p) => ({ ...p, [f.key]: [...dates, ""] }));
+                };
+                return (
+                  <div className="space-y-2">
+                    {dates.length === 0 && (
+                      <div className="text-xs text-gray-400 italic">아래 + 버튼으로 날짜를 추가하세요 (토/일/공휴일만 신청 가능)</div>
+                    )}
+                    {dates.map((d, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <DateInput
+                          value={d}
+                          onChange={(e) => updateAt(i, e.target.value)}
+                          className="flex-1 border rounded-lg px-3 py-2 text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeAt(i)}
+                          className="px-2 py-2 text-gray-400 hover:text-red-500 text-sm"
+                          aria-label="날짜 삭제"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={addOne}
+                      className="px-3 py-1.5 border border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
+                    >
+                      + 날짜 추가
+                    </button>
+                  </div>
+                );
+              })()
             ) : f.type === "select" ? (
               <select
                 value={fields[f.key] || ""}
-                onChange={(e) => setFields((p) => ({ ...p, [f.key]: e.target.value }))}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setFields((p) => {
+                    const next: any = { ...p, [f.key]: v };
+                    // LEAVE leaveType 변경 시: 시간 단위 휴가가 아니게 되면 startTime/endTime 비움
+                    // 시간 단위 → 시간 단위 type 변경 (예: 반차 → 1/4연차) — endTime 재계산 (v1.6: 모두 type별 자동)
+                    if (isLeave && f.key === "leaveType") {
+                      const wasTimeBased = isTimeBasedLeave(p["leaveType"]);
+                      const willBeTimeBased = isTimeBasedLeave(v);
+                      if (!willBeTimeBased) {
+                        next.startTime = "";
+                        next.endTime = "";
+                      } else if (wasTimeBased && p["startTime"]) {
+                        const dur = getTimeBasedDuration(v);
+                        if (dur > 0) next.endTime = computeEndTime(p["startTime"], dur);
+                      }
+                    }
+                    return next;
+                  });
+                }}
                 className="w-full border rounded-lg px-3 py-2 text-sm"
               >
                 <option value="">선택</option>
@@ -292,9 +569,54 @@ export default function NewApprovalPage() {
                 onChange={(e) => setFields((p) => ({ ...p, [f.key]: e.target.value }))}
                 className="w-full border rounded-lg px-3 py-2 text-sm" rows={3}
               />
+            ) : f.type === "date" ? (
+              <DateInput
+                value={fields[f.key] || ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setFields((p) => {
+                    const next: any = { ...p, [f.key]: v };
+                    // LEAVE 템플릿: 시작일 변경 시 종료일도 자동 채움 (보통 1일짜리 휴가)
+                    if (isLeave && f.key === "startDate") {
+                      const cur = p["endDate"];
+                      if (!cur || cur < v) next.endDate = v;
+                    }
+                    return next;
+                  });
+                }}
+                {...(isLeave && f.key === "endDate" && fields["startDate"] ? { min: fields["startDate"] as string } : {})}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              />
+            ) : f.type === "time" ? (
+              (() => {
+                // LEAVE: leaveType이 시간 단위가 아니면 비활성화. v1.6: 모든 시간 단위 휴가의 endTime 자동.
+                const lt = fields["leaveType"];
+                const isTime = isLeave && isTimeBasedLeave(lt);
+                const endTimeAutoFor = (f.key === "endTime") && isTime;
+                const placeholder = !isTime ? "시간 단위 휴가일 때만 사용" : "";
+                return (
+                  <TimeInput
+                    value={fields[f.key] || ""}
+                    disabled={!isTime || endTimeAutoFor}
+                    placeholder={placeholder}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setFields((p) => {
+                        const next: any = { ...p, [f.key]: v };
+                        if (f.key === "startTime" && isTime && v) {
+                          const dur = getTimeBasedDuration(lt);
+                          if (dur > 0) next.endTime = computeEndTime(v, dur);
+                        }
+                        return next;
+                      });
+                    }}
+                    className="w-full border rounded-lg px-3 py-2 text-sm disabled:bg-gray-50 disabled:text-gray-400"
+                  />
+                );
+              })()
             ) : (
               <input
-                type={f.type === "date" ? "date" : f.type === "time" ? "time" : "text"}
+                type={f.type === "time" ? "time" : "text"}
                 value={fields[f.key] || ""}
                 onChange={(e) => setFields((p) => ({ ...p, [f.key]: e.target.value }))}
                 className="w-full border rounded-lg px-3 py-2 text-sm"
@@ -303,6 +625,8 @@ export default function NewApprovalPage() {
           </div>
         ))}
       </div>
+        );
+      })()}
 
       {/* 본문 */}
       <div className="mb-4">

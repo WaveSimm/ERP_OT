@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { taskApi, commentApi, resourceApi, deploymentApi, equipmentApi, sensorApi } from "@/lib/api";
+import { taskApi, commentApi, resourceApi, deploymentApi, equipmentApi, sensorApi, listAssignableResources } from "@/lib/api";
 import clsx from "clsx";
 import DateInput from "./DateInput";
 import WorkLogTab from "./work-log/WorkLogTab";
+import { fmtDateTime24 } from "@/lib/datetime";
 
 const STATUS_OPTIONS = [
   { value: "TODO",        label: "예정",  color: "bg-gray-100 text-gray-700" },
@@ -1505,7 +1506,7 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
                         <span className="text-xs text-gray-400 truncate">{h.changedByName ?? h.changedBy}</span>
                       </div>
                       <span className="text-xs text-gray-400 shrink-0">
-                        {new Date(h.changedAt).toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                        {fmtDateTime24(h.changedAt, { short: true })}
                       </span>
                     </div>
                     {h.field && (

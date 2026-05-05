@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { repairApi, getUser } from "@/lib/api";
+import { repairApi, getUser, attachmentApi } from "@/lib/api";
+import { DateInput } from "@/components/ui/DateInput";
+import { fmtDateTime24 } from "@/lib/datetime";
+import { compressImage } from "@/lib/image-compress";
 
 const STATUS_LABELS: Record<string, string> = {
   RECEIVED: "접수", INSPECTING_1ST: "1차점검", QUOTED: "견적발행",
@@ -421,7 +424,7 @@ function InfoTab({ order, onReload }: { order: any; onReload: () => Promise<void
         {/* 접수일 */}
         <div>
           <label className="block text-xs text-gray-500 mb-1">접수일</label>
-          <input type="date" value={form.receivedAt}
+          <DateInput value={form.receivedAt}
             min="2000-01-01" max="2099-12-31"
             onChange={(e) => {
               const v = e.target.value;
@@ -522,6 +525,63 @@ function InspectionTab({ order, onUpdate, onReload }: { order: any; onUpdate: (f
   const [mfgRefNo, setMfgRefNo] = useState(order.mfgReferenceNo || "");
   const [saving, setSaving] = useState(false);
 
+  // 점검 단계별 작업 기록 + 첨부 (수리관리 v2.2)
+  // 양식의 "점검 내용" 영역에 매핑됨. InspectionReport.inspectionSteps에 저장.
+  const existingReport = order.inspectionReport;
+  const [steps, setSteps] = useState<any[]>(
+    existingReport?.inspectionSteps?.length > 0
+      ? existingReport.inspectionSteps
+      : [{ step: 1, content: "", result: "", attachments: [] }],
+  );
+  const [uploadingStep, setUploadingStep] = useState<number | null>(null);
+
+  const updateStep = (idx: number, field: string, value: any) => {
+    const next = [...steps];
+    next[idx] = { ...next[idx], [field]: value };
+    setSteps(next);
+  };
+  const addStep = () => setSteps([...steps, { step: steps.length + 1, content: "", result: "", attachments: [] }]);
+  const removeStep = (idx: number) => {
+    setSteps(steps.filter((_, i) => i !== idx).map((s, i) => ({ ...s, step: i + 1 })));
+  };
+
+  const handleStepFiles = async (idx: number, files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploadingStep(idx);
+    try {
+      const compressed = await Promise.all(Array.from(files).map((f) => compressImage(f)));
+      const uploaded = [];
+      for (const file of compressed) {
+        const att = await attachmentApi.upload(file, false);
+        uploaded.push({
+          id: att.id,
+          fileName: att.fileName,
+          fileSize: att.fileSize,
+          mimeType: att.mimeType,
+          url: att.url,
+          isImage: att.mimeType.startsWith("image/"),
+          uploadedAt: new Date().toISOString(),
+        });
+      }
+      const next = [...steps];
+      const cur = next[idx] ?? {};
+      next[idx] = { ...cur, attachments: [...(cur.attachments || []), ...uploaded] };
+      setSteps(next);
+    } catch (err: any) {
+      alert(err?.message ?? "업로드 실패");
+    } finally {
+      setUploadingStep(null);
+    }
+  };
+
+  const removeStepAttachment = (stepIdx: number, attId: string) => {
+    const next = [...steps];
+    const cur = next[stepIdx];
+    if (!cur) return;
+    next[stepIdx] = { ...cur, attachments: (cur.attachments || []).filter((a: any) => a.id !== attId) };
+    setSteps(next);
+  };
+
   const save = async () => {
     setSaving(true);
     try {
@@ -535,6 +595,15 @@ function InspectionTab({ order, onUpdate, onReload }: { order: any; onUpdate: (f
         decision2ndReason: decision2ndReason || null,
         mfgReferenceNo: mfgRefNo || null,
       });
+      // 점검 단계별 + 첨부 → InspectionReport upsert (있으면 update, 없으면 create)
+      const hasContent = steps.some((s) => s.content || (s.attachments && s.attachments.length > 0));
+      if (hasContent) {
+        if (existingReport) {
+          await repairApi.updateInspectionReport(existingReport.id, { inspectionSteps: steps });
+        } else {
+          await repairApi.createInspectionReport({ repairOrderId: order.id, inspectionSteps: steps });
+        }
+      }
       await onReload();
     } catch (e: any) {
       alert(e.message || "저장 실패");
@@ -585,6 +654,59 @@ function InspectionTab({ order, onUpdate, onReload }: { order: any; onUpdate: (f
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none" />
       </div>
 
+      {/* 점검 단계별 작업 + 첨부 (양식의 "점검 내용") */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-sm font-medium text-gray-700">
+            점검 단계 <span className="text-xs text-gray-400 ml-1">(보고서 양식의 "점검 내용". 이미지는 1920px / 약 500KB로 자동 압축)</span>
+          </label>
+          <button type="button" onClick={addStep} className="text-xs text-blue-600 hover:underline">+ 단계 추가</button>
+        </div>
+        {steps.map((s, i) => {
+          const atts: any[] = s.attachments || [];
+          return (
+            <div key={i} className="border border-gray-200 rounded-lg p-2 mb-2">
+              <div className="flex gap-2 items-start">
+                <span className="text-xs text-gray-400 pt-2 w-6">{s.step}</span>
+                <input value={s.content} onChange={(e) => updateStep(i, "content", e.target.value)} placeholder="점검내용"
+                  className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm" />
+                <input value={s.result} onChange={(e) => updateStep(i, "result", e.target.value)} placeholder="결과"
+                  className="w-28 px-2 py-1.5 border border-gray-300 rounded text-sm" />
+                <label className="px-2 py-1.5 border border-gray-300 rounded text-xs text-gray-600 cursor-pointer hover:bg-gray-50 whitespace-nowrap">
+                  📎 {atts.length > 0 ? atts.length : ""}
+                  <input type="file" multiple accept="image/*,.pdf,.xlsx,.xls,.csv,.docx,.doc,.pptx,.ppt,.txt"
+                    className="hidden" disabled={uploadingStep === i}
+                    onChange={(e) => { void handleStepFiles(i, e.target.files); e.target.value = ""; }} />
+                </label>
+                {steps.length > 1 && (
+                  <button type="button" onClick={() => removeStep(i)} className="text-xs text-red-400 hover:text-red-600 px-1 pt-2">삭제</button>
+                )}
+              </div>
+              {uploadingStep === i && <div className="text-[10px] text-blue-500 ml-8 mt-1">업로드 중...</div>}
+              {atts.length > 0 && (
+                <div className="ml-8 mt-2 flex gap-2 flex-wrap">
+                  {atts.map((a: any) => (
+                    <div key={a.id} className="relative group">
+                      {a.isImage ? (
+                        <img src={a.url} alt={a.fileName}
+                          className="w-16 h-16 object-cover rounded border border-gray-200" />
+                      ) : (
+                        <div className="w-16 h-16 bg-gray-100 border border-gray-200 rounded flex flex-col items-center justify-center text-[9px] text-gray-500 px-1 text-center">
+                          <span className="text-base">📄</span>
+                          <span className="truncate w-full">{a.fileName.slice(-10)}</span>
+                        </div>
+                      )}
+                      <button type="button" onClick={() => removeStepAttachment(i, a.id)}
+                        className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] leading-none hover:bg-red-600">×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
       <button onClick={save} disabled={saving}
         className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
         {saving ? "저장 중..." : "저장"}
@@ -596,160 +718,229 @@ function InspectionTab({ order, onUpdate, onReload }: { order: any; onUpdate: (f
 // ─── 보고서 탭 (Phase 2) ────────────────────────────────────────────────
 
 function ReportTab({ order, onReload }: { order: any; onReload: () => void }) {
+  // 보고서 탭은 출력 미리보기 (수리관리 v2.2):
+  //  - 양식 그대로 표시 + 메타 필드 인라인 편집 (input/textarea 직접)
+  //  - 변경 시 자동 저장 (debounce 800ms)
+  //  - 점검 단계+첨부는 점검 탭에서 입력 → 여기서는 read-only
+  //  - 인쇄 버튼 1개만
   const report = order.inspectionReport;
-  const [editing, setEditing] = useState(!report);
   const [form, setForm] = useState({
     reportNumber: report?.reportNumber || "",
     symptom: report?.symptom || order.symptom || "",
-    inspectorName: report?.inspectorName || "",
+    inspectorName: report?.inspectorName || order.assigneeName || order.inspector1stName || "",
     result: report?.result || "",
     needsMfgRepair: report?.needsMfgRepair || false,
     mfgRepairReason: report?.mfgRepairReason || "",
-    inspectionSteps: report?.inspectionSteps || [{ step: 1, content: "", result: "" }],
   });
-  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
-  const updateStep = (idx: number, field: string, value: string) => {
-    const steps = [...form.inspectionSteps];
-    steps[idx] = { ...steps[idx], [field]: value };
-    setForm({ ...form, inspectionSteps: steps });
-  };
-
-  const addStep = () => {
+  // form ↔ report 동기화 (외부 reload로 report 객체가 바뀌면 form 갱신)
+  useEffect(() => {
     setForm({
-      ...form,
-      inspectionSteps: [...form.inspectionSteps, { step: form.inspectionSteps.length + 1, content: "", result: "" }],
+      reportNumber: report?.reportNumber || "",
+      symptom: report?.symptom || order.symptom || "",
+      inspectorName: report?.inspectorName || order.assigneeName || order.inspector1stName || "",
+      result: report?.result || "",
+      needsMfgRepair: report?.needsMfgRepair || false,
+      mfgRepairReason: report?.mfgRepairReason || "",
     });
-  };
+  }, [report?.id]);
 
-  const removeStep = (idx: number) => {
-    const steps = form.inspectionSteps.filter((_: any, i: number) => i !== idx).map((s: any, i: number) => ({ ...s, step: i + 1 }));
-    setForm({ ...form, inspectionSteps: steps });
-  };
+  const inspectionSteps: any[] = report?.inspectionSteps || [];
 
-  const save = async () => {
-    setSaving(true);
-    try {
-      if (report) {
-        await repairApi.updateInspectionReport(report.id, form);
-      } else {
-        await repairApi.createInspectionReport({ ...form, repairOrderId: order.id });
+  // ─── 자동 저장 (debounce 800ms) ──────────────────────────────────────────
+  const dirtyRef = useRef(false);
+  useEffect(() => {
+    if (!dirtyRef.current) return;
+    const t = setTimeout(async () => {
+      setSaveStatus("saving");
+      try {
+        if (report) {
+          await repairApi.updateInspectionReport(report.id, form);
+        } else {
+          await repairApi.createInspectionReport({ ...form, repairOrderId: order.id });
+          await onReload();
+        }
+        setSaveStatus("saved");
+        dirtyRef.current = false;
+        // 2초 후 idle로
+        setTimeout(() => setSaveStatus((s) => (s === "saved" ? "idle" : s)), 2000);
+      } catch {
+        setSaveStatus("error");
       }
-      await onReload();
-      setEditing(false);
-    } catch (e: any) {
-      alert(e.message || "저장 실패");
-    }
-    setSaving(false);
-  };
+    }, 800);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form]);
 
-  if (!editing && report) {
-    return (
-      <div className="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-sm text-gray-800">점검보고서 {report.reportNumber && `(${report.reportNumber})`}</h3>
-          <button onClick={() => setEditing(true)} className="text-xs text-blue-600 hover:underline">수정</button>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="점검자" value={report.inspectorName || "-"} />
-          <Field label="접수증상" value={report.symptom || "-"} />
-          <Field label="제조사수리" value={report.needsMfgRepair ? `필요 (${report.mfgRepairReason || "-"})` : "불필요"} />
-          <Field label="점검결과" value={report.result || "-"} />
-        </div>
-        {report.inspectionSteps?.length > 0 && (
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-2">점검 내용</label>
-            <table className="w-full text-sm border border-gray-200 rounded">
-              <thead><tr className="bg-gray-50">
-                <th className="py-1.5 px-2 text-left text-xs text-gray-500 w-12">순서</th>
-                <th className="py-1.5 px-2 text-left text-xs text-gray-500">점검내용</th>
-                <th className="py-1.5 px-2 text-left text-xs text-gray-500 w-32">결과</th>
-              </tr></thead>
-              <tbody>
-                {report.inspectionSteps.map((s: any, i: number) => (
-                  <tr key={i} className="border-t border-gray-100">
-                    <td className="py-1.5 px-2 text-gray-600">{s.step}</td>
-                    <td className="py-1.5 px-2">{s.content}</td>
-                    <td className="py-1.5 px-2 text-gray-600">{s.result}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    );
+  function update<K extends keyof typeof form>(key: K, value: typeof form[K]) {
+    dirtyRef.current = true;
+    setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  // ─── 양식 매핑 (인쇄 페이지와 동일) ──────────────────────────────────────
+  const reportNumber = form.reportNumber || order.orderNumber || "-";
+  const manufacturer = order.customerAsset?.manufacturer || order.equipment?.manufacturer || order.sensor?.manufacturer || "-";
+  const serialNumber = order.customerAsset?.serialNumber || order.equipment?.serialNumber || order.sensor?.serialNumber || order.productSerial || "-";
+  const customerName = order.customer?.name || "자사 장비";
+  const contactName = order.customerContactName || "";
+  const contactPhone = order.customerContactPhone || "";
+  const receivedAt = order.receivedAt || order.createdAt;
+  const fmtDate = (v: any) => {
+    if (!v) return "-";
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? "-" : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+
+  const inputCls = "bg-transparent border-0 border-b border-dashed border-gray-300 focus:border-blue-500 focus:outline-none px-1 py-0.5 text-sm w-full";
+
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
-      <h3 className="font-semibold text-sm text-gray-800">{report ? "보고서 수정" : "보고서 작성"}</h3>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">보고서번호</label>
-          <input value={form.reportNumber} onChange={(e) => setForm({ ...form, reportNumber: e.target.value })}
-            className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+    <div className="space-y-3">
+      {/* 액션 바 */}
+      <div className="flex items-center justify-between">
+        <div className="text-xs text-gray-500">
+          {saveStatus === "saving" && "💾 저장 중..."}
+          {saveStatus === "saved" && <span className="text-green-600">✓ 자동 저장됨</span>}
+          {saveStatus === "error" && <span className="text-red-600">⚠ 저장 실패</span>}
+          {saveStatus === "idle" && <span className="text-gray-400">변경 시 자동 저장됩니다</span>}
         </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">점검자</label>
-          <input value={form.inspectorName} onChange={(e) => setForm({ ...form, inspectorName: e.target.value })}
-            className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
-        </div>
-      </div>
-      <div>
-        <label className="block text-xs text-gray-500 mb-1">접수증상</label>
-        <textarea value={form.symptom} onChange={(e) => setForm({ ...form, symptom: e.target.value })} rows={2}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none" />
+        <a href={`/repair/${order.id}/report/print`}
+          className="px-4 py-1.5 bg-blue-600 text-white rounded text-sm font-semibold hover:bg-blue-700">
+          🖨 인쇄 / PDF 저장
+        </a>
       </div>
 
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <label className="text-xs font-medium text-gray-500">점검 단계</label>
-          <button onClick={addStep} className="text-xs text-blue-600 hover:underline">+ 단계 추가</button>
-        </div>
-        {form.inspectionSteps.map((s: any, i: number) => (
-          <div key={i} className="flex gap-2 mb-2">
-            <span className="text-xs text-gray-400 pt-2 w-6">{s.step}</span>
-            <input value={s.content} onChange={(e) => updateStep(i, "content", e.target.value)} placeholder="점검내용"
-              className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm" />
-            <input value={s.result} onChange={(e) => updateStep(i, "result", e.target.value)} placeholder="결과"
-              className="w-28 px-2 py-1.5 border border-gray-300 rounded text-sm" />
-            {form.inspectionSteps.length > 1 && (
-              <button onClick={() => removeStep(i)} className="text-xs text-red-400 hover:text-red-600">삭제</button>
+      {/* A4 양식 미리보기 (인쇄 페이지와 동일 레이아웃) */}
+      <article className="bg-white border border-gray-200 rounded-lg p-8 max-w-4xl mx-auto" style={{ fontFamily: '"Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif' }}>
+        <h1 className="text-2xl font-bold text-center pb-2 mb-4 border-b-2 border-blue-900">수리/점검 보고서</h1>
+
+        <table className="w-full border-collapse text-sm mb-3">
+          <tbody>
+            <tr>
+              <th className="border border-gray-600 bg-gray-100 px-3 py-2 w-24 text-center">접수번호</th>
+              <td className="border border-gray-600 px-3 py-2" colSpan={3}>
+                <input value={form.reportNumber} onChange={(e) => update("reportNumber", e.target.value)}
+                  placeholder={order.orderNumber || ""} className={inputCls} />
+              </td>
+            </tr>
+            <tr>
+              <th rowSpan={2} className="border border-gray-600 bg-gray-100 px-3 py-2 text-center">장비이력</th>
+              <th className="border border-gray-600 bg-gray-50 px-3 py-2 w-28 text-center">제작사</th>
+              <td className="border border-gray-600 px-3 py-2" colSpan={2}>{manufacturer}</td>
+            </tr>
+            <tr>
+              <th className="border border-gray-600 bg-gray-50 px-3 py-2 text-center">일련번호</th>
+              <td className="border border-gray-600 px-3 py-2" colSpan={2}>{serialNumber}</td>
+            </tr>
+            <tr>
+              <th rowSpan={2} className="border border-gray-600 bg-gray-100 px-3 py-2 text-center">사용자</th>
+              <th className="border border-gray-600 bg-gray-50 px-3 py-2 text-center">회사명</th>
+              <td className="border border-gray-600 px-3 py-2" colSpan={2}>{customerName}</td>
+            </tr>
+            <tr>
+              <th className="border border-gray-600 bg-gray-50 px-3 py-2 text-center">담당연락처</th>
+              <td className="border border-gray-600 px-3 py-2" colSpan={2}>
+                {contactName || contactPhone ? `${contactName}${contactName && contactPhone ? " / " : ""}${contactPhone}` : "-"}
+              </td>
+            </tr>
+            <tr>
+              <th rowSpan={2} className="border border-gray-600 bg-gray-100 px-3 py-2 text-center">수리점검<br />담당자</th>
+              <th className="border border-gray-600 bg-gray-50 px-3 py-2 text-center">담당자</th>
+              <td className="border border-gray-600 px-3 py-2" colSpan={2}>
+                <input value={form.inspectorName} onChange={(e) => update("inspectorName", e.target.value)}
+                  placeholder={order.assigneeName || order.inspector1stName || ""} className={inputCls} />
+              </td>
+            </tr>
+            <tr>
+              <th className="border border-gray-600 bg-gray-50 px-3 py-2 text-center">접수일</th>
+              <td className="border border-gray-600 px-3 py-2" colSpan={2}>{fmtDate(receivedAt)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* 접수 증상 */}
+        <section className="mt-3">
+          <h3 className="text-sm font-bold bg-gray-200 px-2 py-1 border-l-4 border-blue-900">접수 증상</h3>
+          <div className="border border-t-0 border-gray-300 p-2 min-h-[2cm]">
+            <textarea value={form.symptom} onChange={(e) => update("symptom", e.target.value)} rows={2}
+              placeholder={order.symptom || "접수 시 보고된 증상"}
+              className="w-full bg-transparent border-0 focus:outline-none text-sm resize-none" />
+          </div>
+        </section>
+
+        {/* 점검 내용 */}
+        <section className="mt-3">
+          <h3 className="text-sm font-bold bg-gray-200 px-2 py-1 border-l-4 border-blue-900">
+            점검 내용 <span className="ml-2 text-xs font-normal text-gray-500">(점검 탭에서 입력)</span>
+          </h3>
+          <div className="border border-t-0 border-gray-300 p-2 min-h-[2cm]">
+            {inspectionSteps.length > 0 ? (
+              <ol className="pl-5 space-y-1">
+                {inspectionSteps.map((s: any, i: number) => {
+                  const images = (s.attachments || []).filter((a: any) => a.isImage);
+                  return (
+                    <li key={i} className="text-sm">
+                      <span>{s.content || "-"}</span>
+                      {s.result && <div className="ml-3 text-xs text-gray-600">→ {s.result}</div>}
+                      {images.length > 0 && (
+                        <div className="ml-3 mt-1 grid grid-cols-3 gap-1 max-w-xl">
+                          {images.map((a: any) => (
+                            <a key={a.id} href={a.url} target="_blank" rel="noopener noreferrer"
+                              className="block aspect-[4/3] bg-gray-50 border border-gray-200 overflow-hidden hover:border-blue-400">
+                              <img src={a.url} alt={a.fileName} className="w-full h-full object-contain" />
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            ) : (
+              <div className="text-xs text-gray-400 text-center py-3">
+                점검 단계가 없습니다. 점검 탭에서 단계+첨부를 추가하세요.
+              </div>
             )}
           </div>
-        ))}
-      </div>
+        </section>
 
-      <div className="flex items-center gap-4">
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={form.needsMfgRepair}
-            onChange={(e) => setForm({ ...form, needsMfgRepair: e.target.checked })}
-            className="rounded border-gray-300" />
-          제조사 수리 필요
-        </label>
-        {form.needsMfgRepair && (
-          <input value={form.mfgRepairReason} onChange={(e) => setForm({ ...form, mfgRepairReason: e.target.value })}
-            placeholder="제조사 수리 사유" className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
-        )}
-      </div>
+        {/* 점검 결과 */}
+        <section className="mt-3">
+          <h3 className="text-sm font-bold bg-gray-200 px-2 py-1 border-l-4 border-blue-900">점검 결과</h3>
+          <div className="border border-t-0 border-gray-300 p-2 min-h-[1.5cm]">
+            <textarea value={form.result} onChange={(e) => update("result", e.target.value)} rows={2}
+              placeholder="점검 결과 요약"
+              className="w-full bg-transparent border-0 focus:outline-none text-sm resize-none" />
+          </div>
+        </section>
 
-      <div>
-        <label className="block text-xs text-gray-500 mb-1">점검결과</label>
-        <textarea value={form.result} onChange={(e) => setForm({ ...form, result: e.target.value })} rows={2}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none" />
-      </div>
+        {/* 제조사 수리 여부 */}
+        <section className="mt-3">
+          <h3 className="text-sm font-bold bg-gray-200 px-2 py-1 border-l-4 border-blue-900">제조사 수리 여부</h3>
+          <div className="border border-t-0 border-gray-300 p-2 flex items-center gap-3">
+            <label className="flex items-center gap-1.5 text-sm">
+              <input type="radio" checked={!form.needsMfgRepair} onChange={() => update("needsMfgRepair", false)} />
+              불필요
+            </label>
+            <label className="flex items-center gap-1.5 text-sm">
+              <input type="radio" checked={form.needsMfgRepair} onChange={() => update("needsMfgRepair", true)} />
+              필요
+            </label>
+            {form.needsMfgRepair && (
+              <input value={form.mfgRepairReason} onChange={(e) => update("mfgRepairReason", e.target.value)}
+                placeholder="사유" className={`flex-1 ${inputCls}`} />
+            )}
+          </div>
+        </section>
 
-      <div className="flex gap-2">
-        <button onClick={save} disabled={saving}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
-          {saving ? "저장 중..." : "저장"}
-        </button>
-        {report && (
-          <button onClick={() => setEditing(false)}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">취소</button>
-        )}
-      </div>
+        {/* 풋터 — 로고는 왼쪽 absolute, 텍스트는 가운데 */}
+        <footer className="mt-6 pt-2 border-t border-gray-400 relative text-center text-xs text-gray-600 min-h-[3rem]">
+          <img src="/oceantech-logo.png" alt="OCEANTECH"
+            className="h-10 w-auto absolute left-0 top-1/2 -translate-y-1/3" />
+          <div>주식회사 오션테크</div>
+          <div>경기도 고양시 행주산성로 144번길 57 OCEAN 빌딩</div>
+        </footer>
+      </article>
     </div>
   );
 }
@@ -1032,9 +1223,9 @@ function ManufacturerTab({ order, onReload }: { order: any; onReload: () => void
               placeholder="운송장번호" className="px-2 py-1.5 border border-gray-300 rounded text-sm" />
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <input type="date" value={form.shippedAt} onChange={(e) => setForm({ ...form, shippedAt: e.target.value })}
+            <DateInput value={form.shippedAt} onChange={(e) => setForm({ ...form, shippedAt: e.target.value })}
               className="px-2 py-1.5 border border-gray-300 rounded text-sm" title="발송일" />
-            <input type="date" value={form.receivedAt} onChange={(e) => setForm({ ...form, receivedAt: e.target.value })}
+            <DateInput value={form.receivedAt} onChange={(e) => setForm({ ...form, receivedAt: e.target.value })}
               className="px-2 py-1.5 border border-gray-300 rounded text-sm" title="도착일" />
           </div>
           <div className="flex gap-2">
@@ -1133,7 +1324,7 @@ function MfgQuoteCard({ order, onReload }: { order: any; onReload: () => void })
         <ShipField label="수신일"
           value={fmtDate(order.quoteReceivedAt)}
           editing={editing}
-          input={<input type="date" value={form.quoteReceivedAt} onChange={(e) => setForm({ ...form, quoteReceivedAt: e.target.value })}
+          input={<DateInput value={form.quoteReceivedAt} onChange={(e) => setForm({ ...form, quoteReceivedAt: e.target.value })}
             className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />}
         />
         <ShipField label="금액"
@@ -1155,7 +1346,7 @@ function MfgQuoteCard({ order, onReload }: { order: any; onReload: () => void })
         <ShipField label="확정일"
           value={fmtDate(order.quoteApprovedAt)}
           editing={editing}
-          input={<input type="date" value={form.quoteApprovedAt} onChange={(e) => setForm({ ...form, quoteApprovedAt: e.target.value })}
+          input={<DateInput value={form.quoteApprovedAt} onChange={(e) => setForm({ ...form, quoteApprovedAt: e.target.value })}
             className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />}
         />
       </div>
@@ -1222,7 +1413,7 @@ function MfgPoCard({ order, onReload }: { order: any; onReload: () => void }) {
         <ShipField label="발행일"
           value={fmtDate(order.poIssuedAt)}
           editing={editing}
-          input={<input type="date" value={form.poIssuedAt} onChange={(e) => setForm({ ...form, poIssuedAt: e.target.value })}
+          input={<DateInput value={form.poIssuedAt} onChange={(e) => setForm({ ...form, poIssuedAt: e.target.value })}
             className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />}
         />
         <ShipField label="금액"
@@ -1361,13 +1552,13 @@ function ShipmentCard({ s, onReload }: { s: any; onReload: () => void }) {
         <ShipField label="발송일"
           value={fmtDate(s.shippedAt)}
           editing={editing}
-          input={<input type="date" value={form.shippedAt} onChange={(e) => setForm({ ...form, shippedAt: e.target.value })}
+          input={<DateInput value={form.shippedAt} onChange={(e) => setForm({ ...form, shippedAt: e.target.value })}
             className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />}
         />
         <ShipField label="도착일"
           value={fmtDate(s.receivedAt)}
           editing={editing}
-          input={<input type="date" value={form.receivedAt} onChange={(e) => setForm({ ...form, receivedAt: e.target.value })}
+          input={<DateInput value={form.receivedAt} onChange={(e) => setForm({ ...form, receivedAt: e.target.value })}
             className="w-full px-2 py-1 border border-gray-300 rounded text-sm" />}
         />
         <div className="hidden md:block" />
@@ -1425,8 +1616,8 @@ function HistoryTab({ order }: { order: any }) {
         </div>
       )}
       <p className="text-xs text-gray-400 mt-3">
-        생성: {new Date(order.createdAt).toLocaleString("ko-KR")} &middot;
-        수정: {new Date(order.updatedAt).toLocaleString("ko-KR")}
+        생성: {fmtDateTime24(order.createdAt)} &middot;
+        수정: {fmtDateTime24(order.updatedAt)}
       </p>
     </div>
   );
@@ -1437,7 +1628,7 @@ function HistoryItem({ label, date }: { label: string; date: string }) {
     <div className="flex items-center gap-3">
       <div className="w-2 h-2 rounded-full bg-blue-500" />
       <span className="text-sm font-medium text-gray-800">{label}</span>
-      <span className="text-xs text-gray-500">{new Date(date).toLocaleString("ko-KR")}</span>
+      <span className="text-xs text-gray-500">{fmtDateTime24(date)}</span>
     </div>
   );
 }

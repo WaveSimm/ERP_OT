@@ -8,15 +8,18 @@ datasource db {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  name         String
-  passwordHash String    @map("password_hash")
-  role         UserRole  @default(OPERATOR)
-  isActive     Boolean   @default(true) @map("is_active")
-  lastLoginAt  DateTime? @map("last_login_at")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
+  id             String          @id @default(cuid())
+  email          String          @unique
+  name           String
+  passwordHash   String          @map("password_hash")
+  role           UserRole        @default(OPERATOR)
+  isActive       Boolean         @default(true) @map("is_active")
+  // 자원-모델-분리 PDCA Phase 1 (2026-05-04): 직원 라이프사이클
+  status         EmployeeStatus  @default(ACTIVE)
+  retirementDate DateTime?       @db.Date @map("retirement_date")
+  lastLoginAt    DateTime?       @map("last_login_at")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
 
   refreshTokens RefreshToken[]
   profile       UserProfile?
@@ -25,7 +28,18 @@ model User {
   attachments   Attachment[] @relation("AttachmentUploader")
   postReads     PostRead[]
 
+  @@index([status])
   @@map("auth_users")
+}
+
+// 자원-모델-분리 PDCA Phase 1 (2026-05-04): 직원 상태
+//   ACTIVE: 현직 — 모든 기능 정상
+//   RETIRED: 퇴직 — 데이터 보존, 신규 배정·로그인·결재 차단 (isActive=false 자동)
+//   SUSPENDED: 휴직·정지 — 일시 차단, 복귀 가능
+enum EmployeeStatus {
+  ACTIVE
+  RETIRED
+  SUSPENDED
 }
 
 model UserProfile {
@@ -282,12 +296,18 @@ model CompanyCalendarEntry {
   startTime          String?  @map("start_time")
   endTime            String?  @map("end_time")
 
+  // 회사달력 v1.2 — 한국 공휴일 자동 갱신
+  source     CalendarEntrySource @default(MANUAL)
+  externalId String?             @map("external_id")  // KASI: ${locdate}-${dateName}
+
   createdBy String   @map("created_by")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([startDate, endDate])
   @@index([type])
+  @@index([source])
+  @@unique([source, externalId])
   @@map("company_calendar_entries")
 }
 
@@ -296,4 +316,12 @@ enum CalendarEntryType {
   COMPANY_HOLIDAY
   EVENT
   WORKDAY
+}
+
+// 회사달력 v1.2 — 항목의 데이터 출처
+//   MANUAL: 관리자 수동 등록 — sync 영향 없음 (보호)
+//   KASI: 한국천문연구원 특일 정보 API 자동 import — sync로 upsert/delete
+enum CalendarEntrySource {
+  MANUAL
+  KASI
 }

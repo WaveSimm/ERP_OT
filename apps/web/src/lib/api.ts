@@ -16,6 +16,11 @@ export function setToken(_token: string) {
   if (typeof window !== "undefined") localStorage.removeItem("erp_token");
 }
 
+// 보안 일괄패치 PDCA 후 cookie 인증 전환 — getToken은 항상 null 반환 (헤더 미설정, cookie 자동 전송)
+function getToken(): string | null {
+  return null;
+}
+
 export function clearToken() {
   if (typeof window !== "undefined") {
     localStorage.removeItem("erp_token");
@@ -204,6 +209,19 @@ export const taskApi = {
       body: JSON.stringify(data),
     }),
 
+  // 다중 태스크 복사 (선택 세트 내부 parent-child 관계 보존)
+  bulkCopy: (projectId: string, data: {
+    taskIds: string[];
+    targetProjectId: string;
+    includeSegments: boolean;
+    includeAssignments: boolean;
+    dateOffsetDays: number;
+  }) =>
+    request<{ count: number; idMap: Record<string, string> }>(
+      `/projects/${projectId}/tasks/bulk-copy`,
+      { method: "POST", body: JSON.stringify(data) },
+    ),
+
   // Segments
   createSegment: (projectId: string, taskId: string, data: any) =>
     request<any>(`/projects/${projectId}/tasks/${taskId}/segments`, {
@@ -293,6 +311,8 @@ export const resourceGroupApi = {
 };
 
 export const resourceApi = {
+  // ⚠️ deprecated (자원-모델-분리 PDCA): list/create/update는 Phase 4까지 호환만 유지.
+  //    신규: equipmentResourceApi (비인력) + externalPersonApi (외부) + userApi (직원)
   list: (params?: { type?: string; isActive?: boolean }) => {
     const q = params ? new URLSearchParams(params as any).toString() : "";
     return request<any[]>(`/resources${q ? `?${q}` : ""}`);
@@ -301,23 +321,176 @@ export const resourceApi = {
     request<any>("/resources", { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, data: any) =>
     request<any>(`/resources/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  // 통합 dashboard/utilization은 그대로 유지 (3그룹 통합 응답)
   utilization: (id: string, startDate: string, endDate: string) =>
     request<any>(`/resources/${id}/utilization?startDate=${startDate}&endDate=${endDate}`),
   dashboard: (startDate: string, endDate: string) =>
     request<any[]>(`/resources/dashboard?startDate=${startDate}&endDate=${endDate}`),
   heatmap: (startDate: string, endDate: string, granularity = "week") =>
     request<any>(`/resources/heatmap?startDate=${startDate}&endDate=${endDate}&granularity=${granularity}`),
-  migratePreview: () =>
-    request<{
-      resourceId: string; resourceName: string; currentUserId: string | null;
-      matchedUserId: string | null; matchedUserName: string | null; matchedUserEmail: string | null;
-      matchType: "exact" | "none" | "already_linked";
-    }[]>("/resources/migrate/preview"),
-  migrateApply: (mappings: { resourceId: string; userId: string }[]) =>
-    request<{ updated: number; skipped: number; details: any[] }>("/resources/migrate/apply", {
-      method: "POST", body: JSON.stringify({ mappings }),
-    }),
 };
+
+// 자원-모델-분리 PDCA Phase 3b-1: 비인력 자원 API
+export const equipmentResourceApi = {
+  list: (params?: { type?: "EQUIPMENT" | "VEHICLE" | "FACILITY"; isActive?: boolean; search?: string }) => {
+    const q = params ? new URLSearchParams(params as any).toString() : "";
+    return request<EquipmentResource[]>(`/equipment-resources${q ? `?${q}` : ""}`);
+  },
+  get: (id: string) => request<EquipmentResource>(`/equipment-resources/${id}`),
+  create: (data: { name: string; type?: "EQUIPMENT" | "VEHICLE" | "FACILITY"; isActive?: boolean }) =>
+    request<EquipmentResource>("/equipment-resources", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: { name?: string; type?: "EQUIPMENT" | "VEHICLE" | "FACILITY"; isActive?: boolean }) =>
+    request<EquipmentResource>(`/equipment-resources/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  delete: (id: string) => request<void>(`/equipment-resources/${id}`, { method: "DELETE" }),
+};
+
+export interface EquipmentResource {
+  id: string;
+  name: string;
+  type: "EQUIPMENT" | "VEHICLE" | "FACILITY";  // EQUIPMENT는 폐기됨 (2026-05-05). 신규 등록은 VEHICLE/FACILITY만
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 공용자산예약 (2026-05-05) — Reservation API
+export interface ReservationRecurrence {
+  freq: "DAILY" | "WEEKLY" | "MONTHLY";
+  interval?: number;
+  byWeekday?: Array<"MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN">;
+  until?: string;  // YYYY-MM-DD
+  count?: number;
+}
+
+export interface ReservationInstance {
+  id: string;
+  parentId: string | null;
+  instanceKey: string;
+  resourceId: string;
+  resourceName: string;
+  userId: string;
+  userName: string | null;
+  title: string;
+  description: string | null;
+  startAt: string;  // ISO UTC
+  endAt: string;
+  isAllDay: boolean;
+  isRecurring: boolean;
+  isException: boolean;
+  recurrenceSummary: string;
+  status: "CONFIRMED" | "CANCELED";
+}
+
+export interface ReservationCreateInput {
+  resourceId: string;
+  title: string;
+  description?: string | null;
+  startAt: string;  // ISO UTC
+  endAt: string;
+  isAllDay?: boolean;
+  recurrence?: ReservationRecurrence | null;
+}
+
+export interface ReservationUpdateInput {
+  title?: string;
+  description?: string | null;
+  startAt?: string;
+  endAt?: string;
+  isAllDay?: boolean;
+  recurrence?: ReservationRecurrence | null;
+}
+
+export const equipmentReservationApi = {
+  list: (params: { from?: string; to?: string; resourceId?: string; userId?: string }) => {
+    const q = new URLSearchParams();
+    if (params.from) q.set("from", params.from);
+    if (params.to) q.set("to", params.to);
+    if (params.resourceId) q.set("resourceId", params.resourceId);
+    if (params.userId) q.set("userId", params.userId);
+    const qs = q.toString();
+    return request<ReservationInstance[]>(`/equipment-reservations${qs ? `?${qs}` : ""}`);
+  },
+  mine: (params?: { upcoming?: boolean; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.upcoming !== undefined) q.set("upcoming", String(params.upcoming));
+    if (params?.limit !== undefined) q.set("limit", String(params.limit));
+    const qs = q.toString();
+    return request<ReservationInstance[]>(`/equipment-reservations/mine${qs ? `?${qs}` : ""}`);
+  },
+  get: (id: string) => request<ReservationInstance>(`/equipment-reservations/${id}`),
+  create: (data: ReservationCreateInput) =>
+    request<any>(`/equipment-reservations`, { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: ReservationUpdateInput, scope: "instance" | "series" = "series") =>
+    request<any>(`/equipment-reservations/${id}?scope=${scope}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  cancel: (
+    id: string,
+    opts: { scope?: "instance" | "series"; instanceStartAt?: string; cancelReason?: string } = {},
+  ) => {
+    const q = new URLSearchParams();
+    q.set("scope", opts.scope ?? "series");
+    if (opts.instanceStartAt) q.set("instanceStartAt", opts.instanceStartAt);
+    return request<{ canceled: true; scope: string; instanceStartAt?: string }>(
+      `/equipment-reservations/${id}?${q.toString()}`,
+      {
+        method: "DELETE",
+        body: opts.cancelReason ? JSON.stringify({ cancelReason: opts.cancelReason }) : undefined,
+      },
+    );
+  },
+};
+
+// 자원-모델-분리 PDCA Phase 3b-1: 외부 자원 API
+export const externalPersonApi = {
+  list: (params?: { status?: "ACTIVE" | "ARCHIVED"; company?: string; search?: string }) => {
+    const q = params ? new URLSearchParams(params as any).toString() : "";
+    return request<ExternalPerson[]>(`/external-persons${q ? `?${q}` : ""}`);
+  },
+  get: (id: string) => request<ExternalPerson>(`/external-persons/${id}`),
+  create: (data: {
+    name: string;
+    company?: string | null;
+    contactEmail?: string | null;
+    contactPhone?: string | null;
+    contractStart?: string | null;
+    contractEnd?: string | null;
+    notes?: string | null;
+  }) => request<ExternalPerson>("/external-persons", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: Partial<{
+    name: string;
+    company: string | null;
+    contactEmail: string | null;
+    contactPhone: string | null;
+    status: "ACTIVE" | "ARCHIVED";
+    contractStart: string | null;
+    contractEnd: string | null;
+    notes: string | null;
+  }>) => request<ExternalPerson>(`/external-persons/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  archive: (id: string, contractEnd?: string) =>
+    request<ExternalPerson>(`/external-persons/${id}/archive`, {
+      method: "POST",
+      body: JSON.stringify(contractEnd ? { contractEnd } : {}),
+    }),
+  reactivate: (id: string) =>
+    request<ExternalPerson>(`/external-persons/${id}/reactivate`, { method: "POST" }),
+  delete: (id: string) => request<void>(`/external-persons/${id}`, { method: "DELETE" }),
+};
+
+export interface ExternalPerson {
+  id: string;
+  name: string;
+  company: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  status: "ACTIVE" | "ARCHIVED";
+  contractStart: string | null;
+  contractEnd: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 // ─── Baselines ───────────────────────────────────────────────────────────────
 
@@ -454,6 +627,11 @@ export const attendanceOverviewApi = {
 
 export const leaveApi = {
   getBalance: () => request<any>("/leave/balance"),
+  // ADMIN
+  adminGetBalance: (userId: string, year?: number) =>
+    request<any>(`/leave/balance/${userId}${year ? `?year=${year}` : ""}`),
+  adminSetBalance: (userId: string, year: number, data: { totalDays?: number; longServiceDays?: number; adjustedDays?: number }) =>
+    request<any>(`/leave/balance/${userId}?year=${year}`, { method: "PATCH", body: JSON.stringify(data) }),
   list: (params?: { status?: string; year?: number }) => {
     const q = params ? new URLSearchParams(params as any).toString() : "";
     return request<any[]>(`/leave/requests${q ? `?${q}` : ""}`);
@@ -464,17 +642,15 @@ export const leaveApi = {
     request<any>(`/leave/requests/${id}/cancel`, { method: "PATCH", body: "{}" }),
 };
 
-// ─── Overtime ─────────────────────────────────────────────────────────────────
+// ─── Holiday Work (휴일근무 신청, 구 OT) ───────────────────────────────────────
 
-export const overtimeApi = {
+export const holidayWorkApi = {
   list: (status?: string) =>
-    request<any[]>(`/overtime/requests${status ? `?status=${status}` : ""}`),
-  create: (data: { date: string; plannedHours: number; reason: string; projectId?: string; approverId?: string }) =>
-    request<any>("/overtime/requests", { method: "POST", body: JSON.stringify(data) }),
-  complete: (id: string, actualHours: number) =>
-    request<any>(`/overtime/requests/${id}/complete`, { method: "PATCH", body: JSON.stringify({ actualHours }) }),
+    request<any[]>(`/holiday-work/requests${status ? `?status=${status}` : ""}`),
+  create: (data: { date: string; reason: string; projectId?: string; taskId?: string; approverId?: string }) =>
+    request<any>("/holiday-work/requests", { method: "POST", body: JSON.stringify(data) }),
   cancel: (id: string) =>
-    request<any>(`/overtime/requests/${id}/cancel`, { method: "PATCH", body: "{}" }),
+    request<any>(`/holiday-work/requests/${id}/cancel`, { method: "PATCH", body: "{}" }),
 };
 
 // ─── Team (Manager) ──────────────────────────────────────────────────────────
@@ -483,15 +659,15 @@ export const teamApi = {
   getAttendance: (year: number, month: number) =>
     request<any[]>(`/team/attendance?year=${year}&month=${month}`),
   getPendingLeave: () => request<any[]>("/leave/pending"),
-  getPendingOT: () => request<any[]>("/overtime/pending"),
+  getPendingHolidayWork: () => request<any[]>("/holiday-work/pending"),
   approveLeave: (id: string) =>
     request<any>(`/leave/requests/${id}/approve`, { method: "POST", body: "{}" }),
   rejectLeave: (id: string, rejectReason: string) =>
     request<any>(`/leave/requests/${id}/reject`, { method: "POST", body: JSON.stringify({ rejectReason }) }),
-  approveOT: (id: string) =>
-    request<any>(`/overtime/requests/${id}/approve`, { method: "POST", body: "{}" }),
-  rejectOT: (id: string, rejectReason: string) =>
-    request<any>(`/overtime/requests/${id}/reject`, { method: "POST", body: JSON.stringify({ rejectReason }) }),
+  approveHolidayWork: (id: string) =>
+    request<any>(`/holiday-work/requests/${id}/approve`, { method: "POST", body: "{}" }),
+  rejectHolidayWork: (id: string, rejectReason: string) =>
+    request<any>(`/holiday-work/requests/${id}/reject`, { method: "POST", body: JSON.stringify({ rejectReason }) }),
 };
 
 // ─── My Profile ──────────────────────────────────────────────────────────────
@@ -555,7 +731,10 @@ export const approvalLineApi = {
 };
 
 export const userManagementApi = {
-  list: () => request<{ items: any[]; total: number }>("/users"),
+  list: (opts?: { includeRetired?: boolean }) => {
+    const q = opts?.includeRetired ? "?includeRetired=true" : "";
+    return request<{ items: any[]; total: number }>(`/users${q}`);
+  },
   members: (all?: boolean) => request<{ id: string; name: string }[]>(`/users/members${all ? "?all=true" : ""}`),
   create: (data: { email: string; name: string; password: string; role: string }) =>
     request<any>("/users", { method: "POST", body: JSON.stringify(data) }),
@@ -572,7 +751,50 @@ export const userManagementApi = {
     departmentName?: string | null;
   }) => request<any>(`/users/${id}/profile`, { method: "PATCH", body: JSON.stringify(data) }),
   delete: (id: string) => request<void>(`/users/${id}`, { method: "DELETE" }),
+  // 자원-모델-분리 PDCA Phase 3b-1: 직원 라이프사이클
+  retire: (id: string, retirementDate?: string) =>
+    request<any>(`/users/${id}/retire`, {
+      method: "POST",
+      body: JSON.stringify(retirementDate ? { retirementDate } : {}),
+    }),
+  reactivate: (id: string) =>
+    request<any>(`/users/${id}/reactivate`, { method: "POST" }),
+  updateStatus: (id: string, data: { status: "ACTIVE" | "RETIRED" | "SUSPENDED"; retirementDate?: string | null }) =>
+    request<any>(`/users/${id}/status`, { method: "PATCH", body: JSON.stringify(data) }),
 };
+
+// ─── 자원-모델-분리 PDCA Phase 3b-6: 통합 자원 picker용 ────────────────────
+//   직원 (auth_users, status=ACTIVE) + 외부 (status=ACTIVE) + 비인력 (isActive=true) 합산
+export interface AssignableResource {
+  id: string;
+  name: string;
+  category: "PERSON" | "EXTERNAL" | "EQUIPMENT";
+  type?: string;
+  email?: string | null;
+  company?: string | null;
+  isActive: boolean;
+}
+
+export async function listAssignableResources(): Promise<AssignableResource[]> {
+  // 공용자산 정리 (2026-05-05): EquipmentResource는 프로젝트 미연계 — 자원 popover에서 제외.
+  // 직원(auth_users) + 외부 인력만 자원 배정 대상.
+  const [users, externals] = await Promise.all([
+    userManagementApi.list().catch(() => ({ items: [] as any[] })),
+    externalPersonApi.list({ status: "ACTIVE" }).catch(() => [] as ExternalPerson[]),
+  ]);
+  const out: AssignableResource[] = [];
+  const userList: any[] = Array.isArray((users as any).items)
+    ? (users as any).items
+    : (Array.isArray(users) ? (users as any[]) : []);
+  for (const u of userList) {
+    if (u.status === "RETIRED" || u.isActive === false) continue;
+    out.push({ id: u.id, name: u.name, category: "PERSON", type: "PERSON", email: u.email, isActive: true });
+  }
+  for (const e of externals) {
+    out.push({ id: e.id, name: e.name, category: "EXTERNAL", type: "PERSON", company: e.company, isActive: true });
+  }
+  return out;
+}
 
 // ─── Dashboard (지휘센터) ─────────────────────────────────────────────────────
 
@@ -1530,6 +1752,12 @@ export const calendarApi = {
   update: (id: string, data: { type?: string; title?: string; description?: string | null; startDate?: string; endDate?: string; color?: string | null }) =>
     request<any>(`/calendar/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   remove: (id: string) => request<void>(`/calendar/${id}`, { method: "DELETE" }),
+  // v1.2 — KASI 한국 공휴일 동기화 (year 미지정 시 현재 연도)
+  syncHolidays: (year?: number) =>
+    request<{ year: number; fetched: number; created: number; updated: number; deleted: number; durationMs: number }>(
+      `/calendar/sync-holidays${year ? `?year=${year}` : ""}`,
+      { method: "POST" },
+    ),
 };
 
 /** @deprecated Use authApi.login instead */

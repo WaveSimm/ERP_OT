@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, useEffect, useCallback } from "react";
+import { DateInput } from "@/components/ui/DateInput";
 
 interface Schedule {
   id: string;
@@ -14,6 +15,8 @@ interface Schedule {
 
 interface Props {
   schedules: Schedule[];
+  /** 회사달력 v1.2 — 일자별 휴일 Map (date → 휴일명). 미전달 시 휴일 표시 안 함 */
+  holidays?: Map<string, string>;
 }
 
 type RangePreset = "lastWeek" | "thisWeek" | "nextWeek" | "thisMonth" | "nextMonth" | "all";
@@ -89,7 +92,7 @@ function daysBetween(a: Date, b: Date) { return Math.round((b.getTime() - a.getT
 function pct(day: number, total: number) { return `${(day / total) * 100}%`; }
 function pctN(day: number, total: number) { return (day / total) * 100; }
 
-export default function ScheduleTimeline({ schedules }: Props) {
+export default function ScheduleTimeline({ schedules, holidays }: Props) {
   const [tooltip, setTooltip] = useState<{ pctX: number; s: Schedule } | null>(null);
   const [activePreset, setActivePreset] = useState<RangePreset>("thisMonth");
   const [customStart, setCustomStart] = useState(() => fmt(getPresetRange("thisMonth")!.start));
@@ -162,15 +165,33 @@ export default function ScheduleTimeline({ schedules }: Props) {
 
   /* ── Day headers — 항상 표시 ── */
   const dayHeaders = useMemo(() => {
-    const result: { label: string; leftPct: number; widthPct: number; isWeekend: boolean }[] = [];
+    const result: {
+      label: string;
+      iso: string;
+      leftPct: number;
+      widthPct: number;
+      isWeekend: boolean;
+      isHoliday: boolean;
+      holidayName?: string;
+    }[] = [];
     const w = pctN(1, totalDays);
     for (let i = 0; i < totalDays; i++) {
       const d = new Date(rangeStart); d.setDate(d.getDate() + i);
       const dow = d.getDay();
-      result.push({ label: `${d.getDate()}`, leftPct: pctN(i, totalDays), widthPct: w, isWeekend: dow === 0 || dow === 6 });
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const holidayName = holidays?.get(iso);
+      result.push({
+        label: `${d.getDate()}`,
+        iso,
+        leftPct: pctN(i, totalDays),
+        widthPct: w,
+        isWeekend: dow === 0 || dow === 6,
+        isHoliday: !!holidayName,
+        ...(holidayName ? { holidayName } : {}),
+      });
     }
     return result;
-  }, [rangeStart, totalDays]);
+  }, [rangeStart, totalDays, holidays]);
 
   const todayPct = pctN(daysBetween(rangeStart, new Date()), totalDays);
 
@@ -215,15 +236,15 @@ export default function ScheduleTimeline({ schedules }: Props) {
           </button>
         ))}
         <span className="text-gray-300 mx-1">|</span>
-        <input
-          type="date"
+        <DateInput
+          
           value={customStart}
           onChange={(e) => handleCustomDate("start", e.target.value)}
           className="px-2 py-1 text-xs border rounded bg-white text-gray-700 w-[130px]"
         />
         <span className="text-gray-400 text-xs">~</span>
-        <input
-          type="date"
+        <DateInput
+          
           value={customEnd}
           onChange={(e) => handleCustomDate("end", e.target.value)}
           className="px-2 py-1 text-xs border rounded bg-white text-gray-700 w-[130px]"
@@ -244,13 +265,22 @@ export default function ScheduleTimeline({ schedules }: Props) {
 
         {/* Day headers */}
         <div className="relative h-[20px] bg-gray-50/80 border-b border-gray-200">
-          {dayHeaders.map((d, i) => (
-            <div key={i}
-              className={`absolute text-[9px] text-center border-r select-none flex items-center justify-center ${d.isWeekend ? "text-red-400 bg-red-50/40 border-red-100" : "text-gray-400 border-gray-100"}`}
-              style={{ left: `${d.leftPct}%`, width: `${d.widthPct}%`, height: 20 }}>
-              {d.label}
-            </div>
-          ))}
+          {dayHeaders.map((d, i) => {
+            const cls = d.isHoliday
+              ? "text-red-500 bg-red-100/60 border-red-200 font-medium"
+              : d.isWeekend
+              ? "text-red-400 bg-red-50/40 border-red-100"
+              : "text-gray-400 border-gray-100";
+            return (
+              <div key={i}
+                className={`absolute text-[9px] text-center border-r select-none flex items-center justify-center ${cls}`}
+                style={{ left: `${d.leftPct}%`, width: `${d.widthPct}%`, height: 20 }}
+                title={d.holidayName ?? undefined}
+              >
+                {d.label}
+              </div>
+            );
+          })}
         </div>
 
         {/* Single bar row */}
@@ -261,8 +291,13 @@ export default function ScheduleTimeline({ schedules }: Props) {
           ))}
 
           {/* Weekend columns */}
-          {dayHeaders.filter((d) => d.isWeekend).map((d, i) => (
-            <div key={i} className="absolute top-0 bg-gray-50/50 pointer-events-none" style={{ left: `${d.leftPct}%`, width: `${d.widthPct}%`, height: ROW_H }} />
+          {dayHeaders.filter((d) => d.isWeekend && !d.isHoliday).map((d, i) => (
+            <div key={`we-${i}`} className="absolute top-0 bg-gray-50/50 pointer-events-none" style={{ left: `${d.leftPct}%`, width: `${d.widthPct}%`, height: ROW_H }} />
+          ))}
+
+          {/* Holiday columns — 휴일은 weekend보다 진한 음영 (회사달력 v1.2) */}
+          {dayHeaders.filter((d) => d.isHoliday).map((d, i) => (
+            <div key={`hol-${i}`} className="absolute top-0 bg-red-50/40 pointer-events-none" style={{ left: `${d.leftPct}%`, width: `${d.widthPct}%`, height: ROW_H }} title={d.holidayName ?? undefined} />
           ))}
 
           {/* Today line */}

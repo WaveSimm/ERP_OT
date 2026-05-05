@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { useEffect, useState } from "react";
 import { equipmentStatsApi } from "@/lib/api";
+import { DateInput } from "@/components/ui/DateInput";
 
 const SEVERITY_LABELS: Record<string, { label: string; color: string }> = {
   EXPIRED: { label: "만료", color: "bg-red-100 text-red-700" },
@@ -60,10 +61,10 @@ export default function EquipmentStatsPage() {
         {/* 기간 선택 */}
         <div className="flex items-center gap-3 bg-white border rounded-lg p-3">
           <span className="text-sm font-medium text-gray-600">기간:</span>
-          <input type="date" value={period.startDate} onChange={(e) => setPeriod({ ...period, startDate: e.target.value })}
+          <DateInput value={period.startDate} onChange={(e) => setPeriod({ ...period, startDate: e.target.value })}
             className="border rounded px-3 py-1.5 text-sm" />
           <span className="text-gray-400">~</span>
-          <input type="date" value={period.endDate} onChange={(e) => setPeriod({ ...period, endDate: e.target.value })}
+          <DateInput value={period.endDate} onChange={(e) => setPeriod({ ...period, endDate: e.target.value })}
             className="border rounded px-3 py-1.5 text-sm" />
         </div>
 

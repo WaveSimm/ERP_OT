@@ -63,6 +63,9 @@ export class AuthService {
     const user = await this.userRepo.findByEmail(email);
     if (!user) throw new AuthError(401, "이메일 또는 비밀번호가 올바르지 않습니다.", "INVALID_CREDENTIALS");
     if (!user.isActive) throw new AuthError(403, "비활성화된 계정입니다.", "ACCOUNT_DISABLED");
+    // 자원-모델-분리 PDCA Phase 3a-1: 퇴직자/정지 차단
+    if (user.status === "RETIRED") throw new AuthError(403, "퇴직 처리된 계정입니다.", "ACCOUNT_RETIRED");
+    if (user.status === "SUSPENDED") throw new AuthError(403, "정지된 계정입니다.", "ACCOUNT_SUSPENDED");
 
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) throw new AuthError(401, "이메일 또는 비밀번호가 올바르지 않습니다.", "INVALID_CREDENTIALS");

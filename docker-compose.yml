@@ -93,6 +93,9 @@ services:
       SEARCH_KEYWORD_MATCH_BONUS: "0.20"
       HIDE_LOAD_TEST: "${HIDE_LOAD_TEST:-true}"
       LOAD_TEST_DOMAIN: "${LOAD_TEST_DOMAIN:-@erp-ot.load}"
+      # 회사달력 v1.2 — 한국 공휴일 자동 갱신 (KASI 특일 정보 API)
+      # 미설정 허용 — sync 호출 시에만 명시적 에러
+      KASI_API_KEY: "${KASI_API_KEY:-}"
     ports:
       - "3001:3001"
     depends_on:

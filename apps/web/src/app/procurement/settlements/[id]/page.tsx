@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { settlementApi, inventoryApi, procurementApi } from "@/lib/api";
 import FileAttachment from "@/components/FileAttachment";
 import SearchableSelect from "@/components/SearchableSelect";
+import { DateInput } from "@/components/ui/DateInput";
 
 const DUTY_LABELS: Record<string, string> = {
   TARIFF: "관세", OVERSEAS_FREIGHT: "국외운반비", DOMESTIC_FREIGHT: "국내운반비",
@@ -353,7 +354,7 @@ export default function SettlementDetailPage() {
             <div className="space-y-3">
               <div>
                 <label className="text-sm text-gray-600">송금일 *</label>
-                <input type="date" value={remitForm.remittanceDate} onChange={(e) => setRemitForm(p => ({ ...p, remittanceDate: e.target.value }))}
+                <DateInput value={remitForm.remittanceDate} onChange={(e) => setRemitForm(p => ({ ...p, remittanceDate: e.target.value }))}
                   className="w-full border rounded px-3 py-2 text-sm" />
               </div>
               <div className="grid grid-cols-2 gap-3">

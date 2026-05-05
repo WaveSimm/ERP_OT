@@ -2,16 +2,22 @@ import type { FastifyInstance } from "fastify";
 import type { CalendarService } from "../../application/calendar.service";
 import { CalendarError } from "../../application/calendar.service";
 import type { AuthService } from "../../application/auth.service";
+import type { HolidaySyncService } from "../../application/holiday-sync.service";
+import { KasiClientError } from "../../infrastructure/clients/kasi-client";
 import { createAuthHook, requireRole } from "../middleware/auth.middleware";
 import {
   createEntrySchema,
   updateEntrySchema,
   listEntryQuerySchema,
   upcomingQuerySchema,
+  syncHolidaysQuerySchema,
 } from "../dtos/calendar.dto";
 
 function handleError(reply: any, err: any) {
   if (err instanceof CalendarError) {
+    return reply.code(err.statusCode).send({ error: { code: err.code, message: err.message } });
+  }
+  if (err instanceof KasiClientError) {
     return reply.code(err.statusCode).send({ error: { code: err.code, message: err.message } });
   }
   if (err?.name === "ZodError") {
@@ -24,9 +30,13 @@ function handleError(reply: any, err: any) {
 
 export async function calendarRoutes(
   app: FastifyInstance,
-  opts: { calendarService: CalendarService; authService: AuthService },
+  opts: {
+    calendarService: CalendarService;
+    authService: AuthService;
+    holidaySyncService: HolidaySyncService | null;
+  },
 ) {
-  const { calendarService, authService } = opts;
+  const { calendarService, authService, holidaySyncService } = opts;
   const authenticate = createAuthHook(authService);
   const adminOnly = requireRole("ADMIN");
 
@@ -96,4 +106,34 @@ export async function calendarRoutes(
       return handleError(reply, err);
     }
   });
+
+  // v1.2 — POST /api/v1/calendar/sync-holidays?year=YYYY (ADMIN, rate-limited)
+  app.post(
+    "/sync-holidays",
+    {
+      preHandler: [authenticate, adminOnly],
+      config: {
+        rateLimit: { max: 6, timeWindow: "1 minute" },
+      },
+    },
+    async (req, reply) => {
+      try {
+        if (!holidaySyncService) {
+          return reply.code(503).send({
+            error: {
+              code: "KASI_NOT_CONFIGURED",
+              message:
+                "KASI_API_KEY가 설정되지 않았습니다. 관리자에게 문의하세요.",
+            },
+          });
+        }
+        const q = syncHolidaysQuerySchema.parse(req.query);
+        const year = q.year ?? new Date().getFullYear();
+        const result = await holidaySyncService.syncYear(year);
+        return reply.send(result);
+      } catch (err) {
+        return handleError(reply, err);
+      }
+    },
+  );
 }

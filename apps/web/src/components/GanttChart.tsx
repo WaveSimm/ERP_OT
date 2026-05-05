@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, useCallback, useEffect } from "react";
 import clsx from "clsx";
 import CommentPopover from "@/components/CommentPopover";
 import ResourcePickerPopover from "@/components/ResourcePickerPopover";
+import { RowContextMenu } from "@/components/RowContextMenu";
 import { taskApi } from "@/lib/api";
 
 interface GanttSegment {
@@ -81,7 +82,7 @@ function shiftDate(isoDate: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTaskClick, onTaskCopy, baselineSegments, allResources, onRefresh, pushUndo, projectId, inlineTaskName, onInlineTaskNameChange, inlineAdding, onInlineTaskCreate, selected, onToggleSelect, onToggleAll, dragIds, dropGap, onDragStart, onDragOver, onDrop, onDragEnd, onIndent, onOutdent }: {
+export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTaskClick, onTaskCopy, baselineSegments, allResources, onRefresh, pushUndo, projectId, inlineTaskName, onInlineTaskNameChange, inlineAdding, onInlineTaskCreate, selected, onToggleSelect, onToggleAll, dragIds, dropGap, onDragStart, onDragOver, onDrop, onDragEnd, onIndent, onOutdent, onCopySelected, onDeleteSelected, onClearSelection, onProgressChange, onAddTask, onAddMilestone, holidays }: {
   data: GanttData;
   flatItems?: FlatItem[];
   viewStart?: string;
@@ -98,7 +99,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
   inlineAdding?: boolean;
   onInlineTaskCreate?: () => void;
   selected?: Set<string>;
-  onToggleSelect?: (id: string) => void;
+  onToggleSelect?: (id: string, shift: boolean) => void;
   onToggleAll?: () => void;
   dragIds?: string[];
   dropGap?: { taskId: string; pos: "before" | "after" } | null;
@@ -108,10 +109,21 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
   onDragEnd?: () => void;
   onIndent?: () => void;
   onOutdent?: () => void;
+  onCopySelected?: () => void;
+  onDeleteSelected?: () => void;
+  onClearSelection?: () => void;
+  onProgressChange?: (taskId: string, value: number) => void | Promise<void>;
+  onAddTask?: () => void;
+  onAddMilestone?: () => void;
+  /** 회사달력 v1.2 — 일자별 휴일 Map (date → 휴일명). 미전달 시 휴일 표시 안 함 */
+  holidays?: Map<string, string>;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerW, setContainerW] = useState(0);
+  // 진도율 인라인 편집 (leaf task만)
+  const [editingProgressId, setEditingProgressId] = useState<string | null>(null);
+  const progressValRef = useRef<number>(0);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -350,10 +362,12 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
     return dates.length > 0 ? new Date(Math.max(...dates.map((d) => d.getTime()))) : new Date();
   }, [viewEnd, data]);
 
-  const totalDays = Math.max(daysBetween(rangeStart, rangeEnd) + 2, 30);
-
   // 날짜 범위가 지정된 경우 타임라인을 화면 폭에 맞게 자동 줌
   const hasCustomRange = !!(viewStart && viewEnd);
+  // 사용자 정의 범위면 정확히 그 일수만 표시(시작/종료일 포함), 자동 범위는 최소 30일 보장
+  const totalDays = hasCustomRange
+    ? daysBetween(rangeStart, rangeEnd) + 1
+    : Math.max(daysBetween(rangeStart, rangeEnd) + 2, 30);
   const timelinePanelW = Math.max(0, containerW - leftW - resourceW);
   const dayPx = hasCustomRange && timelinePanelW > 10
     ? Math.max(2, timelinePanelW / totalDays)
@@ -474,19 +488,41 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden" ref={containerRef}>
       {/* 선택 툴바 */}
-      {selected && selected.size > 0 && onIndent && onOutdent && (
+      {selected && selected.size > 0 && (
         <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border-b border-blue-100">
           <span className="text-xs font-semibold text-blue-700">{selected.size}개 선택됨</span>
           <span className="text-[10px] text-blue-400">— 드래그 핸들(⠿)로 이동</span>
-          <div className="h-3 w-px bg-blue-200" />
-          <button onClick={onOutdent}
-            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:bg-white rounded border border-gray-200">
-            ← 내어쓰기
-          </button>
-          <button onClick={onIndent}
-            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:bg-white rounded border border-gray-200">
-            → 들여쓰기
-          </button>
+          {(onIndent || onOutdent) && <div className="h-3 w-px bg-blue-200" />}
+          {onOutdent && (
+            <button onClick={onOutdent}
+              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:bg-white rounded border border-gray-200" title="내어쓰기 (레벨 올리기)">
+              ← 내어쓰기
+            </button>
+          )}
+          {onIndent && (
+            <button onClick={onIndent}
+              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:bg-white rounded border border-gray-200" title="들여쓰기 (레벨 내리기)">
+              → 들여쓰기
+            </button>
+          )}
+          {(onCopySelected || onDeleteSelected) && <div className="h-3 w-px bg-blue-200" />}
+          {onCopySelected && (
+            <button onClick={onCopySelected}
+              className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded border border-blue-200"
+              title="선택한 태스크를 다른 프로젝트로 복사">
+              📋 복사
+            </button>
+          )}
+          {onDeleteSelected && (
+            <button onClick={onDeleteSelected}
+              className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded border border-red-200">
+              🗑 선택 삭제
+            </button>
+          )}
+          {onClearSelection && (
+            <button onClick={onClearSelection}
+              className="ml-auto text-xs text-gray-400 hover:text-gray-600">선택 해제</button>
+          )}
         </div>
       )}
       <div className="flex" style={{ height: `${totalH + 56}px` }}>
@@ -512,19 +548,21 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
           {/* Rows */}
           <div className="flex-1 overflow-hidden">
             {rows.map(({ task, depth }) => (
-              <div
+              <RowContextMenu
                 key={task.id}
+                fallbackToBrowser
+                items={[
+                  { label: "편집/상세", icon: "✏️", onClick: () => onTaskClick?.(task), visible: !!onTaskClick },
+                  { label: "복사", icon: "📋", onClick: () => onTaskCopy?.(task), visible: !!onTaskCopy && !((task as any)._children?.length > 0) },
+                ]}
+              >
+              <div
                 style={{ height: ROW_H }}
                 onClick={(e) => { e.stopPropagation(); onTaskClick?.(task); }}
-                onContextMenu={onTaskCopy && !task.isParent ? (e) => {
-                  // 프로젝트-관리 PDCA US-32: 우클릭으로 즉시 복사 다이얼로그
-                  e.preventDefault();
-                  onTaskCopy(task);
-                } : undefined}
                 onDragOver={onDragOver ? (e) => onDragOver(e, task.id) : undefined}
                 onDrop={onDrop ? (e) => { e.preventDefault(); onDrop(e); } : undefined}
                 className={clsx(
-                  "flex items-center border-b border-gray-100 gap-1 pr-1 group/row relative",
+                  "flex items-center border-b border-gray-100 gap-1 pr-1 group/row relative select-none",
                   task.isCritical && !task.isMilestone && "bg-red-50/30",
                   onTaskClick && "cursor-pointer hover:bg-blue-50/40",
                   selected?.has(task.id) && "!bg-blue-50",
@@ -548,15 +586,19 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                     className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing select-none text-xs px-0.5 shrink-0"
                   >⠿</span>
                 ) : <span className="w-3 shrink-0" />}
-                {/* 체크박스 */}
+                {/* 체크박스 — div wrapper로 hitbox를 행 높이만큼 확장 (태스크 목록 탭과 동일 패턴) */}
                 {onToggleSelect && (
-                  <input
-                    type="checkbox"
-                    checked={selected?.has(task.id) ?? false}
-                    onChange={() => {}}
-                    onClick={(e) => { e.stopPropagation(); onToggleSelect(task.id); }}
-                    className="w-3 h-3 rounded accent-blue-600 cursor-pointer shrink-0"
-                  />
+                  <div
+                    onClick={(e) => { e.stopPropagation(); onToggleSelect(task.id, e.shiftKey); }}
+                    className="flex items-center justify-center h-full px-3 cursor-pointer shrink-0"
+                  >
+                    <input
+                      type="checkbox"
+                      readOnly
+                      checked={selected?.has(task.id) ?? false}
+                      className="w-3 h-3 rounded accent-blue-600 pointer-events-none"
+                    />
+                  </div>
                 )}
                 {/* Task name */}
                 <div className="flex-1 min-w-0 flex items-center gap-0.5" style={{ paddingLeft: 4 + depth * 14 }}>
@@ -598,19 +640,57 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                     </span>
                   )}
                 </div>
-                {/* Progress or date */}
-                <div className="shrink-0 text-right min-w-[28px] flex items-center gap-1 justify-end">
+                {/* Progress or date — leaf task는 클릭하면 인라인 편집 */}
+                <div className="shrink-0 text-right min-w-[28px] flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
                   {task.isMilestone ? (
                     task.effectiveStartDate && (
                       <span className="text-[10px] text-purple-400">{formatDate(task.effectiveStartDate)}</span>
                     )
-                  ) : (
-                    <span className="text-[11px] font-semibold text-gray-400">
-                      {task.overallProgress.toFixed(0)}%
-                    </span>
-                  )}
+                  ) : (() => {
+                    const isLeaf = !parentIds.has(task.id);
+                    const isEditing = editingProgressId === task.id;
+                    const commitProgress = () => {
+                      const v = Math.max(0, Math.min(100, Math.round(progressValRef.current)));
+                      void onProgressChange?.(task.id, v);
+                      setEditingProgressId(null);
+                    };
+                    if (isEditing && onProgressChange) {
+                      return (
+                        <input
+                          type="number" min={0} max={100} step={5}
+                          autoFocus
+                          defaultValue={Math.round(task.overallProgress)}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => { progressValRef.current = Number(e.target.value); }}
+                          onBlur={commitProgress}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") commitProgress();
+                            if (e.key === "Escape") setEditingProgressId(null);
+                          }}
+                          className="w-12 px-1 py-0.5 text-[11px] border border-blue-400 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                      );
+                    }
+                    return (
+                      <span
+                        className={clsx(
+                          "text-[11px] font-semibold text-gray-400",
+                          isLeaf && onProgressChange && "cursor-pointer hover:text-blue-600 hover:underline",
+                        )}
+                        title={isLeaf && onProgressChange ? "클릭해서 수동 입력" : "하위 평균 자동 계산"}
+                        onClick={isLeaf && onProgressChange ? (e) => {
+                          e.stopPropagation();
+                          progressValRef.current = Math.round(task.overallProgress);
+                          setEditingProgressId(task.id);
+                        } : undefined}
+                      >
+                        {task.overallProgress.toFixed(0)}%
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
+              </RowContextMenu>
             ))}
           </div>
           {/* Left panel resize handle */}
@@ -706,18 +786,32 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                 d.setDate(d.getDate() + i);
                 const isWeekend = d.getDay() === 0 || d.getDay() === 6;
                 const isMonStart = d.getDate() === 1;
+                // 회사달력 v1.2 — 한국 공휴일·자체 휴일 표시
+                const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                const holidayName = holidays?.get(iso);
+                const isHoliday = !!holidayName;
                 return (
                   <div
                     key={i}
                     className={clsx(
                       "absolute top-0 h-full flex items-center justify-center",
-                      isWeekend && "bg-gray-50",
+                      isHoliday ? "bg-red-50" : isWeekend ? "bg-gray-50" : "",
                       isMonStart && "border-l border-gray-300",
                     )}
                     style={{ left: i * dayPx, width: dayPx }}
+                    title={holidayName ?? undefined}
                   >
                     {dayPx >= 14 && (
-                      <span className={clsx("text-[10px]", isWeekend ? "text-gray-300" : "text-gray-400")}>
+                      <span
+                        className={clsx(
+                          "text-[10px]",
+                          isHoliday
+                            ? "text-red-500 font-medium"
+                            : isWeekend
+                            ? "text-gray-300"
+                            : "text-gray-400",
+                        )}
+                      >
                         {d.getDate()}
                       </span>
                     )}
@@ -759,11 +853,24 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                   ))}
                 </svg>
               )}
-              {/* Weekend shading */}
+              {/* Weekend / Holiday shading — 회사달력 v1.2 */}
               {Array.from({ length: totalDays }).map((_, i) => {
                 const d = new Date(rangeStart);
                 d.setDate(d.getDate() + i);
                 const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                const holidayName = holidays?.get(iso);
+                const isHoliday = !!holidayName;
+                if (isHoliday) {
+                  return (
+                    <div
+                      key={i}
+                      className="absolute top-0 bottom-0 bg-red-50/60 pointer-events-none"
+                      style={{ left: i * dayPx, width: dayPx }}
+                      title={holidayName}
+                    />
+                  );
+                }
                 return isWeekend ? (
                   <div
                     key={i}
@@ -978,6 +1085,31 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
             {inlineAdding && <span className="text-xs text-gray-400">저장 중...</span>}
           </div>
           <div className="flex-1" />
+        </div>
+      )}
+
+      {/* 상세 추가 버튼 — 태스크 목록 탭과 동일 패턴 */}
+      {(onAddTask || onAddMilestone) && (
+        <div className="border-t border-gray-100 px-3 py-2 flex items-center gap-2">
+          {onAddTask && (
+            <button
+              onClick={onAddTask}
+              className="bg-blue-600 text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-blue-700"
+              title="일정·자원·하위태스크까지 한 번에 입력"
+            >
+              + 태스크
+            </button>
+          )}
+          {onAddMilestone && (
+            <button
+              onClick={onAddMilestone}
+              className="bg-purple-600 text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-purple-700"
+              title="◆ 시점 마일스톤 (입찰 확인·납품 등)"
+            >
+              ◆ 마일스톤
+            </button>
+          )}
+          <span className="text-[10px] text-gray-400 ml-2">상세 옵션이 필요할 때</span>
         </div>
       )}
 

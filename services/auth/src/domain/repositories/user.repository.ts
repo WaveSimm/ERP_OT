@@ -1,11 +1,16 @@
-import type { User } from "../entities/user.entity";
+import type { User, EmployeeStatus } from "../entities/user.entity";
 
-export type CreateUserData = Omit<User, "id" | "createdAt" | "updatedAt">;
+export type CreateUserData = Omit<User, "id" | "createdAt" | "updatedAt" | "status" | "retirementDate"> & {
+  status?: EmployeeStatus;
+  retirementDate?: Date | null;
+};
 
 export type UpdateUserData = {
   name?: string | undefined;
   role?: User["role"] | undefined;
   isActive?: boolean | undefined;
+  status?: EmployeeStatus | undefined;
+  retirementDate?: Date | null | undefined;
   passwordHash?: string | undefined;
 };
 
@@ -20,7 +25,7 @@ export type UserProfileData = {
 export interface IUserRepository {
   findById(id: string): Promise<User | null>;
   findByEmail(email: string): Promise<User | null>;
-  findAll(): Promise<User[]>;
+  findAll(opts?: { includeRetired?: boolean }): Promise<User[]>;
   create(data: CreateUserData): Promise<User>;
   update(id: string, data: UpdateUserData): Promise<User>;
   updateLastLogin(id: string): Promise<void>;

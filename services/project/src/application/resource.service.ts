@@ -9,6 +9,7 @@ export interface CreateResourceGroupDto {
   description?: string;
   parentId?: string;
   sortOrder?: number;
+  type?: "PERSON" | "EXTERNAL" | "EQUIPMENT";
 }
 
 export interface UpdateResourceGroupDto {
@@ -18,6 +19,8 @@ export interface UpdateResourceGroupDto {
   sortOrder?: number;
 }
 
+// ⚠️ deprecated — Phase 4에서 Resource 폐기와 함께 제거.
+//   직원: auth-service /api/v1/users / 외부: external-person.service / 비인력: equipment-resource.service 사용
 export interface CreateResourceDto {
   name: string;
   type?: ResourceType;
@@ -35,9 +38,22 @@ export interface UpdateResourceDto {
 
 // ─── 응답 타입 ────────────────────────────────────────────────────────────────
 
+export interface DayBreakdownEntry {
+  date: string;
+  percent: number;
+  isWeekend: boolean;
+  isHoliday?: boolean;
+  holidayName?: string;
+  leaveType?: string;
+  leaveLabel?: string;
+  hasHolidayWork?: boolean;
+  holidayWorkLabel?: string;
+}
+
 export interface ResourceUtilizationResponse {
   resourceId: string;
   resourceName: string;
+  resourceCategory: "PERSON" | "EXTERNAL" | "EQUIPMENT";
   dailyCapacityHours: number;
   period: { startDate: string; endDate: string };
   totalAllocationPercent: number;
@@ -45,6 +61,7 @@ export interface ResourceUtilizationResponse {
   isOverloaded: boolean;
   isUnderutilized: boolean;
   projects: AssignmentDetail[];
+  dayBreakdown?: DayBreakdownEntry[];
 }
 
 export interface AssignmentDetail {
@@ -58,21 +75,24 @@ export interface AssignmentDetail {
   startDate: string;
   endDate: string;
   allocationMode: string;
-  allocationPercent: number | null;     // 저장된 원본값 (PERCENT 모드)
-  allocationHoursPerDay: number | null; // 저장된 원본값 (HOURS 모드)
-  effectivePercent: number;             // 항상 % 환산값 (바 표시용)
+  allocationPercent: number | null;
+  allocationHoursPerDay: number | null;
+  effectivePercent: number;
 }
 
 export interface DashboardResourceRow {
   resourceId: string;
   resourceName: string;
-  type: ResourceType;
+  type: ResourceType | "EXTERNAL";   // 자원-모델-분리 PDCA: EXTERNAL 추가
+  resourceCategory: "PERSON" | "EXTERNAL" | "EQUIPMENT";
+  company?: string | null;            // 외부 자원만
   dailyCapacityHours: number;
   totalAllocationPercent: number;
   availablePercent: number;
   isOverloaded: boolean;
   isUnderutilized: boolean;
   assignments: AssignmentDetail[];
+  dayBreakdown?: DayBreakdownEntry[];
 }
 
 export interface HeatmapCell {
@@ -82,29 +102,27 @@ export interface HeatmapCell {
 
 export interface HeatmapResponse {
   rows: { resourceId: string; resourceName: string }[];
-  columns: string[]; // 버킷 시작일 (ISO date)
+  columns: string[];
   cells: HeatmapCell[][];
 }
 
-// ─── 마이그레이션 타입 ────────────────────────────────────────────────────────
+const DEFAULT_CAPACITY_HOURS = 8;
+const LEAVE_LABELS: Record<string, string> = {
+  ANNUAL: "연차",
+  HALF: "반차",
+  QUARTER: "1/4연차",
+  FAMILY_DAY: "가정의날(1H)",
+  FAMILY_DAY_2H: "가정의날(2H)",
+  BEREAVEMENT: "경조사",
+  SICK: "병가",
+  SPECIAL: "공가",
+};
 
-export interface MigrationPreviewItem {
-  resourceId: string;
-  resourceName: string;
-  currentUserId: string | null;
-  matchedUserId: string | null;
-  matchedUserName: string | null;
-  matchedUserEmail: string | null;
-  matchType: "exact" | "none" | "already_linked";
-}
-
-export interface MigrationApplyResult {
-  updated: number;
-  skipped: number;
-  details: { resourceId: string; resourceName: string; userId: string }[];
-}
-
-const MS_PER_DAY = 86_400_000;
+// 직원/외부/비인력 자원에 대한 통합 부하 계산용 input
+type ResourceLike =
+  | { kind: "PERSON"; id: string; name: string; dailyCapacityHours: number }
+  | { kind: "EXTERNAL"; id: string; name: string; dailyCapacityHours: number; company: string | null }
+  | { kind: "EQUIPMENT"; id: string; name: string; dailyCapacityHours: number; type: string };
 
 export class ResourceService {
   constructor(
@@ -112,91 +130,14 @@ export class ResourceService {
     private readonly cache: ProjectCacheService,
   ) {}
 
-  // ─── userId 마이그레이션 ──────────────────────────────────────────────────
-
-  async migratePreview(): Promise<MigrationPreviewItem[]> {
-    const authUrl = process.env.AUTH_SERVICE_URL ?? "http://auth-service:3001";
-    // 보안 일괄패치 PDCA Layer 1 (C3): startup-time Zod env 검증으로 보장
-    const token = process.env.INTERNAL_API_TOKEN as string;
-
-    // auth-service에서 전체 사용자 가져오기
-    const res = await fetch(`${authUrl}/internal/users/all`, {
-      headers: { "x-internal-token": token },
-    });
-    if (!res.ok) throw new AppError(502, "AUTH_SERVICE_ERROR", "사용자 목록을 가져올 수 없습니다.");
-    const authUsers = (await res.json()) as { id: string; name: string; email: string }[];
-
-    // 이름 → User 맵 (동명이인 시 첫 번째만)
-    const nameMap = new Map<string, typeof authUsers[0]>();
-    for (const u of authUsers) {
-      const key = u.name.trim().toLowerCase();
-      if (!nameMap.has(key)) nameMap.set(key, u);
-    }
-
-    // 모든 PERSON 자원 조회
-    const resources = await this.prisma.resource.findMany({
-      where: { type: "PERSON" },
-      orderBy: { name: "asc" },
-    });
-
-    return resources.map((r) => {
-      // 이미 실제 사용자와 연결된 경우
-      if (r.userId && !r.userId.startsWith("user-")) {
-        const matched = authUsers.find((u) => u.id === r.userId);
-        return {
-          resourceId: r.id,
-          resourceName: r.name,
-          currentUserId: r.userId,
-          matchedUserId: r.userId,
-          matchedUserName: matched?.name ?? null,
-          matchedUserEmail: matched?.email ?? null,
-          matchType: "already_linked" as const,
-        };
-      }
-
-      // 이름 매칭 시도
-      const key = r.name.trim().toLowerCase();
-      const matched = nameMap.get(key);
-
-      return {
-        resourceId: r.id,
-        resourceName: r.name,
-        currentUserId: r.userId,
-        matchedUserId: matched?.id ?? null,
-        matchedUserName: matched?.name ?? null,
-        matchedUserEmail: matched?.email ?? null,
-        matchType: matched ? "exact" as const : "none" as const,
-      };
-    });
+  // ─── ⚠️ deprecated: userId 마이그레이션 (1회성, Phase 2에서 SQL로 완료) ────
+  // Phase 4에서 routes와 함께 제거 예정. 호출 시 410 에러.
+  async migratePreview(): Promise<never> {
+    throw new AppError(410, "DEPRECATED", "마이그레이션은 자원-모델-분리 PDCA Phase 2에서 SQL로 완료되었습니다.");
   }
 
-  async migrateApply(
-    mappings: { resourceId: string; userId: string }[],
-  ): Promise<MigrationApplyResult> {
-    let updated = 0;
-    let skipped = 0;
-    const details: MigrationApplyResult["details"] = [];
-
-    for (const { resourceId, userId } of mappings) {
-      const resource = await this.prisma.resource.findUnique({ where: { id: resourceId } });
-      if (!resource) { skipped++; continue; }
-
-      // 이미 동일한 userId면 스킵
-      if (resource.userId === userId) { skipped++; continue; }
-
-      // userId 중복 체크 (unique 제약)
-      const existing = await this.prisma.resource.findUnique({ where: { userId } });
-      if (existing && existing.id !== resourceId) { skipped++; continue; }
-
-      await this.prisma.resource.update({
-        where: { id: resourceId },
-        data: { userId },
-      });
-      updated++;
-      details.push({ resourceId, resourceName: resource.name, userId });
-    }
-
-    return { updated, skipped, details };
+  async migrateApply(): Promise<never> {
+    throw new AppError(410, "DEPRECATED", "마이그레이션은 자원-모델-분리 PDCA Phase 2에서 SQL로 완료되었습니다.");
   }
 
   // ─── Resource Group CRUD ──────────────────────────────────────────────────
@@ -205,12 +146,23 @@ export class ResourceService {
     const groups = await this.prisma.resourceGroup.findMany({
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       include: {
-        memberships: { select: { resourceId: true } },
+        memberships: {
+          select: {
+            resourceId: true,
+            personUserId: true,
+            externalPersonId: true,
+            equipmentResourceId: true,
+          },
+        },
       },
     });
     return groups.map((g) => ({
       ...g,
+      // 호환: legacy resourceIds + 신규 polymorphic ids
       resourceIds: g.memberships.map((m) => m.resourceId),
+      personUserIds: g.memberships.map((m) => m.personUserId).filter((x): x is string => !!x),
+      externalPersonIds: g.memberships.map((m) => m.externalPersonId).filter((x): x is string => !!x),
+      equipmentResourceIds: g.memberships.map((m) => m.equipmentResourceId).filter((x): x is string => !!x),
     }));
   }
 
@@ -226,6 +178,7 @@ export class ResourceService {
         description: dto.description ?? null,
         parentId: dto.parentId ?? null,
         sortOrder: dto.sortOrder ?? 0,
+        type: dto.type ?? "PERSON",
       },
     });
   }
@@ -253,17 +206,16 @@ export class ResourceService {
   async deleteResourceGroup(id: string): Promise<void> {
     const existing = await this.prisma.resourceGroup.findUnique({ where: { id }, include: { children: true } });
     if (!existing) throw new AppError(404, "GROUP_NOT_FOUND", "그룹을 찾을 수 없습니다.");
-    if (existing.children.length > 0) throw new AppError(400, "HAS_CHILDREN", "하위 그룹이 있어 삭제할 수 없습니다. 먼저 하위 그룹을 삭제하세요.");
-    // memberships는 onDelete: Cascade로 자동 삭제됨
+    if (existing.children.length > 0) throw new AppError(400, "HAS_CHILDREN", "하위 그룹이 있어 삭제할 수 없습니다.");
     await this.prisma.resourceGroup.delete({ where: { id } });
   }
 
-  // ─── 그룹 멤버 설정 (전체 교체) ──────────────────────────────────────────
-
+  // ─── 그룹 멤버 설정 (legacy resourceIds 호환 + 신규 polymorphic) ───────────
   async setGroupMembers(groupId: string, resourceIds: string[]): Promise<void> {
     const group = await this.prisma.resourceGroup.findUnique({ where: { id: groupId } });
     if (!group) throw new AppError(404, "GROUP_NOT_FOUND", "그룹을 찾을 수 없습니다.");
 
+    // legacy: resourceIds 그대로 유지 (Phase 4까지 deprecated 컬럼 사용)
     await this.prisma.$transaction([
       this.prisma.resourceGroupMember.deleteMany({ where: { groupId } }),
       this.prisma.resourceGroupMember.createMany({
@@ -273,7 +225,8 @@ export class ResourceService {
     ]);
   }
 
-  // ─── CRUD ─────────────────────────────────────────────────────────────────
+  // ─── ⚠️ deprecated CRUD (Phase 4에서 제거) ─────────────────────────────────
+  // 신규 화면은 /api/v1/equipment-resources, /api/v1/external-persons, /api/v1/users 사용
 
   async listResources(filter?: { type?: ResourceType; isActive?: boolean }) {
     const where: Record<string, unknown> = {};
@@ -316,58 +269,114 @@ export class ResourceService {
     });
   }
 
-  // ─── #26 유틸리제이션 (Redis 60s) ─────────────────────────────────────────
+  // ─── #26 Utilization (자원-모델-분리: polymorphic) ─────────────────────────
 
-  async getUtilization(
-    resourceId: string,
-    startDate: string,
-    endDate: string,
-  ): Promise<ResourceUtilizationResponse> {
-    const cached = await this.cache.getResourceUtilization<ResourceUtilizationResponse>(
-      resourceId, startDate, endDate,
-    );
+  async getUtilization(resourceId: string, startDate: string, endDate: string): Promise<ResourceUtilizationResponse> {
+    const cached = await this.cache.getResourceUtilization<ResourceUtilizationResponse>(resourceId, startDate, endDate);
     if (cached) return cached;
 
-    const resource = await this.getResource(resourceId);
-    const result = await this.computeUtilization(resource, startDate, endDate);
+    // resourceId가 어떤 종류인지 자동 판별 (auth_users.id / external_persons.id / equipment_resources.id)
+    const resource = await this.resolveResourceLike(resourceId);
+    if (!resource) throw new AppError(404, "RESOURCE_NOT_FOUND", "자원을 찾을 수 없습니다.");
 
+    const result = await this.computeUtilization(resource, startDate, endDate, { withDayBreakdown: true });
     await this.cache.setResourceUtilization(resourceId, startDate, endDate, result);
     return result;
   }
 
+  // resourceId가 어느 카테고리인지 식별 — 신규 모델 우선, fallback으로 legacy Resource
+  private async resolveResourceLike(id: string): Promise<ResourceLike | null> {
+    // 1. EquipmentResource 우선 시도
+    const eq = await this.prisma.equipmentResource.findUnique({ where: { id } });
+    if (eq) return { kind: "EQUIPMENT", id: eq.id, name: eq.name, dailyCapacityHours: DEFAULT_CAPACITY_HOURS, type: eq.type };
+
+    // 2. ExternalPerson
+    const ext = await this.prisma.externalPerson.findUnique({ where: { id } });
+    if (ext) return { kind: "EXTERNAL", id: ext.id, name: ext.name, dailyCapacityHours: DEFAULT_CAPACITY_HOURS, company: ext.company };
+
+    // 3. AuthUser (cross-service via internal API)
+    const authResolved = await this.resolveAuthUser(id);
+    if (authResolved) return { kind: "PERSON", id, name: authResolved.name, dailyCapacityHours: DEFAULT_CAPACITY_HOURS };
+
+    // 4. Legacy Resource (Phase 4까지 호환)
+    const legacy = await this.prisma.resource.findUnique({ where: { id } });
+    if (legacy) {
+      if (legacy.type === "PERSON") {
+        // userId(email)로 auth_user 찾아서 personUserId로 변환
+        const authId = legacy.userId ? await this.lookupAuthIdByEmail(legacy.userId) : null;
+        if (authId) {
+          return { kind: "PERSON", id: authId, name: legacy.name, dailyCapacityHours: legacy.dailyCapacityHours };
+        }
+      } else {
+        return { kind: "EQUIPMENT", id: legacy.id, name: legacy.name, dailyCapacityHours: legacy.dailyCapacityHours, type: legacy.type };
+      }
+    }
+    return null;
+  }
+
+  private async resolveAuthUser(authUserId: string): Promise<{ id: string; name: string; email: string } | null> {
+    const authUrl = process.env.AUTH_SERVICE_URL ?? "http://auth-service:3001";
+    const token = process.env.INTERNAL_API_TOKEN as string;
+    try {
+      const r = await fetch(`${authUrl}/internal/users/bulk?ids=${authUserId}`, { headers: { "x-internal-token": token } });
+      if (!r.ok) return null;
+      const map = (await r.json()) as Record<string, { name: string; email: string }>;
+      const user = map[authUserId];
+      return user ? { id: authUserId, name: user.name, email: user.email } : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async lookupAuthIdByEmail(email: string): Promise<string | null> {
+    const authUrl = process.env.AUTH_SERVICE_URL ?? "http://auth-service:3001";
+    const token = process.env.INTERNAL_API_TOKEN as string;
+    try {
+      const r = await fetch(`${authUrl}/internal/users/all?includeRetired=true`, { headers: { "x-internal-token": token } });
+      if (!r.ok) return null;
+      const users = (await r.json()) as { id: string; email: string }[];
+      return users.find((u) => u.email === email)?.id ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  // 통합 부하 계산 — polymorphic
   private async computeUtilization(
-    resource: Resource,
+    resource: ResourceLike,
     startDate: string,
     endDate: string,
+    opts: { withDayBreakdown?: boolean } = {},
   ): Promise<ResourceUtilizationResponse> {
     const qStart = new Date(startDate);
     const qEnd = new Date(endDate);
 
-    // 기간 내 겹치는 배정 조회
+    // polymorphic where
+    const assignmentWhere =
+      resource.kind === "PERSON"
+        ? { personUserId: resource.id }
+        : resource.kind === "EXTERNAL"
+        ? { externalPersonId: resource.id }
+        : { equipmentResourceId: resource.id };
+
     const assignments = await this.prisma.segmentAssignment.findMany({
       where: {
-        resourceId: resource.id,
+        ...assignmentWhere,
         segment: {
           startDate: { lte: qEnd },
           endDate: { gte: qStart },
         },
       },
       include: {
-        segment: {
-          include: {
-            task: { include: { project: true } },
-          },
-        },
+        segment: { include: { task: { include: { project: true } } } },
       },
     });
 
-    // 배정별 할당률 계산 (HOURS 모드 → % 변환)
     const projectRows: AssignmentDetail[] = assignments.map((a) => {
       const effectivePct =
         a.allocationMode === AllocationMode.PERCENT
           ? (a.allocationPercent ?? 0)
           : ((a.allocationHoursPerDay ?? 0) / resource.dailyCapacityHours) * 100;
-
       return {
         projectId: a.segment.task.project.id,
         projectName: a.segment.task.project.name,
@@ -385,7 +394,7 @@ export class ResourceService {
       };
     });
 
-    // 날짜별 배정률 계산 (기간 겹침 반영)
+    // 일별 부하
     const dayMap = new Map<string, number>();
     for (const row of projectRows) {
       const s = new Date(row.startDate);
@@ -399,16 +408,51 @@ export class ResourceService {
         d.setDate(d.getDate() + 1);
       }
     }
-    // 최대 일별 배정률 (피크 기준)
     let peakPercent = 0;
-    for (const pct of dayMap.values()) {
-      if (pct > peakPercent) peakPercent = pct;
-    }
+    for (const pct of dayMap.values()) if (pct > peakPercent) peakPercent = pct;
     const totalAllocationPercent = Math.round(peakPercent * 10) / 10;
+
+    // dayBreakdown (옵션)
+    let dayBreakdown: DayBreakdownEntry[] | undefined;
+    if (opts.withDayBreakdown) {
+      // 직원만 휴가/근태 머지. 외부·비인력은 휴일만.
+      const holidayMap = await this.fetchHolidays(startDate, endDate);
+      const userEntries = resource.kind === "PERSON" ? await this.fetchUserEntries(resource.id, startDate, endDate) : new Map();
+
+      dayBreakdown = [];
+      const cur = new Date(qStart);
+      while (cur <= qEnd) {
+        const key = cur.toISOString().slice(0, 10);
+        const dow = cur.getUTCDay();
+        const entry: DayBreakdownEntry = {
+          date: key,
+          percent: Math.round((dayMap.get(key) ?? 0) * 10) / 10,
+          isWeekend: dow === 0 || dow === 6,
+        };
+        const holiday = holidayMap.get(key);
+        if (holiday) {
+          entry.isHoliday = true;
+          entry.holidayName = holiday;
+        }
+        const ue = userEntries.get(key);
+        if (ue) {
+          if (ue.entryType === "OT") {
+            entry.hasHolidayWork = true;
+            entry.holidayWorkLabel = ue.label ?? "휴일근무";
+          } else if (ue.entryType in LEAVE_LABELS) {
+            entry.leaveType = ue.entryType;
+            entry.leaveLabel = LEAVE_LABELS[ue.entryType] ?? ue.entryType;
+          }
+        }
+        dayBreakdown.push(entry);
+        cur.setUTCDate(cur.getUTCDate() + 1);
+      }
+    }
 
     return {
       resourceId: resource.id,
       resourceName: resource.name,
+      resourceCategory: resource.kind,
       dailyCapacityHours: resource.dailyCapacityHours,
       period: { startDate, endDate },
       totalAllocationPercent,
@@ -416,78 +460,168 @@ export class ResourceService {
       isOverloaded: totalAllocationPercent > 100,
       isUnderutilized: totalAllocationPercent < 20,
       projects: projectRows,
+      ...(dayBreakdown ? { dayBreakdown } : {}),
     };
   }
 
-  // ─── #27 운영 현황 대시보드 ──────────────────────────────────────────────
+  private async fetchHolidays(start: string, end: string): Promise<Map<string, string>> {
+    const authUrl = process.env.AUTH_SERVICE_URL ?? "http://auth-service:3001";
+    const token = process.env.INTERNAL_API_TOKEN as string;
+    const map = new Map<string, string>();
+    try {
+      const r = await fetch(`${authUrl}/internal/calendar/holidays?from=${start}&to=${end}`, {
+        headers: { "x-internal-token": token },
+      });
+      if (r.ok) {
+        const arr = (await r.json()) as Array<{ date: string; title: string; type: string }>;
+        for (const h of arr) map.set(h.date, h.title);
+      }
+    } catch { /* ignore */ }
+    return map;
+  }
 
-  async getDashboard(
-    startDate: string,
-    endDate: string,
-  ): Promise<DashboardResourceRow[]> {
-    const resources = await this.prisma.resource.findMany({
-      where: { isActive: true },
-      orderBy: [{ type: "asc" }, { name: "asc" }],
+  private async fetchUserEntries(authUserId: string, start: string, end: string) {
+    const attUrl = process.env.ATTENDANCE_SERVICE_URL ?? "http://attendance-service:3004";
+    const token = process.env.INTERNAL_API_TOKEN as string;
+    const map = new Map<string, { entryType: string; sourceType: string; label: string | null }>();
+    try {
+      const r = await fetch(
+        `${attUrl}/internal/work-schedule/by-users?userIds=${authUserId}&start=${start}&end=${end}`,
+        { headers: { "x-internal-token": token } },
+      );
+      if (r.ok) {
+        const arr = (await r.json()) as Array<{ userId: string; date: string; entryType: string; sourceType: string; label: string | null }>;
+        for (const e of arr) {
+          if (e.sourceType === "LEAVE_APPROVED" || e.sourceType === "OT_APPROVED") {
+            map.set(e.date, e);
+          } else if (!map.has(e.date)) {
+            map.set(e.date, e);
+          }
+        }
+      }
+    } catch { /* ignore */ }
+    return map;
+  }
+
+  // ─── #27 운영 현황 대시보드 — 직원 + 외부 + 비인력 통합 ─────────────────────
+
+  async getDashboard(startDate: string, endDate: string): Promise<DashboardResourceRow[]> {
+    // 1. 직원 (auth-service /internal/users/all-with-departments — status=ACTIVE only)
+    const personUsers = await this.fetchActiveAuthUsers();
+
+    // 2. 외부 자원 (status=ACTIVE)
+    const externalPersons = await this.prisma.externalPerson.findMany({
+      where: { status: "ACTIVE" },
+      orderBy: [{ company: "asc" }, { name: "asc" }],
     });
 
+    // 공용자산 정리 (2026-05-05): EquipmentResource는 프로젝트 미연계 — 직원현황 대시보드에서 제외.
+    // (자원 배정·부하 모니터링 대상 아님. /admin/equipment-resources에서만 단순 마스터 관리)
+
     const rows: DashboardResourceRow[] = [];
-    for (const r of resources) {
-      const util = await this.computeUtilization(r, startDate, endDate);
+
+    // 직원
+    for (const u of personUsers) {
+      const resource: ResourceLike = { kind: "PERSON", id: u.id, name: u.name, dailyCapacityHours: DEFAULT_CAPACITY_HOURS };
+      const util = await this.computeUtilization(resource, startDate, endDate, { withDayBreakdown: true });
       rows.push({
-        resourceId: r.id,
-        resourceName: r.name,
-        type: r.type,
-        dailyCapacityHours: r.dailyCapacityHours,
+        resourceId: u.id,
+        resourceName: u.name,
+        type: "PERSON",
+        resourceCategory: "PERSON",
+        dailyCapacityHours: DEFAULT_CAPACITY_HOURS,
         totalAllocationPercent: util.totalAllocationPercent,
         availablePercent: util.availablePercent,
         isOverloaded: util.isOverloaded,
         isUnderutilized: util.isUnderutilized,
         assignments: util.projects,
+        ...(util.dayBreakdown ? { dayBreakdown: util.dayBreakdown } : {}),
       });
     }
+
+    // 외부
+    for (const ep of externalPersons) {
+      const resource: ResourceLike = { kind: "EXTERNAL", id: ep.id, name: ep.name, dailyCapacityHours: DEFAULT_CAPACITY_HOURS, company: ep.company };
+      const util = await this.computeUtilization(resource, startDate, endDate, { withDayBreakdown: true });
+      rows.push({
+        resourceId: ep.id,
+        resourceName: ep.name,
+        type: "EXTERNAL",
+        resourceCategory: "EXTERNAL",
+        company: ep.company,
+        dailyCapacityHours: DEFAULT_CAPACITY_HOURS,
+        totalAllocationPercent: util.totalAllocationPercent,
+        availablePercent: util.availablePercent,
+        isOverloaded: util.isOverloaded,
+        isUnderutilized: util.isUnderutilized,
+        assignments: util.projects,
+        ...(util.dayBreakdown ? { dayBreakdown: util.dayBreakdown } : {}),
+      });
+    }
+
+    // 공용자산(EquipmentResource) 루프 제거 (2026-05-05) — 프로젝트 미연계
 
     return rows;
   }
 
+  private async fetchActiveAuthUsers(): Promise<{ id: string; name: string; email: string }[]> {
+    const authUrl = process.env.AUTH_SERVICE_URL ?? "http://auth-service:3001";
+    const token = process.env.INTERNAL_API_TOKEN as string;
+    try {
+      const r = await fetch(`${authUrl}/internal/users/all`, {
+        headers: { "x-internal-token": token },
+      });
+      if (!r.ok) return [];
+      return (await r.json()) as { id: string; name: string; email: string }[];
+    } catch {
+      return [];
+    }
+  }
+
   // ─── #28 히트맵 데이터 ────────────────────────────────────────────────────
 
-  async getHeatmap(
-    startDate: string,
-    endDate: string,
-    granularity: "week" | "month",
-  ): Promise<HeatmapResponse> {
-    const cached = await this.cache.getResourceUtilization<HeatmapResponse>(
-      `heatmap:${granularity}`, startDate, endDate,
-    );
+  async getHeatmap(startDate: string, endDate: string, granularity: "week" | "month"): Promise<HeatmapResponse> {
+    const cached = await this.cache.getResourceUtilization<HeatmapResponse>(`heatmap:${granularity}`, startDate, endDate);
     if (cached) return cached;
 
-    const resources = await this.prisma.resource.findMany({
-      where: { isActive: true },
-      orderBy: [{ type: "asc" }, { name: "asc" }],
-    });
+    const personUsers = await this.fetchActiveAuthUsers();
+    const externalPersons = await this.prisma.externalPerson.findMany({ where: { status: "ACTIVE" } });
+    const equipmentResources = await this.prisma.equipmentResource.findMany({ where: { isActive: true } });
+
+    const all: { resourceId: string; resourceName: string; resource: ResourceLike }[] = [
+      ...personUsers.map((u) => ({
+        resourceId: u.id,
+        resourceName: u.name,
+        resource: { kind: "PERSON" as const, id: u.id, name: u.name, dailyCapacityHours: DEFAULT_CAPACITY_HOURS },
+      })),
+      ...externalPersons.map((ep) => ({
+        resourceId: ep.id,
+        resourceName: ep.name,
+        resource: { kind: "EXTERNAL" as const, id: ep.id, name: ep.name, dailyCapacityHours: DEFAULT_CAPACITY_HOURS, company: ep.company },
+      })),
+      ...equipmentResources.map((eq) => ({
+        resourceId: eq.id,
+        resourceName: eq.name,
+        resource: { kind: "EQUIPMENT" as const, id: eq.id, name: eq.name, dailyCapacityHours: DEFAULT_CAPACITY_HOURS, type: eq.type },
+      })),
+    ];
 
     const buckets = generateBuckets(new Date(startDate), new Date(endDate), granularity);
-
     const cells: HeatmapCell[][] = [];
 
-    for (const r of resources) {
+    for (const item of all) {
       const row: HeatmapCell[] = [];
-
       for (const bucket of buckets) {
         const bStart = bucket.start.toISOString().slice(0, 10);
         const bEnd = bucket.end.toISOString().slice(0, 10);
-        const util = await this.computeUtilization(r, bStart, bEnd);
-        row.push({
-          allocationPercent: util.totalAllocationPercent,
-          isOverloaded: util.isOverloaded,
-        });
+        const util = await this.computeUtilization(item.resource, bStart, bEnd);
+        row.push({ allocationPercent: util.totalAllocationPercent, isOverloaded: util.isOverloaded });
       }
-
       cells.push(row);
     }
 
     const result: HeatmapResponse = {
-      rows: resources.map((r) => ({ resourceId: r.id, resourceName: r.name })),
+      rows: all.map((a) => ({ resourceId: a.resourceId, resourceName: a.resourceName })),
       columns: buckets.map((b) => b.start.toISOString().slice(0, 10)),
       cells,
     };
@@ -499,34 +633,25 @@ export class ResourceService {
 
 // ─── 헬퍼: 시간 버킷 생성 ────────────────────────────────────────────────────
 
-function generateBuckets(
-  start: Date,
-  end: Date,
-  granularity: "week" | "month",
-): { start: Date; end: Date }[] {
+function generateBuckets(start: Date, end: Date, granularity: "week" | "month"): { start: Date; end: Date }[] {
   const buckets: { start: Date; end: Date }[] = [];
   let cursor = new Date(start);
-
   while (cursor <= end) {
     const bucketStart = new Date(cursor);
     let bucketEnd: Date;
-
     if (granularity === "week") {
       bucketEnd = new Date(cursor);
       bucketEnd.setDate(bucketEnd.getDate() + 6);
     } else {
-      bucketEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0); // 월말
+      bucketEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
     }
-
     if (bucketEnd > end) bucketEnd = new Date(end);
     buckets.push({ start: bucketStart, end: bucketEnd });
-
     if (granularity === "week") {
       cursor.setDate(cursor.getDate() + 7);
     } else {
       cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
     }
   }
-
   return buckets;
 }

@@ -15,7 +15,7 @@ const OCR_SERVICE_URL = process.env.OCR_SERVICE_URL ?? "http://localhost:3007";
 
 // H9: notifications 제거 — project-service의 알림 라우트와 attendance 알림 라우트 충돌
 // (attendance는 /internal/notifications/bulk 만 가짐, /api/v1/notifications는 project 소관)
-const ATTENDANCE_PREFIXES = new Set(["attendance", "leave", "overtime", "policy", "team"]);
+const ATTENDANCE_PREFIXES = new Set(["attendance", "leave", "holiday-work", "policy", "team"]);
 const EQUIPMENT_PREFIXES = new Set(["equipment", "categories", "compatibility", "customers", "customer-assets", "deployments", "expense-followups", "import-costs", "inspection-reports", "orders", "parts", "procurement", "products", "repairs", "sensors", "service-targets", "warehouses"]);
 const APPROVAL_PREFIXES = new Set(["approval"]);
 const OCR_PREFIXES = new Set(["ocr", "scan"]);

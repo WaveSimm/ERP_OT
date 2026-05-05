@@ -30,6 +30,9 @@ import { internalRoutes as projectInternalRoutes } from "./api/routes/internal.r
 import { dashboardRoutes } from "./api/routes/dashboard.routes.js";
 import { folderRoutes } from "./api/routes/folder.routes.js";
 import { dependencyRoutes } from "./api/routes/dependency.routes.js";
+import { equipmentResourceRoutes } from "./api/routes/equipment-resource.routes.js";
+import { equipmentReservationRoutes } from "./api/routes/equipment-reservation.routes.js";
+import { externalPersonRoutes } from "./api/routes/external-person.routes.js";
 
 import { ProjectService } from "./application/project.service.js";
 import { TaskService } from "./application/task.service.js";
@@ -221,6 +224,9 @@ async function buildApp() {
   app.register(baselineRoutes, { prefix: "/api/v1/projects" });
   app.register(templateRoutes, { prefix: "/api/v1" });
   app.register(resourceRoutes, { prefix: "/api/v1/resources" });
+  app.register(equipmentResourceRoutes, { prefix: "/api/v1/equipment-resources" });
+  app.register(equipmentReservationRoutes, { prefix: "/api/v1/equipment-reservations" });
+  app.register(externalPersonRoutes, { prefix: "/api/v1/external-persons" });
   app.register(collabRoutes, { prefix: "/api/v1" });
   app.register(notificationRoutes, { prefix: "/api/v1/notifications" });
   app.register(myTasksRoutes, { prefix: "/api/v1/tasks" });

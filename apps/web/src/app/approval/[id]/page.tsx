@@ -203,23 +203,68 @@ export default function ApprovalDetailPage() {
         </div>
       </div>
 
-      {/* 필드 정보 */}
-      {fields && Object.keys(fields).length > 0 && (
-        <div className="mb-6">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">문서 정보</h3>
-          <div className="bg-gray-50 rounded-lg p-4 grid grid-cols-2 gap-3">
-            {Object.entries(fields).map(([key, val]) => {
-              const fieldDef = doc.template?.fields?.find((f: any) => f.key === key);
-              return (
-                <div key={key}>
-                  <div className="text-xs text-gray-500">{fieldDef?.label || key}</div>
-                  <div className="text-sm font-medium">{String(val)}</div>
-                </div>
-              );
-            })}
+      {/* 필드 정보 — template에 정의된 field만, template 순서대로 표시 */}
+      {fields && Object.keys(fields).length > 0 && (() => {
+        const templateFields: any[] = doc.template?.fields ?? [];
+        // template 순서를 따라 정렬 (입력 순서가 아닌 정의 순서로 일관성)
+        const renderable = templateFields
+          .filter((f: any) => f.key in fields)
+          .map((f: any) => [f.key, fields[f.key]] as [string, any]);
+        if (renderable.length === 0) return null;
+
+        const formatVal = (val: any, fieldType?: string) => {
+          // date-multi (workDates) — array 또는 string 모두 처리
+          if (fieldType === "date-multi" || Array.isArray(val)) {
+            const list = Array.isArray(val) ? val : String(val).split(",");
+            const cleaned = list.map((d) => String(d).trim()).filter(Boolean);
+            if (cleaned.length === 0) return "—";
+            return cleaned.join(", ");
+          }
+          if (val === null || val === undefined || val === "") return "—";
+          return String(val);
+        };
+
+        // OT/LEAVE 전용 12-col 레이아웃
+        const tplCode = doc.template?.code;
+        const isOT = tplCode === "OT";
+        const isLeave = tplCode === "LEAVE";
+        const useCustom = isOT || isLeave;
+        const gridClass = useCustom
+          ? "bg-gray-50 rounded-lg p-4 grid grid-cols-1 sm:grid-cols-12 gap-3"
+          : "bg-gray-50 rounded-lg p-4 grid grid-cols-2 gap-3";
+        const getItemClass = (key: string): string => {
+          if (!useCustom) return "";
+          if (isOT) {
+            if (key === "project") return "sm:col-span-6";
+            if (key === "task") return "sm:col-span-6";
+            return "sm:col-span-12";
+          }
+          if (isLeave) {
+            if (key === "leaveType") return "sm:col-span-4";
+            if (key === "startDate") return "sm:col-span-4";
+            if (key === "endDate") return "sm:col-span-4";
+            return "sm:col-span-12";
+          }
+          return "";
+        };
+
+        return (
+          <div className="mb-6">
+            <h3 className="text-sm font-medium text-gray-700 mb-2">문서 정보</h3>
+            <div className={gridClass}>
+              {renderable.map(([key, val]) => {
+                const fieldDef = templateFields.find((f: any) => f.key === key);
+                return (
+                  <div key={key} className={getItemClass(key)}>
+                    <div className="text-xs text-gray-500">{fieldDef?.label || key}</div>
+                    <div className="text-sm font-medium">{formatVal(val, fieldDef?.type)}</div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* 본문 */}
       {body && (

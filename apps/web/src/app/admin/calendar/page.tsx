@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import MonthCalendar, { type CalendarEntry, TYPE_TEXT_COLORS } from "@/components/calendar/MonthCalendar";
 import EntryModal from "@/components/calendar/EntryModal";
+import SyncHolidaysButton from "@/components/calendar/SyncHolidaysButton";
 import { calendarApi, getUser } from "@/lib/api";
 
 const TYPE_LABEL: Record<string, string> = {
@@ -137,12 +138,15 @@ export default function AdminCalendarPage() {
     <div className="max-w-7xl mx-auto px-6 py-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-gray-900">📅 회사 달력</h2>
-          <button
-            onClick={handleAdd}
-            className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
-          >
-            + 항목 추가
-          </button>
+          <div className="flex items-center gap-2">
+            <SyncHolidaysButton onSynced={load} />
+            <button
+              onClick={handleAdd}
+              className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+            >
+              + 항목 추가
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 mb-4">

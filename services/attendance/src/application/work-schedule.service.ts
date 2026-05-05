@@ -213,32 +213,6 @@ export class WorkScheduleService {
     }
   }
 
-  // OT 승인 시 호출
-  async syncOvertimeApproval(otRequest: {
-    id: string; userId: string; date: Date; plannedHours: number;
-  }, tx?: any) {
-    const db = tx ?? this.prisma;
-    await db.workScheduleEntry.upsert({
-      where: {
-        userId_date_entryType_sourceId: {
-          userId: otRequest.userId,
-          date: otRequest.date,
-          entryType: "OT",
-          sourceId: otRequest.id,
-        },
-      },
-      create: {
-        userId: otRequest.userId,
-        date: otRequest.date,
-        entryType: "OT" as EntryType,
-        sourceType: "OT_APPROVED" as EntrySource,
-        sourceId: otRequest.id,
-        label: `${otRequest.plannedHours}h`,
-      },
-      update: {},
-    });
-  }
-
   // 취소 시 호출
   async removeSyncedEntries(sourceId: string, tx?: any) {
     const db = tx ?? this.prisma;
@@ -248,10 +222,11 @@ export class WorkScheduleService {
   private mapLeaveTypeToEntryType(leaveType: string): EntryType {
     const map: Record<string, EntryType> = {
       ANNUAL: "ANNUAL",
-      HALF_AM: "HALF_AM",
-      HALF_PM: "HALF_PM",
+      HALF: "HALF",
       QUARTER: "QUARTER",
-      FAMILY: "FAMILY",
+      FAMILY_DAY: "FAMILY_DAY",
+      FAMILY_DAY_2H: "FAMILY_DAY_2H",
+      BEREAVEMENT: "BEREAVEMENT",
       SICK: "SICK",
       SPECIAL: "SPECIAL",
     };

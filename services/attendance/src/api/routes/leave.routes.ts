@@ -127,7 +127,7 @@ export async function leaveRoutes(fastify: FastifyInstance) {
     return reply.send(updated);
   });
 
-  // 연차 수동 조정 (ADMIN/MANAGER)
+  // 연차 수동 조정 — adjustedDays 누적 (ADMIN/MANAGER) — legacy
   fastify.post("/balance/adjust", {
     preHandler: requireRole("ADMIN", "MANAGER"),
   }, async (req, reply) => {
@@ -138,5 +138,30 @@ export async function leaveRoutes(fastify: FastifyInstance) {
       reason: z.string(),
     }).parse(req.body);
     return reply.send(await svc.adjustBalance(body.userId, body.year, body.adjustedDays, req.userId));
+  });
+
+  // ADMIN: 사용자별 연차 항목 직접 설정 (totalDays/longServiceDays/adjustedDays)
+  fastify.patch("/balance/:userId", {
+    preHandler: requireRole("ADMIN"),
+  }, async (req, reply) => {
+    const { userId } = req.params as { userId: string };
+    const q = req.query as { year?: string };
+    const year = q.year ? parseInt(q.year, 10) : new Date().getFullYear();
+    const body = z.object({
+      totalDays: z.number().nonnegative().optional(),
+      longServiceDays: z.number().nonnegative().optional(),
+      adjustedDays: z.number().optional(),
+    }).parse(req.body);
+    return reply.send(await svc.adminSetBalance(userId, year, body));
+  });
+
+  // ADMIN: 사용자별 연차 잔여 조회
+  fastify.get("/balance/:userId", {
+    preHandler: requireRole("ADMIN"),
+  }, async (req, reply) => {
+    const { userId } = req.params as { userId: string };
+    const q = req.query as { year?: string };
+    const year = q.year ? parseInt(q.year, 10) : new Date().getFullYear();
+    return reply.send(await svc.getBalance(userId, year));
   });
 }

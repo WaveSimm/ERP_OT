@@ -59,6 +59,31 @@ enum ResourceType {
   @@schema("project")
 }
 
+// 자원-모델-분리 PDCA Phase 1 (2026-05-04)
+// EQUIPMENT 타입 폐기 (2026-05-05) — 공용자산은 시설/차량만 관리, 프로젝트 미연계.
+// "장비"는 /equipment 페이지의 Equipment 모델(프로젝트 연계 자산)로 이동.
+enum EquipmentType {
+  VEHICLE
+  FACILITY
+
+  @@schema("project")
+}
+
+enum ExternalStatus {
+  ACTIVE      // 계약 중
+  ARCHIVED    // 종료
+
+  @@schema("project")
+}
+
+enum ResourceGroupType {
+  PERSON      // 직원 그룹 (예: 부서, 팀)
+  EXTERNAL    // 외부 자원 그룹
+  EQUIPMENT   // 비인력 자원 그룹
+
+  @@schema("project")
+}
+
 enum GroupType {
   DEPARTMENT
   CLIENT
@@ -237,19 +262,31 @@ model WorkLog {
 }
 
 // 세그먼트별 자원 배정
+//   자원-모델-분리 PDCA Phase 1 (2026-05-04): polymorphic FK 컬럼 추가 (nullable)
+//   Phase 2에서 데이터 이전 후 XOR CHECK constraint 추가
+//   Phase 4에서 resourceId DROP
 model SegmentAssignment {
   id                    String         @id @default(cuid())
   segmentId             String
-  resourceId            String
+  resourceId            String         // ⚠️ deprecated — Phase 4에서 drop. Phase 1~3 동안 기존 코드 호환을 위해 NOT NULL 유지
+  // polymorphic FK — 셋 중 정확히 하나만 NOT NULL (Phase 2 후 XOR CHECK 추가)
+  personUserId          String?        // → auth_users.id (cross-service, FK 없음)
+  externalPersonId      String?        // → ExternalPerson.id
+  equipmentResourceId   String?        // → EquipmentResource.id
   allocationMode        AllocationMode @default(PERCENT)
   allocationPercent     Float? // PERCENT 모드 (0~100)
   allocationHoursPerDay Float? // HOURS 모드
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
 
-  segment TaskSegment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+  segment   TaskSegment        @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+  external  ExternalPerson?    @relation(fields: [externalPersonId], references: [id], onDelete: Cascade)
+  equipment EquipmentResource? @relation(fields: [equipmentResourceId], references: [id], onDelete: Cascade)
 
-  @@unique([segmentId, resourceId])
+  @@unique([segmentId, resourceId], map: "segment_assignments_segment_resource_unique")
+  @@unique([segmentId, personUserId], map: "segment_assignments_segment_person_unique")
+  @@unique([segmentId, externalPersonId], map: "segment_assignments_segment_external_unique")
+  @@unique([segmentId, equipmentResourceId], map: "segment_assignments_segment_equipment_unique")
   @@map("segment_assignments")
   @@schema("project")
 }
@@ -262,37 +299,54 @@ model SegmentAssignment {
 // ─────────────────────────────────────────────
 
 model ResourceGroup {
-  id          String   @id @default(cuid())
+  id          String              @id @default(cuid())
   name        String
   description String?
+  // 자원-모델-분리 PDCA Phase 1 (2026-05-04): 그룹별 단일 종류 강제
+  //   Phase 2에서 default → 기존 그룹 일괄 PERSON으로 마이그레이션
+  type        ResourceGroupType   @default(PERSON)
   parentId    String?
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  sortOrder   Int                 @default(0)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
 
   parent      ResourceGroup?        @relation("ResourceGroupHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   children    ResourceGroup[]       @relation("ResourceGroupHierarchy")
   memberships ResourceGroupMember[]
 
+  @@index([type])
   @@map("resource_groups")
   @@schema("project")
 }
 
+// 자원-모델-분리 PDCA Phase 1 (2026-05-04)
+//   기존 PK [groupId, resourceId] 유지 — Phase 4에서 변경
+//   polymorphic 컬럼은 nullable로 추가 (Phase 2 후 데이터 이전)
 model ResourceGroupMember {
-  groupId    String
-  resourceId String
+  groupId               String
+  resourceId            String         // ⚠️ deprecated — Phase 4에서 drop
+  personUserId          String?
+  externalPersonId      String?
+  equipmentResourceId   String?
 
-  group    ResourceGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  resource Resource      @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  group     ResourceGroup       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  resource  Resource            @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  external  ExternalPerson?     @relation(fields: [externalPersonId], references: [id], onDelete: Cascade)
+  equipment EquipmentResource?  @relation(fields: [equipmentResourceId], references: [id], onDelete: Cascade)
 
   @@id([groupId, resourceId])
+  @@unique([groupId, personUserId], map: "resource_group_members_group_person_unique")
+  @@unique([groupId, externalPersonId], map: "resource_group_members_group_external_unique")
+  @@unique([groupId, equipmentResourceId], map: "resource_group_members_group_equipment_unique")
   @@map("resource_group_members")
   @@schema("project")
 }
 
+// ⚠️ deprecated — 자원-모델-분리 PDCA Phase 4에서 drop 예정.
+//   사람은 auth_users로, 외부는 ExternalPerson, 비인력은 EquipmentResource로 이전.
 model Resource {
   id                 String       @id @default(cuid())
-  userId             String?      @unique // user-service userId
+  userId             String?      @unique // user-service userId (email)
   name               String
   type               ResourceType @default(PERSON)
   dailyCapacityHours Float        @default(8.0)
@@ -303,6 +357,95 @@ model Resource {
   groupMemberships ResourceGroupMember[]
 
   @@map("resources")
+  @@schema("project")
+}
+
+// 자원-모델-분리 PDCA Phase 1 (2026-05-04): 공용자산 (차량/시설)
+// EQUIPMENT 타입 폐기 (2026-05-05) — 프로젝트 미연계 단순 마스터, /admin/equipment-resources에서 관리
+model EquipmentResource {
+  id           String        @id @default(cuid())
+  name         String
+  type         EquipmentType @default(VEHICLE)
+  isActive     Boolean       @default(true)
+  // 향후 확장 가능: serialNumber, location, calibrationCycle, lastInspectedAt, ownerDeptId 등
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  groupMemberships ResourceGroupMember[]
+  assignments      SegmentAssignment[]
+  reservations     EquipmentReservation[]   // 공용자산예약 (2026-05-05)
+
+  @@index([type])
+  @@index([isActive])
+  @@map("equipment_resources")
+  @@schema("project")
+}
+
+// 공용자산예약 (2026-05-05): 차량·시설 일자/시간 단위 예약
+// - 단발 또는 반복 (recurrence JSON)
+// - 같은 자원 시간 겹침은 transaction에서 차단
+// - soft delete (status=CANCELED)
+model EquipmentReservation {
+  id                  String              @id @default(cuid())
+  resourceId          String
+  userId              String                                          // auth_users.id (예약자)
+  title               String                                          // 사유
+  description         String?
+  startAt             DateTime                                        // UTC
+  endAt               DateTime
+  isAllDay            Boolean             @default(false)
+
+  // 반복 (null이면 단발)
+  // {freq:"DAILY"|"WEEKLY"|"MONTHLY", interval?:int, byWeekday?:["MON",...], until?:"YYYY-MM-DD", count?:int}
+  recurrence          Json?
+  recurrenceParentId  String?                                         // 시리즈 첫 인스턴스 id (예외 row)
+
+  status              ReservationStatus   @default(CONFIRMED)
+  cancelReason        String?
+  canceledAt          DateTime?
+  canceledBy          String?
+
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  resource            EquipmentResource   @relation(fields: [resourceId], references: [id], onDelete: Restrict)
+
+  @@index([resourceId, startAt])              // 충돌 검사 핫패스
+  @@index([userId, startAt(sort: Desc)])      // 내 예약 목록
+  @@index([status])
+  @@index([recurrenceParentId])
+  @@map("equipment_reservations")
+  @@schema("project")
+}
+
+enum ReservationStatus {
+  CONFIRMED
+  CANCELED
+
+  @@schema("project")
+}
+
+// 자원-모델-분리 PDCA Phase 1 (2026-05-04): 외부 자원 (외주/협력업체)
+//   회사 시스템 외부 인력 — 로그인·휴가·근태·결재 X. task 배정만 가능.
+model ExternalPerson {
+  id            String         @id @default(cuid())
+  name          String
+  company       String?        // 소속 업체
+  contactEmail  String?
+  contactPhone  String?
+  status        ExternalStatus @default(ACTIVE)
+  contractStart DateTime?      @db.Date
+  contractEnd   DateTime?      @db.Date
+  notes         String?        @db.Text
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  groupMemberships ResourceGroupMember[]
+  assignments      SegmentAssignment[]
+
+  @@index([status])
+  @@index([company])
+  @@map("external_persons")
   @@schema("project")
 }
 

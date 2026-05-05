@@ -2,12 +2,12 @@
   "version": "1.0",
   "enabled": false,
   "teamName": "",
-  "feature": "프로젝트-관리",
+  "feature": "routes",
   "pdcaPhase": "do",
   "orchestrationPattern": "leader",
   "ctoAgent": "opus",
-  "startedAt": "2026-05-02T13:15:31.704Z",
-  "lastUpdated": "2026-05-02T13:32:22.535Z",
+  "startedAt": "2026-05-05T05:28:25.702Z",
+  "lastUpdated": "2026-05-05T13:31:06.491Z",
   "teammates": [],
   "progress": {
     "totalTasks": 0,
@@ -17,5 +17,5 @@
     "pendingTasks": 0
   },
   "recentMessages": [],
-  "sessionId": "e03374a4-4eea-4d3b-b556-8a19f9d19e12"
+  "sessionId": "8555445f-dec6-4202-b904-1cd4361e7cd9"
 }

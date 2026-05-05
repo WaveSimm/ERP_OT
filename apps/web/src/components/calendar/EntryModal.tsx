@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { calendarApi } from "@/lib/api";
+import { DateInput } from "@/components/ui/DateInput";
 
 const TYPE_OPTIONS = [
   { value: "PUBLIC_HOLIDAY", label: "🔴 공휴일", defaultColor: "#ef4444" },
@@ -36,6 +37,9 @@ export default function EntryModal({ entry, defaultDate, onClose, onSaved }: Pro
   const [color, setColor] = useState<string>(entry?.color ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // v1.2 — KASI 자동 갱신 항목은 직접 수정·삭제 불가 (백엔드 409 가드와 일치)
+  const isKasiReadonly = entry?.source === "KASI";
 
   // 시작일 변경 시 종료일이 비어 있으면 동기화
   useEffect(() => {
@@ -100,18 +104,25 @@ export default function EntryModal({ entry, defaultDate, onClose, onSaved }: Pro
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-lg font-bold text-gray-900">
-            {entry ? "항목 수정" : "+ 항목 추가"}
+            {isKasiReadonly ? "항목 보기 (자동 갱신)" : entry ? "항목 수정" : "+ 항목 추가"}
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {isKasiReadonly && (
+            <div className="px-3 py-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
+              🔄 한국 공휴일 자동 갱신 항목입니다. 직접 수정·삭제할 수 없으며, "한국 공휴일 갱신" 버튼으로만 변경됩니다.
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">타입</label>
             <select
               value={type}
               onChange={(e) => setType(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              disabled={isKasiReadonly}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
             >
               {TYPE_OPTIONS.map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
@@ -127,7 +138,8 @@ export default function EntryModal({ entry, defaultDate, onClose, onSaved }: Pro
               onChange={(e) => setTitle(e.target.value)}
               maxLength={200}
               placeholder="예: 창립기념일"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={isKasiReadonly}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
               required
             />
           </div>
@@ -135,21 +147,23 @@ export default function EntryModal({ entry, defaultDate, onClose, onSaved }: Pro
           <div className="flex gap-3">
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 mb-1">시작일</label>
-              <input
-                type="date"
+              <DateInput
+
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                disabled={isKasiReadonly}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
                 required
               />
             </div>
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 mb-1">종료일</label>
-              <input
-                type="date"
+              <DateInput
+
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                disabled={isKasiReadonly}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
                 required
               />
             </div>
@@ -202,7 +216,7 @@ export default function EntryModal({ entry, defaultDate, onClose, onSaved }: Pro
           )}
 
           <div className="flex gap-2 pt-2">
-            {entry && (
+            {entry && !isKasiReadonly && (
               <button
                 type="button"
                 onClick={handleDelete}
@@ -218,15 +232,17 @@ export default function EntryModal({ entry, defaultDate, onClose, onSaved }: Pro
               disabled={saving}
               className="flex-1 border border-gray-300 rounded-lg py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
-              취소
+              {isKasiReadonly ? "닫기" : "취소"}
             </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-            >
-              {saving ? "저장 중..." : entry ? "저장" : "등록"}
-            </button>
+            {!isKasiReadonly && (
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+              >
+                {saving ? "저장 중..." : entry ? "저장" : "등록"}
+              </button>
+            )}
           </div>
         </form>
       </div>

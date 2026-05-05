@@ -52,3 +52,13 @@ export const holidaysQuerySchema = z.object({
   from: dateString,
   to: dateString,
 });
+
+// v1.2 — KASI 동기화 트리거 입력
+export const syncHolidaysQuerySchema = z.object({
+  year: z.coerce
+    .number()
+    .int()
+    .min(new Date().getFullYear() - 1, "year는 작년 이전이 될 수 없습니다.")
+    .max(new Date().getFullYear() + 5, "year는 5년 이후가 될 수 없습니다.")
+    .optional(),
+});

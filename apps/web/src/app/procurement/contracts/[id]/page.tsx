@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { procurementApi, supplierApi, repairApi } from "@/lib/api";
+import { DateInput } from "@/components/ui/DateInput";
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "초안", PENDING_APPROVAL: "승인대기", APPROVED: "승인",
@@ -229,12 +230,12 @@ export default function ContractDetailPage() {
               </div>
               <div>
                 <label className="text-sm text-gray-600">계약일</label>
-                <input type="date" value={form.contractDate} onChange={(e) => setForm((p: any) => ({ ...p, contractDate: e.target.value }))}
+                <DateInput value={form.contractDate} onChange={(e) => setForm((p: any) => ({ ...p, contractDate: e.target.value }))}
                   className="w-full border rounded px-3 py-2 text-sm" />
               </div>
               <div>
                 <label className="text-sm text-gray-600">납기</label>
-                <input type="date" value={form.deadline} onChange={(e) => setForm((p: any) => ({ ...p, deadline: e.target.value }))}
+                <DateInput value={form.deadline} onChange={(e) => setForm((p: any) => ({ ...p, deadline: e.target.value }))}
                   className="w-full border rounded px-3 py-2 text-sm" />
               </div>
               <div className="col-span-2">

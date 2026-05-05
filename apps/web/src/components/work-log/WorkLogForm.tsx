@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { DateInput } from "@/components/ui/DateInput";
 
 function todayStr() {
   const d = new Date();
@@ -62,8 +63,8 @@ export default function WorkLogForm({
     <form onSubmit={handleSubmit} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
       <div className="flex items-center gap-2 mb-2">
         <label className="text-xs text-gray-500 shrink-0">작업일</label>
-        <input
-          type="date"
+        <DateInput
+          
           value={workedAt}
           onChange={(e) => setWorkedAt(e.target.value)}
           className="border border-gray-300 rounded px-2 py-1 text-xs"

@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef, Fragment } from "react";
+import clsx from "clsx";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { projectApi, taskApi, resourceApi, baselineApi, commentApi, templateApi, deploymentApi, userManagementApi, folderApi } from "@/lib/api";
+import { projectApi, taskApi, resourceApi, baselineApi, commentApi, templateApi, deploymentApi, userManagementApi, folderApi, listAssignableResources } from "@/lib/api";
 import dynamic from "next/dynamic";
 import { usePermission } from "@/hooks/usePermission";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
+import { useHolidaysMap } from "@/hooks/useHolidaysMap";
 import UndoRedoControls from "@/components/UndoRedoControls";
 import AddTaskModal from "@/components/AddTaskModal";
 import TaskDrawer from "@/components/TaskDrawer";
 import CopyTaskModal from "@/components/CopyTaskModal";
+import { RowContextMenu } from "@/components/RowContextMenu";
 import DateInput from "@/components/DateInput";
 import AppLayout from "@/components/AppLayout";
 import CommentPopover from "@/components/CommentPopover";
@@ -104,6 +107,9 @@ export default function ProjectDetailPage() {
   const initialTaskAppliedRef = useRef(false);
   const { isManager, isOperator } = usePermission();
 
+  // 회사달력 v1.2 — 한국 공휴일·자체 휴일 (KASI 자동 갱신 포함)
+  const holidays = useHolidaysMap();
+
   const [ganttData, setGanttData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -118,6 +124,7 @@ export default function ProjectDetailPage() {
   const [pickerOpenFolders, setPickerOpenFolders] = useState<Record<string, boolean>>({});
   const [pickerFolderProjOrder, setPickerFolderProjOrder] = useState<Record<string, string[]>>({});
   const [showAddTask, setShowAddTask] = useState(false);
+  const [addAsMilestone, setAddAsMilestone] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   // 프로젝트-관리 PDCA US-32: 태스크 복사 다이얼로그 — 단일 또는 다중 태스크
   const [copyTargets, setCopyTargets] = useState<Array<{ id: string; name: string; projectId: string }> | null>(null);
@@ -394,6 +401,15 @@ export default function ProjectDetailPage() {
     } catch (e: any) {
       alert(e.message ?? "삭제 실패");
     }
+  };
+
+  const handleCopySelected = () => {
+    if (selected.size === 0) return;
+    const targets = Array.from(selected)
+      .map((id) => tasks.find((t: any) => t.id === id))
+      .filter(Boolean)
+      .map((t: any) => ({ id: t.id, name: t.name, projectId }));
+    if (targets.length > 0) setCopyTargets(targets);
   };
 
   const handleDeleteSelected = async () => {
@@ -845,15 +861,6 @@ export default function ProjectDetailPage() {
       lastSelectedRef.current = task.id;
       return;
     }
-    if (e && e.shiftKey && lastSelectedRef.current) {
-      e.preventDefault();
-      const ids = flatItems.map((fi) => fi.task.id);
-      const a = ids.indexOf(lastSelectedRef.current);
-      const b = ids.indexOf(task.id);
-      const [lo, hi] = [Math.min(a, b), Math.max(a, b)];
-      setSelected(new Set(ids.slice(lo, hi + 1)));
-      return;
-    }
     lastSelectedRef.current = task.id;
     // 같은 태스크 재클릭 시 토글
     if (selectedTask?.id === task.id) {
@@ -865,13 +872,41 @@ export default function ProjectDetailPage() {
   };
 
 
-  const toggleSelect = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  // 선택 상태 변경 — 두 화면(간트/태스크 목록) 공통 진입점
+  // shift=true이고 anchor가 있으면 anchor 상태(선택/비선택)를 끝점까지 전파 (Excel/Windows 탐색기 표준)
+  //  - anchor가 선택 상태 → 사이 범위 모두 add  (다중 선택)
+  //  - anchor가 비선택 상태 → 사이 범위 모두 delete (다중 해제)
+  // shift=false면 단순 토글 + anchor 갱신
+  const handleSelectionChange = (id: string, shift: boolean) => {
+    if (shift && lastSelectedRef.current && lastSelectedRef.current !== id) {
+      const ids = flatItems.map((fi) => fi.task.id);
+      const a = ids.indexOf(lastSelectedRef.current);
+      const b = ids.indexOf(id);
+      if (a >= 0 && b >= 0) {
+        const [lo, hi] = [Math.min(a, b), Math.max(a, b)];
+        setSelected((prev) => {
+          const anchorSelected = prev.has(lastSelectedRef.current!);
+          const next = new Set(prev);
+          for (let i = lo; i <= hi; i++) {
+            if (anchorSelected) next.add(ids[i]!);
+            else next.delete(ids[i]!);
+          }
+          return next;
+        });
+        return; // anchor는 그대로 유지 — 같은 anchor에서 다른 끝점으로 반복 가능
+      }
+    }
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
+    lastSelectedRef.current = id;
+  };
+
+  const toggleSelect = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    handleSelectionChange(id, e.shiftKey);
   };
 
   const toggleAll = () => {
@@ -1262,14 +1297,7 @@ export default function ProjectDetailPage() {
             >
               템플릿 저장
             </button>
-            {isOperator && (
-              <button
-                onClick={() => setShowAddTask(true)}
-                className="bg-blue-600 text-white px-4 py-1 rounded-lg text-sm font-semibold hover:bg-blue-700"
-              >
-                + 태스크
-              </button>
-            )}
+            {/* 태스크/마일스톤 추가 버튼은 태스크 목록 하단 인라인 입력 행 아래로 이동 (혼동 방지) */}
           </div>
         </div>
       </div>
@@ -1354,7 +1382,7 @@ export default function ProjectDetailPage() {
                 inlineAdding={inlineAdding}
                 onInlineTaskCreate={createInlineTask}
                 selected={selected}
-                onToggleSelect={(id) => setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; })}
+                onToggleSelect={(id, shift) => handleSelectionChange(id, shift)}
                 onToggleAll={toggleAll}
                 dragIds={dragIds}
                 dropGap={dropGap}
@@ -1364,6 +1392,13 @@ export default function ProjectDetailPage() {
                 onDragEnd={clearDragState}
                 onIndent={handleIndent}
                 onOutdent={handleOutdent}
+                onCopySelected={isManager ? handleCopySelected : undefined}
+                onDeleteSelected={isManager ? handleDeleteSelected : undefined}
+                onClearSelection={() => setSelected(new Set())}
+                onProgressChange={isManager ? saveProgress : undefined}
+                onAddTask={isOperator ? () => { setAddAsMilestone(false); setShowAddTask(true); } : undefined}
+                onAddMilestone={isOperator ? () => { setAddAsMilestone(true); setShowAddTask(true); } : undefined}
+                holidays={holidays}
               />
             </div>
           )
@@ -1389,13 +1424,7 @@ export default function ProjectDetailPage() {
                 <div className="h-3 w-px bg-blue-200" />
                 {isManager && (
                   <button
-                    onClick={() => {
-                      const targets = Array.from(selected)
-                        .map((id) => tasks.find((t: any) => t.id === id))
-                        .filter(Boolean)
-                        .map((t: any) => ({ id: t.id, name: t.name, projectId }));
-                      if (targets.length > 0) setCopyTargets(targets);
-                    }}
+                    onClick={handleCopySelected}
                     className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded border border-blue-200"
                     title="선택한 태스크를 다른 프로젝트로 복사"
                   >
@@ -1463,8 +1492,19 @@ export default function ProjectDetailPage() {
                   const gapAfter  = dropGap !== null && dropGap.taskId === task.id && dropGap.pos === "after";
                   const isEditStatus   = editingCell !== null && editingCell.taskId === task.id && editingCell.col === "status";
                   const isEditDates    = editingCell !== null && editingCell.taskId === task.id && editingCell.col === "dates";
+                  const isEditProgress = editingCell !== null && editingCell.taskId === task.id && editingCell.col === "progress";
+                  const isLeafTask     = !task.isMilestone && !parentTaskIds.has(task.id);
                   return (
                     <Fragment key={task.id}>
+                    <RowContextMenu
+                      fallbackToBrowser
+                      items={[
+                        { label: "편집/상세", icon: "✏️", onClick: () => handleTaskClick(task) },
+                        { label: "복사", icon: "📋", onClick: () => setCopyTargets([{ id: task.id, name: task.name, projectId }]), visible: !parentTaskIds.has(task.id) && !!isManager },
+                        { separator: true, visible: !!isManager },
+                        { label: "삭제", icon: "🗑", onClick: () => handleDeleteTask(task.id, task.name), destructive: true, visible: !!isManager },
+                      ]}
+                    >
                     <tr
                       style={{ height: 36 }}
                       onDragOver={(e) => handleRowDragOver(e, task.id)}
@@ -1493,9 +1533,9 @@ export default function ProjectDetailPage() {
                           </svg>
                         </div>
                       </td>
-                      {/* 체크박스 */}
-                      <td className="px-2 text-center" onClick={(e) => toggleSelect(task.id, e)}>
-                        <input type="checkbox" readOnly checked={isSel} className="cursor-pointer" />
+                      {/* 체크박스 — td 전체가 hitbox */}
+                      <td className="px-3 text-center cursor-pointer" onClick={(e) => toggleSelect(task.id, e)}>
+                        <input type="checkbox" readOnly checked={isSel} className="pointer-events-none" />
                       </td>
                       {/* 태스크명 */}
                       <td className="px-2 cursor-pointer hover:bg-blue-50/60" onClick={(e) => handleTaskClick(task, e)}>
@@ -1567,8 +1607,27 @@ export default function ProjectDetailPage() {
                           </td>
                         );
                         if (col === "progress") return (
-                          <td key="progress" className="px-3">
-                            {task.isMilestone ? (
+                          <td key="progress" className={clsx("px-3", isLeafTask && !isEditProgress && "cursor-pointer hover:bg-blue-50/60")}
+                            onClick={isLeafTask && !isEditProgress
+                              ? (e) => { e.stopPropagation(); startEdit(task.id, "progress", task.overallProgress); }
+                              : undefined}
+                          >
+                            {isEditProgress ? (
+                              <input
+                                type="number" min={0} max={100} step={5}
+                                autoFocus
+                                defaultValue={Math.round(task.overallProgress)}
+                                onFocus={(e) => e.target.select()}
+                                onChange={(e) => { editValRef.current = Number(e.target.value); }}
+                                onBlur={() => saveProgress(task.id, editValRef.current)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") saveProgress(task.id, editValRef.current);
+                                  if (e.key === "Escape") cancelEdit();
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-14 px-1 py-0.5 text-[11px] border border-blue-400 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              />
+                            ) : task.isMilestone ? (
                               <div className="flex items-center gap-1.5" title="하위 태스크 평균 진행율">
                                 <div className="w-14 h-1 bg-gray-200 rounded-full overflow-hidden">
                                   <div className="h-full bg-purple-400 rounded-full" style={{ width: `${task.overallProgress ?? 0}%` }} />
@@ -1576,7 +1635,6 @@ export default function ProjectDetailPage() {
                                 <span className="text-[11px] text-purple-500 tabular-nums">{(task.overallProgress ?? 0).toFixed(0)}%</span>
                               </div>
                             ) : parentTaskIds.has(task.id) ? (
-                              // 상위 태스크: 하위 평균 자동 계산
                               <div className="flex items-center gap-1.5" title="하위 태스크 평균으로 자동 계산됩니다">
                                 <div className="w-14 h-1 bg-gray-200 rounded-full overflow-hidden">
                                   <div className="h-full bg-indigo-400 rounded-full" style={{ width: `${task.overallProgress}%` }} />
@@ -1584,8 +1642,7 @@ export default function ProjectDetailPage() {
                                 <span className="text-[11px] text-gray-400 tabular-nums">{task.overallProgress.toFixed(0)}%</span>
                               </div>
                             ) : (
-                              // 리프 태스크: 구간 평균 자동 계산
-                              <div className="flex items-center gap-1.5" title="구간별 진행율 평균으로 자동 계산됩니다">
+                              <div className="flex items-center gap-1.5" title="클릭해서 수동 입력 (구간별 평균은 자동 계산)">
                                 <div className="w-14 h-1 bg-gray-200 rounded-full overflow-hidden">
                                   <div className="h-full bg-blue-500 rounded-full" style={{ width: `${task.overallProgress}%` }} />
                                 </div>
@@ -1640,6 +1697,7 @@ export default function ProjectDetailPage() {
                         )}
                       </td>
                     </tr>
+                    </RowContextMenu>
 
                     {/* 기간 편집 확장 행 */}
                     {isEditDates && (
@@ -1696,6 +1754,26 @@ export default function ProjectDetailPage() {
                 {inlineAdding && <span className="text-xs text-gray-400">저장 중...</span>}
               </div>
             </div>
+            {/* 상세 추가 버튼 — 인라인 입력으로 부족할 때 모달 호출 */}
+            {isOperator && (
+              <div className="border-t border-gray-100 px-3 py-2 flex items-center gap-2">
+                <button
+                  onClick={() => { setAddAsMilestone(false); setShowAddTask(true); }}
+                  className="bg-blue-600 text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-blue-700"
+                  title="일정·자원·하위태스크까지 한 번에 입력"
+                >
+                  + 태스크
+                </button>
+                <button
+                  onClick={() => { setAddAsMilestone(true); setShowAddTask(true); }}
+                  className="bg-purple-600 text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-purple-700"
+                  title="◆ 시점 마일스톤 (입찰 확인·납품 등)"
+                >
+                  ◆ 마일스톤
+                </button>
+                <span className="text-[10px] text-gray-400 ml-2">상세 옵션이 필요할 때</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -2011,6 +2089,7 @@ export default function ProjectDetailPage() {
         <AddTaskModal
           projectId={projectId}
           defaultParentId={flatItems[flatItems.length - 1]?.task?.parentId ?? null}
+          defaultIsMilestone={addAsMilestone}
           defaultSortOrder={(() => {
             const allTasks: any[] = ganttData?.tasks ?? [];
             const lastVisible = flatItems[flatItems.length - 1];
@@ -2021,14 +2100,14 @@ export default function ProjectDetailPage() {
           onSuccess={async (taskId?: string, taskName?: string) => {
             if (taskId && taskName) {
               pushUndo({
-                label: `태스크 "${taskName}" 추가`,
+                label: `${addAsMilestone ? "마일스톤" : "태스크"} "${taskName}" 추가`,
                 undo: async () => { await taskApi.delete(projectId, taskId); },
                 redo: async () => {},
               });
             }
             await load(); refreshActivities();
           }}
-          onClose={() => setShowAddTask(false)}
+          onClose={() => { setShowAddTask(false); setAddAsMilestone(false); }}
         />
       )}
 

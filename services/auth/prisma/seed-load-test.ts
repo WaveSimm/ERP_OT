@@ -51,11 +51,15 @@ async function main() {
         passwordHash: hash,
         role: "OPERATOR",
         isActive: true,
+        // 자원-모델-분리 PDCA Phase 3c (2026-05-04): status 명시
+        status: "ACTIVE",
       },
       update: {
         name,
         passwordHash: hash,
         isActive: true,
+        status: "ACTIVE",
+        retirementDate: null,
       },
     });
 

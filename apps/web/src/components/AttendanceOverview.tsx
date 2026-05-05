@@ -7,9 +7,14 @@ import { attendanceOverviewApi } from "@/lib/api";
 
 const ENTRY_LABELS: Record<string, string> = {
   WORK: "출근", FIELD: "외근", TRAINING: "교육",
-  BUSINESS_TRIP: "출장", HALF_AM: "오전반차", HALF_PM: "오후반차",
-  QUARTER: "1/4차", FAMILY: "가정의날",
-  ANNUAL: "연차", SICK: "병가", SPECIAL: "특별휴가", OT: "OT",
+  BUSINESS_TRIP: "출장",
+  HALF: "반차",
+  HALF_AM: "오전반차", HALF_PM: "오후반차",  // legacy
+  QUARTER: "1/4연차",
+  FAMILY_DAY: "가정의날", FAMILY_DAY_2H: "가정의날(2H)",
+  FAMILY: "가정의날",  // legacy
+  BEREAVEMENT: "경조사",
+  ANNUAL: "연차", SICK: "병가", SPECIAL: "공가", OT: "휴일근무",
 };
 
 const ENTRY_COLORS: Record<string, string> = {
@@ -17,10 +22,14 @@ const ENTRY_COLORS: Record<string, string> = {
   FIELD: "bg-green-100 text-green-800",
   TRAINING: "bg-purple-100 text-purple-800",
   BUSINESS_TRIP: "bg-orange-100 text-orange-800",
+  HALF: "bg-yellow-100 text-yellow-800",
   HALF_AM: "bg-yellow-100 text-yellow-800",
   HALF_PM: "bg-yellow-100 text-yellow-800",
   QUARTER: "bg-amber-100 text-amber-800",
+  FAMILY_DAY: "bg-emerald-100 text-emerald-800",
+  FAMILY_DAY_2H: "bg-emerald-100 text-emerald-800",
   FAMILY: "bg-emerald-100 text-emerald-800",
+  BEREAVEMENT: "bg-rose-100 text-rose-800",
   ANNUAL: "bg-red-100 text-red-800",
   SICK: "bg-pink-100 text-pink-800",
   SPECIAL: "bg-indigo-100 text-indigo-800",
@@ -136,7 +145,12 @@ interface WeeklyData {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function AttendanceOverview() {
+interface Props {
+  /** 회사달력 v1.2 — 일자별 휴일 Map (date → 휴일명). 미전달 시 휴일 표시 안 함 */
+  holidays?: Map<string, string>;
+}
+
+export default function AttendanceOverview({ holidays }: Props = {}) {
   const [viewMode, setViewMode] = useState<ViewMode>("week");
   const [offset, setOffset] = useState(0);
   const [data, setData] = useState<WeeklyData | null>(null);
@@ -267,7 +281,8 @@ export default function AttendanceOverview() {
         <div className="space-y-2">
           {data.departments.map((dept) => (
             <DeptSection key={dept.id} dept={dept} days={days} viewMode={viewMode}
-              isExpanded={expanded[dept.id] ?? false} onToggle={() => toggle(dept.id)} />
+              isExpanded={expanded[dept.id] ?? false} onToggle={() => toggle(dept.id)}
+              holidays={holidays} />
           ))}
           {data.unassigned.length > 0 && (
             <DeptSection
@@ -276,6 +291,7 @@ export default function AttendanceOverview() {
               days={days} viewMode={viewMode}
               isExpanded={expanded["__unassigned"] ?? false}
               onToggle={() => toggle("__unassigned")}
+              holidays={holidays}
             />
           )}
         </div>
@@ -286,12 +302,13 @@ export default function AttendanceOverview() {
 
 // ─── DeptSection ─────────────────────────────────────────────────────────────
 
-function DeptSection({ dept, days, viewMode, isExpanded, onToggle }: {
+function DeptSection({ dept, days, viewMode, isExpanded, onToggle, holidays }: {
   dept: Department;
   days: string[];
   viewMode: ViewMode;
   isExpanded: boolean;
   onToggle: () => void;
+  holidays?: Map<string, string>;
 }) {
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -307,23 +324,35 @@ function DeptSection({ dept, days, viewMode, isExpanded, onToggle }: {
             <thead>
               <tr className="border-t border-gray-200">
                 <th className="w-24 text-left px-3 py-2 text-xs font-semibold text-gray-500 bg-white sticky left-0 z-10">이름</th>
-                {days.map((day) => (
-                  <th key={day} className={`px-1 py-2 text-center text-xs font-semibold ${
-                    viewMode === "month" ? "min-w-[36px]" : "min-w-[80px]"
-                  } ${
-                    isToday(day) ? "bg-blue-50 text-blue-700" :
-                    isWeekend(day) ? "bg-gray-50 text-gray-400" : "text-gray-500"
-                  }`}>
-                    {viewMode === "month"
-                      ? new Date(day).getDate()
-                      : `${getDayLabel(day)} ${fmtShort(day)}`}
-                  </th>
-                ))}
+                {days.map((day) => {
+                  const holidayName = holidays?.get(day);
+                  const isHol = !!holidayName;
+                  const colorCls = isToday(day)
+                    ? "bg-blue-50 text-blue-700"
+                    : isHol
+                    ? "bg-red-50 text-red-600 font-bold"
+                    : isWeekend(day)
+                    ? "bg-gray-50 text-gray-400"
+                    : "text-gray-500";
+                  return (
+                    <th
+                      key={day}
+                      className={`px-1 py-2 text-center text-xs font-semibold ${
+                        viewMode === "month" ? "min-w-[36px]" : "min-w-[80px]"
+                      } ${colorCls}`}
+                      title={holidayName ?? undefined}
+                    >
+                      {viewMode === "month"
+                        ? new Date(day).getDate()
+                        : `${getDayLabel(day)} ${fmtShort(day)}`}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
               {dept.members.map((member) => (
-                <MemberRow key={member.userId} member={member} days={days} viewMode={viewMode} />
+                <MemberRow key={member.userId} member={member} days={days} viewMode={viewMode} holidays={holidays} />
               ))}
             </tbody>
           </table>
@@ -335,7 +364,7 @@ function DeptSection({ dept, days, viewMode, isExpanded, onToggle }: {
 
 // ─── MemberRow ───────────────────────────────────────────────────────────────
 
-function MemberRow({ member, days, viewMode }: { member: Member; days: string[]; viewMode: ViewMode }) {
+function MemberRow({ member, days, viewMode, holidays }: { member: Member; days: string[]; viewMode: ViewMode; holidays?: Map<string, string> }) {
   const entriesByDate = useMemo(() => {
     const map = new Map<string, Entry[]>();
     for (const e of member.entries) {
@@ -352,10 +381,16 @@ function MemberRow({ member, days, viewMode }: { member: Member; days: string[];
       </td>
       {days.map((day) => {
         const dayEntries = entriesByDate.get(day) ?? [];
+        const isHol = !!holidays?.get(day);
+        const cellBg = isToday(day)
+          ? "bg-blue-50/30"
+          : isHol
+          ? "bg-red-50/40"
+          : isWeekend(day)
+          ? "bg-gray-50/50"
+          : "";
         return (
-          <td key={day} className={`px-0.5 py-1 text-center border-l border-gray-50 align-top ${
-            isToday(day) ? "bg-blue-50/30" : isWeekend(day) ? "bg-gray-50/50" : ""
-          }`}>
+          <td key={day} className={`px-0.5 py-1 text-center border-l border-gray-50 align-top ${cellBg}`}>
             <div className="flex flex-col items-center gap-0.5">
               {dayEntries.map((e) => {
                 const timeStr = e.startTime && e.endTime

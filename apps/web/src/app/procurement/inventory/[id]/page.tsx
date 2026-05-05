@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { inventoryApi } from "@/lib/api";
 import LocationSelect from "@/components/LocationSelect";
+import { DateInput } from "@/components/ui/DateInput";
 
 const STATUS_LABELS: Record<string, string> = { IN_STOCK: "재고", RELEASED: "출고", IN_REPAIR: "수리중" };
 const STATUS_COLORS: Record<string, string> = { IN_STOCK: "bg-green-100 text-green-700", RELEASED: "bg-blue-100 text-blue-700", IN_REPAIR: "bg-orange-100 text-orange-700" };
@@ -370,7 +371,7 @@ export default function InventoryDetailPage() {
               </div>
               <div>
                 <label className="text-sm text-gray-600">날짜</label>
-                <input type="date" value={txnForm.date} onChange={(e) => setTxnForm(p => ({ ...p, date: e.target.value }))}
+                <DateInput value={txnForm.date} onChange={(e) => setTxnForm(p => ({ ...p, date: e.target.value }))}
                   className="w-full border rounded px-3 py-2 text-sm" />
               </div>
               <div>
@@ -420,7 +421,7 @@ export default function InventoryDetailPage() {
                 </div>
                 <div>
                   <label className="text-sm text-gray-600">날짜</label>
-                  <input type="date" value={costForm.eventDate} onChange={(e) => setCostForm(p => ({ ...p, eventDate: e.target.value }))}
+                  <DateInput value={costForm.eventDate} onChange={(e) => setCostForm(p => ({ ...p, eventDate: e.target.value }))}
                     className="w-full border rounded px-3 py-2 text-sm" />
                 </div>
               </div>

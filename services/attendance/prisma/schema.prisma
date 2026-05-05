@@ -33,10 +33,11 @@ enum AttendanceStatus {
 
 enum LeaveType {
   ANNUAL
-  HALF_AM
-  HALF_PM
-  QUARTER
-  FAMILY
+  HALF          // 반차 (4시간) — 오전/오후 구분은 startTime으로
+  QUARTER       // 1/4연차 (2시간)
+  FAMILY_DAY    // 가정의날 (1시간)
+  FAMILY_DAY_2H // 가정의날 2시간
+  BEREAVEMENT   // 경조사 (일 단위)
   SICK
   SPECIAL
 
@@ -69,10 +70,11 @@ enum EntryType {
   FIELD
   TRAINING
   BUSINESS_TRIP
-  HALF_AM
-  HALF_PM
-  QUARTER
-  FAMILY
+  HALF          // 반차 (4h)
+  QUARTER       // 1/4연차 (2h)
+  FAMILY_DAY    // 가정의날 (1h)
+  FAMILY_DAY_2H // 가정의날 2h
+  BEREAVEMENT   // 경조사 (일 단위)
   ANNUAL
   SICK
   SPECIAL
@@ -163,14 +165,15 @@ model LeaveRequest {
 }
 
 model LeaveBalance {
-  id           String   @id @default(cuid())
-  userId       String
-  year         Int
-  totalDays    Float
-  usedDays     Float    @default(0)
-  pendingDays  Float    @default(0)
-  adjustedDays Float    @default(0)
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(cuid())
+  userId          String
+  year            Int
+  totalDays       Float                  // 기본 연차 (15일 + 근속 가산, 수동)
+  longServiceDays Float    @default(0)   // 장기근속 휴가 (10/15/20년 마일스톤, 2년 유효 — 수동 이월)
+  usedDays        Float    @default(0)
+  pendingDays     Float    @default(0)
+  adjustedDays    Float    @default(0)   // 임시 보너스/감산
+  updatedAt       DateTime @updatedAt
 
   @@unique([userId, year])
   @@map("leave_balances")
@@ -178,35 +181,35 @@ model LeaveBalance {
 }
 
 // ─────────────────────────────────────────────
-// 3. OT 관리
+// 3. 휴일근무 신청 (구 OT 관리, 근태현황 design v1.3 기준 단순화)
+//    - 평일 야근 신청 폐기 (출퇴근 시스템으로 자동 인식)
+//    - 전일 8h 단일 옵션 (시간 디테일 없음, 임금 연계는 별도)
+//    - 결재라인 시스템 활용 (1단계 default, 2~3단계 확장 가능)
+//    - 신청 가능 날짜: 회사달력 PUBLIC_HOLIDAY/COMPANY_HOLIDAY + 토/일
 // ─────────────────────────────────────────────
 
-model OvertimeRequest {
-  id           String         @id @default(cuid())
-  userId       String
-  date         DateTime       @db.Date
-  plannedHours Float
-  actualHours  Float?
-  reason       String
-  status            ApprovalStatus @default(PENDING)
-  approverId        String?
-  secondApproverId  String?
-  thirdApproverId   String?
-  approvedAt        DateTime?
-  rejectReason      String?
-  completedAt       DateTime?
-  projectId         String?
-  segmentId         String?
-  overtimeRate      Float          @default(1.5)
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+model HolidayWorkRequest {
+  id               String         @id @default(cuid())
+  userId           String
+  date             DateTime       @db.Date  // 휴일/주말이어야 (서비스에서 검증)
+  reason           String
+  status           ApprovalStatus @default(PENDING)
+  approverId       String?
+  secondApproverId String?
+  thirdApproverId  String?
+  approvedAt       DateTime?
+  rejectReason     String?
+  projectId        String?        // 옵션 — 어느 프로젝트 위해
+  taskId           String?        // 옵션 — 어느 task 위해 (segment 자동 추론)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
   @@index([userId, status])
   @@index([approverId, status])
   @@index([secondApproverId, status])
   @@index([thirdApproverId, status])
   @@index([date])
-  @@map("overtime_requests")
+  @@map("holiday_work_requests")
   @@schema("attendance")
 }
 

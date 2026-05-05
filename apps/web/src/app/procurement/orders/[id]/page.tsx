@@ -48,9 +48,10 @@ function fmtDate(d: string | null) {
   return new Date(d).toLocaleDateString("ko-KR");
 }
 
+import { fmtDateTime24 } from "@/lib/datetime";
 function fmtDateTime(d: string | null) {
   if (!d) return "-";
-  return new Date(d).toLocaleString("ko-KR");
+  return fmtDateTime24(d);
 }
 
 export default function OrderDetailPage() {

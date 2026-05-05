@@ -32,6 +32,8 @@ import { CommentService } from "./application/comment.service";
 import { AttachmentService } from "./application/attachment.service";
 import { NoticeNotifyHook } from "./application/notice-notify.hook";
 import { CalendarService } from "./application/calendar.service";
+import { HolidaySyncService } from "./application/holiday-sync.service";
+import { KasiClient } from "./infrastructure/clients/kasi-client";
 import { EmbeddingService } from "./application/embedding.service";
 import { SearchService } from "./application/search.service";
 import { LocalFsStorage, ATTACHMENT_MAX_SIZE } from "./infrastructure/attachment-storage";
@@ -65,6 +67,9 @@ const envSchema = z.object({
   // Load test isolation
   HIDE_LOAD_TEST: z.string().default("true"),
   LOAD_TEST_DOMAIN: z.string().default("@erp-ot.load"),
+  // 회사달력 v1.2 — 한국 공휴일 자동 갱신 (KASI 특일 정보 API)
+  // 미설정 허용 — sync 호출 시에만 명시적 에러
+  KASI_API_KEY: z.string().optional(),
   // Node env
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 });
@@ -121,6 +126,11 @@ const attachmentStorage = new LocalFsStorage();
 const attachmentService = new AttachmentService(prisma, attachmentStorage);
 const noticeNotifyHook = new NoticeNotifyHook(prisma, app.log);
 const calendarService = new CalendarService(prisma);
+
+// v1.2 — KASI 한국 공휴일 자동 갱신 (KASI_API_KEY 미설정 시 null로 두고 sync 라우트는 503 응답)
+const kasiClient = env.KASI_API_KEY ? new KasiClient(env.KASI_API_KEY) : null;
+const holidaySyncService = kasiClient ? new HolidaySyncService(prisma, kasiClient) : null;
+
 const embeddingService = new EmbeddingService(app.log);
 const searchService = new SearchService(prisma, embeddingService, app.log);
 
@@ -146,7 +156,12 @@ app.register(commentRoutes, { prefix: "/api/v1", commentService, authService });
 app.register(attachmentRoutes, { prefix: "/api/v1", attachmentService, authService, prisma });
 
 // 회사 달력 라우트
-app.register(calendarRoutes, { prefix: "/api/v1/calendar", calendarService, authService });
+app.register(calendarRoutes, {
+  prefix: "/api/v1/calendar",
+  calendarService,
+  authService,
+  holidaySyncService,
+});
 
 // 자연어 검색 라우트
 app.register(searchRoutes, { prefix: "/api/v1", searchService, authService, prisma });
@@ -160,6 +175,31 @@ app.listen({ port: PORT, host: "0.0.0.0" }, (err) => {
     process.exit(1);
   }
   app.log.info(`auth-service running on port ${PORT}`);
+
+  // v1.2 — 부팅 후 한국 공휴일 자동 갱신 (fire-and-forget)
+  // 실패해도 서비스 부팅에 영향 없음. KASI_API_KEY 미설정 시 스킵.
+  if (holidaySyncService) {
+    setImmediate(async () => {
+      const currentYear = new Date().getFullYear();
+      const years = [currentYear, currentYear + 1];
+      for (const year of years) {
+        try {
+          const result = await holidaySyncService.syncYear(year);
+          app.log.info(
+            { result },
+            `[holiday-sync] ${year}: fetched=${result.fetched} created=${result.created} updated=${result.updated} deleted=${result.deleted} (${result.durationMs}ms)`,
+          );
+        } catch (err) {
+          app.log.warn(
+            { err, year },
+            `[holiday-sync] ${year} 자동 갱신 실패 (서비스 정상 동작에 영향 없음)`,
+          );
+        }
+      }
+    });
+  } else {
+    app.log.info("[holiday-sync] KASI_API_KEY 미설정 — 한국 공휴일 자동 갱신 비활성");
+  }
 });
 
 // Graceful shutdown

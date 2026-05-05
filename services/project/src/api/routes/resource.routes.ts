@@ -131,8 +131,8 @@ export async function resourceRoutes(fastify: FastifyInstance) {
         userId: z.string(),
       })),
     });
-    const { mappings } = schema.parse(req.body);
-    return reply.send(await service.migrateApply(mappings));
+    schema.parse(req.body);
+    return reply.send(await service.migrateApply());
   });
 
   // ─── #27 운영 현황 대시보드 ──────────────────────────────────────────────

@@ -123,7 +123,7 @@ const nextConfig = {
       // ── attendance-service ──
       { source: "/api/v1/attendance/:path*", destination: `${att}/api/v1/attendance/:path*` },
       { source: "/api/v1/leave/:path*", destination: `${att}/api/v1/leave/:path*` },
-      { source: "/api/v1/overtime/:path*", destination: `${att}/api/v1/overtime/:path*` },
+      { source: "/api/v1/holiday-work/:path*", destination: `${att}/api/v1/holiday-work/:path*` },
       { source: "/api/v1/policy/:path*", destination: `${att}/api/v1/policy/:path*` },
       { source: "/api/v1/team/:path*", destination: `${att}/api/v1/team/:path*` },
       { source: "/api/v1/notifications", destination: `${att}/api/v1/notifications` },

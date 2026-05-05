@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { settlementApi } from "@/lib/api";
+import { DateInput } from "@/components/ui/DateInput";
 
 const DUTY_TYPES: Record<string, string> = {
   TARIFF: "관세",
@@ -177,7 +178,7 @@ export default function NewSettlementPage() {
         </div>
         <div>
           <label className="text-sm text-gray-600">신고일</label>
-          <input type="date" value={form.declarationDate} onChange={(e) => setForm(p => ({ ...p, declarationDate: e.target.value }))}
+          <DateInput value={form.declarationDate} onChange={(e) => setForm(p => ({ ...p, declarationDate: e.target.value }))}
             className="w-full border rounded px-3 py-2 text-sm" />
         </div>
         <div>
@@ -222,7 +223,7 @@ export default function NewSettlementPage() {
             <tbody>
               {remittances.map((r, idx) => (
                 <tr key={idx} className="border-t">
-                  <td className="px-1 py-1"><input type="date" value={r.remittanceDate} onChange={(e) => updateRemittance(idx, "remittanceDate", e.target.value)} className="w-full border rounded px-2 py-1 text-sm" /></td>
+                  <td className="px-1 py-1"><DateInput value={r.remittanceDate} onChange={(e) => updateRemittance(idx, "remittanceDate", e.target.value)} className="w-full border rounded px-2 py-1 text-sm" /></td>
                   <td className="px-1 py-1"><input type="number" step="0.01" value={r.foreignAmount} onChange={(e) => updateRemittance(idx, "foreignAmount", e.target.value)} className="w-full border rounded px-2 py-1 text-sm text-right" /></td>
                   <td className="px-1 py-1"><input type="number" step="0.0001" value={r.exchangeRate} onChange={(e) => updateRemittance(idx, "exchangeRate", e.target.value)} className="w-full border rounded px-2 py-1 text-sm text-right" /></td>
                   <td className="px-1 py-1 text-right font-medium">₩{Number(r.krwAmount).toLocaleString()}</td>

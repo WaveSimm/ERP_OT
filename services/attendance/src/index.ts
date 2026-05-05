@@ -13,7 +13,7 @@ import cron from "node-cron";
 import { authMiddleware } from "./api/middleware/auth.middleware.js";
 import { attendanceRoutes } from "./api/routes/attendance.routes.js";
 import { leaveRoutes } from "./api/routes/leave.routes.js";
-import { overtimeRoutes } from "./api/routes/overtime.routes.js";
+import { holidayWorkRoutes } from "./api/routes/holiday-work.routes.js";
 import { policyRoutes } from "./api/routes/policy.routes.js";
 import { teamRoutes } from "./api/routes/team.routes.js";
 import { notificationRoutes } from "./api/routes/notification.routes.js";
@@ -22,7 +22,7 @@ import { internalRoutes } from "./api/routes/internal.routes.js";
 
 import { AttendanceService } from "./application/attendance.service.js";
 import { LeaveService } from "./application/leave.service.js";
-import { OvertimeService } from "./application/overtime.service.js";
+import { HolidayWorkService } from "./application/holiday-work.service.js";
 import { PolicyService } from "./application/policy.service.js";
 import { NotificationService } from "./application/notification.service.js";
 import { WorkScheduleService } from "./application/work-schedule.service.js";
@@ -58,10 +58,10 @@ redis.on("error", (err) => console.error("Redis error:", err));
 // ─── Services ──────────────────────────────────────────────────────────────
 const attendanceService = new AttendanceService(prisma);
 const leaveService = new LeaveService(prisma);
-const overtimeService = new OvertimeService(prisma);
 const policyService = new PolicyService(prisma);
 const notificationService = new NotificationService(prisma, redis);
 const authClient = new AuthClient(env.AUTH_SERVICE_URL, env.INTERNAL_API_TOKEN, redis);
+const holidayWorkService = new HolidayWorkService(prisma, authClient);
 const workScheduleService = new WorkScheduleService(prisma, authClient);
 
 // ─── Type declarations ─────────────────────────────────────────────────────
@@ -69,7 +69,7 @@ declare module "fastify" {
   interface FastifyInstance {
     attendanceService: AttendanceService;
     leaveService: LeaveService;
-    overtimeService: OvertimeService;
+    holidayWorkService: HolidayWorkService;
     policyService: PolicyService;
     notificationService: NotificationService;
     workScheduleService: WorkScheduleService;
@@ -92,7 +92,7 @@ async function buildApp() {
   // 서비스 데코레이터
   app.decorate("attendanceService", attendanceService);
   app.decorate("leaveService", leaveService);
-  app.decorate("overtimeService", overtimeService);
+  app.decorate("holidayWorkService", holidayWorkService);
   app.decorate("policyService", policyService);
   app.decorate("notificationService", notificationService);
   app.decorate("workScheduleService", workScheduleService);
@@ -125,7 +125,7 @@ async function buildApp() {
   // Routes
   app.register(attendanceRoutes, { prefix: "/api/v1/attendance" });
   app.register(leaveRoutes, { prefix: "/api/v1/leave" });
-  app.register(overtimeRoutes, { prefix: "/api/v1/overtime" });
+  app.register(holidayWorkRoutes, { prefix: "/api/v1/holiday-work" });
   app.register(policyRoutes, { prefix: "/api/v1/policy" });
   app.register(teamRoutes, { prefix: "/api/v1/team" });
   app.register(notificationRoutes, { prefix: "/api/v1/notifications" });

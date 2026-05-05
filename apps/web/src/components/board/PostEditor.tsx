@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import PostMarkdownView from "./PostMarkdownView";
 import AttachmentUploader, { type UploadedAttachment } from "./AttachmentUploader";
 import { departmentApi, myProfileApi } from "@/lib/api";
+import { DateInput } from "@/components/ui/DateInput";
 
 export interface PostEditorValue {
   title: string;
@@ -152,8 +153,8 @@ export default function PostEditor({ initial, onSubmit, onCancel, submitLabel = 
           <label className="block text-sm font-medium text-gray-700 mb-1">
             만료일 <span className="text-xs text-gray-400">(선택)</span>
           </label>
-          <input
-            type="date"
+          <DateInput
+            
             value={expiresAt}
             onChange={(e) => setExpiresAt(e.target.value)}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"

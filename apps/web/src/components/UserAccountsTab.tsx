@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { userManagementApi, departmentApi, resourceApi, workScheduleApi, getUser } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { userManagementApi, departmentApi, resourceApi, workScheduleApi, leaveApi, getUser } from "@/lib/api";
+import { UserStatusBadge, type EmployeeStatus } from "@/components/UserStatusBadge";
+import { RetireUserDialog } from "@/components/RetireUserDialog";
 
 interface User {
   id: string;
@@ -9,6 +11,8 @@ interface User {
   name: string;
   role: "ADMIN" | "MANAGER" | "OPERATOR" | "VIEWER";
   isActive: boolean;
+  status: EmployeeStatus;             // 자원-모델-분리 PDCA Phase 3b-3
+  retirementDate: string | null;
   lastLoginAt: string | null;
   createdAt: string;
 }
@@ -31,6 +35,7 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
   const [showCreate, setShowCreate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [resetId, setResetId] = useState<string | null>(null);
+  const [leaveBalanceUserId, setLeaveBalanceUserId] = useState<string | null>(null);
 
   // Create form
   const [newEmail, setNewEmail] = useState("");
@@ -57,19 +62,16 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
   const [originalProfileForm, setOriginalProfileForm] = useState(EMPTY_PROFILE);
   const [profileError, setProfileError] = useState("");
 
-  // Departments
+  // Departments — 인력 목록의 부서 표시·할당 read-only로만 사용 (편집은 /admin/departments)
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [showDeptMgmt, setShowDeptMgmt] = useState(false);
-  const [newDeptName, setNewDeptName] = useState("");
-  const [savingDept, setSavingDept] = useState(false);
-  const dragDeptIdx = useRef<number | null>(null);
-  const [dragOverDeptIdx, setDragOverDeptIdx] = useState<number | null>(null);
-  const [editingDeptId, setEditingDeptId] = useState<string | null>(null);
-  const [editingDeptName, setEditingDeptName] = useState("");
 
   const [saving, setSaving] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [isAdmin, setIsAdmin] = useState(false);
+
+  // 자원-모델-분리 PDCA Phase 3b-3: 퇴직자 토글 + 퇴직 모달
+  const [includeRetired, setIncludeRetired] = useState(false);
+  const [retireUser, setRetireUser] = useState<User | null>(null);
 
   useEffect(() => {
     setIsAdmin(getUser()?.role === "ADMIN");
@@ -91,7 +93,7 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
     setLoading(true);
     try {
       const [userData, depts] = await Promise.all([
-        userManagementApi.list().catch(() => null),
+        userManagementApi.list({ includeRetired }).catch(() => null),
         departmentApi.list().catch(() => []),
       ]);
       let userList: any[];
@@ -127,7 +129,7 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [includeRetired]);
 
   const openSchedule = async (user: User) => {
     setScheduleUserName(user.name);
@@ -199,62 +201,8 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
     }
   };
 
-  const handleAddDept = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newDeptName.trim()) return;
-    setSavingDept(true);
-    try {
-      const code = "DEPT_" + Date.now().toString(36).toUpperCase();
-      await departmentApi.create({ name: newDeptName.trim(), code, level: 2, sortOrder: departments.length });
-      setNewDeptName("");
-      const depts = await departmentApi.list().catch(() => []);
-      const flatten = (nodes: any[]): any[] => nodes.flatMap((n: any) => [n, ...flatten(n.children ?? [])]);
-      setDepartments(flatten(depts as any[]).filter((d: any) => d.isActive !== false).sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)));
-      onResourcesChanged?.();
-    } catch (err: any) {
-      alert(err.message ?? "부서 추가 실패");
-    } finally {
-      setSavingDept(false);
-    }
-  };
-
-  const handleDeptDrop = async (toIdx: number) => {
-    const fromIdx = dragDeptIdx.current;
-    setDragOverDeptIdx(null);
-    if (fromIdx === null || fromIdx === toIdx) return;
-    const reordered = [...departments];
-    const [moved] = reordered.splice(fromIdx, 1);
-    reordered.splice(toIdx, 0, moved);
-    setDepartments(reordered);
-    dragDeptIdx.current = null;
-    try {
-      await Promise.all(reordered.map((d, i) => departmentApi.update(d.id, { sortOrder: i })));
-    } catch { /* 다음 load()에서 복구 */ }
-  };
-
-  const handleRenameDept = async (dept: Department) => {
-    const name = editingDeptName.trim();
-    if (!name || name === dept.name) { setEditingDeptId(null); return; }
-    try {
-      await departmentApi.update(dept.id, { name });
-      setDepartments((prev) => prev.map((d) => d.id === dept.id ? { ...d, name } : d));
-    } catch (err: any) {
-      alert(err.message ?? "이름 변경 실패");
-    } finally {
-      setEditingDeptId(null);
-    }
-  };
-
-  const handleDeleteDept = async (dept: Department) => {
-    if (!confirm(`"${dept.name}" 부서를 삭제할까요?`)) return;
-    try {
-      await departmentApi.delete(dept.id);
-      setDepartments((prev) => prev.filter((d) => d.id !== dept.id));
-      onResourcesChanged?.();
-    } catch (err: any) {
-      alert(err.message ?? "삭제 실패");
-    }
-  };
+  // 부서 추가/수정/삭제/순서 변경은 관리 메뉴 → /admin/departments 로 분리 (2026-05-05).
+  // 여기서는 departments 목록을 read-only로만 사용 (인력 목록의 부서 표시·할당).
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -284,6 +232,17 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
   const handleToggleActive = async (user: User) => {
     await userManagementApi.update(user.id, { isActive: !user.isActive });
     load();
+  };
+
+  // 자원-모델-분리 PDCA Phase 3b-3
+  const handleReactivate = async (user: User) => {
+    if (!confirm(`${user.name}님을 복귀 처리하시겠습니까?\n로그인·결재·배정이 다시 가능해집니다.`)) return;
+    try {
+      await userManagementApi.reactivate(user.id);
+      await load();
+    } catch (err: any) {
+      alert("복귀 처리 실패: " + (err.message ?? "오류"));
+    }
   };
 
   const handleRoleChange = async (user: User, role: typeof ROLES[number]) => {
@@ -335,6 +294,12 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
       {/* 툴바 */}
       <div className="flex items-center gap-2 mb-4">
         <span className="text-sm text-gray-500">전체 {users.length}명</span>
+        {isAdmin && (
+          <label className="flex items-center gap-1 text-xs text-gray-600 ml-3 cursor-pointer">
+            <input type="checkbox" checked={includeRetired} onChange={(e) => setIncludeRetired(e.target.checked)} />
+            퇴직자 포함
+          </label>
+        )}
         <div className="flex-1" />
         <button
           onClick={() => setExpanded(allOpen ? new Set() : new Set(allDeptIds))}
@@ -344,12 +309,7 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
         </button>
         {isAdmin && (
           <>
-            <button
-              onClick={() => setShowDeptMgmt(true)}
-              className="border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50"
-            >
-              🏢 부서 관리
-            </button>
+            {/* 부서 관리는 관리 메뉴 → /admin/departments 로 분리 (2026-05-05) */}
             <button
               onClick={() => setShowCreate(true)}
               className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700"
@@ -384,6 +344,9 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
                         onToggleActive={handleToggleActive} onRoleChange={handleRoleChange}
                         onOpenProfile={openProfile} onOpenSchedule={openSchedule}
                         onResetPw={(u) => { setResetId(u.id); setNewResetPw(""); setResetError(""); }}
+                        onOpenLeaveBalance={(u) => setLeaveBalanceUserId(u.id)}
+                        onRetire={(u) => setRetireUser(u)}
+                        onReactivate={handleReactivate}
                         onDelete={handleDelete} isAdmin={isAdmin} />
                     ))}
                   </div>
@@ -424,6 +387,9 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
                         onToggleActive={handleToggleActive} onRoleChange={handleRoleChange}
                         onOpenProfile={openProfile} onOpenSchedule={openSchedule}
                         onResetPw={(u) => { setResetId(u.id); setNewResetPw(""); setResetError(""); }}
+                        onOpenLeaveBalance={(u) => setLeaveBalanceUserId(u.id)}
+                        onRetire={(u) => setRetireUser(u)}
+                        onReactivate={handleReactivate}
                         onDelete={handleDelete} isAdmin={isAdmin} />
                     ))}
                   </div>
@@ -544,69 +510,7 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
         </div>
       )}
 
-      {/* ── 부서 관리 모달 ── */}
-      {showDeptMgmt && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-gray-900">🏢 부서 관리</h2>
-              <button onClick={() => setShowDeptMgmt(false)} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
-            </div>
-            <div className="p-6 space-y-4">
-              <form onSubmit={handleAddDept} className="flex gap-2">
-                <input type="text" value={newDeptName} onChange={(e) => setNewDeptName(e.target.value)}
-                  placeholder="새 부서명" className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-                <button type="submit" disabled={savingDept || !newDeptName.trim()}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-                  추가
-                </button>
-              </form>
-              <div className="space-y-1 max-h-60 overflow-y-auto">
-                {departments.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-4">등록된 부서가 없습니다.</p>
-                ) : departments.map((dept, idx) => (
-                  <div key={dept.id}>
-                    {dragOverDeptIdx === idx && dragDeptIdx.current !== idx && (
-                      <div className="relative h-0.5 bg-blue-500 rounded-full mx-1 my-0.5">
-                        <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-blue-500" />
-                        <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-2 h-2 rounded-full bg-blue-500" />
-                      </div>
-                    )}
-                    <div draggable
-                      onDragStart={() => { dragDeptIdx.current = idx; }}
-                      onDragOver={(e) => { e.preventDefault(); setDragOverDeptIdx(idx); }}
-                      onDragLeave={() => setDragOverDeptIdx(null)}
-                      onDrop={() => handleDeptDrop(idx)}
-                      onDragEnd={() => { dragDeptIdx.current = null; setDragOverDeptIdx(null); }}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-default transition-opacity ${
-                        dragDeptIdx.current === idx ? "opacity-40 bg-gray-50" : "bg-gray-50"
-                      }`}
-                    >
-                      <span className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing select-none text-lg leading-none">⠿</span>
-                      {editingDeptId === dept.id ? (
-                        <input autoFocus value={editingDeptName}
-                          onChange={(e) => setEditingDeptName(e.target.value)}
-                          onBlur={() => handleRenameDept(dept)}
-                          onKeyDown={(e) => { if (e.key === "Enter") handleRenameDept(dept); if (e.key === "Escape") setEditingDeptId(null); }}
-                          className="flex-1 text-sm border border-blue-400 rounded px-2 py-0.5 outline-none"
-                          onClick={(e) => e.stopPropagation()} />
-                      ) : (
-                        <span className="text-sm text-gray-800 flex-1 cursor-pointer hover:text-blue-600"
-                          onClick={(e) => { e.stopPropagation(); setEditingDeptId(dept.id); setEditingDeptName(dept.name); }}>
-                          {dept.name}
-                        </span>
-                      )}
-                      <button onClick={() => handleDeleteDept(dept)} className="text-xs text-red-400 hover:text-red-600">삭제</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <button onClick={() => setShowDeptMgmt(false)}
-                className="w-full border border-gray-300 rounded-lg py-2 text-sm text-gray-700 hover:bg-gray-50">닫기</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 부서 관리 모달은 관리 메뉴 → /admin/departments 로 분리 (2026-05-05). 버튼·모달·state 제거. */}
 
       {/* ── 근무시간 설정 모달 ── */}
       {scheduleUserId && (
@@ -675,13 +579,141 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
           </div>
         </div>
       )}
+
+      {/* ── 연차 설정 모달 ── */}
+      {leaveBalanceUserId && (
+        <LeaveBalanceModal
+          userId={leaveBalanceUserId}
+          userName={users.find((u) => u.id === leaveBalanceUserId)?.name ?? ""}
+          onClose={() => setLeaveBalanceUserId(null)}
+        />
+      )}
+
+      {/* 자원-모델-분리 PDCA Phase 3b-3: 퇴직 처리 모달 */}
+      {retireUser && (
+        <RetireUserDialog
+          user={retireUser}
+          open={true}
+          onClose={() => setRetireUser(null)}
+          onSuccess={load}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── 연차 설정 모달 (관리자) ────────────────────────────────────────────────────
+// totalDays / longServiceDays / adjustedDays 직접 설정. 장기근속 휴가는 2년 유효 (수동 이월).
+
+function LeaveBalanceModal({ userId, userName, onClose }: { userId: string; userName: string; onClose: () => void }) {
+  const currentYear = new Date().getFullYear();
+  const [year, setYear] = useState(currentYear);
+  const [balance, setBalance] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [form, setForm] = useState({ totalDays: 15, longServiceDays: 0, adjustedDays: 0 });
+
+  const load = async (y: number) => {
+    setLoading(true); setError("");
+    try {
+      const b = await leaveApi.adminGetBalance(userId, y);
+      setBalance(b);
+      setForm({
+        totalDays: Number(b.totalDays ?? 15),
+        longServiceDays: Number(b.longServiceDays ?? 0),
+        adjustedDays: Number(b.adjustedDays ?? 0),
+      });
+    } catch (e: any) {
+      setError(e.message ?? "조회 실패");
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(year); /* eslint-disable-next-line */ }, [year]);
+
+  const save = async () => {
+    setSaving(true); setError("");
+    try {
+      await leaveApi.adminSetBalance(userId, year, form);
+      await load(year);
+    } catch (e: any) {
+      setError(e.message ?? "저장 실패");
+    } finally { setSaving(false); }
+  };
+
+  const remaining = (form.totalDays + form.longServiceDays + form.adjustedDays) - Number(balance?.usedDays ?? 0) - Number(balance?.pendingDays ?? 0);
+
+  // 연도 옵션: 작년·올해·내년
+  const yearOpts = [currentYear - 1, currentYear, currentYear + 1];
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-gray-900">연차 설정 — {userName}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-xs text-gray-600 mb-1">연도</label>
+          <select value={year} onChange={(e) => setYear(parseInt(e.target.value, 10))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            {yearOpts.map((y) => <option key={y} value={y}>{y}년</option>)}
+          </select>
+        </div>
+
+        {loading ? (
+          <div className="text-center py-6 text-gray-400">불러오는 중...</div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 gap-3 mb-4">
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">기본 연차 (일)</label>
+                <input type="number" step="0.5" value={form.totalDays}
+                  onChange={(e) => setForm((p) => ({ ...p, totalDays: parseFloat(e.target.value) || 0 }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                <p className="text-[11px] text-gray-400 mt-1">15일 + 2년마다 1일 가산 (수동)</p>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">장기근속 휴가 (일)</label>
+                <input type="number" step="0.5" value={form.longServiceDays}
+                  onChange={(e) => setForm((p) => ({ ...p, longServiceDays: parseFloat(e.target.value) || 0 }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                <p className="text-[11px] text-gray-400 mt-1">10/15/20년 마일스톤. 발생년도부터 2년 유효 (다음 해는 잔여를 직접 입력)</p>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">임시 조정 (일)</label>
+                <input type="number" step="0.5" value={form.adjustedDays}
+                  onChange={(e) => setForm((p) => ({ ...p, adjustedDays: parseFloat(e.target.value) || 0 }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                <p className="text-[11px] text-gray-400 mt-1">보너스(+) 또는 감산(−)</p>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-3 mb-4 text-xs grid grid-cols-3 gap-2">
+              <div><span className="text-gray-500">사용</span> <strong className="ml-1">{Number(balance?.usedDays ?? 0)}일</strong></div>
+              <div><span className="text-gray-500">대기</span> <strong className="ml-1">{Number(balance?.pendingDays ?? 0)}일</strong></div>
+              <div><span className="text-gray-500">잔여</span> <strong className="ml-1 text-emerald-600">{Math.max(0, remaining)}일</strong></div>
+            </div>
+
+            {error && <p className="text-xs text-red-500 mb-2">{error}</p>}
+
+            <div className="flex gap-2">
+              <button onClick={onClose} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">취소</button>
+              <button onClick={save} disabled={saving} className="flex-1 px-3 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50">
+                {saving ? "저장 중..." : "저장"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
 
 // ── 사용자 행 (부서 목록 + 미분류 공통 사용) ──────────────────────────────────
 
-function UserRow({ user, departments, editingId, setEditingId, onToggleActive, onRoleChange, onOpenProfile, onOpenSchedule, onResetPw, onDelete, isAdmin }: {
+function UserRow({ user, departments, editingId, setEditingId, onToggleActive, onRoleChange, onOpenProfile, onOpenSchedule, onResetPw, onOpenLeaveBalance, onRetire, onReactivate, onDelete, isAdmin }: {
   user: User;
   departments: Department[];
   editingId: string | null;
@@ -691,6 +723,9 @@ function UserRow({ user, departments, editingId, setEditingId, onToggleActive, o
   onOpenProfile: (u: User) => void;
   onOpenSchedule: (u: User) => void;
   onResetPw: (u: User) => void;
+  onOpenLeaveBalance: (u: User) => void;
+  onRetire: (u: User) => void;
+  onReactivate: (u: User) => void;
   onDelete: (u: User) => void;
   isAdmin?: boolean;
 }) {
@@ -722,11 +757,8 @@ function UserRow({ user, departments, editingId, setEditingId, onToggleActive, o
         </span>
       )}
       {isAdmin && (
-        <span className="w-14">
-          <button onClick={() => onToggleActive(user)}
-            className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${user.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-            {user.isActive ? "활성" : "비활성"}
-          </button>
+        <span className="w-14 flex items-center">
+          <UserStatusBadge status={user.status ?? (user.isActive ? "ACTIVE" : "SUSPENDED")} />
         </span>
       )}
       {isAdmin && (
@@ -741,7 +773,13 @@ function UserRow({ user, departments, editingId, setEditingId, onToggleActive, o
         <div className="flex items-center gap-3 whitespace-nowrap">
           <button onClick={() => onOpenProfile(user)} className="text-xs text-blue-600 hover:text-blue-800 font-medium">개인정보</button>
           <button onClick={() => onOpenSchedule(user)} className="text-xs text-purple-600 hover:text-purple-800 font-medium">근무시간</button>
+          <button onClick={() => onOpenLeaveBalance(user)} className="text-xs text-emerald-600 hover:text-emerald-800 font-medium">연차</button>
           <button onClick={() => onResetPw(user)} className="text-xs text-gray-400 hover:text-gray-600">비밀번호</button>
+          {user.status === "RETIRED" ? (
+            <button onClick={() => onReactivate(user)} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">복귀</button>
+          ) : (
+            <button onClick={() => onRetire(user)} className="text-xs text-orange-600 hover:text-orange-700 font-medium">퇴직</button>
+          )}
           <button onClick={() => onDelete(user)} className="text-xs text-red-400 hover:text-red-600">삭제</button>
         </div>
       )}

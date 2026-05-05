@@ -9,6 +9,7 @@ import SearchBar from "@/components/board/SearchBar";
 import WorkLogTimeline from "@/components/work-log/WorkLogTimeline";
 import { workLogApi, getUser } from "@/lib/api";
 import { type WorkLogItem } from "@/components/work-log/WorkLogCard";
+import { DateInput } from "@/components/ui/DateInput";
 
 interface AllWorkLog extends WorkLogItem {
   taskName?: string;
@@ -167,15 +168,15 @@ export default function ProjectBoardLandingPage() {
                     </option>
                   ))}
                 </select>
-                <input
-                  type="date"
+                <DateInput
+                  
                   value={from}
                   onChange={(e) => setFrom(e.target.value)}
                   className="border border-gray-300 rounded px-2 py-1 text-sm"
                 />
                 <span className="text-gray-400">~</span>
-                <input
-                  type="date"
+                <DateInput
+                  
                   value={to}
                   onChange={(e) => setTo(e.target.value)}
                   className="border border-gray-300 rounded px-2 py-1 text-sm"

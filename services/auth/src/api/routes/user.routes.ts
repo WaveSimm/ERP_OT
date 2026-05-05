@@ -15,9 +15,10 @@ export async function userRoutes(
   const authenticate = createAuthHook(authService);
   const adminOnly = requireRole("ADMIN");
 
-  // GET /api/v1/users
-  app.get("/", { preHandler: [authenticate, adminOnly] }, async (_req, reply) => {
-    const users = await userService.findAll();
+  // GET /api/v1/users?includeRetired=true
+  app.get("/", { preHandler: [authenticate, adminOnly] }, async (req, reply) => {
+    const { includeRetired } = req.query as { includeRetired?: string };
+    const users = await userService.findAll({ includeRetired: includeRetired === "true" });
     return reply.code(200).send({ items: users, total: users.length });
   });
 
@@ -112,6 +113,82 @@ export async function userRoutes(
       if (e instanceof AuthError) {
         return reply.code(e.statusCode).send(errorResponse(e.code ?? ErrorCode.INTERNAL_ERROR, e.message));
       }
+      throw e;
+    }
+  });
+
+  // POST /api/v1/users/:id/retire — 자원-모델-분리 PDCA Phase 3a-1
+  app.post("/:id/retire", { preHandler: [authenticate, adminOnly] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    if (id === req.userId) {
+      return reply.code(400).send(errorResponse(ErrorCode.INVALID_INPUT, "본인 계정은 퇴직 처리할 수 없습니다."));
+    }
+    const body = (req.body ?? {}) as { retirementDate?: string };
+    try {
+      const date = body.retirementDate ? new Date(body.retirementDate) : undefined;
+      const user = await userService.retire(id, date);
+      publishActivity({
+        action: "user.retired",
+        userId: req.userId,
+        entityType: "user",
+        entityId: id,
+        description: `퇴직 처리: ${user.name}`,
+        metadata: { retirementDate: user.retirementDate },
+      });
+      return reply.code(200).send(user);
+    } catch (e) {
+      if (e instanceof AuthError) return reply.code(e.statusCode).send(errorResponse(e.code ?? ErrorCode.INTERNAL_ERROR, e.message));
+      throw e;
+    }
+  });
+
+  // POST /api/v1/users/:id/reactivate — 복귀
+  app.post("/:id/reactivate", { preHandler: [authenticate, adminOnly] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    try {
+      const user = await userService.reactivate(id);
+      publishActivity({
+        action: "user.reactivated",
+        userId: req.userId,
+        entityType: "user",
+        entityId: id,
+        description: `복귀 처리: ${user.name}`,
+      });
+      return reply.code(200).send(user);
+    } catch (e) {
+      if (e instanceof AuthError) return reply.code(e.statusCode).send(errorResponse(e.code ?? ErrorCode.INTERNAL_ERROR, e.message));
+      throw e;
+    }
+  });
+
+  // PATCH /api/v1/users/:id/status — 직접 status 변경
+  app.patch("/:id/status", { preHandler: [authenticate, adminOnly] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = (req.body ?? {}) as { status?: string; retirementDate?: string | null };
+    if (!body.status || !["ACTIVE", "RETIRED", "SUSPENDED"].includes(body.status)) {
+      return reply.code(400).send(errorResponse(ErrorCode.INVALID_INPUT, "status는 ACTIVE/RETIRED/SUSPENDED"));
+    }
+    if (id === req.userId && body.status !== "ACTIVE") {
+      return reply.code(400).send(errorResponse(ErrorCode.INVALID_INPUT, "본인 계정은 비활성 처리할 수 없습니다."));
+    }
+    try {
+      const dto: { status: "ACTIVE" | "RETIRED" | "SUSPENDED"; retirementDate?: Date | null } = {
+        status: body.status as "ACTIVE" | "RETIRED" | "SUSPENDED",
+      };
+      if (body.retirementDate === null) dto.retirementDate = null;
+      else if (body.retirementDate) dto.retirementDate = new Date(body.retirementDate);
+      const user = await userService.updateStatus(id, dto);
+      publishActivity({
+        action: "user.status_changed",
+        userId: req.userId,
+        entityType: "user",
+        entityId: id,
+        description: `상태 변경: ${user.name} → ${body.status}`,
+        metadata: { status: body.status, retirementDate: user.retirementDate },
+      });
+      return reply.code(200).send(user);
+    } catch (e) {
+      if (e instanceof AuthError) return reply.code(e.statusCode).send(errorResponse(e.code ?? ErrorCode.INTERNAL_ERROR, e.message));
       throw e;
     }
   });

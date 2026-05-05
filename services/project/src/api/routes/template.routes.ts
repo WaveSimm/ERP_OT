@@ -82,6 +82,14 @@ const copyMilestoneSchema = z.object({
   dateOffsetDays: z.number().int().default(0),
 });
 
+const bulkCopyTasksSchema = z.object({
+  taskIds: z.array(z.string()).min(1),
+  targetProjectId: z.string(),
+  includeSegments: z.boolean().default(true),
+  includeAssignments: z.boolean().default(false),
+  dateOffsetDays: z.number().int().default(0),
+});
+
 export async function templateRoutes(fastify: FastifyInstance) {
   const service: TemplateService = fastify.templateService;
 
@@ -173,6 +181,25 @@ export async function templateRoutes(fastify: FastifyInstance) {
     const dto = copyTaskSchema.parse(req.body);
     const task = await service.copyTask(taskId, dto.targetProjectId, dto as any, req.userId);
     return reply.status(201).send(task);
+  });
+
+  // POST /api/v1/projects/:projectId/tasks/bulk-copy
+  // 다중 태스크 복사 — 선택 세트 내부의 parent-child 관계 보존
+  fastify.post("/projects/:projectId/tasks/bulk-copy", {
+    preHandler: requireRole("ADMIN", "MANAGER"),
+  }, async (req, reply) => {
+    const dto = bulkCopyTasksSchema.parse(req.body);
+    const result = await service.copyTasks(
+      dto.taskIds,
+      dto.targetProjectId,
+      {
+        includeSegments: dto.includeSegments,
+        includeAssignments: dto.includeAssignments,
+        dateOffsetDays: dto.dateOffsetDays,
+      },
+      req.userId,
+    );
+    return reply.status(201).send(result);
   });
 
   // POST /api/v1/projects/:projectId/milestones/:milestoneId/copy

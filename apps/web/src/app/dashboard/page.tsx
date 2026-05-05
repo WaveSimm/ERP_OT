@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { dashboardApi } from "@/lib/api";
+import { DateInput } from "@/components/ui/DateInput";
 
 
 // ─── 타입 ─────────────────────────────────────────────────────────────────────
@@ -787,8 +788,8 @@ export default function CommandCenterDashboard() {
 
         {/* 필터 컨트롤 */}
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          <input
-            type="date"
+          <DateInput
+            
             value={date}
             onChange={(e) => setDate(e.target.value)}
             className="text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"

@@ -2,6 +2,7 @@
 
 import { useState, useRef, DragEvent } from "react";
 import { attachmentApi } from "@/lib/api";
+import { compressImage } from "@/lib/image-compress";
 
 export interface UploadedAttachment {
   id: string;
@@ -45,7 +46,9 @@ export default function AttachmentUploader({ attachments, onAdd, onRemove, onIns
     setError(null);
     setUploading(true);
     try {
-      for (const file of Array.from(files)) {
+      for (const raw of Array.from(files)) {
+        // 수리관리 v2.2: 이미지 자동 리사이즈 (1920px / JPEG 0.85)
+        const file = await compressImage(raw);
         const isInline = file.type.startsWith("image/");
         const att = await attachmentApi.upload(file, isInline);
         onAdd(att);
@@ -95,7 +98,7 @@ export default function AttachmentUploader({ attachments, onAdd, onRemove, onIns
           </div>
         ) : (
           <div className="text-sm text-gray-500">
-            📎 파일을 드래그하거나 클릭하여 추가 <span className="text-xs text-gray-400">(이미지는 본문에 자동 삽입)</span>
+            📎 파일을 드래그하거나 클릭하여 추가 <span className="text-xs text-gray-400">(이미지는 본문에 자동 삽입 · 1920px / 약 500KB로 자동 압축)</span>
           </div>
         )}
       </div>

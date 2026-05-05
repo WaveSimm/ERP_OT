@@ -6,8 +6,17 @@ import { clearToken, getUser, setUser, myProfileApi, notificationApi, attendance
 import clsx from "clsx";
 import NoticeBadge from "./board/NoticeBadge";
 
-const NAV = [
-  { href: "/me/dashboard",   label: "내 대시보드", icon: "🗂", managerOnly: false },
+type NavItem = {
+  href: string;
+  label: string;
+  icon: string;
+  managerOnly: boolean;
+  /** 두 줄 모드 분할 override — 자동 규칙(띄어쓰기/슬래시/floor(len/2))과 다른 결과를 강제할 때만 사용 */
+  short?: [string, string];
+};
+
+const NAV: NavItem[] = [
+  { href: "/me/dashboard",   label: "내 대시보드", icon: "🗂", managerOnly: false, short: ["내대시", "보드"] },
   { href: "/dashboard",      label: "지휘센터",   icon: "🎯", managerOnly: false },
   { href: "/projects",       label: "프로젝트",   icon: "📋", managerOnly: false },
   { href: "/resources",      label: "자원 관리",  icon: "👥", managerOnly: false },
@@ -17,6 +26,17 @@ const NAV = [
   { href: "/approval",       label: "결재",      icon: "📝", managerOnly: false },
   { href: "/board",          label: "게시판",     icon: "📋", managerOnly: false },
 ];
+
+// 두 줄 모드용 라벨 분할 — 자동 규칙: 띄어쓰기/슬래시 우선, 없으면 floor(len/2), 2자 이하는 그대로.
+function splitLabel(label: string): [string, string?] {
+  const spaceIdx = label.indexOf(" ");
+  if (spaceIdx > 0) return [label.slice(0, spaceIdx), label.slice(spaceIdx + 1)];
+  const slashIdx = label.indexOf("/");
+  if (slashIdx > 0) return [label.slice(0, slashIdx), label.slice(slashIdx + 1)];
+  if (label.length <= 2) return [label];
+  const mid = Math.floor(label.length / 2);
+  return [label.slice(0, mid), label.slice(mid)];
+}
 
 const STORAGE_KEY = "erp_last_path";
 
@@ -249,7 +269,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   // 마지막 위치 기억에서 제외할 섹션 (항상 루트로 이동)
-  const NO_REMEMBER = ["/approval"];
+  const NO_REMEMBER = ["/approval", "/board"];
 
   const handleNavClick = (href: string) => {
     if (pathname === href) return; // 이미 섹션 루트
@@ -286,36 +306,46 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="max-w-full px-6 h-14 flex items-center gap-4">
           <button
             onClick={() => router.push("/home")}
-            className="flex items-center gap-2 shrink-0 hover:opacity-80 transition-opacity cursor-pointer"
+            className="shrink-0 hover:opacity-80 transition-opacity cursor-pointer"
             title="홈으로"
           >
             <div className="w-7 h-7 bg-blue-600 rounded-md flex items-center justify-center">
               <span className="text-white text-xs font-bold">ERP</span>
             </div>
-            <span className="font-semibold text-gray-900 text-sm">OT 관리</span>
           </button>
 
-          <nav className="flex items-center gap-1">
-            {NAV.filter((n) => !n.managerOnly || isManager).map((n) => (
-              <button
-                key={n.href}
-                onClick={() => handleNavClick(n.href)}
-                className={clsx(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-                  pathname.startsWith(n.href)
-                    ? "bg-blue-50 text-blue-700"
-                    : "text-gray-600 hover:bg-gray-100",
-                )}
-              >
-                <span>{n.icon}</span>
-                {n.label}
-              </button>
-            ))}
+          <nav className="flex items-center gap-1 shrink-0">
+            {NAV.filter((n) => !n.managerOnly || isManager).map((n) => {
+              const [first, second] = n.short ?? splitLabel(n.label);
+              return (
+                <button
+                  key={n.href}
+                  onClick={() => handleNavClick(n.href)}
+                  title={n.label}
+                  className={clsx(
+                    "flex items-center gap-1.5 px-2 xl:px-3 py-1 rounded-lg text-sm font-medium transition-colors shrink-0",
+                    pathname.startsWith(n.href)
+                      ? "bg-blue-50 text-blue-700"
+                      : "text-gray-600 hover:bg-gray-100",
+                  )}
+                >
+                  <span className="shrink-0">{n.icon}</span>
+                  {/* 한 줄 (xl+) */}
+                  <span className="hidden xl:inline whitespace-nowrap">{n.label}</span>
+                  {/* 두 줄 (md~xl) */}
+                  <span className="hidden md:flex xl:hidden flex-col items-start leading-[1.1] text-left">
+                    <span className="whitespace-nowrap">{first}</span>
+                    {second && <span className="whitespace-nowrap">{second}</span>}
+                  </span>
+                  {/* md 미만: 아이콘만 (라벨 양쪽 모두 숨김) */}
+                </button>
+              );
+            })}
           </nav>
 
           <CheckInWidget />
 
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-2 xl:gap-3 shrink-0">
             {/* 공지사항 뱃지 */}
             <NoticeBadge />
 
@@ -335,37 +365,50 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               )}
             </button>
 
-            {/* 팀 관리 (조직도 직책 기준) */}
+            {/* 팀 관리 (조직도 직책 기준) — 3단계 패턴 */}
             <button
               onClick={() => router.push("/me/team")}
+              title="팀 관리"
               className={clsx(
-                "text-sm font-medium px-2.5 py-1.5 rounded-lg transition-colors",
+                "text-sm font-medium px-2 xl:px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 shrink-0",
                 pathname.startsWith("/me/team") ? "bg-blue-50 text-blue-700" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100",
               )}
             >
-              팀 관리
+              {/* md 미만: 아이콘만 */}
+              <span className="md:hidden">👥</span>
+              {/* 한 줄 (xl+) */}
+              <span className="hidden xl:inline whitespace-nowrap">팀 관리</span>
+              {/* 두 줄 (md~xl) */}
+              <span className="hidden md:flex xl:hidden flex-col items-start leading-[1.1] text-left">
+                <span className="whitespace-nowrap">팀</span>
+                <span className="whitespace-nowrap">관리</span>
+              </span>
             </button>
 
             {currentUser && (
-              <button onClick={openProfile} className="text-sm text-gray-600 hover:text-blue-600 transition-colors">
+              <button onClick={openProfile} className="text-sm text-gray-600 hover:text-blue-600 transition-colors whitespace-nowrap shrink-0">
                 {currentUser.name}
-                <span className="ml-1 text-xs text-gray-400">
+                <span className="ml-1 text-xs text-gray-400 hidden md:inline">
                   ({ROLE_LABELS[currentUser.role] ?? currentUser.role})
                 </span>
               </button>
             )}
             {currentUser?.role === "ADMIN" && (
-              <div className="relative" ref={adminMenuRef}>
+              <div className="relative shrink-0" ref={adminMenuRef}>
                 <button
                   onClick={() => setShowAdminMenu((v) => !v)}
-                  className="text-sm text-gray-500 hover:text-gray-700 px-2 py-1 rounded-lg hover:bg-gray-100 flex items-center gap-1"
+                  title="관리"
+                  className="text-sm text-gray-500 hover:text-gray-700 px-2 py-1 rounded-lg hover:bg-gray-100 flex items-center gap-1 whitespace-nowrap"
                 >
                   관리 <span className="text-xs">{showAdminMenu ? "▴" : "▾"}</span>
                 </button>
                 {showAdminMenu && (
                   <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-50">
-                    <button onClick={() => { router.push("/resources?tab=users"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                      사용자 관리
+                    <button onClick={() => { router.push("/admin/users"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                      직원 관리
+                    </button>
+                    <button onClick={() => { router.push("/admin/equipment-resources"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                      공용자산 관리
                     </button>
                     <button onClick={() => { router.push("/admin/departments"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
                       부서 관리
@@ -383,11 +426,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 )}
               </div>
             )}
+            {/* 로그아웃 — 3단계 패턴 (팀 관리와 동일) */}
             <button
               onClick={handleLogout}
-              className="text-sm text-gray-500 hover:text-gray-700"
+              title="로그아웃"
+              className="text-sm text-gray-500 hover:text-gray-700 px-2 xl:px-2.5 py-1 rounded-lg hover:bg-gray-100 flex items-center shrink-0"
             >
-              로그아웃
+              {/* md 미만: 아이콘만 */}
+              <span className="md:hidden">⏻</span>
+              {/* 한 줄 (xl+) */}
+              <span className="hidden xl:inline whitespace-nowrap">로그아웃</span>
+              {/* 두 줄 (md~xl) */}
+              <span className="hidden md:flex xl:hidden flex-col items-start leading-[1.1] text-left">
+                <span className="whitespace-nowrap">로그</span>
+                <span className="whitespace-nowrap">아웃</span>
+              </span>
             </button>
           </div>
         </div>

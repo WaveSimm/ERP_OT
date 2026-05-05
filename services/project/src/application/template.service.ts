@@ -550,6 +550,7 @@ export class TemplateService {
           name: `${task.name} (복사)`,
           description: task.description ?? null,
           sortOrder: task.sortOrder,
+          isMilestone: task.isMilestone,
           createdBy: userId,
         },
       });
@@ -588,6 +589,129 @@ export class TemplateService {
       }
 
       return newTask;
+    });
+  }
+
+  // ─── #25 다중 태스크 복사 (계층 보존) ─────────────────────────────────────
+  // 선택한 task들 내부의 parent-child 관계는 그대로 복제하되,
+  // 선택 세트 외부에 있는 부모를 가진 task는 대상 프로젝트의 top-level로 들어감.
+  // 단일 트랜잭션 + 위상정렬(parent 먼저 생성) + oldId→newId 매핑.
+  async copyTasks(
+    taskIds: string[],
+    targetProjectId: string,
+    options: { includeSegments: boolean; includeAssignments: boolean; dateOffsetDays: number },
+    userId: string,
+  ) {
+    if (taskIds.length === 0) {
+      return { count: 0, idMap: {} as Record<string, string> };
+    }
+
+    const sourceTasks = await this.prisma.task.findMany({
+      where: { id: { in: taskIds } },
+      include: {
+        segments: { include: { assignments: true }, orderBy: { sortOrder: "asc" } },
+      },
+    });
+
+    if (sourceTasks.length !== taskIds.length) {
+      const found = new Set(sourceTasks.map((t) => t.id));
+      const missing = taskIds.filter((id) => !found.has(id));
+      throw new AppError(404, "TASK_NOT_FOUND", `복사할 태스크를 찾을 수 없습니다: ${missing.join(", ")}`);
+    }
+
+    const selectedSet = new Set(taskIds);
+    const taskById = new Map(sourceTasks.map((t) => [t.id, t]));
+
+    // 선택 세트 안에서의 깊이 (parent가 선택 세트에 없으면 깊이 0)
+    const depthMemo = new Map<string, number>();
+    const computeDepth = (id: string, visiting = new Set<string>()): number => {
+      if (depthMemo.has(id)) return depthMemo.get(id)!;
+      if (visiting.has(id)) return 0;
+      visiting.add(id);
+      const task = taskById.get(id);
+      const parentId = task?.parentId;
+      const d = parentId && selectedSet.has(parentId) ? 1 + computeDepth(parentId, visiting) : 0;
+      depthMemo.set(id, d);
+      return d;
+    };
+    for (const t of sourceTasks) computeDepth(t.id);
+
+    // 부모 먼저 생성 (depth asc), 동일 깊이는 sortOrder asc
+    const sorted = [...sourceTasks].sort((a, b) => {
+      const da = depthMemo.get(a.id) ?? 0;
+      const db = depthMemo.get(b.id) ?? 0;
+      if (da !== db) return da - db;
+      return a.sortOrder - b.sortOrder;
+    });
+
+    // 대상 프로젝트의 현재 top-level sortOrder 최댓값 — 새 top-level task들은 그 다음에 append
+    const maxTopLevel = await this.prisma.task.aggregate({
+      where: { projectId: targetProjectId, parentId: null },
+      _max: { sortOrder: true },
+    });
+    let nextTopLevelSortOrder = (maxTopLevel._max.sortOrder ?? 0) + 1;
+
+    return this.prisma.$transaction(async (tx) => {
+      const idMap = new Map<string, string>();
+
+      for (const task of sorted) {
+        const newParentId =
+          task.parentId && selectedSet.has(task.parentId) ? idMap.get(task.parentId) ?? null : null;
+
+        // top-level이면 대상 프로젝트 끝에 append, 아니면 원본 sortOrder 보존(같은 새 부모 아래 형제 순서 유지)
+        const newSortOrder = newParentId === null ? nextTopLevelSortOrder++ : task.sortOrder;
+
+        const newTask = await tx.task.create({
+          data: {
+            projectId: targetProjectId,
+            parentId: newParentId,
+            name: `${task.name} (복사)`,
+            description: task.description ?? null,
+            sortOrder: newSortOrder,
+            isMilestone: task.isMilestone,
+            createdBy: userId,
+          },
+        });
+        idMap.set(task.id, newTask.id);
+
+        if (options.includeSegments) {
+          for (const seg of task.segments) {
+            const newStart = new Date(seg.startDate);
+            const newEnd = new Date(seg.endDate);
+            newStart.setDate(newStart.getDate() + options.dateOffsetDays);
+            newEnd.setDate(newEnd.getDate() + options.dateOffsetDays);
+
+            const newSeg = await tx.taskSegment.create({
+              data: {
+                taskId: newTask.id,
+                name: seg.name,
+                sortOrder: seg.sortOrder,
+                startDate: newStart,
+                endDate: newEnd,
+              },
+            });
+
+            if (options.includeAssignments) {
+              for (const a of seg.assignments) {
+                await tx.segmentAssignment.create({
+                  data: {
+                    segmentId: newSeg.id,
+                    resourceId: a.resourceId,
+                    allocationMode: a.allocationMode,
+                    allocationPercent: a.allocationPercent ?? null,
+                    allocationHoursPerDay: a.allocationHoursPerDay ?? null,
+                  },
+                });
+              }
+            }
+          }
+        }
+      }
+
+      return {
+        count: sorted.length,
+        idMap: Object.fromEntries(idMap) as Record<string, string>,
+      };
     });
   }
 
