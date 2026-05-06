@@ -450,7 +450,13 @@
       "Bash(awk -F= '{print \"Length:\", length\\($2\\), \"chars  / Preview:\", substr\\($2,1,4\\)\"...\"substr\\($2,length\\($2\\)-3\\)}')",
       "PowerShell(docker compose exec *)",
       "Bash(grep -n \"equipmentResourceApi\\\\s*=\\\\|^};\\\\s*$\" apps/web/src/lib/api.ts)",
-      "Bash(awk 'NR>=720 && NR<=924' /e/claude/ERP_OT/apps/web/src/app/repair/[id]/page.tsx)"
+      "Bash(awk 'NR>=720 && NR<=924' /e/claude/ERP_OT/apps/web/src/app/repair/[id]/page.tsx)",
+      "Bash(grep -nE \"^\\\\`\\\\`\\\\`$|^\\\\`\\\\`\\\\`\\\\s*$|^┌|^│|^└\" docs/04-operation/AS관리-사용자매뉴얼.md)",
+      "Bash(awk '/^```$/{c++; if \\(c%2==1\\) start=NR; else if \\(NR-start>1\\) print start\": \"NR\" \\(\"NR-start\" lines\\)\"} /^##|^###/{print NR\": \"$0}' docs/04-operation/AS관리-사용자매뉴얼.md)",
+      "Bash(cp '/e/Users/yunsi/OneDrive/Screenshots/스크린샷 2026-05-06 110110.png' docs/assets/manual-as/07-as-detail-screen.png)",
+      "Bash(cp '/e/Users/yunsi/OneDrive/Screenshots/스크린샷 2026-05-06 110121.png' docs/assets/manual-as/08-report-tab.png)",
+      "Bash(cp '/e/Users/yunsi/OneDrive/Screenshots/스크린샷 2026-05-06 110110.png' apps/web/public/manual-as/img/07-as-detail-screen.png)",
+      "Bash(cp '/e/Users/yunsi/OneDrive/Screenshots/스크린샷 2026-05-06 110121.png' apps/web/public/manual-as/img/08-report-tab.png)"
     ]
   }
 }

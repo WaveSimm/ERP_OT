@@ -213,6 +213,9 @@ export class RepairOrderService {
     mfgPoAmount?: number | null;
     mfgPoCurrency?: string | null;
     repairDetails?: string;
+    // 제조사 수리 phase (2026-05-06 v1.2)
+    mfgInspectionResult?: string | null;
+    mfgRepairDetails?: string | null;
     isWarranty?: boolean;
     assigneeId?: string;
     assigneeName?: string;

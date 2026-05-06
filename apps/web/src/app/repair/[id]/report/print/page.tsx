@@ -103,7 +103,49 @@ export default function ReportPrintPage() {
   const result = report.result || "";
   const needsMfg = report.needsMfgRepair === true;
   const mfgReason = report.mfgRepairReason || "";
-  const steps: InspectionStep[] = Array.isArray(report.inspectionSteps) ? report.inspectionSteps : [];
+
+  // 4-phase 매핑 (수리관리 v1.2, 2026-05-06)
+  const decision1st = order.decision1st as string | null;
+  const isInHouse = decision1st === "IN_HOUSE_REPAIR";
+  const isMfg = decision1st === "SEND_TO_MFG";
+  const decisionLabelMap: Record<string, string> = {
+    IN_HOUSE_REPAIR: "본사수리",
+    SEND_TO_MFG: "제조사발송",
+    NORMAL: "정상",
+    KEEP_AS_IS: "수리안함",
+  };
+  const decisionLabel = (d: string | null) => d ? (decisionLabelMap[d] || d) : "-";
+
+  const phaseAtts = report.phaseAttachments || {};
+  const firstAtts: StepAttachment[] = Array.isArray(phaseAtts.first) ? phaseAtts.first : [];
+  const inHouseAtts: StepAttachment[] = Array.isArray(phaseAtts.inHouse) ? phaseAtts.inHouse : [];
+  const mfgAtts: StepAttachment[] = Array.isArray(phaseAtts.mfg) ? phaseAtts.mfg : [];
+  const secondAtts: StepAttachment[] = Array.isArray(phaseAtts.second) ? phaseAtts.second : [];
+  const resultAtts: StepAttachment[] = Array.isArray(phaseAtts.result) ? phaseAtts.result : [];
+
+  // legacy inspectionSteps (백워드 호환)
+  const legacySteps: InspectionStep[] = Array.isArray(report.inspectionSteps) ? report.inspectionSteps : [];
+
+  const renderPhaseImages = (atts: StepAttachment[]) => {
+    const images = atts.filter((a) => a.isImage);
+    if (images.length === 0) return null;
+    return (
+      <div className="step-images">
+        {images.map((a) => (
+          <figure key={a.id} className="step-image">
+            <img src={a.url} alt={a.fileName} />
+          </figure>
+        ))}
+      </div>
+    );
+  };
+  const renderPhaseFiles = (atts: StepAttachment[]) => {
+    const files = atts.filter((a) => !a.isImage);
+    if (files.length === 0) return null;
+    return (
+      <div className="phase-files">📎 {files.map((f) => f.fileName).join(", ")}</div>
+    );
+  };
 
   return (
     <div className="report-print-root">
@@ -177,20 +219,81 @@ export default function ReportPrintPage() {
           </div>
         </section>
 
-        {/* 점검 내용 */}
+        {/* ① 1차 점검 — 항상 */}
         <section className="report-section">
-          <h3 className="section-title">점검 내용</h3>
+          <h3 className="section-title">① 1차 점검</h3>
           <div className="section-body">
-            {steps.length > 0 ? (
+            {order.diagnosis1st && <div className="phase-line"><strong>소견:</strong> {order.diagnosis1st}</div>}
+            {decision1st && (
+              <div className="phase-line">
+                <strong>판단:</strong> {decisionLabel(decision1st)}
+                {order.decision1stReason && <span> / 사유: {order.decision1stReason}</span>}
+              </div>
+            )}
+            {!order.diagnosis1st && !decision1st && <span className="text-gray-400">-</span>}
+            {renderPhaseImages(firstAtts)}
+            {renderPhaseFiles(firstAtts)}
+          </div>
+        </section>
+
+        {/* ② 본사 수리 — IN_HOUSE_REPAIR */}
+        {isInHouse && (
+          <section className="report-section">
+            <h3 className="section-title">② 본사 수리</h3>
+            <div className="section-body">
+              {order.repairDetails ? <pre>{order.repairDetails}</pre> : <span className="text-gray-400">-</span>}
+              {renderPhaseImages(inHouseAtts)}
+              {renderPhaseFiles(inHouseAtts)}
+            </div>
+          </section>
+        )}
+
+        {/* ③ 제조사 수리 — SEND_TO_MFG */}
+        {isMfg && (
+          <section className="report-section">
+            <h3 className="section-title">③ 제조사 수리</h3>
+            <div className="section-body">
+              {order.mfgReferenceNo && <div className="phase-line"><strong>Maker Ref:</strong> {order.mfgReferenceNo}</div>}
+              {order.mfgInspectionResult && <div className="phase-line"><strong>제조사 점검 결과:</strong> {order.mfgInspectionResult}</div>}
+              {order.mfgRepairDetails && <div className="phase-line"><strong>제조사 수리 내용:</strong> {order.mfgRepairDetails}</div>}
+              {!order.mfgReferenceNo && !order.mfgInspectionResult && !order.mfgRepairDetails && <span className="text-gray-400">-</span>}
+              {renderPhaseImages(mfgAtts)}
+              {renderPhaseFiles(mfgAtts)}
+            </div>
+          </section>
+        )}
+
+        {/* ④ 2차 점검 — SEND_TO_MFG */}
+        {isMfg && (
+          <section className="report-section">
+            <h3 className="section-title">④ 2차 점검</h3>
+            <div className="section-body">
+              {order.diagnosis2nd && <div className="phase-line"><strong>소견:</strong> {order.diagnosis2nd}</div>}
+              {order.decision2nd && (
+                <div className="phase-line">
+                  <strong>판단:</strong> {decisionLabel(order.decision2nd)}
+                  {order.decision2ndReason && <span> / 사유: {order.decision2ndReason}</span>}
+                </div>
+              )}
+              {!order.diagnosis2nd && !order.decision2nd && <span className="text-gray-400">-</span>}
+              {renderPhaseImages(secondAtts)}
+              {renderPhaseFiles(secondAtts)}
+            </div>
+          </section>
+        )}
+
+        {/* legacy inspectionSteps — 백워드 호환 */}
+        {legacySteps.length > 0 && (
+          <section className="report-section">
+            <h3 className="section-title">점검 단계 <span style={{ fontSize: "9pt", fontWeight: "normal", color: "#92400e" }}>(이전 데이터)</span></h3>
+            <div className="section-body">
               <ol className="step-list">
-                {steps.map((s, i) => {
+                {legacySteps.map((s, i) => {
                   const images = (s.attachments ?? []).filter((a) => a.isImage);
                   return (
                     <li key={i}>
                       <span className="step-content">{s.content || ""}</span>
-                      {s.result && (
-                        <div className="step-result">→ {s.result}</div>
-                      )}
+                      {s.result && <div className="step-result">→ {s.result}</div>}
                       {images.length > 0 && (
                         <div className="step-images">
                           {images.map((a) => (
@@ -204,17 +307,17 @@ export default function ReportPrintPage() {
                   );
                 })}
               </ol>
-            ) : (
-              <span className="text-gray-400">-</span>
-            )}
-          </div>
-        </section>
+            </div>
+          </section>
+        )}
 
         {/* 점검 결과 */}
         <section className="report-section">
           <h3 className="section-title">점검 결과</h3>
           <div className="section-body">
             {result ? <pre>{result}</pre> : <span className="text-gray-400">-</span>}
+            {renderPhaseImages(resultAtts)}
+            {renderPhaseFiles(resultAtts)}
           </div>
         </section>
 
@@ -324,6 +427,19 @@ export default function ReportPrintPage() {
           margin-left: 1em;
           color: #4b5563;
           font-size: 10pt;
+        }
+        /* 수리관리 v1.2 phase 매핑 */
+        .phase-line {
+          margin: 2px 0;
+        }
+        .phase-line strong {
+          color: #1f2937;
+          margin-right: 4px;
+        }
+        .phase-files {
+          margin-top: 4px;
+          font-size: 9pt;
+          color: #4b5563;
         }
 
         .step-images {

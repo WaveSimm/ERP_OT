@@ -514,43 +514,65 @@ function DecisionRadio({ name, value, onChange, disabled }: {
   );
 }
 
+// 수리관리 v1.3 (2026-05-06) — 4 phase 카드 + 최종 점검 결과 (1차 / 본사수리 / 제조사 / 2차 / 결과)
+// decision1st 값에 따라 ②③④ 조건부 표시. phase별 첨부 = phaseAttachments JSONB.
+type PhaseKey = "first" | "inHouse" | "mfg" | "second" | "result";
+
 function InspectionTab({ order, onUpdate, onReload }: { order: any; onUpdate: (f: string, v: any) => void; onReload: () => void }) {
+  // ① 1차 점검
   const [d1, setD1] = useState(order.diagnosis1st || "");
-  const [d2, setD2] = useState(order.diagnosis2nd || "");
-  const [details, setDetails] = useState(order.repairDetails || "");
   const [decision1st, setDecision1st] = useState<string>(order.decision1st || "");
   const [decision1stReason, setDecision1stReason] = useState(order.decision1stReason || "");
+
+  // ② 본사 수리
+  const [details, setDetails] = useState(order.repairDetails || "");
+
+  // ③ 제조사 수리 (Q3-A 신규: mfgInspectionResult, mfgRepairDetails)
+  const [mfgRefNo, setMfgRefNo] = useState(order.mfgReferenceNo || "");
+  const [mfgInspResult, setMfgInspResult] = useState(order.mfgInspectionResult || "");
+  const [mfgRepDetails, setMfgRepDetails] = useState(order.mfgRepairDetails || "");
+
+  // ④ 2차 점검
+  const [d2, setD2] = useState(order.diagnosis2nd || "");
   const [decision2nd, setDecision2nd] = useState<string>(order.decision2nd || "");
   const [decision2ndReason, setDecision2ndReason] = useState(order.decision2ndReason || "");
-  const [mfgRefNo, setMfgRefNo] = useState(order.mfgReferenceNo || "");
+
   const [saving, setSaving] = useState(false);
 
-  // 점검 단계별 작업 기록 + 첨부 (수리관리 v2.2)
-  // 양식의 "점검 내용" 영역에 매핑됨. InspectionReport.inspectionSteps에 저장.
+  // Phase별 첨부 — InspectionReport.phaseAttachments JSONB (v1.2 신규)
+  // v1.3: result 키 추가 (최종 점검 결과 첨부)
   const existingReport = order.inspectionReport;
-  const [steps, setSteps] = useState<any[]>(
-    existingReport?.inspectionSteps?.length > 0
-      ? existingReport.inspectionSteps
-      : [{ step: 1, content: "", result: "", attachments: [] }],
-  );
-  const [uploadingStep, setUploadingStep] = useState<number | null>(null);
+  const initialAtts = existingReport?.phaseAttachments || {};
+  const [firstAtts, setFirstAtts] = useState<any[]>(initialAtts.first || []);
+  const [inHouseAtts, setInHouseAtts] = useState<any[]>(initialAtts.inHouse || []);
+  const [mfgAtts, setMfgAtts] = useState<any[]>(initialAtts.mfg || []);
+  const [secondAtts, setSecondAtts] = useState<any[]>(initialAtts.second || []);
+  const [resultAtts, setResultAtts] = useState<any[]>(initialAtts.result || []);
+  const [uploadingPhase, setUploadingPhase] = useState<PhaseKey | null>(null);
 
-  const updateStep = (idx: number, field: string, value: any) => {
-    const next = [...steps];
-    next[idx] = { ...next[idx], [field]: value };
-    setSteps(next);
+  // 🎯 최종 점검 결과 — InspectionReport.result (v1.3, 2026-05-06)
+  // 보고서의 "점검 결과" 섹션과 동일 필드. 점검 탭이 단일 입력처.
+  const [finalResult, setFinalResult] = useState(existingReport?.result || "");
+
+  // legacy inspectionSteps — read-only 표시 (백워드 호환)
+  const legacySteps: any[] = existingReport?.inspectionSteps || [];
+
+  const isInHouseRepair = decision1st === "IN_HOUSE_REPAIR";
+  const isSendToMfg = decision1st === "SEND_TO_MFG";
+
+  const setterByPhase: Record<PhaseKey, (atts: any[]) => void> = {
+    first: setFirstAtts, inHouse: setInHouseAtts, mfg: setMfgAtts, second: setSecondAtts, result: setResultAtts,
   };
-  const addStep = () => setSteps([...steps, { step: steps.length + 1, content: "", result: "", attachments: [] }]);
-  const removeStep = (idx: number) => {
-    setSteps(steps.filter((_, i) => i !== idx).map((s, i) => ({ ...s, step: i + 1 })));
+  const stateByPhase: Record<PhaseKey, any[]> = {
+    first: firstAtts, inHouse: inHouseAtts, mfg: mfgAtts, second: secondAtts, result: resultAtts,
   };
 
-  const handleStepFiles = async (idx: number, files: FileList | null) => {
+  const handlePhaseFiles = async (phase: PhaseKey, files: FileList | null) => {
     if (!files || files.length === 0) return;
-    setUploadingStep(idx);
+    setUploadingPhase(phase);
     try {
       const compressed = await Promise.all(Array.from(files).map((f) => compressImage(f)));
-      const uploaded = [];
+      const uploaded: any[] = [];
       for (const file of compressed) {
         const att = await attachmentApi.upload(file, false);
         uploaded.push({
@@ -563,23 +585,16 @@ function InspectionTab({ order, onUpdate, onReload }: { order: any; onUpdate: (f
           uploadedAt: new Date().toISOString(),
         });
       }
-      const next = [...steps];
-      const cur = next[idx] ?? {};
-      next[idx] = { ...cur, attachments: [...(cur.attachments || []), ...uploaded] };
-      setSteps(next);
+      setterByPhase[phase]([...stateByPhase[phase], ...uploaded]);
     } catch (err: any) {
       alert(err?.message ?? "업로드 실패");
     } finally {
-      setUploadingStep(null);
+      setUploadingPhase(null);
     }
   };
 
-  const removeStepAttachment = (stepIdx: number, attId: string) => {
-    const next = [...steps];
-    const cur = next[stepIdx];
-    if (!cur) return;
-    next[stepIdx] = { ...cur, attachments: (cur.attachments || []).filter((a: any) => a.id !== attId) };
-    setSteps(next);
+  const removePhaseAttachment = (phase: PhaseKey, attId: string) => {
+    setterByPhase[phase](stateByPhase[phase].filter((a: any) => a.id !== attId));
   };
 
   const save = async () => {
@@ -594,14 +609,23 @@ function InspectionTab({ order, onUpdate, onReload }: { order: any; onUpdate: (f
         decision2nd: decision2nd || null,
         decision2ndReason: decision2ndReason || null,
         mfgReferenceNo: mfgRefNo || null,
+        mfgInspectionResult: mfgInspResult || null,
+        mfgRepairDetails: mfgRepDetails || null,
       });
-      // 점검 단계별 + 첨부 → InspectionReport upsert (있으면 update, 없으면 create)
-      const hasContent = steps.some((s) => s.content || (s.attachments && s.attachments.length > 0));
-      if (hasContent) {
+      const phaseAttachments = {
+        first: firstAtts,
+        inHouse: inHouseAtts,
+        mfg: mfgAtts,
+        second: secondAtts,
+        result: resultAtts,
+      };
+      const hasAttachments = firstAtts.length || inHouseAtts.length || mfgAtts.length || secondAtts.length || resultAtts.length;
+      const reportPayload: any = { phaseAttachments, result: finalResult || null };
+      if (hasAttachments || finalResult || existingReport) {
         if (existingReport) {
-          await repairApi.updateInspectionReport(existingReport.id, { inspectionSteps: steps });
+          await repairApi.updateInspectionReport(existingReport.id, reportPayload);
         } else {
-          await repairApi.createInspectionReport({ repairOrderId: order.id, inspectionSteps: steps });
+          await repairApi.createInspectionReport({ repairOrderId: order.id, ...reportPayload });
         }
       }
       await onReload();
@@ -611,100 +635,166 @@ function InspectionTab({ order, onUpdate, onReload }: { order: any; onUpdate: (f
     setSaving(false);
   };
 
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
-      {/* 1차 점검 */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">1차 점검소견</label>
-        <textarea value={d1} onChange={(e) => setD1(e.target.value)} rows={3}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none" />
-        <span className="text-xs text-gray-500">점검자: {order.inspector1stName || "-"}</span>
-      </div>
-
-      <div className="bg-blue-50/30 border border-blue-100 rounded-lg p-3 space-y-2">
-        <label className="block text-sm font-medium text-gray-700">1차 판단 <span className="text-red-500">*</span></label>
-        <DecisionRadio name="decision1st" value={decision1st} onChange={setDecision1st} />
-        <input value={decision1stReason} onChange={(e) => setDecision1stReason(e.target.value)}
-          placeholder="판단 사유(선택)" className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
-        {decision1st === "SEND_TO_MFG" && (
-          <input value={mfgRefNo} onChange={(e) => setMfgRefNo(e.target.value)}
-            placeholder="Maker Reference No." className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+  function PhaseAttachmentArea({ phase, label }: { phase: PhaseKey; label: string }) {
+    const atts = stateByPhase[phase];
+    const isUploading = uploadingPhase === phase;
+    return (
+      <div className="border-t border-gray-100 pt-3">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xs font-medium text-gray-600">📎 {label}</span>
+          <label className="px-2 py-1 border border-gray-300 rounded text-xs text-gray-600 cursor-pointer hover:bg-gray-50">
+            + 파일 추가
+            <input type="file" multiple accept="image/*,.pdf,.xlsx,.xls,.csv,.docx,.doc,.pptx,.ppt,.txt"
+              className="hidden" disabled={isUploading}
+              onChange={(e) => { void handlePhaseFiles(phase, e.target.files); e.target.value = ""; }} />
+          </label>
+          {atts.length > 0 && <span className="text-xs text-gray-500">{atts.length}건</span>}
+          {isUploading && <span className="text-[10px] text-blue-500">업로드 중...</span>}
+        </div>
+        {atts.length > 0 && (
+          <div className="flex gap-2 flex-wrap">
+            {atts.map((a: any) => (
+              <div key={a.id} className="relative group">
+                {a.isImage ? (
+                  <img src={a.url} alt={a.fileName}
+                    className="w-16 h-16 object-cover rounded border border-gray-200" />
+                ) : (
+                  <div className="w-16 h-16 bg-gray-100 border border-gray-200 rounded flex flex-col items-center justify-center text-[9px] text-gray-500 px-1 text-center">
+                    <span className="text-base">📄</span>
+                    <span className="truncate w-full">{a.fileName.slice(-10)}</span>
+                  </div>
+                )}
+                <button type="button" onClick={() => removePhaseAttachment(phase, a.id)}
+                  className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] leading-none hover:bg-red-600">×</button>
+              </div>
+            ))}
+          </div>
         )}
       </div>
+    );
+  }
 
-      {/* 2차 점검 */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">2차 점검소견 (제조사 수리 후)</label>
-        <textarea value={d2} onChange={(e) => setD2(e.target.value)} rows={3}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none" />
-        <span className="text-xs text-gray-500">점검자: {order.inspector2ndName || "-"}</span>
-      </div>
-
-      <div className="bg-blue-50/30 border border-blue-100 rounded-lg p-3 space-y-2">
-        <label className="block text-sm font-medium text-gray-700">2차 판단</label>
-        <DecisionRadio name="decision2nd" value={decision2nd} onChange={setDecision2nd} />
-        <input value={decision2ndReason} onChange={(e) => setDecision2ndReason(e.target.value)}
-          placeholder="판단 사유(선택)" className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
-      </div>
-
-      {/* 수리 내용 */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">수리 내용</label>
-        <textarea value={details} onChange={(e) => setDetails(e.target.value)} rows={3}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none" />
-      </div>
-
-      {/* 점검 단계별 작업 + 첨부 (양식의 "점검 내용") */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <label className="block text-sm font-medium text-gray-700">
-            점검 단계 <span className="text-xs text-gray-400 ml-1">(보고서 양식의 "점검 내용". 이미지는 1920px / 약 500KB로 자동 압축)</span>
-          </label>
-          <button type="button" onClick={addStep} className="text-xs text-blue-600 hover:underline">+ 단계 추가</button>
+  return (
+    <div className="space-y-4">
+      {/* ① 1차 점검 — 항상 표시 */}
+      <div className="bg-white border border-gray-200 rounded-lg p-5 space-y-3">
+        <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+          <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs">①</span>
+          1차 점검
+        </h3>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">1차 점검소견</label>
+          <textarea value={d1} onChange={(e) => setD1(e.target.value)} rows={3}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none" />
+          <span className="text-xs text-gray-500">점검자: {order.inspector1stName || "-"}</span>
         </div>
-        {steps.map((s, i) => {
-          const atts: any[] = s.attachments || [];
-          return (
-            <div key={i} className="border border-gray-200 rounded-lg p-2 mb-2">
-              <div className="flex gap-2 items-start">
-                <span className="text-xs text-gray-400 pt-2 w-6">{s.step}</span>
-                <input value={s.content} onChange={(e) => updateStep(i, "content", e.target.value)} placeholder="점검내용"
-                  className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm" />
-                <input value={s.result} onChange={(e) => updateStep(i, "result", e.target.value)} placeholder="결과"
-                  className="w-28 px-2 py-1.5 border border-gray-300 rounded text-sm" />
-                <label className="px-2 py-1.5 border border-gray-300 rounded text-xs text-gray-600 cursor-pointer hover:bg-gray-50 whitespace-nowrap">
-                  📎 {atts.length > 0 ? atts.length : ""}
-                  <input type="file" multiple accept="image/*,.pdf,.xlsx,.xls,.csv,.docx,.doc,.pptx,.ppt,.txt"
-                    className="hidden" disabled={uploadingStep === i}
-                    onChange={(e) => { void handleStepFiles(i, e.target.files); e.target.value = ""; }} />
-                </label>
-                {steps.length > 1 && (
-                  <button type="button" onClick={() => removeStep(i)} className="text-xs text-red-400 hover:text-red-600 px-1 pt-2">삭제</button>
+        <div className="bg-blue-50/30 border border-blue-100 rounded-lg p-3 space-y-2">
+          <label className="block text-sm font-medium text-gray-700">1차 판단 <span className="text-red-500">*</span></label>
+          <DecisionRadio name="decision1st" value={decision1st} onChange={setDecision1st} />
+          <input value={decision1stReason} onChange={(e) => setDecision1stReason(e.target.value)}
+            placeholder="판단 사유(선택)" className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+        </div>
+        <PhaseAttachmentArea phase="first" label="1차 점검 첨부" />
+      </div>
+
+      {/* ② 본사 수리 — IN_HOUSE_REPAIR 시 */}
+      {isInHouseRepair && (
+        <div className="bg-white border border-orange-200 rounded-lg p-5 space-y-3">
+          <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+            <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs">②</span>
+            본사 수리
+          </h3>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">수리 내용</label>
+            <textarea value={details} onChange={(e) => setDetails(e.target.value)} rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none" />
+          </div>
+          <PhaseAttachmentArea phase="inHouse" label="본사 수리 첨부" />
+        </div>
+      )}
+
+      {/* ③ 제조사 수리 — SEND_TO_MFG 시 */}
+      {isSendToMfg && (
+        <div className="bg-white border border-purple-200 rounded-lg p-5 space-y-3">
+          <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+            <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs">③</span>
+            제조사 수리
+          </h3>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Maker Reference No.</label>
+            <input value={mfgRefNo} onChange={(e) => setMfgRefNo(e.target.value)}
+              placeholder="제조사 참조번호" className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">제조사 점검 결과</label>
+            <textarea value={mfgInspResult} onChange={(e) => setMfgInspResult(e.target.value)} rows={3}
+              placeholder="제조사 측 진단/점검 결과"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">제조사 수리 내용</label>
+            <textarea value={mfgRepDetails} onChange={(e) => setMfgRepDetails(e.target.value)} rows={3}
+              placeholder="제조사가 수행한 수리 작업"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none" />
+          </div>
+          <PhaseAttachmentArea phase="mfg" label="제조사 수리 첨부 (제조사 보고서/사진)" />
+        </div>
+      )}
+
+      {/* ④ 2차 점검 — SEND_TO_MFG 시 (제조사 수리 후 입고 검수) */}
+      {isSendToMfg && (
+        <div className="bg-white border border-blue-200 rounded-lg p-5 space-y-3">
+          <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+            <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs">④</span>
+            2차 점검 <span className="text-xs font-normal text-gray-500">(제조사 수리 후)</span>
+          </h3>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">2차 점검소견</label>
+            <textarea value={d2} onChange={(e) => setD2(e.target.value)} rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none" />
+            <span className="text-xs text-gray-500">점검자: {order.inspector2ndName || "-"}</span>
+          </div>
+          <div className="bg-blue-50/30 border border-blue-100 rounded-lg p-3 space-y-2">
+            <label className="block text-sm font-medium text-gray-700">2차 판단</label>
+            <DecisionRadio name="decision2nd" value={decision2nd} onChange={setDecision2nd} />
+            <input value={decision2ndReason} onChange={(e) => setDecision2ndReason(e.target.value)}
+              placeholder="판단 사유(선택)" className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+          </div>
+          <PhaseAttachmentArea phase="second" label="2차 점검 첨부" />
+        </div>
+      )}
+
+      {/* legacy inspectionSteps — read-only 백워드 호환 */}
+      {legacySteps.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+          <div className="text-xs font-medium text-amber-700 mb-2">
+            ⚠ 이전 버전 점검 단계 데이터 ({legacySteps.length}건) — 신규 입력 불가, 표시만 보존
+          </div>
+          <ol className="pl-5 space-y-1 text-xs text-gray-700 list-decimal">
+            {legacySteps.map((s: any, i: number) => (
+              <li key={i}>
+                <span>{s.content || "-"}</span>
+                {s.result && <span className="text-gray-500"> → {s.result}</span>}
+                {s.attachments?.length > 0 && (
+                  <span className="text-gray-400"> (📎{s.attachments.length})</span>
                 )}
-              </div>
-              {uploadingStep === i && <div className="text-[10px] text-blue-500 ml-8 mt-1">업로드 중...</div>}
-              {atts.length > 0 && (
-                <div className="ml-8 mt-2 flex gap-2 flex-wrap">
-                  {atts.map((a: any) => (
-                    <div key={a.id} className="relative group">
-                      {a.isImage ? (
-                        <img src={a.url} alt={a.fileName}
-                          className="w-16 h-16 object-cover rounded border border-gray-200" />
-                      ) : (
-                        <div className="w-16 h-16 bg-gray-100 border border-gray-200 rounded flex flex-col items-center justify-center text-[9px] text-gray-500 px-1 text-center">
-                          <span className="text-base">📄</span>
-                          <span className="truncate w-full">{a.fileName.slice(-10)}</span>
-                        </div>
-                      )}
-                      <button type="button" onClick={() => removeStepAttachment(i, a.id)}
-                        className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] leading-none hover:bg-red-600">×</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      {/* 🎯 최종 점검 결과 — 모든 phase 종합 결과 (v1.3) */}
+      <div className="bg-white border border-emerald-300 rounded-lg p-5 space-y-3">
+        <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+          <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-xs">🎯</span>
+          최종 점검 결과
+        </h3>
+        <p className="text-xs text-gray-500">수리/점검 작업 완료 후 종합 결과. 보고서의 "점검 결과" 섹션에 표시됩니다.</p>
+        <textarea value={finalResult} onChange={(e) => setFinalResult(e.target.value)} rows={3}
+          placeholder="최종 점검 결과 요약 (예: ✅ 정상 작동 / 부품 X 교체 후 정상 / 제조사 수리 완료, 동작 확인됨)"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none" />
+        <PhaseAttachmentArea phase="result" label="최종 점검 결과 첨부 (완료 사진/문서)" />
       </div>
 
       <button onClick={save} disabled={saving}
@@ -716,6 +806,159 @@ function InspectionTab({ order, onUpdate, onReload }: { order: any; onUpdate: (f
 }
 
 // ─── 보고서 탭 (Phase 2) ────────────────────────────────────────────────
+
+// 보고서 점검 내용 — phase 기반 (1차 / 본사수리 / 제조사 / 2차)
+// 수리관리 v1.2 (2026-05-06): legacy inspectionSteps 대체. decision1st 분기로 표시 phase 결정.
+function PhaseBasedReportSection({ order, report }: { order: any; report: any }) {
+  const decision1st = order.decision1st as string | null;
+  const isInHouse = decision1st === "IN_HOUSE_REPAIR";
+  const isMfg = decision1st === "SEND_TO_MFG";
+
+  const phaseAtts = report?.phaseAttachments || {};
+  const firstAtts: any[] = phaseAtts.first || [];
+  const inHouseAtts: any[] = phaseAtts.inHouse || [];
+  const mfgAtts: any[] = phaseAtts.mfg || [];
+  const secondAtts: any[] = phaseAtts.second || [];
+
+  // legacy inspectionSteps (백워드 호환)
+  const legacySteps: any[] = report?.inspectionSteps || [];
+
+  const renderImages = (atts: any[]) => {
+    const images = atts.filter((a) => a.isImage);
+    if (images.length === 0) return null;
+    return (
+      <div className="ml-1 mt-2 grid grid-cols-3 gap-1 max-w-xl">
+        {images.map((a) => (
+          <a key={a.id} href={a.url} target="_blank" rel="noopener noreferrer"
+            className="block aspect-[4/3] bg-gray-50 border border-gray-200 overflow-hidden hover:border-blue-400">
+            <img src={a.url} alt={a.fileName} className="w-full h-full object-contain" />
+          </a>
+        ))}
+      </div>
+    );
+  };
+
+  const renderFiles = (atts: any[]) => {
+    const files = atts.filter((a) => !a.isImage);
+    if (files.length === 0) return null;
+    return (
+      <div className="ml-1 mt-1 text-xs text-gray-600">
+        📎 {files.map((f, i) => (
+          <span key={f.id}>
+            {i > 0 && ", "}
+            <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{f.fileName}</a>
+          </span>
+        ))}
+      </div>
+    );
+  };
+
+  const decisionLabel = (d: string | null) => d ? (DECISION_LABEL_MAP[d] || d) : "-";
+
+  return (
+    <>
+      {/* ① 1차 점검 — 항상 */}
+      <section className="mt-3">
+        <h3 className="text-sm font-bold bg-gray-200 px-2 py-1 border-l-4 border-blue-900">① 1차 점검</h3>
+        <div className="border border-t-0 border-gray-300 p-2 min-h-[1.5cm] text-sm space-y-1">
+          {order.diagnosis1st ? <div><span className="font-medium text-gray-700">소견:</span> {order.diagnosis1st}</div> : <div className="text-gray-400">-</div>}
+          {decision1st && (
+            <div>
+              <span className="font-medium text-gray-700">판단:</span> {decisionLabel(decision1st)}
+              {order.decision1stReason && <span className="text-gray-600"> / 사유: {order.decision1stReason}</span>}
+            </div>
+          )}
+          {firstAtts.length > 0 && (
+            <>
+              {renderImages(firstAtts)}
+              {renderFiles(firstAtts)}
+            </>
+          )}
+        </div>
+      </section>
+
+      {/* ② 본사 수리 — IN_HOUSE_REPAIR */}
+      {isInHouse && (
+        <section className="mt-3">
+          <h3 className="text-sm font-bold bg-gray-200 px-2 py-1 border-l-4 border-orange-500">② 본사 수리</h3>
+          <div className="border border-t-0 border-gray-300 p-2 min-h-[1.5cm] text-sm">
+            {order.repairDetails ? <div>{order.repairDetails}</div> : <div className="text-gray-400">-</div>}
+            {inHouseAtts.length > 0 && (
+              <>
+                {renderImages(inHouseAtts)}
+                {renderFiles(inHouseAtts)}
+              </>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* ③ 제조사 수리 — SEND_TO_MFG */}
+      {isMfg && (
+        <section className="mt-3">
+          <h3 className="text-sm font-bold bg-gray-200 px-2 py-1 border-l-4 border-purple-500">③ 제조사 수리</h3>
+          <div className="border border-t-0 border-gray-300 p-2 min-h-[1.5cm] text-sm space-y-1">
+            {order.mfgReferenceNo && <div><span className="font-medium text-gray-700">Maker Ref:</span> {order.mfgReferenceNo}</div>}
+            {order.mfgInspectionResult && <div><span className="font-medium text-gray-700">제조사 점검 결과:</span> {order.mfgInspectionResult}</div>}
+            {order.mfgRepairDetails && <div><span className="font-medium text-gray-700">제조사 수리 내용:</span> {order.mfgRepairDetails}</div>}
+            {!order.mfgReferenceNo && !order.mfgInspectionResult && !order.mfgRepairDetails && <div className="text-gray-400">-</div>}
+            {mfgAtts.length > 0 && (
+              <>
+                {renderImages(mfgAtts)}
+                {renderFiles(mfgAtts)}
+              </>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* ④ 2차 점검 — SEND_TO_MFG */}
+      {isMfg && (
+        <section className="mt-3">
+          <h3 className="text-sm font-bold bg-gray-200 px-2 py-1 border-l-4 border-blue-900">④ 2차 점검</h3>
+          <div className="border border-t-0 border-gray-300 p-2 min-h-[1.5cm] text-sm space-y-1">
+            {order.diagnosis2nd ? <div><span className="font-medium text-gray-700">소견:</span> {order.diagnosis2nd}</div> : <div className="text-gray-400">-</div>}
+            {order.decision2nd && (
+              <div>
+                <span className="font-medium text-gray-700">판단:</span> {decisionLabel(order.decision2nd)}
+                {order.decision2ndReason && <span className="text-gray-600"> / 사유: {order.decision2ndReason}</span>}
+              </div>
+            )}
+            {secondAtts.length > 0 && (
+              <>
+                {renderImages(secondAtts)}
+                {renderFiles(secondAtts)}
+              </>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* legacy inspectionSteps — 백워드 호환 */}
+      {legacySteps.length > 0 && (
+        <section className="mt-3">
+          <h3 className="text-sm font-bold bg-amber-100 px-2 py-1 border-l-4 border-amber-500">
+            점검 단계 <span className="ml-2 text-xs font-normal text-amber-700">(이전 버전 데이터, 표시만)</span>
+          </h3>
+          <div className="border border-t-0 border-gray-300 p-2 text-sm">
+            <ol className="pl-5 space-y-1 list-decimal">
+              {legacySteps.map((s: any, i: number) => {
+                const images = (s.attachments || []).filter((a: any) => a.isImage);
+                return (
+                  <li key={i}>
+                    <span>{s.content || "-"}</span>
+                    {s.result && <div className="ml-3 text-xs text-gray-600">→ {s.result}</div>}
+                    {images.length > 0 && renderImages(s.attachments)}
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        </section>
+      )}
+    </>
+  );
+}
 
 function ReportTab({ order, onReload }: { order: any; onReload: () => void }) {
   // 보고서 탭은 출력 미리보기 (수리관리 v2.2):
@@ -734,7 +977,8 @@ function ReportTab({ order, onReload }: { order: any; onReload: () => void }) {
   });
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
-  // form ↔ report 동기화 (외부 reload로 report 객체가 바뀌면 form 갱신)
+  // form ↔ report 동기화 (외부 reload로 report 변경 시 form 갱신)
+  // v1.3: result는 점검 탭이 단일 입력처. report?.result 변동도 감지해야 ReportTab이 stale 보지 않음.
   useEffect(() => {
     setForm({
       reportNumber: report?.reportNumber || "",
@@ -744,9 +988,10 @@ function ReportTab({ order, onReload }: { order: any; onReload: () => void }) {
       needsMfgRepair: report?.needsMfgRepair || false,
       mfgRepairReason: report?.mfgRepairReason || "",
     });
-  }, [report?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [report?.id, report?.result, report?.symptom, report?.reportNumber, report?.inspectorName, report?.needsMfgRepair, report?.mfgRepairReason]);
 
-  const inspectionSteps: any[] = report?.inspectionSteps || [];
+  // (수리관리 v1.2) inspectionSteps는 PhaseBasedReportSection에서 직접 read
 
   // ─── 자동 저장 (debounce 800ms) ──────────────────────────────────────────
   const dirtyRef = useRef(false);
@@ -868,49 +1113,51 @@ function ReportTab({ order, onReload }: { order: any; onReload: () => void }) {
           </div>
         </section>
 
-        {/* 점검 내용 */}
+        {/* 점검 내용 — 4 phase 기반 (수리관리 v1.2, 2026-05-06) */}
+        <PhaseBasedReportSection order={order} report={report} />
+
+        {/* 점검 결과 — 점검 탭 "최종 점검 결과"에서 입력. 보고서는 read-only (v1.3) */}
         <section className="mt-3">
           <h3 className="text-sm font-bold bg-gray-200 px-2 py-1 border-l-4 border-blue-900">
-            점검 내용 <span className="ml-2 text-xs font-normal text-gray-500">(점검 탭에서 입력)</span>
+            점검 결과 <span className="ml-2 text-xs font-normal text-gray-500">(점검 탭의 최종 점검 결과)</span>
           </h3>
-          <div className="border border-t-0 border-gray-300 p-2 min-h-[2cm]">
-            {inspectionSteps.length > 0 ? (
-              <ol className="pl-5 space-y-1">
-                {inspectionSteps.map((s: any, i: number) => {
-                  const images = (s.attachments || []).filter((a: any) => a.isImage);
-                  return (
-                    <li key={i} className="text-sm">
-                      <span>{s.content || "-"}</span>
-                      {s.result && <div className="ml-3 text-xs text-gray-600">→ {s.result}</div>}
-                      {images.length > 0 && (
-                        <div className="ml-3 mt-1 grid grid-cols-3 gap-1 max-w-xl">
-                          {images.map((a: any) => (
-                            <a key={a.id} href={a.url} target="_blank" rel="noopener noreferrer"
-                              className="block aspect-[4/3] bg-gray-50 border border-gray-200 overflow-hidden hover:border-blue-400">
-                              <img src={a.url} alt={a.fileName} className="w-full h-full object-contain" />
-                            </a>
-                          ))}
-                        </div>
-                      )}
-                    </li>
-                  );
-                })}
-              </ol>
-            ) : (
-              <div className="text-xs text-gray-400 text-center py-3">
-                점검 단계가 없습니다. 점검 탭에서 단계+첨부를 추가하세요.
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* 점검 결과 */}
-        <section className="mt-3">
-          <h3 className="text-sm font-bold bg-gray-200 px-2 py-1 border-l-4 border-blue-900">점검 결과</h3>
           <div className="border border-t-0 border-gray-300 p-2 min-h-[1.5cm]">
-            <textarea value={form.result} onChange={(e) => update("result", e.target.value)} rows={2}
-              placeholder="점검 결과 요약"
-              className="w-full bg-transparent border-0 focus:outline-none text-sm resize-none" />
+            {form.result ? (
+              <pre className="text-sm whitespace-pre-wrap font-sans">{form.result}</pre>
+            ) : (
+              <span className="text-xs text-gray-400">점검 탭에서 "🎯 최종 점검 결과" 입력 후 저장하세요.</span>
+            )}
+            {/* v1.3: 결과 첨부 (phaseAttachments.result) */}
+            {(() => {
+              const resultAtts: any[] = report?.phaseAttachments?.result || [];
+              if (resultAtts.length === 0) return null;
+              const images = resultAtts.filter((a: any) => a.isImage);
+              const files = resultAtts.filter((a: any) => !a.isImage);
+              return (
+                <>
+                  {images.length > 0 && (
+                    <div className="ml-1 mt-2 grid grid-cols-3 gap-1 max-w-xl">
+                      {images.map((a: any) => (
+                        <a key={a.id} href={a.url} target="_blank" rel="noopener noreferrer"
+                          className="block aspect-[4/3] bg-gray-50 border border-gray-200 overflow-hidden hover:border-blue-400">
+                          <img src={a.url} alt={a.fileName} className="w-full h-full object-contain" />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  {files.length > 0 && (
+                    <div className="ml-1 mt-1 text-xs text-gray-600">
+                      📎 {files.map((f: any, i: number) => (
+                        <span key={f.id}>
+                          {i > 0 && ", "}
+                          <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{f.fileName}</a>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </section>
 

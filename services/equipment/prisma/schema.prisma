@@ -571,7 +571,10 @@ model RepairOrder {
   decision2nd      InspectionDecision?
   decision2ndReason String?
 
-  repairDetails    String?
+  repairDetails    String?                          // 본사 수리 내용 (IN_HOUSE_REPAIR 케이스)
+  // 제조사 수리 phase (SEND_TO_MFG 케이스, 2026-05-06 v1.2)
+  mfgInspectionResult  String?                      // 제조사 측 점검 결과
+  mfgRepairDetails     String?                      // 제조사 수리 내용
   isWarranty       Boolean          @default(false)
 
   receivedBy       String?
@@ -633,7 +636,8 @@ model InspectionReport {
   inspectorId      String?
   inspectorName    String?
   symptom          String?
-  inspectionSteps  Json?
+  inspectionSteps  Json?                          // ⚠ deprecated (2026-05-06 v1.2): phase 기반 phaseAttachments로 대체. 기존 데이터 read-only 보존.
+  phaseAttachments Json?                          // phase별 첨부 ({first:[],inHouse:[],mfg:[],second:[]}, 2026-05-06 v1.2)
   result           String?
   decision         InspectionDecision?          // 1차점검 판단(필수 권장)
   decisionReason   String?                       // 판단 사유

@@ -18,6 +18,7 @@ export class InspectionReportService {
     inspectorName?: string;
     symptom?: string;
     inspectionSteps?: any;
+    phaseAttachments?: any;     // 2026-05-06 v1.2 — phase별 첨부 ({first,inHouse,mfg,second})
     result?: string;
     decision?: string;
     decisionReason?: string;
@@ -39,6 +40,7 @@ export class InspectionReportService {
     inspectorName?: string;
     symptom?: string;
     inspectionSteps?: any;
+    phaseAttachments?: any;     // 2026-05-06 v1.2 — phase별 첨부
     result?: string;
     decision?: string;
     decisionReason?: string;
