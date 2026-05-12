@@ -21,7 +21,7 @@ export default function LoginPage() {
       clearToken();
       const { user } = await authApi.login(email, password);
       setToken(""); // no-op (호환), 잔존 정리
-      setUser({ id: user.id, name: user.name, role: user.role });
+      setUser({ id: user.id, name: user.name, role: user.role, isTeamLeader: user.isTeamLeader });
       router.push("/home");
     } catch (err: any) {
       setError(err.message ?? "로그인에 실패했습니다.");

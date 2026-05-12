@@ -123,12 +123,17 @@ export default function NewApprovalPage() {
       userManagementApi.members(true),
       projectApi.list().then((r) => r.items || r).catch(() => []),
     ]).then(([t, depts, members, projs]) => {
-      setTemplates(t);
+      // 경비정산 통합 PDCA: EXPENSE_CLAIM은 expense-service 경유 자동 상신만 허용
+      // 일반 사용자에게 hide. ADMIN은 디버깅·예외 상황 위해 보임.
+      const u = getUser();
+      const isAdmin = u?.role === "ADMIN";
+      const filtered = t.filter((x: any) => isAdmin || x.code !== "EXPENSE_CLAIM");
+      setTemplates(filtered);
       setDepartments(depts);
       setAllMembers(members);
       setProjects(Array.isArray(projs) ? projs : []);
       if (preselectedTemplate) {
-        const found = t.find((x: any) => x.code === preselectedTemplate || x.id === preselectedTemplate);
+        const found = filtered.find((x: any) => x.code === preselectedTemplate || x.id === preselectedTemplate);
         if (found) selectTemplate(found);
       }
     });

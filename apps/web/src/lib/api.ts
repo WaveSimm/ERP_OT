@@ -28,11 +28,13 @@ export function clearToken() {
   }
 }
 
-export function setUser(user: { id: string; name: string; role: string }) {
+export type CurrentUser = { id: string; name: string; role: string; isTeamLeader?: boolean };
+
+export function setUser(user: CurrentUser) {
   if (typeof window !== "undefined") localStorage.setItem("erp_user", JSON.stringify(user));
 }
 
-export function getUser(): { id: string; name: string; role: string } | null {
+export function getUser(): CurrentUser | null {
   if (typeof window === "undefined") return null;
   try {
     return JSON.parse(localStorage.getItem("erp_user") ?? "null");
@@ -1072,10 +1074,6 @@ export const repairApi = {
     request<any>(`/repair-orders/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   changeStatus: (id: string, data: { status: string }) =>
     request<any>(`/repair-orders/${id}/status`, { method: "PATCH", body: JSON.stringify(data) }),
-  updateTechStatus: (id: string, data: { techStatus: string }) =>
-    request<any>(`/repair-orders/${id}/tech-status`, { method: "PATCH", body: JSON.stringify(data) }),
-  updateSalesStatus: (id: string, data: { salesStatus: string }) =>
-    request<any>(`/repair-orders/${id}/sales-status`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteRepairOrder: (id: string) =>
     request<void>(`/repair-orders/${id}`, { method: "DELETE" }),
   restoreRepairOrder: (id: string) =>
@@ -1325,8 +1323,8 @@ export const auditApi = {
     request<any>(`/inventory/audits/items/${itemId}/reset`, { method: "POST" }),
 };
 
-// ── Expense Follow-up (지출결의 후속처리) ──────────────────────────────
-export const expenseApi = {
+// ── Expense Follow-up (지출결의 후속처리 — procurement) ──────────────────────────────
+export const expenseFollowupApi = {
   list: (status?: string) => {
     const q = status ? `?status=${status}` : "";
     return request<any[]>(`/procurement/expenses${q}`);
@@ -1457,11 +1455,14 @@ export const approvalApi = {
   uploadFile: (documentId: string, file: File) => {
     const formData = new FormData();
     formData.append("file", file);
-    const token = getToken();
+    const headers: Record<string, string> = {};
+    const csrf = getCsrfToken();
+    if (csrf) headers["X-CSRF-Token"] = csrf;
     return fetch(`${API_PREFIX}/approval/files/upload?documentId=${documentId}`, {
       method: "POST",
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      headers,
       body: formData,
+      credentials: "include",
     }).then(r => { if (!r.ok) throw new Error("Upload failed"); return r.json(); });
   },
   getDocumentFiles: (documentId: string) =>
@@ -1475,11 +1476,14 @@ export const fileApi = {
   upload: (referenceType: string, referenceId: string, file: File) => {
     const formData = new FormData();
     formData.append("file", file);
-    const token = getToken();
+    const headers: Record<string, string> = {};
+    const csrf = getCsrfToken();
+    if (csrf) headers["X-CSRF-Token"] = csrf;
     return fetch(`${API_PREFIX}/approval/files/upload?referenceType=${referenceType}&referenceId=${referenceId}`, {
       method: "POST",
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      headers,
       body: formData,
+      credentials: "include",
     }).then(r => { if (!r.ok) throw new Error("Upload failed"); return r.json(); });
   },
   list: (referenceType: string, referenceId: string) =>
@@ -1502,11 +1506,14 @@ export const ocrApi = {
     formData.append("file", file);
     if (templateCode) formData.append("templateCode", templateCode);
     if (engineId) formData.append("engineId", engineId);
-    const token = getToken();
+    const headers: Record<string, string> = {};
+    const csrf = getCsrfToken();
+    if (csrf) headers["X-CSRF-Token"] = csrf;
     return fetch(`${API_PREFIX}/ocr/scan`, {
       method: "POST",
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      headers,
       body: formData,
+      credentials: "include",
     }).then(async (r) => {
       if (!r.ok) {
         const err = await r.json().catch(() => ({ message: r.statusText }));
@@ -1629,15 +1636,16 @@ export const boardCommentApi = {
 
 export const attachmentApi = {
   upload: async (file: File, isInline = false): Promise<{ id: string; url: string; fileName: string; fileSize: number; mimeType: string; isInline: boolean }> => {
-    const token = getToken();
     const headers: Record<string, string> = {};
-    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const csrf = getCsrfToken();
+    if (csrf) headers["X-CSRF-Token"] = csrf;
     const fd = new FormData();
     fd.append("file", file);
     const res = await fetch(`${API_PREFIX}/attachments/upload?isInline=${isInline}`, {
       method: "POST",
       headers,
       body: fd,
+      credentials: "include",
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -1758,6 +1766,173 @@ export const calendarApi = {
       `/calendar/sync-holidays${year ? `?year=${year}` : ""}`,
       { method: "POST" },
     ),
+};
+
+// ─── 경비정산 V2 (services/expense, port 3008) ──────────────────────────────
+
+export const expenseApi = {
+  // Sources (카드 관리)
+  listSources: (includeInactive = false) =>
+    request<any[]>(`/expense/sources${includeInactive ? "?includeInactive=true" : ""}`),
+  createSource: (data: { name: string; displayName?: string; type: string; cardNumber?: string }) =>
+    request<any>("/expense/sources", { method: "POST", body: JSON.stringify(data) }),
+  updateSource: (id: string, data: { name?: string; displayName?: string | null; type?: string; cardNumber?: string | null; active?: boolean }) =>
+    request<any>(`/expense/sources/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteSource: (id: string) => request<void>(`/expense/sources/${id}`, { method: "DELETE" }),
+
+  // Categories (전사 표준 + 본인 개인)
+  listCategories: () => request<any[]>("/expense/categories"),
+  createPersonalCategory: (data: { code: string; name: string; sheetName?: string; displayOrder?: number }) =>
+    request<any>("/expense/categories", { method: "POST", body: JSON.stringify(data) }),
+  updatePersonalCategory: (id: string, data: any) =>
+    request<any>(`/expense/categories/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deletePersonalCategory: (id: string) =>
+    request<void>(`/expense/categories/${id}`, { method: "DELETE" }),
+
+  // Transactions (data: detail/memo 등 임의 필드)
+  listTransactions: (params: { status?: string; categoryId?: string; sourceId?: string; from?: string; to?: string; page?: number; limit?: number } = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => v != null && q.set(k, String(v)));
+    return request<{ items: any[]; total: number; page: number; limit: number }>(
+      `/expense/transactions${q.toString() ? `?${q}` : ""}`,
+    );
+  },
+  getTransaction: (id: string) => request<any>(`/expense/transactions/${id}`),
+  createTransaction: (data: any) =>
+    request<any>("/expense/transactions", { method: "POST", body: JSON.stringify(data) }),
+  updateTransaction: (id: string, data: any) =>
+    request<any>(`/expense/transactions/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteTransaction: (id: string) =>
+    request<void>(`/expense/transactions/${id}`, { method: "DELETE" }),
+
+  // Statements
+  listStatements: (params: { page?: number; limit?: number } = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => v != null && q.set(k, String(v)));
+    return request<{ items: any[]; total: number; page: number; limit: number }>(
+      `/expense/statements${q.toString() ? `?${q}` : ""}`,
+    );
+  },
+  importStatement: async (file: File, sourceId?: string): Promise<any> => {
+    const fd = new FormData();
+    fd.append("file", file);
+    if (sourceId) fd.append("sourceId", sourceId);
+    const headers: Record<string, string> = {};
+    const csrf = getCsrfToken();
+    if (csrf) headers["X-CSRF-Token"] = csrf;
+    const res = await fetch(`${API_PREFIX}/expense/statements/import`, {
+      method: "POST",
+      headers,
+      body: fd,
+      credentials: "include",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message ?? err.message ?? "import 실패");
+    }
+    return res.json();
+  },
+
+  // Receipts
+  listReceipts: (params: { page?: number; limit?: number; ocrStatus?: string } = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => v != null && q.set(k, String(v)));
+    return request<{ items: any[]; total: number; page: number; limit: number }>(
+      `/expense/receipts${q.toString() ? `?${q}` : ""}`,
+    );
+  },
+  uploadReceipt: async (file: File): Promise<any> => {
+    const fd = new FormData();
+    fd.append("file", file);
+    const headers: Record<string, string> = {};
+    const csrf = getCsrfToken();
+    if (csrf) headers["X-CSRF-Token"] = csrf;
+    const res = await fetch(`${API_PREFIX}/expense/receipts`, {
+      method: "POST",
+      headers,
+      body: fd,
+      credentials: "include",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message ?? err.message ?? "업로드 실패");
+    }
+    return res.json();
+  },
+  receiptDownloadUrl: (id: string) => `${API_PREFIX}/expense/receipts/${id}/download`,
+  deleteReceipt: (id: string) => request<void>(`/expense/receipts/${id}`, { method: "DELETE" }),
+  getReceipt: (id: string) => request<any>(`/expense/receipts/${id}`),
+  updateReceipt: (
+    id: string,
+    data: { extractedAmount?: number | null; extractedMerchant?: string | null; extractedDate?: string | null },
+  ) => request<any>(`/expense/receipts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  splitReceipt: (
+    id: string,
+    regions: Array<{ x: number; y: number; width: number; height: number }>,
+  ) =>
+    request<{ created: Array<{ id: string; ocrStatus: string }> }>(
+      `/expense/receipts/${id}/split`,
+      { method: "POST", body: JSON.stringify({ regions }) },
+    ),
+  reprocessReceipt: (id: string) =>
+    request<{ status: string }>(`/expense/receipts/${id}/reprocess`, { method: "POST" }),
+
+  // Matches
+  listMatches: (params: { transactionId?: string; receiptId?: string; confirmed?: boolean } = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => v != null && q.set(k, String(v)));
+    return request<any[]>(`/expense/matches${q.toString() ? `?${q}` : ""}`);
+  },
+  createMatch: (transactionId: string, receiptId: string) =>
+    request<any>("/expense/matches", { method: "POST", body: JSON.stringify({ transactionId, receiptId }) }),
+  confirmMatch: (id: string) =>
+    request<any>(`/expense/matches/${id}/confirm`, { method: "PATCH" }),
+  removeMatch: (id: string) => request<void>(`/expense/matches/${id}`, { method: "DELETE" }),
+
+  // Settlements
+  listSettlements: (params: { status?: string; page?: number; limit?: number } = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => v != null && q.set(k, String(v)));
+    return request<{ items: any[]; total: number; page: number; limit: number }>(
+      `/expense/settlements${q.toString() ? `?${q}` : ""}`,
+    );
+  },
+  getSettlement: (id: string) => request<any>(`/expense/settlements/${id}`),
+  // 카테고리별 N개 자동 생성 — legacy
+  createSettlement: (data: { periodStart: string; periodEnd: string }) =>
+    request<{ created: any[]; updated: any[]; skipped: any[]; message: string | null }>(
+      "/expense/settlements",
+      { method: "POST", body: JSON.stringify(data) },
+    ),
+  // 빈 정산 묶음 생성 (수동 워크플로우)
+  createEmptySettlement: (data: { title: string }) =>
+    request<any>("/expense/settlements/empty", { method: "POST", body: JSON.stringify(data) }),
+  // 거래의 정산 묶음 할당/해제
+  setTransactionSettlement: (transactionId: string, settlementId: string | null) =>
+    request<{ success: boolean }>(`/expense/settlements/transactions/${transactionId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ settlementId }),
+    }),
+  deleteSettlement: (id: string) =>
+    request<void>(`/expense/settlements/${id}`, { method: "DELETE" }),
+  submitSettlement: (id: string) =>
+    request<any>(`/expense/settlements/${id}/submit`, { method: "POST", body: "{}" }),
+  cancelSettlement: (id: string) =>
+    request<any>(`/expense/settlements/${id}/cancel`, { method: "POST", body: "{}" }),
+  excelDownloadUrl: (id: string) => `${API_PREFIX}/expense/settlements/${id}/excel`,
+  meSummary: () => request<{ unmatched: number; pendingApproval: number; awaitingPayment: number }>(
+    "/expense/settlements/me/summary",
+  ),
+
+  // Finance
+  financeQueue: (status?: string) =>
+    request<{ items: any[]; total: number; page: number; limit: number }>(
+      `/expense/finance/queue${status ? `?status=${status}` : ""}`,
+    ),
+  receive: (id: string) =>
+    request<any>(`/expense/finance/settlements/${id}/receive`, { method: "POST", body: "{}" }),
+  pay: (id: string, data: { paidAt?: string; paidAmount?: number; paidNote?: string }) =>
+    request<any>(`/expense/finance/settlements/${id}/pay`, { method: "POST", body: JSON.stringify(data) }),
 };
 
 /** @deprecated Use authApi.login instead */

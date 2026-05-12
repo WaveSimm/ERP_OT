@@ -10,6 +10,7 @@ import PendingApprovalCard from "@/components/home/PendingApprovalCard";
 import MyTasksCard from "@/components/home/MyTasksCard";
 import MyProjectsCard from "@/components/home/MyProjectsCard";
 import RecentNotificationsCard from "@/components/home/RecentNotificationsCard";
+import ExpenseCard from "@/components/home/ExpenseCard";
 
 export default function HomePage() {
   const router = useRouter();
@@ -28,6 +29,7 @@ export default function HomePage() {
           <NoticeFeedCard />
           <MyAttendanceCard />
           <PendingApprovalCard />
+          <ExpenseCard />
           <RecentNotificationsCard />
           <MyTasksCard />
           <MyProjectsCard />

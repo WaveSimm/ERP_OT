@@ -162,14 +162,6 @@ export default function RepairOrderDetailPage() {
     }
   };
 
-  const updateTechStatus = async (techStatus: string) => {
-    try { await repairApi.updateTechStatus(id, { techStatus }); await load(); } catch (e: any) { alert(e.message || "저장 실패"); }
-  };
-
-  const updateSalesStatus = async (salesStatus: string) => {
-    try { await repairApi.updateSalesStatus(id, { salesStatus }); await load(); } catch (e: any) { alert(e.message || "저장 실패"); }
-  };
-
   if (loading) return <div className="py-12 text-center text-gray-400">불러오는 중...</div>;
   if (!order) return <div className="py-12 text-center text-gray-400">AS 접수를 찾을 수 없습니다.</div>;
 
@@ -226,10 +218,8 @@ export default function RepairOrderDetailPage() {
           })}
         </div>
 
-        {/* 이중 상태 + 상태 변경 버튼 */}
+        {/* 상태 변경 버튼 */}
         <div className="flex flex-wrap items-center gap-3">
-          <DualStatusField label="점검상황" value={order.techStatus || ""} onSave={updateTechStatus} />
-          <DualStatusField label="영업상황" value={order.salesStatus || ""} onSave={updateSalesStatus} />
           <div className="ml-auto flex gap-2">
             {transitions.map((t) => (
               <button key={t} onClick={() => changeStatus(t)} disabled={saving}
@@ -260,38 +250,6 @@ export default function RepairOrderDetailPage() {
       {tab === "cost" && <CostTab order={order} onReload={load} />}
       {tab === "manufacturer" && <ManufacturerTab order={order} onReload={load} />}
       {tab === "history" && <HistoryTab order={order} />}
-    </div>
-  );
-}
-
-// ─── 이중 상태 편집 필드 ─────────────────────────────────────────────────
-
-function DualStatusField({ label, value, onSave }: { label: string; value: string; onSave: (v: string) => void }) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-
-  const save = () => {
-    if (draft !== value) onSave(draft);
-    setEditing(false);
-  };
-
-  if (editing) {
-    return (
-      <div className="flex items-center gap-1">
-        <span className="text-xs text-gray-500">{label}:</span>
-        <input value={draft} onChange={(e) => setDraft(e.target.value)} autoFocus
-          onBlur={save} onKeyDown={(e) => e.key === "Enter" && save()}
-          className="px-2 py-1 text-xs border border-blue-300 rounded w-28 focus:outline-none" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-1 cursor-pointer" onClick={() => { setDraft(value); setEditing(true); }}>
-      <span className="text-xs text-gray-500">{label}:</span>
-      <span className="text-xs font-medium text-gray-700 bg-gray-100 px-2 py-0.5 rounded hover:bg-blue-50">
-        {value || "-"}
-      </span>
     </div>
   );
 }

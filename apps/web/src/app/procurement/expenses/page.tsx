@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { expenseApi } from "@/lib/api";
+import { expenseFollowupApi } from "@/lib/api";
 
 const STATUS_LABELS: Record<string, string> = {
   FINANCE_RECEIVED: "재무 접수",
@@ -33,7 +33,7 @@ export default function ExpensesPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await expenseApi.list(statusFilter || undefined);
+      const res = await expenseFollowupApi.list(statusFilter || undefined);
       setItems(Array.isArray(res) ? res : []);
     } catch { setItems([]); }
     finally { setLoading(false); }
@@ -83,7 +83,7 @@ export default function ExpensesPage() {
     if (!selectedItem) return;
     setActing(true);
     try {
-      await expenseApi.decide(selectedItem.id, {
+      await expenseFollowupApi.decide(selectedItem.id, {
         isInventoryTarget: checkedItems.length > 0,
         inventoryItems: checkedItems.length > 0 ? checkedItems : undefined,
         note: decisionNote || undefined,
@@ -97,7 +97,7 @@ export default function ExpensesPage() {
   const handleConfirm = async (id: string) => {
     setActing(true);
     try {
-      await expenseApi.confirmArrival(id, { arrivalDate: new Date().toISOString().slice(0, 10) });
+      await expenseFollowupApi.confirmArrival(id, { arrivalDate: new Date().toISOString().slice(0, 10) });
       load();
       setSelectedItem(null);
     } catch (e: any) { alert(e.message); }

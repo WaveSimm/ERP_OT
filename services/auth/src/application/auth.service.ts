@@ -94,12 +94,25 @@ export class AuthService {
     ]);
     await this.userRepo.updateLastLogin(user.id);
 
+    const isTeamLeader = await this.isTeamLeader(user.id);
+
     return {
       accessToken,
       refreshToken,
       deviceId,
-      user: { id: user.id, email: user.email, name: user.name, role: user.role },
+      user: { id: user.id, email: user.email, name: user.name, role: user.role, isTeamLeader },
     };
+  }
+
+  // 조직도 직책(팀장/총괄/대표) 보유 여부 — 헤더 메뉴 노출 조건
+  async isTeamLeader(userId: string): Promise<boolean> {
+    const cnt = await this.prisma.department.count({
+      where: {
+        isActive: true,
+        OR: [{ headUserId: userId }, { soukwalUserId: userId }, { daepyoUserId: userId }],
+      },
+    });
+    return cnt > 0;
   }
 
   // ─── refresh (C5 hash + Reuse Detection + NEW-7) ───────────────────────

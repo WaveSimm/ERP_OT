@@ -50,7 +50,7 @@
 <li><a href="#8-2차-점검">2차 점검</a></li>
 <li><a href="#9-완료--종료-처리">완료 · 종료 처리</a></li>
 <li><a href="#10-정상--수리안함-처리">정상 · 수리안함 처리</a></li>
-<li><a href="#11-취소--삭제">취소 · 삭제 · 복구</a></li>
+<li><a href="#11-취소--삭제--복구">취소 · 삭제 · 복구</a></li>
 <li><a href="#12-권한--계정-역할">권한 · 계정 역할</a></li>
 <li><a href="#13-자주-묻는-사용법">자주 묻는 사용법</a></li>
 </ol>
@@ -64,11 +64,11 @@
 
   <div class="as-flow-grid">
     <div class="as-flow-row as-flow-row-top">
-      <a href="#as-접수-등록" class="as-flow-node node-start" data-step="receive">
+      <a href="#4-as-접수-등록" class="as-flow-node node-start" data-step="receive">
         <span class="step-num">①</span><span class="step-title">접수</span><span class="step-status">RECEIVED</span>
       </a>
       <span class="as-flow-arrow">→</span>
-      <a href="#차-점검" class="as-flow-node node-inspect" data-step="inspect1">
+      <a href="#5-1차-점검" class="as-flow-node node-inspect" data-step="inspect1">
         <span class="step-num">②</span><span class="step-title">1차 점검</span><span class="step-status">INSPECTING_1ST</span>
       </a>
     </div>
@@ -76,53 +76,53 @@
     <div class="as-flow-divider">↓ 1차 판단 분기</div>
 
     <div class="as-flow-row as-flow-row-branch">
-      <a href="#정상-수리안함-처리" class="as-flow-node node-normal" data-step="normal">
+      <a href="#10-정상--수리안함-처리" class="as-flow-node node-normal" data-step="normal">
         <span class="step-title">정상</span><span class="step-status">NO_FAULT</span>
       </a>
       <span class="as-flow-arrow">→</span>
-      <a href="#완료-종료-처리" class="as-flow-node node-end" data-step="end">
+      <a href="#9-완료--종료-처리" class="as-flow-node node-end" data-step="end">
         <span class="step-num">⑨</span><span class="step-title">종료</span><span class="step-status">CLOSED</span>
       </a>
     </div>
 
     <div class="as-flow-row as-flow-row-branch">
-      <a href="#정상-수리안함-처리" class="as-flow-node node-norepair" data-step="norepair">
+      <a href="#10-정상--수리안함-처리" class="as-flow-node node-norepair" data-step="norepair">
         <span class="step-title">수리안함</span><span class="step-status">NO_REPAIR</span>
       </a>
       <span class="as-flow-arrow">→</span>
-      <a href="#완료-종료-처리" class="as-flow-node node-end" data-step="end">
+      <a href="#9-완료--종료-처리" class="as-flow-node node-end" data-step="end">
         <span class="step-num">⑨</span><span class="step-title">종료</span><span class="step-status">CLOSED</span>
       </a>
     </div>
 
     <div class="as-flow-row as-flow-row-branch">
-      <a href="#본사-수리-경로" class="as-flow-node node-inhouse" data-step="inhouse">
+      <a href="#6-본사-수리-경로" class="as-flow-node node-inhouse" data-step="inhouse">
         <span class="step-num">③</span><span class="step-title">본사 수리</span><span class="step-status">REPAIRING</span>
       </a>
       <span class="as-flow-arrow">→</span>
-      <a href="#완료-종료-처리" class="as-flow-node node-complete" data-step="complete">
+      <a href="#9-완료--종료-처리" class="as-flow-node node-complete" data-step="complete">
         <span class="step-num">⑦</span><span class="step-title">완료</span><span class="step-status">COMPLETED</span>
       </a>
       <span class="as-flow-arrow">→</span>
-      <a href="#완료-종료-처리" class="as-flow-node node-end" data-step="end">
+      <a href="#9-완료--종료-처리" class="as-flow-node node-end" data-step="end">
         <span class="step-num">⑨</span><span class="step-title">종료</span><span class="step-status">CLOSED</span>
       </a>
     </div>
 
     <div class="as-flow-row as-flow-row-branch">
-      <a href="#제조사-발송-경로" class="as-flow-node node-mfg" data-step="mfg">
+      <a href="#7-제조사-발송-경로" class="as-flow-node node-mfg" data-step="mfg">
         <span class="step-num">④</span><span class="step-title">제조사 발송</span><span class="step-status">SHIPPED_TO_MFG</span>
       </a>
       <span class="as-flow-arrow">→</span>
-      <a href="#제조사-발송-경로" class="as-flow-node node-mfg-in" data-step="mfgIn">
+      <a href="#7-제조사-발송-경로" class="as-flow-node node-mfg-in" data-step="mfgIn">
         <span class="step-num">⑤</span><span class="step-title">본사 입고</span><span class="step-status">RECEIVED_FROM_MFG</span>
       </a>
       <span class="as-flow-arrow">→</span>
-      <a href="#차-점검-1" class="as-flow-node node-inspect2" data-step="inspect2">
+      <a href="#8-2차-점검" class="as-flow-node node-inspect2" data-step="inspect2">
         <span class="step-num">⑥</span><span class="step-title">2차 점검</span><span class="step-status">INSPECTING_2ND</span>
       </a>
       <span class="as-flow-arrow">→</span>
-      <a href="#완료-종료-처리" class="as-flow-node node-complete" data-step="complete">
+      <a href="#9-완료--종료-처리" class="as-flow-node node-complete" data-step="complete">
         <span class="step-num">⑦</span><span class="step-title">완료</span><span class="step-status">COMPLETED</span>
       </a>
     </div>
@@ -144,16 +144,16 @@
 <script>
 (function() {
   var d = {
-    receive: '<h4>① 접수 (RECEIVED)</h4><p>고객사에서 입고된 장비를 시스템에 등록하는 단계.</p><ul><li>접수번호 자동 부여 — <code>AS-YYYY-NNNN</code></li><li>고객사·장비·증상·담당자·우선순위 입력</li><li>장비를 1층 창고 AS Rack에 입고, 영업부에 알림</li></ul><p><a href="#as-접수-등록">📖 매뉴얼 §4. AS 접수 등록 →</a></p>',
-    inspect1: '<h4>② 1차 점검 (INSPECTING_1ST)</h4><p>점검자가 장비를 진단하고 1차 판단을 결정.</p><ul><li>점검 탭에서 <strong>1차 점검소견</strong> 작성 + 첨부</li><li><strong>1차 판단 (필수)</strong>: 본사수리 / 제조사발송 / 정상 / 수리안함</li><li>판단에 따라 다음 phase 카드가 자동 표시 (조건부)</li></ul><p><a href="#차-점검">📖 매뉴얼 §5. 1차 점검 →</a></p>',
-    normal: '<h4>정상 (NO_FAULT)</h4><p>이상 없음 판정. 환경 요인이거나 오신고로 확인된 경우.</p><ul><li>1차 점검 결과 정상 작동 확인</li><li>고객에게 "이상 없음" 통지</li><li>최종 점검 결과 입력 → 종료 진행</li></ul><p><a href="#정상-수리안함-처리">📖 매뉴얼 §10. 정상·수리안함 처리 →</a></p>',
-    norepair: '<h4>수리안함 (NO_REPAIR)</h4><p>고장은 확인됐으나 수리 보류 결정 (단종 / 비용 / 고객 결정 등).</p><ul><li>판단 사유 명시</li><li>최종 점검 결과 입력 → 종료 진행</li></ul><p><a href="#정상-수리안함-처리">📖 매뉴얼 §10. 정상·수리안함 처리 →</a></p>',
-    inhouse: '<h4>③ 본사 수리 (REPAIRING)</h4><p>자사 기술팀이 직접 수리 수행.</p><ul><li>(선택) 견적 발행 → 승인</li><li>점검 탭의 <strong>본사 수리 카드</strong>에 수리 내용 입력 + 작업 사진 첨부</li><li>부품/재고에서 부품 출고</li><li>견적/비용 탭에 비용 항목 기록</li></ul><p><a href="#본사-수리-경로">📖 매뉴얼 §6. 본사 수리 경로 →</a></p>',
-    mfg: '<h4>④ 제조사 발송 (SHIPPED_TO_MFG)</h4><p>제조사로 장비를 발송해 수리 의뢰.</p><ul><li>점검 탭에서 <strong>Maker Reference No.</strong> 기록</li><li>제조사 탭에서 Shipment(OUTBOUND) 자동 생성 → RMA No.·운송 정보 입력</li><li>견적/발주(Quote/PO) 정보 기록</li><li>장비 상태 자동: <code>IN_MAINTENANCE</code></li></ul><p><a href="#제조사-발송-경로">📖 매뉴얼 §7. 제조사 발송 경로 →</a></p>',
-    mfgIn: '<h4>⑤ 본사 입고 (RECEIVED_FROM_MFG)</h4><p>제조사 수리 후 회사로 돌아온 단계.</p><ul><li>점검 탭의 <strong>제조사 수리 카드</strong>에 입력:<ul><li>제조사 측 점검 결과</li><li>제조사 수리 내용</li><li>제조사 보고서/사진 첨부</li></ul></li><li>Shipment(INBOUND) 업데이트</li><li>2차 점검으로 진행</li></ul><p><a href="#제조사-발송-경로">📖 매뉴얼 §7. 제조사 발송 경로 →</a></p>',
-    inspect2: '<h4>⑥ 2차 점검 (INSPECTING_2ND)</h4><p>제조사 수리 후 자사 재검증.</p><ul><li>점검 탭의 <strong>2차 점검 카드</strong>에 점검소견 입력 + 첨부</li><li><strong>2차 판단</strong>: 정상 / 본사수리 / 제조사발송 / 수리안함</li><li>정상 확인 시 완료 진행</li></ul><p><a href="#차-점검-1">📖 매뉴얼 §8. 2차 점검 →</a></p>',
-    complete: '<h4>⑦ 완료 (COMPLETED)</h4><p>기술적으로 작업이 완료된 단계.</p><ul><li>점검 탭 가장 하단의 <strong>🎯 최종 점검 결과</strong> 입력 + 첨부 (완료 사진/문서)</li><li><code>completedAt</code> 자동 기록</li><li>자사 장비의 경우 MaintenanceRecord 자동 생성</li><li>고객 인계 또는 종료 처리 대기</li></ul><p><a href="#완료-종료-처리">📖 매뉴얼 §9. 완료·종료 처리 →</a></p>',
-    end: '<h4>⑨ 종료 (CLOSED)</h4><p>행정 마감 — AS 건이 완전히 처리된 최종 상태.</p><ul><li><code>closedAt</code> 자동 기록</li><li>자사 장비 상태 자동: <code>AVAILABLE</code> (다시 사용 가능)</li><li>이후 변경 불가 (terminal 상태)</li></ul><p><a href="#완료-종료-처리">📖 매뉴얼 §9. 완료·종료 처리 →</a></p>',
+    receive: '<h4>① 접수 (RECEIVED)</h4><p>고객사에서 입고된 장비를 시스템에 등록하는 단계.</p><ul><li>접수번호 자동 부여 — <code>AS-YYYY-NNNN</code></li><li>고객사·장비·증상·담당자·우선순위 입력</li><li>장비를 1층 창고 AS Rack에 입고, 영업부에 알림</li></ul><p><a href="#4-as-접수-등록">📖 매뉴얼 §4. AS 접수 등록 →</a></p>',
+    inspect1: '<h4>② 1차 점검 (INSPECTING_1ST)</h4><p>점검자가 장비를 진단하고 1차 판단을 결정.</p><ul><li>점검 탭에서 <strong>1차 점검소견</strong> 작성 + 첨부</li><li><strong>1차 판단 (필수)</strong>: 본사수리 / 제조사발송 / 정상 / 수리안함</li><li>판단에 따라 다음 phase 카드가 자동 표시 (조건부)</li></ul><p><a href="#5-1차-점검">📖 매뉴얼 §5. 1차 점검 →</a></p>',
+    normal: '<h4>정상 (NO_FAULT)</h4><p>이상 없음 판정. 환경 요인이거나 오신고로 확인된 경우.</p><ul><li>1차 점검 결과 정상 작동 확인</li><li>고객에게 "이상 없음" 통지</li><li>최종 점검 결과 입력 → 종료 진행</li></ul><p><a href="#10-정상--수리안함-처리">📖 매뉴얼 §10. 정상·수리안함 처리 →</a></p>',
+    norepair: '<h4>수리안함 (NO_REPAIR)</h4><p>고장은 확인됐으나 수리 보류 결정 (단종 / 비용 / 고객 결정 등).</p><ul><li>판단 사유 명시</li><li>최종 점검 결과 입력 → 종료 진행</li></ul><p><a href="#10-정상--수리안함-처리">📖 매뉴얼 §10. 정상·수리안함 처리 →</a></p>',
+    inhouse: '<h4>③ 본사 수리 (REPAIRING)</h4><p>자사 기술팀이 직접 수리 수행.</p><ul><li>(선택) 견적 발행 → 승인</li><li>점검 탭의 <strong>본사 수리 카드</strong>에 수리 내용 입력 + 작업 사진 첨부</li><li>부품/재고에서 부품 출고</li><li>견적/비용 탭에 비용 항목 기록</li></ul><p><a href="#6-본사-수리-경로">📖 매뉴얼 §6. 본사 수리 경로 →</a></p>',
+    mfg: '<h4>④ 제조사 발송 (SHIPPED_TO_MFG)</h4><p>제조사로 장비를 발송해 수리 의뢰.</p><ul><li>점검 탭에서 <strong>Maker Reference No.</strong> 기록</li><li>제조사 탭에서 Shipment(OUTBOUND) 자동 생성 → RMA No.·운송 정보 입력</li><li>견적/발주(Quote/PO) 정보 기록</li><li>장비 상태 자동: <code>IN_MAINTENANCE</code></li></ul><p><a href="#7-제조사-발송-경로">📖 매뉴얼 §7. 제조사 발송 경로 →</a></p>',
+    mfgIn: '<h4>⑤ 본사 입고 (RECEIVED_FROM_MFG)</h4><p>제조사 수리 후 회사로 돌아온 단계.</p><ul><li>점검 탭의 <strong>제조사 수리 카드</strong>에 입력:<ul><li>제조사 측 점검 결과</li><li>제조사 수리 내용</li><li>제조사 보고서/사진 첨부</li></ul></li><li>Shipment(INBOUND) 업데이트</li><li>2차 점검으로 진행</li></ul><p><a href="#7-제조사-발송-경로">📖 매뉴얼 §7. 제조사 발송 경로 →</a></p>',
+    inspect2: '<h4>⑥ 2차 점검 (INSPECTING_2ND)</h4><p>제조사 수리 후 자사 재검증.</p><ul><li>점검 탭의 <strong>2차 점검 카드</strong>에 점검소견 입력 + 첨부</li><li><strong>2차 판단</strong>: 정상 / 본사수리 / 제조사발송 / 수리안함</li><li>정상 확인 시 완료 진행</li></ul><p><a href="#8-2차-점검">📖 매뉴얼 §8. 2차 점검 →</a></p>',
+    complete: '<h4>⑦ 완료 (COMPLETED)</h4><p>기술적으로 작업이 완료된 단계.</p><ul><li>점검 탭 가장 하단의 <strong>🎯 최종 점검 결과</strong> 입력 + 첨부 (완료 사진/문서)</li><li><code>completedAt</code> 자동 기록</li><li>자사 장비의 경우 MaintenanceRecord 자동 생성</li><li>고객 인계 또는 종료 처리 대기</li></ul><p><a href="#9-완료--종료-처리">📖 매뉴얼 §9. 완료·종료 처리 →</a></p>',
+    end: '<h4>⑨ 종료 (CLOSED)</h4><p>행정 마감 — AS 건이 완전히 처리된 최종 상태.</p><ul><li><code>closedAt</code> 자동 기록</li><li>자사 장비 상태 자동: <code>AVAILABLE</code> (다시 사용 가능)</li><li>이후 변경 불가 (terminal 상태)</li></ul><p><a href="#9-완료--종료-처리">📖 매뉴얼 §9. 완료·종료 처리 →</a></p>',
   };
   function init() {
     var nodes = document.querySelectorAll('.as-flow-node');
@@ -178,7 +178,7 @@
 </script>
 <!-- 🗺️ end of flowchart -->
 
-<h2 id="개요">1. 개요</h2>
+<h2 id="1-개요">1. 개요</h2>
 <p>AS(수리) 관리는 고객사에서 입고된 장비의 <strong>점검 → 수리 →
 반납</strong> 전 과정을 ERP에서 추적하는 업무입니다.</p>
 <h3 id="핵심-개념">1.1 핵심 개념</h3>
@@ -237,7 +237,7 @@
 </tbody>
 </table>
 <hr />
-<h2 id="메뉴-구조">2. 메뉴 구조</h2>
+<h2 id="2-메뉴-구조">2. 메뉴 구조</h2>
 <h3 id="상위-메뉴">2.1 상위 메뉴</h3>
 <figure>
 <img src="img/06-repair-tabs.png" alt="수리관리 탭" />
@@ -285,8 +285,7 @@
 <ul>
 <li>첫 진입 시 <strong>접수일 ▼</strong> (최신순) 기본 표시</li>
 <li>헤더 클릭 → ▲ (오름차순) → 다시 클릭 → ▼ (내림차순) 토글</li>
-<li>정렬 가능 컬럼: 접수번호 · 고객 · 장비 · S.N · 상태 · 점검상황 ·
-영업상황 · 우선도 · 담당자 · 접수일</li>
+<li>정렬 가능 컬럼: 접수번호 · 고객 · 장비 · S.N · 상태 · 우선도 · 담당자 · 접수일</li>
 </ul></li>
 </ul>
 <h3 id="필터-그룹-분류">필터 그룹 분류</h3>
@@ -378,8 +377,8 @@
 </tr>
 <tr>
 <td style="text-align:center">5</td>
-<td><strong>메타 + 전이 버튼</strong></td>
-<td>점검상황 / 영업상황 텍스트 + 가능한 전이 버튼</td>
+<td><strong>전이 버튼</strong></td>
+<td>현재 상태 기준으로 가능한 다음 상태 버튼</td>
 <td>버튼은 현재 상태에 따라 동적 (예: <code>[→ 2차점검] [→ 완료] [→ 취소]</code>)</td>
 </tr>
 </tbody>
@@ -427,7 +426,7 @@
 </tbody>
 </table>
 <hr />
-<h2 id="업무-전체-흐름-fsm">3. 업무 전체 흐름 (FSM)</h2>
+<h2 id="3-업무-전체-흐름-fsm">3. 업무 전체 흐름 (FSM)</h2>
 <blockquote>
 <p>💡 더 자세한 화면 설명을 보려면 매뉴얼 상단의 <strong>🗺️ 한눈에 보기</strong> 차트의 단계를 클릭하세요.</p>
 </blockquote>
@@ -617,7 +616,7 @@
 </tbody>
 </table>
 <hr />
-<h2 id="as-접수-등록">4. AS 접수 등록</h2>
+<h2 id="4-as-접수-등록">4. AS 접수 등록</h2>
 <h3 id="사전-등록-고객사-자산이-목록에-없을-때-v1.2">4.0 사전 등록 —
 고객사 / 자산이 목록에 없을 때 (v1.2)</h3>
 <blockquote>
@@ -698,7 +697,7 @@
 확정</label></li>
 </ul>
 <hr />
-<h2 id="차-점검">5. 1차 점검</h2>
+<h2 id="5-1차-점검">5. 1차 점검</h2>
 <h3 id="차점검-시작">5.1 1차점검 시작</h3>
 <p>AS 상세 화면 상단 헤더의 <strong><code>[→ 1차점검]</code> 버튼</strong>을 클릭하면 상태가 자동 전이됩니다.</p>
 <blockquote>
@@ -750,7 +749,7 @@
 보고서번호 · 점검 단계별 내용·결과 구조화 - 점검 소견(점검 탭)은 간단
 메모, 보고서는 <strong>외부 제출용 공식 문서</strong></p>
 <hr />
-<h2 id="본사-수리-경로">6. 본사 수리 경로</h2>
+<h2 id="6-본사-수리-경로">6. 본사 수리 경로</h2>
 <p>1차 판단 = <strong>본사수리</strong> 선택 시:</p>
 <h3 id="진행-플로우">6.1 진행 플로우</h3>
 <div class="fsm-svg-wrapper" style="max-width: 720px;">
@@ -810,7 +809,7 @@ DIRECT_EXPENSE | 직접경비 | | LABOR | 공수(인건비) | | OVERSEAS_SHIPPIN
 장비 상태 → AVAILABLE 복원</strong> (다시 사용 가능)</li>
 </ul>
 <hr />
-<h2 id="제조사-발송-경로">7. 제조사 발송 경로</h2>
+<h2 id="7-제조사-발송-경로">7. 제조사 발송 경로</h2>
 <p>1차 판단 = <strong>제조사발송</strong> 선택 시 이 경로.</p>
 <h3 id="제조사-탭-전체-구조">7.1 제조사 탭 전체 구조</h3>
 <figure>
@@ -946,7 +945,7 @@ alt="Shipment 카드 편집" />
 <p>💡 이 경고는 사용자 실수 방지를 위한 안전장치입니다. 1차 판단과 실제 워크플로우(전이 대상)가 일치하면 표시되지 않습니다.</p>
 </blockquote>
 <hr />
-<h2 id="차-점검-1">8. 2차 점검</h2>
+<h2 id="8-2차-점검">8. 2차 점검</h2>
 <p>제조사 수리 후 본사 재검증이 필요한 경우:</p>
 <h3 id="차점검-시작-1">8.1 2차점검 시작</h3>
 <ul>
@@ -986,7 +985,7 @@ alt="Shipment 카드 편집" />
 </tbody>
 </table>
 <hr />
-<h2 id="완료-종료-처리">9. 완료 · 종료 처리</h2>
+<h2 id="9-완료--종료-처리">9. 완료 · 종료 처리</h2>
 <h3 id="완료-completed">9.1 완료 (COMPLETED)</h3>
 <ul>
 <li>기술적 수리 작업 끝난 시점</li>
@@ -1004,7 +1003,7 @@ alt="Shipment 카드 편집" />
 <li>이 상태에서도 ADMIN이 삭제 가능</li>
 </ul>
 <hr />
-<h2 id="정상-수리안함-처리">10. 정상 · 수리안함 처리</h2>
+<h2 id="10-정상--수리안함-처리">10. 정상 · 수리안함 처리</h2>
 <h3 id="정상-no_fault">10.1 정상 (NO_FAULT)</h3>
 <ul>
 <li>점검 결과 이상 없음 (사용자 환경 문제, 오신고 등)</li>
@@ -1022,7 +1021,7 @@ alt="Shipment 카드 편집" />
 <li>다음 전이: <code>→ 종료</code></li>
 </ul>
 <hr />
-<h2 id="취소-삭제-복구">11. 취소 · 삭제 · 복구</h2>
+<h2 id="11-취소--삭제--복구">11. 취소 · 삭제 · 복구</h2>
 <h3 id="취소-cancelled">11.1 취소 (CANCELLED)</h3>
 <ul>
 <li>어느 단계에서나 <code>→ 취소</code> 버튼 사용 가능</li>
@@ -1086,7 +1085,7 @@ outline)</li>
 간편) 2. DB 관리자에게 문의 (특정 상태로 직접 복원 — Admin 수동
 작업)</p>
 <hr />
-<h2 id="권한-계정-역할">12. 권한 · 계정 역할</h2>
+<h2 id="12-권한--계정-역할">12. 권한 · 계정 역할</h2>
 <table>
 <thead>
 <tr>
@@ -1122,7 +1121,7 @@ outline)</li>
 <p>❌ 불가: - <strong>AS 접수 · 견적 · 비용 · 부품 · 고객사 / 담당자 /
 자산 — 모든 DELETE</strong> → ADMIN 전용</p>
 <hr />
-<h2 id="자주-묻는-사용법">13. 자주 묻는 사용법</h2>
+<h2 id="13-자주-묻는-사용법">13. 자주 묻는 사용법</h2>
 <h3 id="전이-버튼이-안-보여요">13.1 “전이 버튼이 안 보여요”</h3>
 <p><strong>원인</strong>: 현재 상태가 terminal (CLOSED, CANCELLED)이어서
 다음 단계 없음<br />

@@ -96,8 +96,12 @@ services:
       # 회사달력 v1.2 — 한국 공휴일 자동 갱신 (KASI 특일 정보 API)
       # 미설정 허용 — sync 호출 시에만 명시적 에러
       KASI_API_KEY: "${KASI_API_KEY:-}"
+      # 첨부 저장 (게시판/수리관리 점검 등 — LocalFsStorage)
+      BOARD_ATTACHMENT_DIR: /app/uploads/board
     ports:
       - "3001:3001"
+    volumes:
+      - auth_uploads:/app/uploads
     depends_on:
       - postgres
       - redis
@@ -234,6 +238,7 @@ services:
       AUTH_SERVICE_URL: http://auth-service:3001
       EQUIPMENT_SERVICE_URL: http://equipment-service:3005
       ATTENDANCE_SERVICE_URL: http://attendance-service:3004
+      EXPENSE_SERVICE_URL: http://expense-service:3008
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?INTERNAL_API_TOKEN required - min 16 chars - openssl rand -hex 16}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
     ports:
@@ -258,7 +263,7 @@ services:
       USE_GPU: "false"
       LANG: korean
       MODEL_DIR: /app/models
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # ANTHROPIC_API_KEY 제거 — Claude Vision은 ERP에서 미사용 (2026-05-11)
       CLOVA_OCR_API_URL: ${CLOVA_OCR_API_URL:-}
       CLOVA_OCR_SECRET_KEY: ${CLOVA_OCR_SECRET_KEY:-}
     ports:
@@ -318,6 +323,37 @@ services:
         condition: service_started
       auth-service:
         condition: service_started
+    networks:
+      - erp-network
+
+  # ─── Expense Service (경비정산 — 2026-05-08 신규) ─────────────────────────────
+  expense-service:
+    build:
+      context: .
+      dockerfile: services/expense/Dockerfile
+    container_name: erp-ot-expense
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3008
+      DATABASE_URL: postgresql://${POSTGRES_USER:-erp_user}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required - generate with openssl rand -hex 16}@postgres:5432/${POSTGRES_DB:-erp_ot}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET required - min 32 chars - openssl rand -hex 32}
+      AUTH_SERVICE_URL: http://auth-service:3001
+      OCR_SERVICE_URL: http://ocr-service:3007
+      APPROVAL_SERVICE_URL: http://approval-service:3006
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?INTERNAL_API_TOKEN required - min 16 chars - openssl rand -hex 16}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-erp_user}:${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD required}@rabbitmq:5672
+      EXPENSE_ATTACHMENT_DIR: /app/uploads
+      EXPENSE_ATTACHMENT_MAX_SIZE: "10485760"
+    ports:
+      - "3008:3008"
+    volumes:
+      - expense_uploads:/app/uploads
+    depends_on:
+      - postgres
+      - auth-service
+      - rabbitmq
     networks:
       - erp-network
 
@@ -392,6 +428,7 @@ services:
       EQUIPMENT_SERVICE_URL: http://equipment-service:3005
       APPROVAL_SERVICE_URL: http://approval-service:3006
       OCR_SERVICE_URL: http://ocr-service:3007
+      EXPENSE_SERVICE_URL: http://expense-service:3008
       JWT_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET required - min 32 chars - openssl rand -hex 32}
       WATCHPACK_POLLING: "true"
       CHOKIDAR_USEPOLLING: "true"
@@ -434,8 +471,10 @@ volumes:
   redis_data:
   rabbitmq_data:
   file_storage:
+  auth_uploads:
   approval_uploads:
   ocr_uploads:
+  expense_uploads:
   ocr_models:
   web_node_modules:
   ollama_data:

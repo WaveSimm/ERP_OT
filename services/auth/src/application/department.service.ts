@@ -95,7 +95,15 @@ export class DepartmentService {
       isActive: boolean;
     }>,
   ) {
-    return this.prisma.department.update({ where: { id }, data });
+    const result = await this.prisma.department.update({ where: { id }, data });
+    // 부서명 변경 시 소속자의 캐시(auth_user_profiles.department_name) 동기화
+    if (data.name) {
+      await this.prisma.userProfile.updateMany({
+        where: { departmentId: id },
+        data: { departmentName: data.name },
+      });
+    }
+    return result;
   }
 
   async delete(id: string) {

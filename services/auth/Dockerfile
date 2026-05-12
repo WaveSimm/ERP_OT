@@ -32,6 +32,9 @@ COPY --from=builder --chown=app:app /app/services/shared/package.json ./node_mod
 COPY --chown=app:app services/auth/entrypoint.sh                      ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
+# 첨부 저장 루트 (named volume이 처음 마운트될 때 이 ownership이 볼륨에 복사됨)
+RUN mkdir -p /app/uploads/board && chown -R app:app /app/uploads
+
 USER app
 EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=20s \

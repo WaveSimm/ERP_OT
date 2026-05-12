@@ -194,11 +194,30 @@ export class DocumentService {
         include: { steps: true, template: true },
       });
 
-      // Post-reject action (leave/overtime)
+      // Post-reject action (leave/overtime/expense settlement)
       if (doc.referenceId && updated.template) {
         const postAction = (updated.template as any).postApprovalAction;
         if (postAction === "LEAVE_APPROVE" || postAction === "OT_APPROVE") {
           await this.executePostReject(postAction, doc, comment);
+        }
+        // EXPENSE_CLAIM 양식의 referenceType=EXPENSE_SETTLEMENT 일 때 expense-service sync
+        if (postAction === "FINANCE_FORWARD" && doc.referenceType === "EXPENSE_SETTLEMENT") {
+          try {
+            const expenseUrl = process.env.EXPENSE_SERVICE_URL || "http://expense-service:3008";
+            const token = process.env.INTERNAL_API_TOKEN as string;
+            await fetch(`${expenseUrl}/internal/settlements/from-approval`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "X-Internal-Token": token },
+              body: JSON.stringify({
+                approvalDocumentId: doc.id,
+                settlementId: doc.referenceId,
+                status: "REJECTED",
+                reason: comment,
+              }),
+            });
+          } catch (err: any) {
+            console.error(`[approval-reject] expense sync failed: ${err.message}`); // eslint-disable-line no-console
+          }
         }
       }
 
@@ -438,11 +457,27 @@ export class DocumentService {
           }
           break;
         case "FINANCE_FORWARD":
-          await fetch(`${equipmentUrl}/internal/expenses/follow-up`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-Internal-Token": token },
-            body: JSON.stringify({ approvalDocumentId: doc.id }),
-          });
+          // referenceType별 분기:
+          //   EXPENSE_SETTLEMENT  → expense-service 정산 sync (V2 신규)
+          //   기타 (기본)         → equipment-service expense follow-up (legacy 구매·재고)
+          if (doc.referenceType === "EXPENSE_SETTLEMENT" && doc.referenceId) {
+            const expenseUrl = process.env.EXPENSE_SERVICE_URL || "http://expense-service:3008";
+            await fetch(`${expenseUrl}/internal/settlements/from-approval`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "X-Internal-Token": token },
+              body: JSON.stringify({
+                approvalDocumentId: doc.id,
+                settlementId: doc.referenceId,
+                status: "APPROVED",
+              }),
+            });
+          } else {
+            await fetch(`${equipmentUrl}/internal/expenses/follow-up`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "X-Internal-Token": token },
+              body: JSON.stringify({ approvalDocumentId: doc.id }),
+            });
+          }
           break;
         case "LEAVE_APPROVE":
           // v1.4+ 휴가: attendance pre-created record 없음 — doc.content에서 정보 추출 후 직접 생성

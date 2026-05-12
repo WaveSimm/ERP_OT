@@ -94,6 +94,10 @@ app.register(fastifyHelmet, {
 app.register(fastifyRateLimit, {
   ...rateLimitPolicies.default,
   errorResponseBuilder: rateLimitErrorResponseBuilder,
+  // /internal/* — 서비스 간 호출(x-internal-token으로 인증)은 rate-limit 제외
+  // 기본 정책은 IP 단위라 project-service 컨테이너에서 발생하는 다수 호출이 사용자 limit를 잠식하지 않도록 분리
+  skipOnError: false,
+  allowList: (req) => req.url.startsWith("/internal/"),
 });
 
 app.register(fastifyCors, {

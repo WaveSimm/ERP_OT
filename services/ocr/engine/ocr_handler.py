@@ -16,18 +16,12 @@ class OcrHandler:
     # ── Public API ──────────────────────────────────────────────
 
     def get_available_engines(self) -> list[dict]:
-        """사용 가능한 엔진 목록 반환"""
+        """사용 가능한 엔진 목록 반환 (claude-vision 비활성 — ERP 전체에서 미사용)"""
         engines = [
             {"id": "paddle-ko", "name": "PaddleOCR Korean", "group": "PaddleOCR", "lang": "korean", "ready": True},
         ]
 
-        # Claude Vision API (Anthropic)
-        claude_ready = bool(self.claude_api_key)
-        engines.append(
-            {"id": "claude-vision", "name": "Claude Vision (Sonnet)", "group": "Claude", "lang": "multi", "ready": claude_ready}
-        )
-
-        # CLOVA OCR API (Naver)
+        # CLOVA OCR API (Naver) — 메인
         clova_ready = bool(self.clova_api_url and self.clova_api_key)
         engines.append(
             {"id": "clova-ocr", "name": "CLOVA OCR (Naver)", "group": "CLOVA", "lang": "ko+en+ja", "ready": clova_ready}
@@ -46,10 +40,10 @@ class OcrHandler:
 
         if group == "paddle":
             return self._detect_paddle(image, engine_id)
-        elif engine_id == "claude-vision":
-            return self._detect_claude(image)
         elif engine_id == "clova-ocr":
             return self._detect_clova(image)
+        elif engine_id == "claude-vision":
+            raise ValueError("claude-vision은 ERP에서 비활성화되어 있습니다 (관리자에게 문의)")
         else:
             raise ValueError(f"Unknown engine: {engine_id}")
 

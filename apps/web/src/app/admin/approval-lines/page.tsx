@@ -56,6 +56,7 @@ export default function ApprovalLinesPage() {
         nodes.flatMap((n) => [n, ...flatten(n.children ?? [])]);
       const flatDepts = flatten(depts).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
       const deptOrderMap = new Map(flatDepts.map((d: any) => [d.id, d.sortOrder ?? 9999]));
+      const deptHeadMap = new Map(flatDepts.map((d: any) => [d.id, d.headUserId ?? null]));
       setDepartments(flatDepts);
       setAllUsers(users);
 
@@ -78,7 +79,12 @@ export default function ApprovalLinesPage() {
         .sort((a, b) => {
           const orderA = deptOrderMap.get(a.deptId ?? "") ?? 9999;
           const orderB = deptOrderMap.get(b.deptId ?? "") ?? 9999;
-          return orderA - orderB || a.name.localeCompare(b.name);
+          if (orderA !== orderB) return orderA - orderB;
+          // 같은 부서 내: 부서장(팀장) 우선
+          const isHeadA = deptHeadMap.get(a.deptId ?? "") === a.id ? 0 : 1;
+          const isHeadB = deptHeadMap.get(b.deptId ?? "") === b.id ? 0 : 1;
+          if (isHeadA !== isHeadB) return isHeadA - isHeadB;
+          return a.name.localeCompare(b.name);
         });
 
       rowsRef.current = built;
@@ -163,18 +169,42 @@ export default function ApprovalLinesPage() {
 
   const activeUsers = allUsers.filter((u) => u.isActive !== false);
 
-  // 부서 계층 기반 결재 체인 조회
+  // 이사·대표 후보 계산
+  const execDepts = departments.filter((d) => d.name.endsWith(" 이사"));
+  const execDeptIds = new Set(execDepts.map((d) => d.id));
+  const soukwalCandidates = activeUsers.filter((u) => u.profile?.departmentId && execDeptIds.has(u.profile.departmentId));
+  const ceoDept = departments.find((d) => d.name === "대표이사");
+  const daepyoCandidates = ceoDept ? activeUsers.filter((u) => u.profile?.departmentId === ceoDept.id) : [];
+
+  // 부서별 이사/대표이사 직접 지정
+  const handleSetSoukwal = async (deptId: string, soukwalUserId: string | null) => {
+    try {
+      await departmentApi.update(deptId, { soukwalUserId });
+      await load();
+    } catch (err: any) {
+      alert(err.message ?? "이사 변경 실패");
+    }
+  };
+
+  const handleSetDaepyo = async (deptId: string, daepyoUserId: string | null) => {
+    try {
+      await departmentApi.update(deptId, { daepyoUserId });
+      await load();
+    } catch (err: any) {
+      alert(err.message ?? "대표이사 변경 실패");
+    }
+  };
+
+  // 부서 자체에 명시 지정된 팀장/이사/대표이사 사용 (상위 부서 계층 추적 없이)
   const getChain = (deptId: string | null) => {
     if (!deptId) return { teamHead: null, soukwal: null, daepyo: null };
     const dept = departments.find((d) => d.id === deptId);
     if (!dept) return { teamHead: null, soukwal: null, daepyo: null };
-    const parent = dept.parentId ? departments.find((d) => d.id === dept.parentId) : null;
-    const grandParent = parent?.parentId ? departments.find((d) => d.id === parent.parentId) : null;
-    const teamHead = dept.headName ?? null;
-    if (grandParent?.headName) {
-      return { teamHead, soukwal: parent?.headName ?? null, daepyo: grandParent.headName };
-    }
-    return { teamHead, soukwal: null, daepyo: parent?.headName ?? null };
+    return {
+      teamHead: dept.headName ?? null,
+      soukwal: dept.soukwalName ?? null,
+      daepyo: dept.daepyoName ?? null,
+    };
   };
   // 드롭다운: MANAGER 이상 권한(팀장 이상)만 표시
   const approverUsers = activeUsers.filter((u) => u.role === "MANAGER" || u.role === "ADMIN");
@@ -213,8 +243,8 @@ export default function ApprovalLinesPage() {
           >
             {bulkingAll ? "설정 중..." : "전사 일괄 설정"}
           </button>
-          <button onClick={() => router.push("/admin/departments")} className="text-sm text-blue-600 hover:underline">
-            ← 부서 관리
+          <button onClick={() => router.push("/admin/users")} className="text-sm text-blue-600 hover:underline">
+            ← 직원 관리
           </button>
         </div>
       </div>
@@ -245,26 +275,38 @@ export default function ApprovalLinesPage() {
                   <span className="text-xs text-gray-400">{g.members.length}명</span>
                   {(() => {
                     const chain = getChain(g.deptId);
-                    return (
-                      <>
-                        {chain.teamHead && (
-                          <span className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">
-                            팀장: {chain.teamHead}
-                          </span>
-                        )}
-                        {chain.soukwal && (
-                          <span className="text-xs bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full">
-                            이사: {chain.soukwal}
-                          </span>
-                        )}
-                        {chain.daepyo && (
-                          <span className="text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full">
-                            대표: {chain.daepyo}
-                          </span>
-                        )}
-                      </>
-                    );
+                    return chain.teamHead ? (
+                      <span className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">
+                        팀장: {chain.teamHead}
+                      </span>
+                    ) : null;
                   })()}
+                  {g.deptId && dept && (
+                    <>
+                      <select
+                        value={dept.soukwalUserId ?? ""}
+                        onChange={(e) => handleSetSoukwal(g.deptId!, e.target.value || null)}
+                        className="text-xs border border-purple-200 rounded px-2 py-0.5 bg-white hover:border-purple-300"
+                        title="이사"
+                      >
+                        <option value="">— 이사 —</option>
+                        {soukwalCandidates.map((u: any) => (
+                          <option key={u.id} value={u.id}>{u.name}</option>
+                        ))}
+                      </select>
+                      <select
+                        value={dept.daepyoUserId ?? ""}
+                        onChange={(e) => handleSetDaepyo(g.deptId!, e.target.value || null)}
+                        className="text-xs border border-amber-200 rounded px-2 py-0.5 bg-white hover:border-amber-300"
+                        title="대표이사"
+                      >
+                        <option value="">— 대표이사 —</option>
+                        {daepyoCandidates.map((u: any) => (
+                          <option key={u.id} value={u.id}>{u.name}</option>
+                        ))}
+                      </select>
+                    </>
+                  )}
                 </div>
                 {g.deptId && (
                   <button

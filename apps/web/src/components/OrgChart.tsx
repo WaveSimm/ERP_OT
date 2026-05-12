@@ -26,11 +26,11 @@ const COLS: CeoCol[] = [
     name: "문홍배",
     cls: { ceo: "bg-blue-600 border-blue-700 text-white", exec: "bg-blue-50 border-blue-300 text-blue-900", team: "bg-sky-50 border-sky-300 text-sky-900", line: "#93c5fd" },
     directTeams: [
-      { dept: "영업1팀", head: "하선종", members: ["이학용", "현지윤"] },
+      { dept: "영업1팀", head: "하선종", members: ["이채연", "이학용", "현지윤", "홍다운"] },
       { dept: "영업2팀", head: "강성화", members: ["김재엽", "오원진", "황유진"] },
     ],
     execs: [{ name: "모태준", title: "이사", teams: [
-      { dept: "무인사업1팀", head: "모태준", members: ["손형석", "송인근", "이창민", "황원욱"] },
+      { dept: "무인사업1팀", head: "모태준", members: ["서주안", "손형석", "송인근", "이창민", "황원욱"] },
       { dept: "무인사업2팀", head: "이수현", members: ["강경원", "김만복", "김정훈", "김진수", "이진호"] },
     ] }],
   },
@@ -38,11 +38,11 @@ const COLS: CeoCol[] = [
     name: "신용은",
     cls: { ceo: "bg-emerald-600 border-emerald-700 text-white", exec: "bg-emerald-50 border-emerald-300 text-emerald-900", team: "bg-teal-50 border-teal-300 text-teal-900", line: "#6ee7b7" },
     directTeams: [
-      { dept: "사업1팀", head: "고태호", members: ["김정민", "김태현", "이지훈", "이형준", "한종민"] },
-      { dept: "사업2팀", head: "황규하", members: ["강찬영", "김문진", "김승환", "윤석준", "이주학"] },
+      { dept: "사업1팀", head: "고태호", members: ["김정민", "김태현", "이지훈", "이형준", "한민혁", "한종민"] },
+      { dept: "사업2팀", head: "황규하", members: ["강찬영", "김문진", "김승환", "윤석준", "이주학", "채병진"] },
     ],
     execs: [{ name: "문기돈", title: "이사", teams: [
-      { dept: "사업3팀", head: "유정연", members: ["권오승", "김민준", "김병태", "김주연", "박민수", "이승록"] },
+      { dept: "사업3팀", head: "유정연", members: ["권오승", "김민준", "김병태", "김주연", "박민수", "이상현", "이승록"] },
     ] }],
   },
   {

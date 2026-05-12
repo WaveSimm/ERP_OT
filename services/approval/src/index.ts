@@ -102,11 +102,17 @@ async function buildApp() {
   app.register(fileRoutes, { prefix: "/api/v1/approval/files" });
 
   // Internal API (서비스 간 통신, 인증 미들웨어 우회)
-  app.get("/internal/documents/:id", async (request, reply) => {
+  const requireInternalToken = (request: any, reply: any) => {
     const token = request.headers["x-internal-token"];
     if (token !== process.env.INTERNAL_API_TOKEN) {
-      return reply.status(403).send({ error: "Forbidden" });
+      reply.status(403).send({ error: "Forbidden" });
+      return false;
     }
+    return true;
+  };
+
+  app.get("/internal/documents/:id", async (request, reply) => {
+    if (!requireInternalToken(request, reply)) return;
     const { id } = request.params as any;
     try {
       const doc = await prisma.approvalDocument.findUnique({
@@ -117,6 +123,124 @@ async function buildApp() {
       return doc;
     } catch {
       return reply.status(500).send({ error: "Internal error" });
+    }
+  });
+
+  // 다른 서비스가 자동 결재 상신할 때 사용 (expense-service의 EXPENSE_CLAIM 등)
+  // body에 명시적 userId 필요 (사용자 JWT 우회)
+  app.post("/internal/documents", async (request, reply) => {
+    if (!requireInternalToken(request, reply)) return;
+    const body = request.body as any;
+    if (!body.userId || (!body.templateId && !body.templateCode)) {
+      return reply.status(400).send({ error: "userId + (templateId | templateCode) required" });
+    }
+
+    // templateCode 주어진 경우 templateId 조회
+    let templateId = body.templateId as string | undefined;
+    if (!templateId && body.templateCode) {
+      const tpl = await prisma.approvalTemplate.findUnique({ where: { code: body.templateCode } });
+      if (!tpl) return reply.status(404).send({ error: `template code=${body.templateCode} not found` });
+      templateId = tpl.id;
+    }
+
+    // approver 자동 로드
+    let steps: any[] = [];
+    try {
+      const authUrl = process.env.AUTH_SERVICE_URL || "http://auth-service:3001";
+      const token = process.env.INTERNAL_API_TOKEN as string;
+      const resp = await fetch(`${authUrl}/internal/users/${body.userId}/approver`, {
+        headers: { "X-Internal-Token": token },
+      });
+      if (resp.ok) {
+        const line = (await resp.json()) as any;
+        if (line.approverId) steps.push({ stepOrder: 1, roleName: "결재", approverId: line.approverId, approverName: line.approverName || "—" });
+        if (line.secondApproverId) steps.push({ stepOrder: 2, roleName: "결재", approverId: line.secondApproverId, approverName: line.secondApproverName || "—" });
+        if (line.thirdApproverId) steps.push({ stepOrder: 3, roleName: "결재", approverId: line.thirdApproverId, approverName: line.thirdApproverName || "—" });
+      }
+    } catch { /* fallback: no steps */ }
+
+    // requesterName · department 자동 로드
+    let department = body.department || "";
+    let requesterName = body.requesterName || "";
+    if (!department || !requesterName) {
+      try {
+        const authUrl = process.env.AUTH_SERVICE_URL || "http://auth-service:3001";
+        const token = process.env.INTERNAL_API_TOKEN as string;
+        const resp = await fetch(`${authUrl}/internal/users/${body.userId}/profile`, {
+          headers: { "X-Internal-Token": token },
+        });
+        if (resp.ok) {
+          const user = (await resp.json()) as any;
+          if (!department) department = user.profile?.departmentName || user.departmentName || "미지정";
+          if (!requesterName) requesterName = user.name || "";
+        }
+      } catch { if (!department) department = "미지정"; }
+    }
+
+    try {
+      const result = await app.documentService.create({
+        templateId: templateId!,
+        title: body.title,
+        requestedBy: body.userId,
+        requesterName,
+        department,
+        approvalStepCount: steps.length,
+        content: body.fields,
+        itemsData: body.items,
+        itemsTotal: body.totalAmount,
+        amount: body.totalAmount,
+        referenceType: body.referenceType,
+        referenceId: body.referenceId,
+        steps,
+      });
+      return reply.status(201).send(result);
+    } catch (err: any) {
+      return reply.status(500).send({ error: err.message });
+    }
+  });
+
+  // 서비스 간 파일 업로드 (expense-service가 영수증을 결재 첨부로 추가할 때 사용)
+  // multipart/form-data: file + form fields(documentId, uploadedBy, referenceType?, referenceId?)
+  app.post("/internal/files/upload", async (request, reply) => {
+    if (!requireInternalToken(request, reply)) return;
+    const data = await request.file();
+    if (!data) return reply.status(400).send({ error: "file required" });
+
+    const fields = data.fields as Record<string, any>;
+    const documentId = fields.documentId?.value as string | undefined;
+    const uploadedBy = fields.uploadedBy?.value as string | undefined;
+    const referenceType = fields.referenceType?.value as string | undefined;
+    const referenceId = fields.referenceId?.value as string | undefined;
+    if (!uploadedBy) return reply.status(400).send({ error: "uploadedBy required" });
+
+    const buffer = await data.toBuffer();
+    try {
+      const result = await app.fileService.upload({
+        ...(documentId && { documentId }),
+        ...(referenceType && { referenceType }),
+        ...(referenceId && { referenceId }),
+        fileName: data.filename,
+        fileBuffer: buffer,
+        mimeType: data.mimetype,
+        uploadedBy,
+      });
+      return reply.status(201).send(result);
+    } catch (err: any) {
+      return reply.status(500).send({ error: err.message });
+    }
+  });
+
+  // 서비스 간 결재 상신 취소 (expense-service의 정산 취소 흐름에서 호출)
+  app.post("/internal/documents/:id/withdraw", async (request, reply) => {
+    if (!requireInternalToken(request, reply)) return;
+    const { id } = request.params as { id: string };
+    const body = request.body as { requesterId: string };
+    if (!body.requesterId) return reply.status(400).send({ error: "requesterId required" });
+    try {
+      const doc = await app.documentService.withdraw(id, body.requesterId);
+      return reply.send(doc);
+    } catch (err: any) {
+      return reply.status(400).send({ error: err.message });
     }
   });
 

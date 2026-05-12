@@ -226,7 +226,8 @@ export async function authRoutes(app: FastifyInstance, opts: { authService: Auth
     const user = await userRepo.findById(req.userId);
     if (!user) return reply.code(404).send(errorResponse(ErrorCode.NOT_FOUND, "사용자를 찾을 수 없습니다."));
     const { passwordHash: _passwordHash, ...rest } = user;
-    return reply.code(200).send(rest);
+    const isTeamLeader = await authService.isTeamLeader(req.userId);
+    return reply.code(200).send({ ...rest, isTeamLeader });
   });
 
   // PATCH /api/v1/auth/me  (본인 이름 수정)

@@ -215,13 +215,42 @@ export class ResourceService {
     const group = await this.prisma.resourceGroup.findUnique({ where: { id: groupId } });
     if (!group) throw new AppError(404, "GROUP_NOT_FOUND", "그룹을 찾을 수 없습니다.");
 
-    // legacy: resourceIds 그대로 유지 (Phase 4까지 deprecated 컬럼 사용)
+    // 각 resourceId를 polymorphic 컬럼으로 해석 (xor_check 위반 방지)
+    // 자원-모델-분리 PDCA Phase 2 이후 personUserId / externalPersonId / equipmentResourceId
+    // 중 정확히 하나가 채워져야 함.
+    const rows: Array<{
+      groupId: string;
+      resourceId: string;
+      personUserId?: string;
+      externalPersonId?: string;
+      equipmentResourceId?: string;
+    }> = [];
+
+    for (const resourceId of resourceIds) {
+      const resolved = await this.resolveResourceLike(resourceId);
+      if (!resolved) {
+        // 해석 불가 → 건너뜀 (log)
+        console.warn(`[setGroupMembers] cannot resolve resourceId=${resourceId} — skip`);
+        continue;
+      }
+      const row: {
+        groupId: string;
+        resourceId: string;
+        personUserId?: string;
+        externalPersonId?: string;
+        equipmentResourceId?: string;
+      } = { groupId, resourceId };
+      if (resolved.kind === "PERSON") row.personUserId = resolved.id;
+      else if (resolved.kind === "EXTERNAL") row.externalPersonId = resolved.id;
+      else if (resolved.kind === "EQUIPMENT") row.equipmentResourceId = resolved.id;
+      rows.push(row);
+    }
+
     await this.prisma.$transaction([
       this.prisma.resourceGroupMember.deleteMany({ where: { groupId } }),
-      this.prisma.resourceGroupMember.createMany({
-        data: resourceIds.map((resourceId) => ({ groupId, resourceId })),
-        skipDuplicates: true,
-      }),
+      ...(rows.length > 0
+        ? [this.prisma.resourceGroupMember.createMany({ data: rows, skipDuplicates: true })]
+        : []),
     ]);
   }
 

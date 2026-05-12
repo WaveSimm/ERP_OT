@@ -1,0 +1,302 @@
+// 경비정산-ERP통합 V2 (Design §3.1)
+// 별도 expense 스키마. ERP postgres 단일 인스턴스 공유.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["expense"]
+}
+
+// ─────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────
+
+enum SourceType {
+  CARD_SHINHAN
+  CARD_HYUNDAI
+  CARD_KB
+  CARD_OTHER
+  CASH
+
+  @@schema("expense")
+}
+
+enum TransactionStatus {
+  PENDING
+  CATEGORIZED
+  EXCLUDED
+  CANCELED
+  SETTLED
+
+  @@schema("expense")
+}
+
+enum OcrStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+
+  @@schema("expense")
+}
+
+enum MatchSource {
+  AUTO
+  MANUAL
+
+  @@schema("expense")
+}
+
+// 6단계 상태머신
+enum SettlementStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  RECEIVED
+  PAID
+  REJECTED
+
+  @@schema("expense")
+}
+
+enum CategoryScope {
+  STANDARD
+  PERSONAL
+
+  @@schema("expense")
+}
+
+// ─────────────────────────────────────────────────────
+// Models
+// ─────────────────────────────────────────────────────
+
+model ExpenseSource {
+  id          String     @id @default(cuid())
+  userId      String
+  name        String     // 명세표이름 (import 자동 생성, read-only)
+  displayName String?    // 대표이름 (사용자 자유입력 별칭)
+  type        SourceType
+  cardNumber  String?
+  active      Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+
+  statements   ExpenseStatement[]
+  transactions ExpenseTransaction[]
+
+  @@index([userId, active])
+  @@map("sources")
+  @@schema("expense")
+}
+
+model ExpenseStatement {
+  id               String   @id @default(cuid())
+  userId           String
+  sourceId         String
+  source           ExpenseSource @relation(fields: [sourceId], references: [id])
+
+  originalFileName String
+  fileUrl          String
+  parserVersion    String
+
+  periodStart      DateTime?
+  periodEnd        DateTime?
+
+  totalRows        Int      @default(0)
+  parsedRows       Int      @default(0)
+  errorRows        Int      @default(0)
+
+  parsedAt         DateTime @default(now())
+
+  transactions     ExpenseTransaction[]
+
+  @@index([userId, parsedAt(sort: Desc)])
+  @@map("statements")
+  @@schema("expense")
+}
+
+model ExpenseTransaction {
+  id                String    @id @default(cuid())
+  userId            String
+
+  statementId       String?
+  statement         ExpenseStatement? @relation(fields: [statementId], references: [id])
+  sourceId          String
+  source            ExpenseSource     @relation(fields: [sourceId], references: [id])
+  isManual          Boolean   @default(false)
+
+  transactedAt      DateTime
+  merchantName      String
+  amount            Decimal   @db.Decimal(15, 2)
+  currency          String    @default("KRW")
+  foreignAmount     Decimal?  @db.Decimal(15, 4)
+  paymentType       String?
+  installmentMonths Int?
+  approvalNo        String?
+
+  categoryId        String?
+  category          ExpenseCategory? @relation(fields: [categoryId], references: [id])
+  detail            String?   // 상세 내역 (구매 항목·서비스 내용 등)
+  memo              String?
+
+  status            TransactionStatus @default(PENDING)
+  isCanceled        Boolean   @default(false)
+
+  matches           TransactionReceiptMatch[]
+  settlementItems   ExpenseSettlementItem[]
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([sourceId, approvalNo])
+  @@index([userId, transactedAt])
+  @@index([userId, categoryId])
+  @@index([userId, status])
+  @@map("transactions")
+  @@schema("expense")
+}
+
+model ExpenseReceipt {
+  id                String    @id @default(cuid())
+  userId            String
+
+  fileUrl           String
+  storageKey        String    @unique
+  originalFileName  String
+  fileType          String
+  fileSize          Int
+
+  ocrStatus         OcrStatus @default(PENDING)
+  ocrEngineUsed     String?
+  ocrRawJson        Json?
+  ocrText           String?
+
+  extractedAmount   Decimal?  @db.Decimal(15, 2)
+  extractedMerchant String?
+  extractedDate     DateTime?
+
+  matches           TransactionReceiptMatch[]
+
+  uploadedAt        DateTime  @default(now())
+  ocrCompletedAt    DateTime?
+
+  @@index([userId, uploadedAt(sort: Desc)])
+  @@index([userId, ocrStatus])
+  @@map("receipts")
+  @@schema("expense")
+}
+
+model TransactionReceiptMatch {
+  id                String    @id @default(cuid())
+
+  transactionId     String
+  transaction       ExpenseTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  receiptId         String
+  receipt           ExpenseReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+
+  source            MatchSource
+  confidence        Float?
+
+  confirmedAt       DateTime?
+  confirmedByUserId String?
+
+  createdAt         DateTime  @default(now())
+
+  @@unique([transactionId, receiptId])
+  @@index([transactionId])
+  @@index([receiptId])
+  @@map("transaction_receipt_matches")
+  @@schema("expense")
+}
+
+model ExpenseCategory {
+  id           String        @id @default(cuid())
+  scope        CategoryScope @default(STANDARD)
+  ownerUserId  String?
+  code         String        @unique
+  name         String
+  description  String?
+  displayOrder Int           @default(0)
+  active       Boolean       @default(true)
+  sheetName    String
+
+  transactions    ExpenseTransaction[]
+  settlementItems ExpenseSettlementItem[]
+
+  @@index([scope, active])
+  @@index([ownerUserId])
+  @@map("categories")
+  @@schema("expense")
+}
+
+model ExpenseSettlement {
+  id                 String           @id @default(cuid())
+  userId             String
+
+  periodStart        DateTime?
+  periodEnd          DateTime?
+
+  title              String
+  status             SettlementStatus @default(DRAFT)
+
+  exportedFileUrl    String?
+  exportedAt         DateTime?
+
+  approvalDocumentId String?          @unique
+  submittedAt        DateTime?
+  approvedAt         DateTime?
+  rejectedAt         DateTime?
+  rejectReason       String?
+
+  receivedAt         DateTime?
+  receivedById       String?
+
+  paidAt             DateTime?
+  paidById           String?
+  paidAmount         Decimal?         @db.Decimal(15, 2)
+  paidNote           String?
+
+  totalCount         Int?
+  totalAmount        Decimal?         @db.Decimal(15, 2)
+  categoryStats      Json?
+
+  // 카테고리 코드 (legacy, 자동 분리 시대 잔재. 수동 모드에선 nullable)
+  categoryCode       String?
+
+  items              ExpenseSettlementItem[]
+
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@index([userId, periodStart(sort: Desc)])
+  @@index([status])
+  @@index([approvalDocumentId])
+  @@map("settlements")
+  @@schema("expense")
+}
+
+model ExpenseSettlementItem {
+  id                 String    @id @default(cuid())
+
+  settlementId       String
+  settlement         ExpenseSettlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+
+  transactionId      String
+  transaction        ExpenseTransaction @relation(fields: [transactionId], references: [id])
+
+  categoryOverrideId String?
+  categoryOverride   ExpenseCategory? @relation(fields: [categoryOverrideId], references: [id])
+  memoOverride       String?
+
+  sortOrder          Int       @default(0)
+
+  @@unique([settlementId, transactionId])
+  @@index([settlementId])
+  @@map("settlement_items")
+  @@schema("expense")
+}

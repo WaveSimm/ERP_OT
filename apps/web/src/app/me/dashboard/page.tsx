@@ -1,10 +1,16 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { meApi, myTasksApi, taskApi, projectApi, myProfileApi, dashboardApi } from "@/lib/api";
+import { meApi, myTasksApi, taskApi, projectApi, myProfileApi, dashboardApi, expenseApi } from "@/lib/api";
 import TaskDrawer from "@/components/TaskDrawer";
 import AttendanceView from "@/components/AttendanceView";
+import TransactionsPage from "@/app/expense/transactions/page";
+import ReceiptsPage from "@/app/expense/receipts/page";
+import SettlementsPage from "@/app/expense/settlements/page";
+import CategoriesPage from "@/app/expense/categories/page";
+import SourcesPage from "@/app/expense/sources/page";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1186,9 +1192,145 @@ function MyProjectsView() {
   );
 }
 
+// ─── Expense View ────────────────────────────────────────────────────────────
+
+interface ExpenseSummary { unmatched: number; pendingApproval: number; awaitingPayment: number }
+
+type ExpenseSubTab = "transactions" | "receipts" | "settlements" | "categories" | "sources";
+
+const EXPENSE_QUICK_ACTIONS: { key: ExpenseSubTab; label: string; icon: string }[] = [
+  { key: "transactions", label: "정산내역관리", icon: "📋" },
+  { key: "receipts",     label: "영수증 업로드", icon: "🧾" },
+  { key: "settlements",  label: "정산결재",      icon: "📦" },
+  { key: "categories",   label: "카테고리",      icon: "🏷" },
+  { key: "sources",      label: "카드 관리",     icon: "💳" },
+];
+
+function ExpenseView() {
+  const [summary, setSummary] = useState<ExpenseSummary | null>(null);
+  const [recentSettlements, setRecentSettlements] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [subTab, setSubTab] = useState<ExpenseSubTab | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      expenseApi.meSummary().catch(() => ({ unmatched: 0, pendingApproval: 0, awaitingPayment: 0 })),
+      expenseApi.listSettlements({ limit: 5 }).catch(() => ({ items: [] as any[] })),
+    ]).then(([sum, sts]: [any, any]) => {
+      setSummary(sum as ExpenseSummary);
+      setRecentSettlements(sts.items);
+      setLoading(false);
+    });
+  }, []);
+
+  return (
+    <div className="space-y-6">
+      {/* 요약 카드 3종 */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <ExpenseSummaryCard label="미정산 거래" count={summary?.unmatched ?? 0} color="amber" href="/expense/transactions?status=PENDING" />
+        <ExpenseSummaryCard label="결재 진행 중" count={summary?.pendingApproval ?? 0} color="blue" href="/expense/settlements?status=SUBMITTED" />
+        <ExpenseSummaryCard label="입금 대기" count={summary?.awaitingPayment ?? 0} color="green" href="/expense/settlements?status=APPROVED" />
+      </div>
+
+      {/* 빠른 작업 */}
+      <div className="bg-white border border-gray-200 rounded-lg p-5">
+        <h2 className="text-sm font-bold text-gray-700 mb-3">빠른 작업</h2>
+        <div className="flex flex-wrap gap-2">
+          {EXPENSE_QUICK_ACTIONS.map((a) => (
+            <button
+              key={a.key}
+              onClick={() => setSubTab(subTab === a.key ? null : a.key)}
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                subTab === a.key
+                  ? "bg-blue-600 text-white border border-blue-600"
+                  : "border border-gray-300 hover:bg-gray-50"
+              }`}
+            >
+              {a.icon} {a.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 최근 정산 — sub-tab 미선택 시만 표시 */}
+      {!subTab && (
+        <div className="bg-white border border-gray-200 rounded-lg p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-bold text-gray-700">최근 정산</h2>
+            <button onClick={() => setSubTab("settlements")} className="text-xs text-blue-600 hover:underline">모두 보기 →</button>
+          </div>
+          {loading ? (
+            <div className="py-8 text-center text-gray-400 text-sm">불러오는 중...</div>
+          ) : recentSettlements.length === 0 ? (
+            <div className="py-8 text-center text-gray-400 text-sm">아직 작성된 정산이 없습니다.</div>
+          ) : (
+            <div className="space-y-2">
+              {recentSettlements.map((s: any) => (
+                <Link key={s.id} href={`/expense/settlements/${s.id}`}
+                  className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 rounded-md transition-colors">
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">{s.title}</div>
+                    <div className="text-xs text-gray-500">
+                      {s.periodStart ? `${fmtDate(s.periodStart)} ~ ${fmtDate(s.periodEnd)}` : "기간 미설정"} · {s.totalCount ?? 0}건
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold tabular-nums">
+                      {Number(s.totalAmount ?? 0).toLocaleString()}원
+                    </span>
+                    <ExpenseSettlementStatusBadge status={s.status} />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 빠른 작업 sub-page 렌더 */}
+      {subTab && (
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          {subTab === "transactions"  && <TransactionsPage />}
+          {subTab === "receipts"      && <ReceiptsPage />}
+          {subTab === "settlements"   && <SettlementsPage />}
+          {subTab === "categories"    && <CategoriesPage />}
+          {subTab === "sources"       && <SourcesPage />}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ExpenseSummaryCard({ label, count, color, href }: { label: string; count: number; color: "amber" | "blue" | "green"; href: string }) {
+  const colorMap = {
+    amber: "border-amber-200 bg-amber-50 text-amber-700",
+    blue:  "border-blue-200 bg-blue-50 text-blue-700",
+    green: "border-green-200 bg-green-50 text-green-700",
+  };
+  return (
+    <Link href={href} className={`block border rounded-lg p-5 hover:shadow-md transition-shadow ${colorMap[color]}`}>
+      <div className="text-xs font-medium opacity-80">{label}</div>
+      <div className="text-3xl font-bold mt-1 tabular-nums">{count}</div>
+    </Link>
+  );
+}
+
+function ExpenseSettlementStatusBadge({ status }: { status: string }) {
+  const config: Record<string, { label: string; cls: string }> = {
+    DRAFT:     { label: "작성중",     cls: "bg-gray-100 text-gray-700" },
+    SUBMITTED: { label: "결재중",     cls: "bg-blue-100 text-blue-700" },
+    APPROVED:  { label: "승인",       cls: "bg-emerald-100 text-emerald-700" },
+    RECEIVED:  { label: "재무팀접수", cls: "bg-cyan-100 text-cyan-700" },
+    PAID:      { label: "💰 입금",    cls: "bg-green-100 text-green-700" },
+    REJECTED:  { label: "반려",       cls: "bg-red-100 text-red-700" },
+  };
+  const c = config[status] ?? { label: status, cls: "bg-gray-100" };
+  return <span className={`px-2 py-0.5 text-xs font-medium rounded ${c.cls}`}>{c.label}</span>;
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-type Tab = "kanban" | "week" | "tasks" | "projects" | "attendance";
+type Tab = "kanban" | "week" | "tasks" | "projects" | "expense" | "attendance";
 
 const DASHBOARD_TAB_KEY = "erp_tab_dashboard";
 
@@ -1212,6 +1354,7 @@ export default function DashboardPage() {
     { key: "week",       label: "주간" },
     { key: "tasks",      label: "작업 목록" },
     { key: "projects",   label: "내 프로젝트" },
+    { key: "expense",    label: "경비" },
   ];
 
   return (
@@ -1274,6 +1417,9 @@ export default function DashboardPage() {
 
       {/* My Projects */}
       {tab === "projects" && <MyProjectsView />}
+
+      {/* Expense */}
+      {tab === "expense" && <ExpenseView />}
 
       {/* Attendance */}
       {tab === "attendance" && <AttendanceView />}

@@ -298,73 +298,11 @@ export class AutoExtractService {
   }
 
   /**
-   * LLM 보완 추출 (ANTHROPIC_API_KEY 있을 때만)
-   * 규칙 기반이 놓친 KV를 찾거나, 라벨을 명시적으로 재명명
+   * LLM 보완 추출 — ERP 전체에서 비활성화 (2026-05-11).
+   * Claude Vision/Anthropic 사용 금지 정책. 향후 재활성화 시 git history에서 복구.
    */
   async enhanceWithLLM(ruleResult: AutoExtractResult): Promise<AutoExtractResult> {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return ruleResult;
-
-    try {
-      const existingLabels = new Set(ruleResult.kvPairs.map(k => k.label));
-      const prompt = `다음은 OCR로 추출된 문서 텍스트입니다. 이 문서에서 모든 라벨-값 쌍을 JSON으로 추출해주세요.
-
-문서 텍스트:
-${ruleResult.fullText}
-
-이미 규칙 기반으로 추출된 라벨 (중복 제외 대상): ${Array.from(existingLabels).join(", ")}
-
-규칙:
-1. 순수 KV 쌍만 (의미 있는 라벨 + 값)
-2. 문단·설명문은 제외
-3. 한국어 라벨은 그대로 유지
-4. 이미 추출된 라벨은 생략
-5. 응답은 JSON 배열만, 마크다운 블록 없이
-
-형식: [{"label": "...", "value": "...", "type": "date|money|phone|email|identifier|quantity|percent|text"}]`;
-
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-6",
-          max_tokens: 2048,
-          messages: [{ role: "user", content: prompt }],
-        }),
-      });
-
-      if (!res.ok) return ruleResult;
-      const json = await res.json() as any;
-      const text = json?.content?.[0]?.text || "";
-      const match = text.match(/\[[\s\S]*\]/);
-      if (!match) return ruleResult;
-
-      const llmKVs = JSON.parse(match[0]) as Array<{ label: string; value: string; type: string }>;
-      const newKVs: ExtractedKV[] = llmKVs
-        .filter(k => k.label && k.value && !existingLabels.has(k.label))
-        .map(k => ({
-          label: k.label,
-          value: String(k.value),
-          type: (k.type as ExtractedKV["type"]) || "text",
-          confidence: 0.85,
-          source: "llm" as const,
-        }));
-
-      return {
-        ...ruleResult,
-        kvPairs: [...ruleResult.kvPairs, ...newKVs],
-        stats: {
-          ...ruleResult.stats,
-          llmExtracted: newKVs.length,
-        },
-      };
-    } catch {
-      return ruleResult;
-    }
+    return ruleResult;
   }
 }
 

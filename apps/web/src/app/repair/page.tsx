@@ -52,7 +52,7 @@ function daysSince(dateStr: string) {
   return Math.floor(diff / 86400000);
 }
 
-type SortKey = "orderNumber" | "customer" | "asset" | "serialNumber" | "status" | "techStatus" | "salesStatus" | "priority" | "assignee" | "receivedAt";
+type SortKey = "orderNumber" | "customer" | "asset" | "serialNumber" | "status" | "priority" | "assignee" | "receivedAt";
 
 export default function RepairOrdersPage() {
   const router = useRouter();
@@ -141,8 +141,6 @@ export default function RepairOrdersPage() {
               <col className="w-[200px]" />  {/* 장비: 30자 */}
               <col className="w-[140px]" />  {/* S.N: 20자 */}
               <col className="w-[72px]" />   {/* 상태 */}
-              <col className="w-[96px]" />   {/* 점검상황 */}
-              <col className="w-[72px]" />   {/* 영업상황 */}
               <col className="w-[52px]" />   {/* 우선도 */}
               <col className="w-[56px]" />   {/* 담당자: 3자 */}
               <col className="w-[60px]" />   {/* 접수일 */}
@@ -155,8 +153,6 @@ export default function RepairOrdersPage() {
                 <th onClick={() => handleSort("asset")}        className="px-2 py-2.5 text-left   text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">장비{sortIndicator("asset")}</th>
                 <th onClick={() => handleSort("serialNumber")} className="px-2 py-2.5 text-left   text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">S.N{sortIndicator("serialNumber")}</th>
                 <th onClick={() => handleSort("status")}       className="px-2 py-2.5 text-center text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">상태{sortIndicator("status")}</th>
-                <th onClick={() => handleSort("techStatus")}   className="px-2 py-2.5 text-left   text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">점검상황{sortIndicator("techStatus")}</th>
-                <th onClick={() => handleSort("salesStatus")}  className="px-2 py-2.5 text-left   text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">영업상황{sortIndicator("salesStatus")}</th>
                 <th onClick={() => handleSort("priority")}     className="px-2 py-2.5 text-center text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">우선도{sortIndicator("priority")}</th>
                 <th onClick={() => handleSort("assignee")}     className="px-2 py-2.5 text-left   text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">담당자{sortIndicator("assignee")}</th>
                 <th onClick={() => handleSort("receivedAt")}   className="px-2 py-2.5 text-center text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">접수일{sortIndicator("receivedAt")}</th>
@@ -165,10 +161,10 @@ export default function RepairOrdersPage() {
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={11} className="text-center py-8 text-gray-400">불러오는 중...</td></tr>
+                <tr><td colSpan={9} className="text-center py-8 text-gray-400">불러오는 중...</td></tr>
               )}
               {!loading && orders.length === 0 && (
-                <tr><td colSpan={11} className="text-center py-8 text-gray-400">AS 접수 내역이 없습니다.</td></tr>
+                <tr><td colSpan={9} className="text-center py-8 text-gray-400">AS 접수 내역이 없습니다.</td></tr>
               )}
               {!loading && orders.map((o) => {
                 const assetName = o.customerAsset?.name || o.equipment?.name || o.sensor?.name || o.productName || "-";
@@ -185,8 +181,6 @@ export default function RepairOrdersPage() {
                         {STATUS_LABELS[o.status] || o.status}
                       </span>
                     </td>
-                    <td className="px-2 py-2 text-gray-600 text-xs truncate" title={o.techStatus}>{o.techStatus || "-"}</td>
-                    <td className="px-2 py-2 text-gray-600 text-xs truncate">{o.salesStatus || "-"}</td>
                     <td className={`px-2 py-2 text-center text-xs font-medium ${PRIORITY_COLORS[o.priority]}`}>
                       {PRIORITY_LABELS[o.priority]}
                     </td>

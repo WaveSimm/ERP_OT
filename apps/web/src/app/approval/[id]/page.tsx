@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { approvalApi, getUser } from "@/lib/api";
+import { approvalApi, expenseApi, getUser } from "@/lib/api";
+import { fmtDateTime24 } from "@/lib/datetime";
 
 const STATUS_COLORS: Record<string, string> = {
   DRAFT: "bg-gray-100 text-gray-700",
@@ -56,6 +57,7 @@ export default function ApprovalDetailPage() {
 
   const [doc, setDoc] = useState<any>(null);
   const [files, setFiles] = useState<any[]>([]);
+  const [settlement, setSettlement] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [comment, setComment] = useState("");
   const [acting, setActing] = useState(false);
@@ -68,6 +70,15 @@ export default function ApprovalDetailPage() {
       ]);
       setDoc(d);
       setFiles(f);
+      // EXPENSE_CLAIM은 expense-service에서 settlement 본문(거래·영수증) 추가 로드
+      if (d?.template?.code === "EXPENSE_CLAIM" && d?.fields?.settlementId) {
+        try {
+          const s = await expenseApi.getSettlement(d.fields.settlementId);
+          setSettlement(s);
+        } catch (err) {
+          console.error("settlement load failed", err);
+        }
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -203,12 +214,12 @@ export default function ApprovalDetailPage() {
         </div>
       </div>
 
-      {/* 필드 정보 — template에 정의된 field만, template 순서대로 표시 */}
+      {/* 필드 정보 — template에 정의된 field만, template 순서대로 표시 (hidden 제외) */}
       {fields && Object.keys(fields).length > 0 && (() => {
         const templateFields: any[] = doc.template?.fields ?? [];
-        // template 순서를 따라 정렬 (입력 순서가 아닌 정의 순서로 일관성)
+        // template 순서를 따라 정렬 + hidden 타입(settlementId 등 내부 ID) 제외
         const renderable = templateFields
-          .filter((f: any) => f.key in fields)
+          .filter((f: any) => f.type !== "hidden" && f.key in fields)
           .map((f: any) => [f.key, fields[f.key]] as [string, any]);
         if (renderable.length === 0) return null;
 
@@ -221,6 +232,28 @@ export default function ApprovalDetailPage() {
             return cleaned.join(", ");
           }
           if (val === null || val === undefined || val === "") return "—";
+          // 금액 — money / currency / 숫자 + 금액성 키
+          if (fieldType === "money" || fieldType === "currency") {
+            return `${Number(val).toLocaleString()}원`;
+          }
+          // 객체(예: categoryStats — type:"json")는 보기 좋게 분해
+          if (fieldType === "json" || typeof val === "object") {
+            const entries = Object.values(val) as Array<{ name?: string; count?: number; amount?: number }>;
+            if (entries.every((e) => e && typeof e === "object" && "amount" in e)) {
+              return (
+                <div className="space-y-0.5">
+                  {entries.map((e, i) => (
+                    <div key={i} className="text-xs">
+                      <span className="text-gray-600">{e.name ?? "—"}:</span>{" "}
+                      <span className="tabular-nums">{Number(e.amount ?? 0).toLocaleString()}원</span>
+                      <span className="text-gray-400"> ({e.count ?? 0}건)</span>
+                    </div>
+                  ))}
+                </div>
+              );
+            }
+            return JSON.stringify(val);
+          }
           return String(val);
         };
 
@@ -275,7 +308,93 @@ export default function ApprovalDetailPage() {
       )}
 
       {/* 항목 테이블 */}
-      {items && items.length > 0 && (
+      {doc.template?.code === "EXPENSE_CLAIM" ? (
+        // settlement 우선 (drafter — 영수증 링크 포함), 실패 시 doc.items로 fallback (승인자)
+        settlement ? (
+          <div className="mb-6">
+            <h3 className="text-sm font-medium text-gray-700 mb-2">거래 목록 ({settlement.items?.length ?? 0}건)</h3>
+            <table className="w-full text-sm border rounded">
+              <thead className="bg-gray-50">
+                <tr className="text-xs text-gray-600">
+                  <th className="text-left px-3 py-2">거래일시</th>
+                  <th className="text-left px-3 py-2">가맹점</th>
+                  <th className="text-left px-3 py-2">카테고리</th>
+                  <th className="text-right px-3 py-2">금액</th>
+                  <th className="text-left px-3 py-2">상세 / 메모</th>
+                  <th className="text-center px-3 py-2">영수증</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {(settlement.items ?? []).map((it: any) => {
+                  const t = it.transaction;
+                  const confirmed = (t.matches ?? []).find((m: any) => m.confirmedAt);
+                  return (
+                    <tr key={it.id}>
+                      <td className="px-3 py-1.5 text-xs whitespace-nowrap">{fmtDateTime24(t.transactedAt, { short: true })}</td>
+                      <td className="px-3 py-1.5">
+                        <span className={t.isCanceled ? "line-through text-gray-400" : ""}>{t.merchantName}</span>
+                        {t.isCanceled && <span className="ml-1 px-1 py-0.5 text-[10px] bg-red-100 text-red-700 rounded">취소</span>}
+                      </td>
+                      <td className="px-3 py-1.5 text-xs">{t.category?.name ?? "—"}</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums font-medium">{Number(t.amount).toLocaleString()}</td>
+                      <td className="px-3 py-1.5 text-xs text-gray-600 max-w-[220px] truncate" title={[t.detail, t.memo, it.memoOverride].filter(Boolean).join(" / ")}>
+                        {[t.detail, it.memoOverride ?? t.memo].filter(Boolean).join(" / ") || "—"}
+                      </td>
+                      <td className="px-3 py-1.5 text-center">
+                        {confirmed ? (
+                          <a href={`/api/v1/expense/receipts/${confirmed.receipt.id}/download`} target="_blank" rel="noopener"
+                            className="text-emerald-600 hover:text-emerald-700" title="영수증 보기">📎</a>
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+                <tr className="bg-gray-50 font-medium">
+                  <td colSpan={3} className="px-3 py-2 text-right text-xs text-gray-600">합계</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{Number(settlement.totalAmount ?? 0).toLocaleString()}원</td>
+                  <td colSpan={2}></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        ) : items && items.length > 0 ? (
+          // 승인자가 정산서 직접 접근 불가 시 doc.items에 저장된 데이터로 렌더
+          <div className="mb-6">
+            <h3 className="text-sm font-medium text-gray-700 mb-2">거래 목록 ({items.length}건)</h3>
+            <table className="w-full text-sm border rounded">
+              <thead className="bg-gray-50">
+                <tr className="text-xs text-gray-600">
+                  <th className="text-left px-3 py-2">거래일시</th>
+                  <th className="text-left px-3 py-2">가맹점</th>
+                  <th className="text-left px-3 py-2">카테고리</th>
+                  <th className="text-right px-3 py-2">금액</th>
+                  <th className="text-left px-3 py-2">메모</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {items.map((it: any, idx: number) => (
+                  <tr key={idx}>
+                    <td className="px-3 py-1.5 text-xs whitespace-nowrap">{it.transactedAt ? fmtDateTime24(it.transactedAt, { short: true }) : "—"}</td>
+                    <td className="px-3 py-1.5">{it.merchantName ?? "—"}</td>
+                    <td className="px-3 py-1.5 text-xs">{it.categoryName ?? "—"}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums font-medium">{Number(it.amount ?? 0).toLocaleString()}</td>
+                    <td className="px-3 py-1.5 text-xs text-gray-600">{it.memo ?? "—"}</td>
+                  </tr>
+                ))}
+                <tr className="bg-gray-50 font-medium">
+                  <td colSpan={3} className="px-3 py-2 text-right text-xs text-gray-600">합계</td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {items.reduce((s: number, it: any) => s + Number(it.amount ?? 0), 0).toLocaleString()}원
+                  </td>
+                  <td></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        ) : null
+      ) : items && items.length > 0 ? (
         <div className="mb-6">
           <h3 className="text-sm font-medium text-gray-700 mb-2">항목</h3>
           <table className="w-full text-sm border rounded">
@@ -307,6 +426,8 @@ export default function ApprovalDetailPage() {
                           </a>
                         ))}
                       </div>
+                    ) : item.evidence ? (
+                      <span className="text-emerald-600 text-base" title={item.evidence}>✓</span>
                     ) : (
                       <span className="text-xs text-gray-300">-</span>
                     )}
@@ -316,7 +437,7 @@ export default function ApprovalDetailPage() {
             </tbody>
           </table>
         </div>
-      )}
+      ) : null}
 
       {/* 첨부파일 */}
       <div className="mb-6">

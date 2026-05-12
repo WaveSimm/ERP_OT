@@ -17,7 +17,14 @@ interface User {
   createdAt: string;
 }
 
-interface Department { id: string; name: string; sortOrder?: number; }
+interface Department {
+  id: string;
+  name: string;
+  code?: string;
+  sortOrder?: number;
+  headUserId?: string | null;
+  headName?: string | null;
+}
 
 const EMPTY_PROFILE = {
   phoneOffice: "", phoneMobile: "", address: "",
@@ -46,7 +53,6 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
   const [createError, setCreateError] = useState("");
 
   // Reset password
-  const [newResetPw, setNewResetPw] = useState("");
   const [resetError, setResetError] = useState("");
 
   // Work schedule
@@ -62,7 +68,7 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
   const [originalProfileForm, setOriginalProfileForm] = useState(EMPTY_PROFILE);
   const [profileError, setProfileError] = useState("");
 
-  // Departments — 인력 목록의 부서 표시·할당 read-only로만 사용 (편집은 /admin/departments)
+  // Departments — 인력 목록의 부서 표시·할당 + 부서 CRUD
   const [departments, setDepartments] = useState<Department[]>([]);
 
   const [saving, setSaving] = useState(false);
@@ -72,6 +78,13 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
   // 자원-모델-분리 PDCA Phase 3b-3: 퇴직자 토글 + 퇴직 모달
   const [includeRetired, setIncludeRetired] = useState(false);
   const [retireUser, setRetireUser] = useState<User | null>(null);
+
+  // 부서 생성/편집 모달
+  const [showDeptModal, setShowDeptModal] = useState(false);
+  const [editingDeptId, setEditingDeptId] = useState<string | null>(null);
+  const [deptForm, setDeptForm] = useState({ name: "", code: "", sortOrder: 0 });
+  const [deptError, setDeptError] = useState("");
+  const [deptSaving, setDeptSaving] = useState(false);
 
   useEffect(() => {
     setIsAdmin(getUser()?.role === "ADMIN");
@@ -201,8 +214,69 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
     }
   };
 
-  // 부서 추가/수정/삭제/순서 변경은 관리 메뉴 → /admin/departments 로 분리 (2026-05-05).
-  // 여기서는 departments 목록을 read-only로만 사용 (인력 목록의 부서 표시·할당).
+  // 부서 CRUD (직원 관리에 통합)
+  const openCreateDept = () => {
+    setEditingDeptId(null);
+    setDeptForm({ name: "", code: "", sortOrder: 0 });
+    setDeptError("");
+    setShowDeptModal(true);
+  };
+
+  const openEditDept = (dept: Department) => {
+    setEditingDeptId(dept.id);
+    setDeptForm({
+      name: dept.name,
+      code: dept.code ?? "",
+      sortOrder: dept.sortOrder ?? 0,
+    });
+    setDeptError("");
+    setShowDeptModal(true);
+  };
+
+  const handleSaveDept = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDeptError("");
+    setDeptSaving(true);
+    try {
+      if (editingDeptId) {
+        await departmentApi.update(editingDeptId, {
+          name: deptForm.name,
+          sortOrder: deptForm.sortOrder,
+        });
+      } else {
+        await departmentApi.create({
+          name: deptForm.name,
+          code: deptForm.code,
+          sortOrder: deptForm.sortOrder,
+        });
+      }
+      setShowDeptModal(false);
+      await load();
+    } catch (err: any) {
+      setDeptError(err.message ?? "저장 실패");
+    } finally {
+      setDeptSaving(false);
+    }
+  };
+
+  const handleDeleteDept = async (dept: Department) => {
+    if (!confirm(`"${dept.name}" 부서를 삭제할까요?\n소속 직원/하위 부서가 있으면 삭제되지 않습니다.`)) return;
+    try {
+      await departmentApi.delete(dept.id);
+      await load();
+    } catch (err: any) {
+      alert(err.message ?? "삭제 실패");
+    }
+  };
+
+  const handleSetDeptHead = async (deptId: string, headUserId: string | null) => {
+    try {
+      await departmentApi.update(deptId, { headUserId });
+      await load();
+    } catch (err: any) {
+      alert(err.message ?? "부서장 변경 실패");
+    }
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -268,9 +342,8 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
     setResetError("");
     setSaving(true);
     try {
-      await userManagementApi.resetPassword(resetId, newResetPw);
+      await userManagementApi.resetPassword(resetId, "oceantech");
       setResetId(null);
-      setNewResetPw("");
     } catch (err: any) {
       setResetError(err.message);
     } finally {
@@ -309,7 +382,12 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
         </button>
         {isAdmin && (
           <>
-            {/* 부서 관리는 관리 메뉴 → /admin/departments 로 분리 (2026-05-05) */}
+            <button
+              onClick={openCreateDept}
+              className="border border-blue-300 text-blue-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-50"
+            >
+              + 부서 추가
+            </button>
             <button
               onClick={() => setShowCreate(true)}
               className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-700"
@@ -322,20 +400,57 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
 
       {/* 사용자 트리 */}
       <div className="space-y-0.5">
-        {departments.filter((dept) => users.some((u) => (u as any).profile?.departmentId === dept.id)).map((dept) => {
+        {departments.map((dept) => {
           const deptUsers = users.filter((u) => (u as any).profile?.departmentId === dept.id);
           const isOpen = expanded.has(dept.id);
           return (
             <div key={dept.id} className="mb-0.5">
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <button
-                  onClick={() => toggleExpand(dept.id)}
-                  className="w-full flex items-center gap-2 px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
-                >
-                  <span className="text-gray-400 text-xs w-4 text-center select-none">{isOpen ? "▾" : "▸"}</span>
-                  <span className="text-sm font-semibold text-gray-700">{dept.name}</span>
-                  <span className="text-xs text-gray-400 font-normal">{deptUsers.length}명</span>
-                </button>
+                <div className="flex items-center px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors group">
+                  <button
+                    onClick={() => toggleExpand(dept.id)}
+                    className="flex-1 flex items-center gap-2 text-left"
+                  >
+                    <span className="text-gray-400 text-xs w-4 text-center select-none">{isOpen ? "▾" : "▸"}</span>
+                    <span className="text-sm font-semibold text-gray-700">{dept.name}</span>
+                    <span className="text-xs text-gray-400 font-normal">{deptUsers.length}명</span>
+                    {dept.headName && (
+                      <span className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full ml-2">
+                        팀장: {dept.headName}
+                      </span>
+                    )}
+                  </button>
+                  {isAdmin && (
+                    <div className="flex items-center gap-2 ml-2">
+                      <select
+                        value={dept.headUserId ?? ""}
+                        onChange={(e) => handleSetDeptHead(dept.id, e.target.value || null)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-xs border border-gray-200 rounded px-2 py-1 bg-white hover:border-gray-300"
+                        title="부서장"
+                      >
+                        <option value="">— 부서장 —</option>
+                        {deptUsers.map((u) => (
+                          <option key={u.id} value={u.id}>{u.name}</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openEditDept(dept); }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-xs px-2 py-1 text-gray-500 hover:text-blue-600"
+                        title="부서 편집"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteDept(dept); }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-xs px-2 py-1 text-gray-500 hover:text-red-600"
+                        title="부서 삭제"
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  )}
+                </div>
                 {isOpen && deptUsers.length > 0 && (
                   <div className="divide-y divide-gray-100">
                     {deptUsers.map((user) => (
@@ -343,7 +458,7 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
                         editingId={editingId} setEditingId={setEditingId}
                         onToggleActive={handleToggleActive} onRoleChange={handleRoleChange}
                         onOpenProfile={openProfile} onOpenSchedule={openSchedule}
-                        onResetPw={(u) => { setResetId(u.id); setNewResetPw(""); setResetError(""); }}
+                        onResetPw={(u) => { setResetId(u.id); setResetError(""); }}
                         onOpenLeaveBalance={(u) => setLeaveBalanceUserId(u.id)}
                         onRetire={(u) => setRetireUser(u)}
                         onReactivate={handleReactivate}
@@ -386,7 +501,7 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
                         editingId={editingId} setEditingId={setEditingId}
                         onToggleActive={handleToggleActive} onRoleChange={handleRoleChange}
                         onOpenProfile={openProfile} onOpenSchedule={openSchedule}
-                        onResetPw={(u) => { setResetId(u.id); setNewResetPw(""); setResetError(""); }}
+                        onResetPw={(u) => { setResetId(u.id); setResetError(""); }}
                         onOpenLeaveBalance={(u) => setLeaveBalanceUserId(u.id)}
                         onRetire={(u) => setRetireUser(u)}
                         onReactivate={handleReactivate}
@@ -399,6 +514,46 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
           );
         })()}
       </div>
+
+      {/* ── 부서 생성/편집 모달 ── */}
+      {showDeptModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">{editingDeptId ? "부서 편집" : "부서 추가"}</h2>
+            <form onSubmit={handleSaveDept} className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">부서명</label>
+                <input type="text" value={deptForm.name} onChange={(e) => setDeptForm({ ...deptForm, name: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="예: 영업1팀" required />
+              </div>
+              {!editingDeptId && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">코드</label>
+                  <input type="text" value={deptForm.code} onChange={(e) => setDeptForm({ ...deptForm, code: e.target.value.toUpperCase() })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    placeholder="예: SALES1" required />
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">정렬 순서</label>
+                <input type="number" value={deptForm.sortOrder} onChange={(e) => setDeptForm({ ...deptForm, sortOrder: Number(e.target.value) })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="0" />
+              </div>
+              {deptError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2">{deptError}</div>
+              )}
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => setShowDeptModal(false)}
+                  className="flex-1 border border-gray-300 rounded-lg py-2 text-sm text-gray-700 hover:bg-gray-50">취소</button>
+                <button type="submit" disabled={deptSaving}
+                  className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                  {deptSaving ? "저장 중..." : "저장"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ── 사용자 추가 모달 ── */}
       {showCreate && (
@@ -510,7 +665,6 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
         </div>
       )}
 
-      {/* 부서 관리 모달은 관리 메뉴 → /admin/departments 로 분리 (2026-05-05). 버튼·모달·state 제거. */}
 
       {/* ── 근무시간 설정 모달 ── */}
       {scheduleUserId && (
@@ -552,29 +706,27 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
         </div>
       )}
 
-      {/* ── 비밀번호 초기화 모달 ── */}
+      {/* ── 비밀번호 초기화 확인 모달 ── */}
       {resetId && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">비밀번호 초기화</h2>
-            <form onSubmit={handleResetPassword} className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">새 비밀번호</label>
-                <input type="password" value={newResetPw} onChange={(e) => setNewResetPw(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  placeholder="8자 이상" minLength={8} required autoFocus />
-              </div>
-              {resetError && (
-                <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2">{resetError}</div>
-              )}
-              <div className="flex gap-2 pt-2">
-                <button type="button" onClick={() => setResetId(null)}
-                  className="flex-1 border border-gray-300 rounded-lg py-2 text-sm text-gray-700 hover:bg-gray-50">취소</button>
-                <button type="submit" disabled={saving}
-                  className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-                  {saving ? "처리 중..." : "초기화"}
-                </button>
-              </div>
+            <h2 className="text-lg font-bold text-gray-900 mb-3">비밀번호 초기화</h2>
+            <p className="text-sm text-gray-700 mb-2">
+              <strong>{users.find((u) => u.id === resetId)?.name ?? ""}</strong> 사용자의 비밀번호를 초기값으로 초기화하시겠습니까?
+            </p>
+            <p className="text-xs text-gray-500 mb-4">
+              초기 비밀번호: <code className="bg-gray-100 px-1.5 py-0.5 rounded font-mono">oceantech</code>
+            </p>
+            {resetError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2 mb-3">{resetError}</div>
+            )}
+            <form onSubmit={handleResetPassword} className="flex gap-2">
+              <button type="button" onClick={() => setResetId(null)}
+                className="flex-1 border border-gray-300 rounded-lg py-2 text-sm text-gray-700 hover:bg-gray-50">취소</button>
+              <button type="submit" disabled={saving}
+                className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                {saving ? "처리 중..." : "초기화"}
+              </button>
             </form>
           </div>
         </div>

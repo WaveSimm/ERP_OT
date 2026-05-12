@@ -20,16 +20,30 @@
     "admin": { "port": 3010, "status": "pending" }
   },
   "pdca": {
-    "feature": "마일스톤-시점태스크-회귀",
-    "currentPhase": "do",
-    "completedPhases": ["plan", "design", "do"],
-    "planFile": "docs/01-plan/features/마일스톤-시점태스크-회귀.plan.md",
-    "designFile": "docs/02-design/features/마일스톤-시점태스크-회귀.design.md",
-    "method": "plan-plus",
-    "startedAt": "2026-05-01",
-    "reverseOf": "프로젝트-마일스톤-재설계"
+    "feature": null,
+    "note": "no active PDCA in ERP_OT. 개인경비정산은 spawned project로 분리됨"
   },
+  "spawnedProjects": [
+    {
+      "name": "개인경비정산",
+      "location": "E:/claude/Expense/",
+      "spawnedAt": "2026-05-06",
+      "method": "plan-plus",
+      "phase": "do",
+      "reason": "개인 데이터 물리적 격리 + 별도 git repo + 같은 스택으로 V2 이관 용이"
+    }
+  ],
   "pdcaHistory": [
+    {
+      "feature": "마일스톤-시점태스크-회귀",
+      "phase": "do",
+      "completedPhases": ["plan", "design", "do"],
+      "planFile": "docs/01-plan/features/마일스톤-시점태스크-회귀.plan.md",
+      "designFile": "docs/02-design/features/마일스톤-시점태스크-회귀.design.md",
+      "method": "plan-plus",
+      "startedAt": "2026-05-01",
+      "reverseOf": "프로젝트-마일스톤-재설계"
+    },
     {
       "feature": "monorepo-dockerfile-정리",
       "phase": "plan",

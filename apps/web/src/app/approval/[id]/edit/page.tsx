@@ -287,6 +287,43 @@ export default function EditApprovalPage() {
   if (loading) return <div className="text-center py-12 text-gray-400">로딩 중...</div>;
   if (!doc) return <div className="text-center py-12 text-red-500">문서를 찾을 수 없습니다.</div>;
 
+  // EXPENSE_CLAIM은 정산서에서 자동 생성되는 문서. 결재 문서 자체 편집 불가.
+  if (doc.template?.code === "EXPENSE_CLAIM") {
+    const settlementId = doc.fields?.settlementId;
+    return (
+      <div className="max-w-2xl mx-auto py-8">
+        <div className="flex items-center gap-2 mb-4">
+          <button onClick={() => router.push(`/approval/${docId}`)} className="text-gray-400 hover:text-gray-600">&larr;</button>
+          <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">{doc.template?.name}</span>
+          <span className="text-sm font-medium">문서 편집</span>
+        </div>
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-5 text-sm text-amber-900">
+          <p className="font-bold mb-2">📋 경비정산서는 결재 문서에서 직접 편집할 수 없습니다</p>
+          <p className="mb-3">
+            이 문서의 거래 내역·금액은 <strong>경비정산서</strong>에서 자동으로 생성되며,
+            결재 상신 후에는 정산서 자체도 잠겨 수정 불가합니다.
+          </p>
+          <div className="space-y-1 text-xs text-amber-800 mb-4">
+            <p>• 거래/금액 수정: 결재를 회수(취소)한 뒤 정산서를 DRAFT로 복귀 → 거래 페이지에서 수정 → 재상신</p>
+            <p>• 단순 메모 추가: 결재 진행 중인 문서의 의견란 사용</p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => router.push(`/approval/${docId}`)}
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-md bg-white hover:bg-gray-50">
+              결재 문서로 돌아가기
+            </button>
+            {settlementId && (
+              <button onClick={() => router.push(`/expense/settlements/${settlementId}`)}
+                className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                정산서로 이동 →
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const templateFields = doc.template?.fields || [];
   const hasItemsTable = doc.template?.itemsTableConfig;
 

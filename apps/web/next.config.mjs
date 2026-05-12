@@ -38,8 +38,12 @@ const nextConfig = {
     const proj = process.env.API_BASE_URL || "http://localhost:3003";
     const appr = process.env.APPROVAL_SERVICE_URL || "http://localhost:3006";
     const ocr = process.env.OCR_SERVICE_URL || "http://localhost:3007";
+    const exp = process.env.EXPENSE_SERVICE_URL || "http://localhost:3008";
 
     return [
+      // ── expense-service (경비정산 V2) ──
+      { source: "/api/v1/expense/:path*", destination: `${exp}/api/v1/expense/:path*` },
+
       // ── ocr-service (OCR 문서인식) ──
       { source: "/api/v1/ocr/:path*", destination: `${ocr}/api/v1/ocr/:path*` },
 
