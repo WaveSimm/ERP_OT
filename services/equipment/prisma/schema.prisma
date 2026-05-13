@@ -75,6 +75,8 @@ model StorageLocation {
   createdAt   DateTime     @default(now()) @map("created_at")
   updatedAt   DateTime     @updatedAt @map("updated_at")
 
+  inventoryLocations InventoryItemLocation[]
+
   @@index([type])
   @@map("storage_locations")
   @@schema("equipment")
@@ -466,6 +468,7 @@ model Customer {
   assets       CustomerAsset[]
   repairOrders RepairOrder[]
   contacts     CustomerContact[]
+  bundleShipments BundleShipment[]
 
   @@map("customers")
   @@schema("equipment")
@@ -507,15 +510,21 @@ model CustomerAsset {
   soldAt         DateTime?
   warrantyExpiry DateTime?
   otInventoryNo  String?
+  // v1.6 신규 (2026-05-13): Bundle 추적
+  bundleShipmentId String?  @map("bundle_shipment_id")
+  bundleRole       String?  @map("bundle_role")          // "CTD 센서", "Battery 1번"
   notes          String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  customer     Customer      @relation(fields: [customerId], references: [id])
-  repairOrders RepairOrder[]
+  customer       Customer        @relation(fields: [customerId], references: [id])
+  bundleShipment BundleShipment? @relation(fields: [bundleShipmentId], references: [id])
+  bundleShipmentItems BundleShipmentItem[]
+  repairOrders   RepairOrder[]
 
   @@index([customerId])
   @@index([serialNumber])
+  @@index([bundleShipmentId])
   @@map("customer_assets")
   @@schema("equipment")
 }
@@ -796,15 +805,20 @@ model PurchaseOrderItem {
   id               String  @id @default(cuid())
   purchaseOrderId  String
   partId           String
+  productMasterId  String? @map("product_master_id")   // v1.6 신규
+  variantId        String? @map("variant_id")           // v1.6 신규
   quantity         Int
   receivedQuantity Int     @default(0)
   unitPrice        Decimal @db.Decimal(12, 2)
   amount           Decimal @db.Decimal(12, 2)
 
-  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  part          Part          @relation(fields: [partId], references: [id])
+  purchaseOrder PurchaseOrder   @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  part          Part            @relation(fields: [partId], references: [id])
+  productMaster ProductMaster?  @relation("PMPurchaseItems", fields: [productMasterId], references: [id])
+  variant       ProductVariant? @relation("PVPurchaseItems", fields: [variantId], references: [id])
 
   @@index([purchaseOrderId])
+  @@index([variantId])
   @@map("purchase_order_items")
   @@schema("equipment")
 }
@@ -950,6 +964,10 @@ model ProductMaster {
   name            String
   modelName       String         @map("model_name")
   manufacturer    String
+  // v1.6 신규 (2026-05-13): SKU 모델 도입
+  masterCode      String?        @map("master_code")        // 짧은 코드 3~6자 (SKU code 생성용)
+  keyAttributes   Json?          @map("key_attributes")     // ["length", "end_type"] 등 SKU code 핵심 축
+  unitOfMeasure   String?        @map("unit_of_measure")    // "EA"|"m"|"kg"|"L"|"식"
   defaultCurrency OrderCurrency? @map("default_currency")
   referencePrice  Decimal?       @map("reference_price") @db.Decimal(12, 2)
   specs           Json?
@@ -957,11 +975,39 @@ model ProductMaster {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  orderItems     OverseasOrderItem[]
-  inventoryItems InventoryItem[]
+  orderItems         OverseasOrderItem[]
+  purchaseOrderItems PurchaseOrderItem[]   @relation("PMPurchaseItems")
+  inventoryItems     InventoryItem[]
+  variants           ProductVariant[]
+  bomItems           BomItem[]
+  bundleShipmentItems BundleShipmentItem[]
 
   @@unique([manufacturer, modelName], name: "manufacturer_model")
   @@map("product_masters")
+  @@schema("equipment")
+}
+
+// v1.6 신규 (2026-05-13): SKU = 옵션 조합별 단위
+model ProductVariant {
+  id              String         @id @default(cuid())
+  productMasterId String         @map("product_master_id")
+  skuCode         String?        @unique @map("sku_code")     // 의미 코드 ("M6F-10M-FE")
+  variantSpecs    Json           @default("{}") @map("variant_specs")  // { length: "10m", ... }
+  isActive        Boolean        @default(true) @map("is_active")
+
+  productMaster   ProductMaster  @relation(fields: [productMasterId], references: [id], onDelete: Cascade)
+  inventoryItems  InventoryItem[]
+  bomItems        BomItem[]
+  bundleShipmentItems BundleShipmentItem[]
+  overseasOrderItems  OverseasOrderItem[] @relation("PVOverseasItems")
+  purchaseOrderItems  PurchaseOrderItem[] @relation("PVPurchaseItems")
+  inboundRequestItems InboundRequestItem[]
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  @@unique([productMasterId, variantSpecs])
+  @@index([productMasterId])
+  @@map("product_variants")
   @@schema("equipment")
 }
 
@@ -982,6 +1028,7 @@ model Supplier {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   contacts     SupplierContact[]
+  inventoryItems InventoryItem[]
 
   @@map("suppliers")
   @@schema("equipment")
@@ -1088,6 +1135,7 @@ model OverseasOrderItem {
   id               String                 @id @default(cuid())
   orderId          String                 @map("order_id")
   productMasterId  String?                @map("product_master_id")
+  variantId        String?                @map("variant_id")   // v1.6 신규
   name             String
   spec             String?
   quantity         Int
@@ -1102,10 +1150,12 @@ model OverseasOrderItem {
 
   order          OverseasOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productMaster  ProductMaster? @relation(fields: [productMasterId], references: [id])
+  variant        ProductVariant? @relation("PVOverseasItems", fields: [variantId], references: [id])
   inventoryItems InventoryItem[] @relation("OrderItemInventory")
   costExtras     CostExtra[]
 
   @@index([orderId])
+  @@index([variantId])
   @@map("overseas_order_items")
   @@schema("equipment")
 }
@@ -1135,11 +1185,12 @@ model InventoryItem {
   itemName              String?               @map("item_name")
   manufacturer          String?
   productMasterId       String?               @map("product_master_id")
+  variantId             String?               @map("variant_id")  // v1.6 신규
   serialNumber          String?               @map("serial_number")
   trackingMode          InventoryTrackingMode @default(INDIVIDUAL) @map("tracking_mode")
-  quantity              Int                   @default(1)
+  quantity              Int                   @default(1)         // = totalQuantity (위치별 합산)
   category              InventoryCategory     @default(PRODUCT)
-  currentLocation       String?               @map("current_location")
+  currentLocation       String?               @map("current_location")  // ⚠ deprecated v1.6 — InventoryItemLocation으로 분산. 마이그레이션 종료 후 제거
   currentStatus         InventoryStatus       @default(IN_STOCK) @map("current_status")
 
   unitPrice             Decimal?              @map("unit_price") @db.Decimal(12, 2)
@@ -1154,6 +1205,8 @@ model InventoryItem {
   sourceId              String?               @map("source_id")
   orderItemId           String?               @map("order_item_id")
   costSettlementId      String?               @map("cost_settlement_id")
+  supplierId            String?               @map("supplier_id")
+  inboundRequestId      String?               @map("inbound_request_id")  // v1.6 신규 (입고 큐 출처)
 
   notes                 String?
   createdBy             String                @map("created_by")
@@ -1161,7 +1214,12 @@ model InventoryItem {
   updatedAt             DateTime              @updatedAt @map("updated_at")
 
   productMaster         ProductMaster?        @relation(fields: [productMasterId], references: [id])
+  variant               ProductVariant?       @relation(fields: [variantId], references: [id])
   orderItem             OverseasOrderItem?    @relation("OrderItemInventory", fields: [orderItemId], references: [id])
+  supplierRef           Supplier?             @relation(fields: [supplierId], references: [id])
+  inboundRequest        InboundRequest?       @relation(fields: [inboundRequestId], references: [id])
+  locations             InventoryItemLocation[]
+  bundleShipmentItems   BundleShipmentItem[]
   transactions          InventoryTransaction[]
   costEvents            AssetCostEvent[]
   auditItems            InventoryAuditItem[]
@@ -1170,7 +1228,28 @@ model InventoryItem {
   @@index([currentLocation])
   @@index([currentStatus])
   @@index([sourceType, sourceId])
+  @@index([supplierId])
+  @@index([variantId])
+  @@index([inboundRequestId])
   @@map("inventory_items")
+  @@schema("equipment")
+}
+
+// v1.6 신규 (2026-05-13): 1 inventory = N location 분산
+model InventoryItemLocation {
+  id              String          @id @default(cuid())
+  inventoryItemId String          @map("inventory_item_id")
+  locationId      String          @map("location_id")
+  quantity        Int
+
+  inventoryItem   InventoryItem   @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  location        StorageLocation @relation(fields: [locationId], references: [id])
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  @@unique([inventoryItemId, locationId])
+  @@index([locationId])
+  @@map("inventory_item_locations")
   @@schema("equipment")
 }
 
@@ -1260,9 +1339,16 @@ model ExpenseFollowUp {
 
   arrivalDate           DateTime?             @map("arrival_date") @db.Date
   arrivalLocation       String?               @map("arrival_location")
+  arrivalNote           String?               @map("arrival_note")
   confirmedBy           String?               @map("confirmed_by")
 
   inventoryItemId       String?               @map("inventory_item_id")
+
+  // 결제(송금) 처리 — 입고와 독립. 송금 종류는 approvalDocument.referenceType로 판별
+  paymentCompletedAt    DateTime?             @map("payment_completed_at")
+  paymentAmount         Decimal?              @map("payment_amount") @db.Decimal(15, 2)
+  paymentNote           String?               @map("payment_note")
+  paymentBy             String?               @map("payment_by")
 
   notes                 String?
   createdAt             DateTime              @default(now()) @map("created_at")
@@ -1446,5 +1532,167 @@ model InventoryAuditItem {
 
   @@index([auditId])
   @@map("inventory_audit_items")
+  @@schema("equipment")
+}
+
+// ─────────────────────────────────────────────
+// v1.6 신규 (2026-05-13): InboundRequest 입고 대기 큐
+// ─────────────────────────────────────────────
+
+enum InboundRequestStatus {
+  PENDING
+  RECEIVED
+  CANCELED
+
+  @@schema("equipment")
+}
+
+enum InboundSourceType {
+  OVERSEAS_ORDER
+  PURCHASE_ORDER
+  EXPENSE_FOLLOWUP
+  EXPENSE_SETTLEMENT
+  MANUAL
+
+  @@schema("equipment")
+}
+
+enum CompletenessFlag {
+  AUTO_MATCHED      // 발주 경유 — Master/Variant/Supplier/단가 모두 자동
+  PARTIAL           // 일부 정보만
+  MANUAL_NEEDED     // 거의 빈 상태 (지출결의서 등)
+
+  @@schema("equipment")
+}
+
+model InboundRequest {
+  id              String   @id @default(cuid())
+  code            String   @unique                          // IR-YYMM-NNNN
+  status          InboundRequestStatus @default(PENDING)
+  sourceType      InboundSourceType @map("source_type")
+  sourceId        String?  @map("source_id")
+  sourceDocNumber String?  @map("source_doc_number")        // 표시용
+  requesterId     String   @map("requester_id")
+  requestedAt     DateTime @default(now()) @map("requested_at")
+  notes           String?
+  receivedAt      DateTime? @map("received_at")
+  receivedBy      String?  @map("received_by")
+
+  items           InboundRequestItem[]
+  inventoryItems  InventoryItem[]
+
+  @@index([status])
+  @@index([sourceType, sourceId])
+  @@map("inbound_requests")
+  @@schema("equipment")
+}
+
+model InboundRequestItem {
+  id                String   @id @default(cuid())
+  inboundRequestId  String   @map("inbound_request_id")
+  productMasterId   String?  @map("product_master_id")
+  variantId         String?  @map("variant_id")
+  itemNameRaw       String?  @map("item_name_raw")
+  description       String?
+  quantity          Int
+  unitPrice         Decimal? @map("unit_price") @db.Decimal(12, 2)
+  supplierId        String?  @map("supplier_id")
+  completenessFlag  CompletenessFlag @default(MANUAL_NEEDED) @map("completeness_flag")
+
+  inboundRequest    InboundRequest @relation(fields: [inboundRequestId], references: [id], onDelete: Cascade)
+  variant           ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([inboundRequestId])
+  @@map("inbound_request_items")
+  @@schema("equipment")
+}
+
+// ─────────────────────────────────────────────
+// v1.6 신규 (2026-05-13): Bundle BOM (1단계 Flat) + BundleShipment
+// ─────────────────────────────────────────────
+
+enum BomSlotType {
+  MAIN
+  OPTIONAL
+
+  @@schema("equipment")
+}
+
+model BomDefinition {
+  id              String   @id @default(cuid())
+  code            String   @unique                          // 예: "KHOA-OCEAN-V1"
+  name            String
+  referencePrice  Decimal? @map("reference_price") @db.Decimal(14, 0)   // 사용자 직접 입력
+  isActive        Boolean  @default(true) @map("is_active")
+
+  items           BomItem[]
+  bundleShipments BundleShipment[]
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("bom_definitions")
+  @@schema("equipment")
+}
+
+model BomItem {
+  id              String   @id @default(cuid())
+  bomDefinitionId String   @map("bom_definition_id")
+  productMasterId String   @map("product_master_id")
+  variantId       String?  @map("variant_id")
+  quantity        Int
+  slotType        BomSlotType @default(MAIN) @map("slot_type")
+  notes           String?
+
+  bomDefinition   BomDefinition  @relation(fields: [bomDefinitionId], references: [id], onDelete: Cascade)
+  productMaster   ProductMaster  @relation(fields: [productMasterId], references: [id])
+  variant         ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([bomDefinitionId])
+  @@map("bom_items")
+  @@schema("equipment")
+}
+
+model BundleShipment {
+  id              String   @id @default(cuid())
+  code            String   @unique                          // BD-YYYY-NNNN
+  bomDefinitionId String?  @map("bom_definition_id")
+  customerId      String   @map("customer_id")
+  projectId       String?  @map("project_id")
+  shippedAt       DateTime @map("shipped_at")
+  shipTo          String?  @map("ship_to")
+  warrantyUntil   DateTime? @map("warranty_until")          // 번들 단위 보증
+  totalPrice      Decimal? @map("total_price") @db.Decimal(14, 0)  // 사용자 입력
+  notes           String?
+
+  bomDefinition   BomDefinition? @relation(fields: [bomDefinitionId], references: [id])
+  customer        Customer       @relation(fields: [customerId], references: [id])
+  items           BundleShipmentItem[]
+  customerAssets  CustomerAsset[]
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([customerId])
+  @@map("bundle_shipments")
+  @@schema("equipment")
+}
+
+model BundleShipmentItem {
+  id                String   @id @default(cuid())
+  bundleShipmentId  String   @map("bundle_shipment_id")
+  productMasterId   String   @map("product_master_id")
+  variantId         String?  @map("variant_id")
+  quantity          Int
+  slotType          BomSlotType @map("slot_type")
+  inventoryItemId   String?  @map("inventory_item_id")
+  customerAssetId   String?  @map("customer_asset_id")
+
+  bundleShipment    BundleShipment   @relation(fields: [bundleShipmentId], references: [id], onDelete: Cascade)
+  productMaster     ProductMaster    @relation(fields: [productMasterId], references: [id])
+  variant           ProductVariant?  @relation(fields: [variantId], references: [id])
+  inventoryItem     InventoryItem?   @relation(fields: [inventoryItemId], references: [id])
+  customerAsset     CustomerAsset?   @relation(fields: [customerAssetId], references: [id])
+
+  @@index([bundleShipmentId])
+  @@map("bundle_shipment_items")
   @@schema("equipment")
 }

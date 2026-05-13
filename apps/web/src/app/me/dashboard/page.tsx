@@ -2,12 +2,11 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { meApi, myTasksApi, taskApi, projectApi, myProfileApi, dashboardApi, expenseApi } from "@/lib/api";
 import TaskDrawer from "@/components/TaskDrawer";
 import AttendanceView from "@/components/AttendanceView";
 import TransactionsPage from "@/app/expense/transactions/page";
-import ReceiptsPage from "@/app/expense/receipts/page";
 import SettlementsPage from "@/app/expense/settlements/page";
 import CategoriesPage from "@/app/expense/categories/page";
 import SourcesPage from "@/app/expense/sources/page";
@@ -1194,13 +1193,18 @@ function MyProjectsView() {
 
 // ─── Expense View ────────────────────────────────────────────────────────────
 
-interface ExpenseSummary { unmatched: number; pendingApproval: number; awaitingPayment: number }
+interface ExpenseSummary {
+  unclassified: number;
+  unsettled: number;
+  unapproved: number;
+  settled: number;
+  paid: number;
+}
 
-type ExpenseSubTab = "transactions" | "receipts" | "settlements" | "categories" | "sources";
+type ExpenseSubTab = "transactions" | "settlements" | "categories" | "sources";
 
 const EXPENSE_QUICK_ACTIONS: { key: ExpenseSubTab; label: string; icon: string }[] = [
   { key: "transactions", label: "정산내역관리", icon: "📋" },
-  { key: "receipts",     label: "영수증 업로드", icon: "🧾" },
   { key: "settlements",  label: "정산결재",      icon: "📦" },
   { key: "categories",   label: "카테고리",      icon: "🏷" },
   { key: "sources",      label: "카드 관리",     icon: "💳" },
@@ -1211,45 +1215,71 @@ function ExpenseView() {
   const [recentSettlements, setRecentSettlements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [subTab, setSubTab] = useState<ExpenseSubTab | null>(null);
+  const [txInitialStatus, setTxInitialStatus] = useState("");
 
-  useEffect(() => {
-    Promise.all([
-      expenseApi.meSummary().catch(() => ({ unmatched: 0, pendingApproval: 0, awaitingPayment: 0 })),
-      expenseApi.listSettlements({ limit: 5 }).catch(() => ({ items: [] as any[] })),
-    ]).then(([sum, sts]: [any, any]) => {
+  const openTxWithStatus = (status: string) => {
+    setTxInitialStatus(status);
+    setSubTab("transactions");
+  };
+
+  const refreshSummary = async () => {
+    try {
+      const sum = await expenseApi.meSummary();
+      setSummary(sum as ExpenseSummary);
+    } catch {
+      // 무시 — 기존 값 유지
+    }
+  };
+
+  const refreshAll = async () => {
+    try {
+      const [sum, sts]: [any, any] = await Promise.all([
+        expenseApi.meSummary().catch(() => ({ unclassified: 0, unsettled: 0, unapproved: 0, settled: 0, paid: 0 })),
+        expenseApi.listSettlements({ limit: 5 }).catch(() => ({ items: [] as any[] })),
+      ]);
       setSummary(sum as ExpenseSummary);
       setRecentSettlements(sts.items);
+    } finally {
       setLoading(false);
-    });
+    }
+  };
+
+  useEffect(() => {
+    refreshAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <div className="space-y-6">
-      {/* 요약 카드 3종 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <ExpenseSummaryCard label="미정산 거래" count={summary?.unmatched ?? 0} color="amber" href="/expense/transactions?status=PENDING" />
-        <ExpenseSummaryCard label="결재 진행 중" count={summary?.pendingApproval ?? 0} color="blue" href="/expense/settlements?status=SUBMITTED" />
-        <ExpenseSummaryCard label="입금 대기" count={summary?.awaitingPayment ?? 0} color="green" href="/expense/settlements?status=APPROVED" />
+      {/* 요약 카드 5종 — 거래 진행 단계별 카운트 */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <ExpenseSummaryCard label="미내역분류" count={summary?.unclassified ?? 0} color="red"   onClick={() => openTxWithStatus("PENDING")} />
+        <ExpenseSummaryCard label="미정산분류" count={summary?.unsettled ?? 0}   color="amber" onClick={() => openTxWithStatus("UNSETTLED")} />
+        <ExpenseSummaryCard label="미결재"     count={summary?.unapproved ?? 0}  color="blue"  onClick={() => openTxWithStatus("UNAPPROVED")} />
+        <ExpenseSummaryCard label="정산됨"     count={summary?.settled ?? 0}    color="teal"  onClick={() => openTxWithStatus("SETTLED")} />
+        <ExpenseSummaryCard label="입금완료"   count={summary?.paid ?? 0}       color="green" onClick={() => openTxWithStatus("PAID")} />
       </div>
 
-      {/* 빠른 작업 */}
-      <div className="bg-white border border-gray-200 rounded-lg p-5">
-        <h2 className="text-sm font-bold text-gray-700 mb-3">빠른 작업</h2>
-        <div className="flex flex-wrap gap-2">
-          {EXPENSE_QUICK_ACTIONS.map((a) => (
-            <button
-              key={a.key}
-              onClick={() => setSubTab(subTab === a.key ? null : a.key)}
-              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                subTab === a.key
-                  ? "bg-blue-600 text-white border border-blue-600"
-                  : "border border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              {a.icon} {a.label}
-            </button>
-          ))}
-        </div>
+      {/* 빠른 작업 sub-tab 버튼 그룹 (라벨 없이) */}
+      <div className="flex flex-wrap gap-2">
+        {EXPENSE_QUICK_ACTIONS.map((a) => (
+          <button
+            key={a.key}
+            onClick={() => setSubTab(subTab === a.key ? null : a.key)}
+            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+              subTab === a.key
+                ? "bg-blue-600 text-white border border-blue-600"
+                : "border border-gray-300 bg-white hover:bg-gray-50"
+            }`}
+          >
+            {a.icon} {a.label}
+          </button>
+        ))}
+        <a href="/manual-expense/index.html" target="_blank" rel="noopener noreferrer"
+          title="경비정산 사용자 매뉴얼 (새 탭)"
+          className="px-3 py-1.5 text-sm rounded-md border border-gray-300 bg-white hover:bg-gray-50">
+          📘 매뉴얼
+        </a>
       </div>
 
       {/* 최근 정산 — sub-tab 미선택 시만 표시 */}
@@ -1287,11 +1317,10 @@ function ExpenseView() {
         </div>
       )}
 
-      {/* 빠른 작업 sub-page 렌더 */}
+      {/* 빠른 작업 sub-page 렌더 (선택 시 하단에 추가 표시) */}
       {subTab && (
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          {subTab === "transactions"  && <TransactionsPage />}
-          {subTab === "receipts"      && <ReceiptsPage />}
+          {subTab === "transactions"  && <TransactionsPage initialStatus={txInitialStatus} onChange={refreshSummary} />}
           {subTab === "settlements"   && <SettlementsPage />}
           {subTab === "categories"    && <CategoriesPage />}
           {subTab === "sources"       && <SourcesPage />}
@@ -1301,17 +1330,19 @@ function ExpenseView() {
   );
 }
 
-function ExpenseSummaryCard({ label, count, color, href }: { label: string; count: number; color: "amber" | "blue" | "green"; href: string }) {
+function ExpenseSummaryCard({ label, count, color, onClick }: { label: string; count: number; color: "red" | "amber" | "blue" | "teal" | "green"; onClick: () => void }) {
   const colorMap = {
+    red:   "border-red-200 bg-red-50 text-red-700",
     amber: "border-amber-200 bg-amber-50 text-amber-700",
     blue:  "border-blue-200 bg-blue-50 text-blue-700",
+    teal:  "border-teal-200 bg-teal-50 text-teal-700",
     green: "border-green-200 bg-green-50 text-green-700",
   };
   return (
-    <Link href={href} className={`block border rounded-lg p-5 hover:shadow-md transition-shadow ${colorMap[color]}`}>
+    <button type="button" onClick={onClick} className={`w-full text-left border rounded-lg p-4 hover:shadow-md transition-shadow ${colorMap[color]}`}>
       <div className="text-xs font-medium opacity-80">{label}</div>
-      <div className="text-3xl font-bold mt-1 tabular-nums">{count}</div>
-    </Link>
+      <div className="text-2xl font-bold mt-1 tabular-nums">{count}</div>
+    </button>
   );
 }
 
@@ -1334,17 +1365,27 @@ type Tab = "kanban" | "week" | "tasks" | "projects" | "expense" | "attendance";
 
 const DASHBOARD_TAB_KEY = "erp_tab_dashboard";
 
+const VALID_TABS: Tab[] = ["kanban", "week", "tasks", "projects", "expense", "attendance"];
+
 export default function DashboardPage() {
   const { data, loading, error, load, updateProgress } = useKanban();
   const [modalCard, setModalCard] = useState<KanbanCard | null>(null);
   const [tab, setTab] = useState<Tab>("kanban");
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
 
   useEffect(() => {
+    // URL ?tab= 우선, 없으면 sessionStorage 마지막 탭
+    if (tabParam && VALID_TABS.includes(tabParam as Tab)) {
+      setTab(tabParam as Tab);
+      try { sessionStorage.setItem(DASHBOARD_TAB_KEY, tabParam); } catch {}
+      return;
+    }
     try {
       const saved = sessionStorage.getItem(DASHBOARD_TAB_KEY) as Tab;
       if (saved) setTab(saved);
     } catch {}
-  }, []);
+  }, [tabParam]);
 
   useEffect(() => { load(); }, []);
 

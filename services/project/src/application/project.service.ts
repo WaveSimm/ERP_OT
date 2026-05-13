@@ -1,5 +1,6 @@
 import { PrismaClient, Project, ProjectStatus } from "@prisma/client";
 import { AppError } from "@erp-ot/shared";
+import { resolveResourceNames } from "./shared/resource-name-resolver.js";
 import { ProjectListFilter } from "../domain/repositories/project.repository.js";
 import { ProjectCacheService } from "../infrastructure/cache/project.cache.js";
 import { ProjectGateway } from "../infrastructure/websocket/project.gateway.js";
@@ -440,17 +441,9 @@ export class ProjectService {
       }),
     ]);
 
-    // 자원 이름 조회
-    const resourceIds = [
-      ...new Set(
-        tasks.flatMap((t) => t.segments.flatMap((s) => s.assignments.map((a) => a.resourceId))),
-      ),
-    ];
-    const resources =
-      resourceIds.length > 0
-        ? await this.prisma.resource.findMany({ where: { id: { in: resourceIds } } })
-        : [];
-    const resourceMap = new Map(resources.map((r) => [r.id, r.name]));
+    // 자원 이름 조회 — Phase 5 polymorphic resolver
+    const resourceIds = tasks.flatMap((t) => t.segments.flatMap((s) => s.assignments.map((a) => a.resourceId)));
+    const resourceMap = await resolveResourceNames(this.prisma, resourceIds);
 
     // CPM 캐시에서 크리티컬 패스
     const cpmResult = await this.cache.getCpmResult<{ criticalPath: string[] }>(projectId);

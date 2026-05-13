@@ -457,27 +457,30 @@ export class DocumentService {
           }
           break;
         case "FINANCE_FORWARD":
-          // referenceType별 분기:
-          //   EXPENSE_SETTLEMENT  → expense-service 정산 sync (V2 신규)
-          //   기타 (기본)         → equipment-service expense follow-up (legacy 구매·재고)
-          if (doc.referenceType === "EXPENSE_SETTLEMENT" && doc.referenceId) {
-            const expenseUrl = process.env.EXPENSE_SERVICE_URL || "http://expense-service:3008";
-            await fetch(`${expenseUrl}/internal/settlements/from-approval`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "X-Internal-Token": token },
-              body: JSON.stringify({
-                approvalDocumentId: doc.id,
-                settlementId: doc.referenceId,
-                status: "APPROVED",
-              }),
-            });
-          } else {
-            await fetch(`${equipmentUrl}/internal/expenses/follow-up`, {
+          // 2026-05-12 결재 후속 통합: 모든 EXPENSE 결재완료 → equipment-service follow-up 생성
+          //   EXPENSE_SETTLEMENT (개인정산): expense-service settlement sync + equipment follow-up 둘 다
+          //   일반 지출결의서: equipment follow-up 만
+          // 사용자는 /procurement/expenses 한 곳에서 통합 처리
+          await Promise.allSettled([
+            // 1. 회계 지출 후속 모듈에 record 생성 (항상)
+            fetch(`${equipmentUrl}/internal/expenses/follow-up`, {
               method: "POST",
               headers: { "Content-Type": "application/json", "X-Internal-Token": token },
               body: JSON.stringify({ approvalDocumentId: doc.id }),
-            });
-          }
+            }),
+            // 2. EXPENSE_SETTLEMENT 인 경우: expense-service에 settlement APPROVED 동기화
+            doc.referenceType === "EXPENSE_SETTLEMENT" && doc.referenceId
+              ? fetch(`${process.env.EXPENSE_SERVICE_URL || "http://expense-service:3008"}/internal/settlements/from-approval`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "X-Internal-Token": token },
+                  body: JSON.stringify({
+                    approvalDocumentId: doc.id,
+                    settlementId: doc.referenceId,
+                    status: "APPROVED",
+                  }),
+                })
+              : Promise.resolve(),
+          ]);
           break;
         case "LEAVE_APPROVE":
           // v1.4+ 휴가: attendance pre-created record 없음 — doc.content에서 정보 추출 후 직접 생성

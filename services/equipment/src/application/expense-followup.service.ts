@@ -71,6 +71,7 @@ export class ExpenseFollowUpService {
   async confirmArrival(id: string, data: {
     arrivalDate: string;
     arrivalLocation?: string;
+    arrivalNote?: string;
     confirmedBy: string;
   }) {
     const followUp = await this.prisma.expenseFollowUp.findUnique({ where: { id } });
@@ -81,18 +82,28 @@ export class ExpenseFollowUpService {
         status: followUp.isInventoryTarget ? "ARRIVED" as const : "COMPLETED" as const,
         arrivalDate: new Date(data.arrivalDate),
         arrivalLocation: data.arrivalLocation ?? null,
+        arrivalNote: data.arrivalNote ?? null,
         confirmedBy: data.confirmedBy,
       };
 
       // 재고 대상이면 자동으로 재고 생성
       if (followUp.isInventoryTarget) {
-        const last = await tx.inventoryItem.findFirst({ orderBy: { createdAt: "desc" } });
+        // 2026-05-13: 재고번호 룰 INV-{YYMM}-{NNNN} 통일
+        const now = new Date();
+        const yy = String(now.getFullYear()).slice(-2);
+        const mm = String(now.getMonth() + 1).padStart(2, "0");
+        const prefix = `INV-${yy}${mm}-`;
+        const last = await tx.inventoryItem.findFirst({
+          where: { inventoryNo: { startsWith: prefix } },
+          orderBy: { inventoryNo: "desc" },
+          select: { inventoryNo: true },
+        });
         let seq = 1;
         if (last) {
-          const m = last.inventoryNo.match(/^E(\d+)/);
+          const m = last.inventoryNo.match(/^INV-\d{4}-(\d+)$/);
           if (m && m[1]) seq = parseInt(m[1], 10) + 1;
         }
-        const inventoryNo = `E${String(seq).padStart(5, "0")}`;
+        const inventoryNo = `${prefix}${String(seq).padStart(4, "0")}`;
 
         const invItem = await tx.inventoryItem.create({
           data: {
@@ -114,6 +125,97 @@ export class ExpenseFollowUpService {
 
       return tx.expenseFollowUp.update({ where: { id }, data: updateData });
     });
+  }
+
+  /** 송금 처리 — 입고와 독립적으로 체크 가능 */
+  async markPayment(id: string, data: {
+    paidAt: string;
+    paidAmount?: number;
+    paidNote?: string;
+    paidBy: string;
+  }) {
+    const followUp = await this.prisma.expenseFollowUp.findUnique({ where: { id } });
+    if (!followUp) throw new Error("후속처리를 찾을 수 없습니다.");
+
+    const updated = await this.prisma.expenseFollowUp.update({
+      where: { id },
+      data: {
+        paymentCompletedAt: new Date(data.paidAt),
+        paymentAmount: data.paidAmount ?? null,
+        paymentNote: data.paidNote ?? null,
+        paymentBy: data.paidBy,
+      },
+    });
+
+    // EXPENSE_SETTLEMENT 인 경우 expense-service settlement도 PAID로 동기화 (기안자에게 알림)
+    void this.syncSettlementPayment(followUp.approvalDocumentId, "MARK", {
+      paidAt: data.paidAt,
+      ...(data.paidAmount !== undefined && { paidAmount: data.paidAmount }),
+      ...(data.paidNote && { paidNote: data.paidNote }),
+      paidById: data.paidBy,
+    });
+
+    return updated;
+  }
+
+  /** 송금 처리 해제 */
+  async clearPayment(id: string) {
+    const followUp = await this.prisma.expenseFollowUp.findUnique({ where: { id } });
+    const updated = await this.prisma.expenseFollowUp.update({
+      where: { id },
+      data: {
+        paymentCompletedAt: null,
+        paymentAmount: null,
+        paymentNote: null,
+        paymentBy: null,
+      },
+    });
+
+    if (followUp) {
+      void this.syncSettlementPayment(followUp.approvalDocumentId, "CLEAR");
+    }
+    return updated;
+  }
+
+  /**
+   * EXPENSE_SETTLEMENT 결재인 경우 expense-service settlement 상태 동기화.
+   * 결재 문서의 referenceType을 approval-service에서 조회 후 분기.
+   */
+  private async syncSettlementPayment(
+    approvalDocumentId: string,
+    action: "MARK" | "CLEAR",
+    payload?: { paidAt?: string; paidAmount?: number; paidNote?: string; paidById?: string },
+  ): Promise<void> {
+    try {
+      const approvalUrl = process.env.APPROVAL_SERVICE_URL || "http://approval-service:3006";
+      const expenseUrl = process.env.EXPENSE_SERVICE_URL || "http://expense-service:3008";
+      const token = process.env.INTERNAL_API_TOKEN as string;
+
+      // 결재 문서 referenceType 조회
+      const docResp = await fetch(`${approvalUrl}/internal/documents/${approvalDocumentId}`, {
+        headers: { "X-Internal-Token": token },
+      });
+      if (!docResp.ok) return;
+      const doc = (await docResp.json()) as { referenceType?: string };
+      if (doc.referenceType !== "EXPENSE_SETTLEMENT") return;
+
+      // expense-service 동기화 호출
+      if (action === "MARK") {
+        await fetch(`${expenseUrl}/internal/settlements/from-payment`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Internal-Token": token },
+          body: JSON.stringify({ approvalDocumentId, ...payload }),
+        });
+      } else {
+        await fetch(`${expenseUrl}/internal/settlements/from-payment`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json", "X-Internal-Token": token },
+          body: JSON.stringify({ approvalDocumentId }),
+        });
+      }
+    } catch (err: any) {
+      console.error(`[expense-followup] settlement sync failed: ${err.message}`); // eslint-disable-line no-console
+    }
   }
 
   // ─── Private ─────────────────────────────────────────────────────────

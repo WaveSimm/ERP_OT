@@ -312,18 +312,12 @@ export const resourceGroupApi = {
     request<void>(`/resources/groups/${id}/members`, { method: "PUT", body: JSON.stringify({ resourceIds }) }),
 };
 
+// Phase 5 (2026-05-13): legacy Resource CRUD 폐기.
+// list/create/update는 noop stub. utilization/dashboard/heatmap은 polymorphic ID로 동작 (서버 잔존).
 export const resourceApi = {
-  // ⚠️ deprecated (자원-모델-분리 PDCA): list/create/update는 Phase 4까지 호환만 유지.
-  //    신규: equipmentResourceApi (비인력) + externalPersonApi (외부) + userApi (직원)
-  list: (params?: { type?: string; isActive?: boolean }) => {
-    const q = params ? new URLSearchParams(params as any).toString() : "";
-    return request<any[]>(`/resources${q ? `?${q}` : ""}`);
-  },
-  create: (data: { name: string; type?: string; dailyCapacityHours?: number; groupId?: string }) =>
-    request<any>("/resources", { method: "POST", body: JSON.stringify(data) }),
-  update: (id: string, data: any) =>
-    request<any>(`/resources/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-  // 통합 dashboard/utilization은 그대로 유지 (3그룹 통합 응답)
+  list: async (_params?: { type?: string; isActive?: boolean }) => [] as any[],
+  create: async (_data: any) => { throw new Error("legacy Resource는 폐기되었습니다."); },
+  update: async (_id: string, _data: any) => { throw new Error("legacy Resource는 폐기되었습니다."); },
   utilization: (id: string, startDate: string, endDate: string) =>
     request<any>(`/resources/${id}/utilization?startDate=${startDate}&endDate=${endDate}`),
   dashboard: (startDate: string, endDate: string) =>
@@ -1332,8 +1326,12 @@ export const expenseFollowupApi = {
   getById: (id: string) => request<any>(`/procurement/expenses/${id}`),
   decide: (id: string, data: { isInventoryTarget: boolean; note?: string; inventoryItems?: number[] }) =>
     request<any>(`/procurement/expenses/${id}/decide`, { method: "POST", body: JSON.stringify(data) }),
-  confirmArrival: (id: string, data: { arrivalDate: string; arrivalLocation?: string }) =>
+  confirmArrival: (id: string, data: { arrivalDate: string; arrivalLocation?: string; arrivalNote?: string }) =>
     request<any>(`/procurement/expenses/${id}/confirm-arrival`, { method: "POST", body: JSON.stringify(data) }),
+  markPayment: (id: string, data: { paidAt: string; paidAmount?: number; paidNote?: string }) =>
+    request<any>(`/procurement/expenses/${id}/payment`, { method: "POST", body: JSON.stringify(data) }),
+  clearPayment: (id: string) =>
+    request<any>(`/procurement/expenses/${id}/payment`, { method: "DELETE" }),
 };
 
 // ── Import Cost Settlement (수입원가정산) ────────────────────────────
@@ -1377,6 +1375,9 @@ export const inventoryApi = {
     request<any>("/inventory/items/from-receipt", { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, data: any) =>
     request<any>(`/inventory/items/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  // 운용 전 한정 — ADMIN만 (2026-05-13)
+  delete: (id: string) =>
+    request<void>(`/inventory/items/${id}`, { method: "DELETE" }),
 
   // 입출고 이력
   getTransactions: (itemId: string) => request<any[]>(`/inventory/transactions/item/${itemId}`),
@@ -1915,8 +1916,17 @@ export const expenseApi = {
     }),
   deleteSettlement: (id: string) =>
     request<void>(`/expense/settlements/${id}`, { method: "DELETE" }),
-  submitSettlement: (id: string) =>
-    request<any>(`/expense/settlements/${id}/submit`, { method: "POST", body: "{}" }),
+  submitSettlement: (id: string, payload?: {
+    projectName?: string | null;
+    body?: string | null;
+    approvers?: Array<{ stepOrder?: number; roleName?: string; approverId: string; approverName?: string }>;
+  }) =>
+    request<any>(`/expense/settlements/${id}/submit`, {
+      method: "POST",
+      body: JSON.stringify(payload ?? {}),
+    }),
+  updateSettlementTitle: (id: string, title: string) =>
+    request<any>(`/expense/settlements/${id}/title`, { method: "PATCH", body: JSON.stringify({ title }) }),
   cancelSettlement: (id: string) =>
     request<any>(`/expense/settlements/${id}/cancel`, { method: "POST", body: "{}" }),
   excelDownloadUrl: (id: string) => `${API_PREFIX}/expense/settlements/${id}/excel`,

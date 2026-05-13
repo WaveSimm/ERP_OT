@@ -452,16 +452,12 @@ export class TaskService {
   //   - legacy Resource: 기존 화면 호환 (Phase 4까지)
   //   - 나머지: 신규 분리 모델
   private async resolveResourceCategory(id: string): Promise<{
-    category: "LEGACY" | "PERSON" | "EXTERNAL" | "EQUIPMENT";
+    category: "PERSON" | "EXTERNAL" | "EQUIPMENT";
     name: string;
     polymorphic: { personUserId?: string; externalPersonId?: string; equipmentResourceId?: string };
   } | null> {
-    // 1. legacy Resource (호환)
-    const legacy = await this.prisma.resource.findUnique({ where: { id } });
-    if (legacy) {
-      return { category: "LEGACY", name: legacy.name, polymorphic: {} };
-    }
-    // 2. EquipmentResource
+    // Phase 5 (2026-05-13): legacy Resource 테이블 폐기. 3-카테고리 polymorphic만 사용
+    // 1. EquipmentResource
     const eq = await this.prisma.equipmentResource.findUnique({ where: { id } });
     if (eq) return { category: "EQUIPMENT", name: eq.name, polymorphic: { equipmentResourceId: id } };
     // 3. ExternalPerson

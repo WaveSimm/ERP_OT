@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { ProjectGateway } from "../infrastructure/websocket/project.gateway.js";
+import { resolveResourceNames } from "./shared/resource-name-resolver.js";
 
 interface DelayedTask {
   taskId: string;
@@ -129,22 +130,26 @@ export class RiskDetectionService {
       }
     }
 
-    // 임계값 초과 자원 필터링 (resourceId 조회)
+    // 임계값 초과 자원 필터링 — Phase 5 polymorphic resolver
+    const candidateIds = new Set<string>();
+    for (const [key, info] of allocationMap.entries()) {
+      if (info.total <= overloadThreshold) continue;
+      const [resourceId] = key.split("::");
+      if (resourceId) candidateIds.add(resourceId);
+    }
+    const nameMap = await resolveResourceNames(this.prisma, [...candidateIds]);
+
     const overloaded: (OverloadedResource & { ownerId: string })[] = [];
     for (const [key, info] of allocationMap.entries()) {
       if (info.total <= overloadThreshold) continue;
-
       const [resourceId] = key.split("::");
       if (!resourceId) continue;
-      const resource = await this.prisma.resource.findFirst({
-        where: { id: resourceId },
-        select: { id: true, name: true },
-      });
-      if (!resource) continue;
+      const name = nameMap.get(resourceId);
+      if (!name) continue;
 
       overloaded.push({
-        resourceId: resource.id,
-        resourceName: resource.name,
+        resourceId,
+        resourceName: name,
         projectId: info.projectId,
         projectName: info.projectName,
         totalAllocationPercent: info.total,

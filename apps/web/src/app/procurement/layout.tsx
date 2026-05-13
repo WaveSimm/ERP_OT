@@ -10,7 +10,7 @@ const TABS = [
   { key: "orders", label: "발주 관리", href: "/procurement" },
   { key: "products", label: "장비 마스터", href: "/procurement/products" },
   { key: "inventory", label: "재고 관리", href: "/procurement/inventory" },
-  { key: "expenses", label: "지출 후속", href: "/procurement/expenses" },
+  { key: "expenses", label: "재무 접수", href: "/procurement/expenses" },
   { key: "settlements", label: "수입원가정산", href: "/procurement/settlements" },
   { key: "audits", label: "재고실사", href: "/procurement/audits" },
   { key: "locations", label: "창고관리", href: "/procurement/locations" },

@@ -10,6 +10,7 @@ interface Props {
   receiptId: string;
   onClose: () => void;
   onChange: () => void | Promise<void>;
+  onSplit?: (createdIds: string[]) => void;
 }
 
 // YYYY-MM-DD 변환 (DateInput용)
@@ -74,7 +75,7 @@ function detectSourceFromOcr(ocrText: string, sources: any[]): string | null {
   return null;
 }
 
-export default function ReceiptDetailModal({ receiptId, onClose, onChange }: Props) {
+export default function ReceiptDetailModal({ receiptId, onClose, onChange, onSplit }: Props) {
   const [r, setR] = useState<any>(null);
   const [merch, setMerch] = useState("");
   const [amt, setAmt] = useState("");
@@ -118,11 +119,14 @@ export default function ReceiptDetailModal({ receiptId, onClose, onChange }: Pro
           expenseApi.listSources().catch(() => []),
         ]);
         const txs = (txData as any).items ?? [];
-        // 후보: 취소·제외 거래 아니고, 다른 영수증과 매칭(confirmed/candidate 모두) 없는 거래
+        // 후보: 취소·제외 거래 아니고, 다른 영수증과 확정 매칭(confirmed) 없는 거래.
+        // candidate 자동 후보는 무시 (사용자가 자유롭게 매칭 가능)
         const candidates = txs.filter((t: any) => {
           if (t.isCanceled) return false;
           if (t.status === "EXCLUDED") return false;
-          return !(t.matches ?? []).some((m: any) => m.receiptId !== receiptId);
+          return !(t.matches ?? []).some((m: any) =>
+            m.confirmedAt && m.receiptId !== receiptId,
+          );
         });
         setAvailableTxs(candidates);
         setSources(srcs as any[]);
@@ -461,11 +465,6 @@ export default function ReceiptDetailModal({ receiptId, onClose, onChange }: Pro
               ) : (
                 <section className="bg-blue-50 border border-blue-200 rounded p-3 space-y-2">
                   <h3 className="font-semibold text-sm text-blue-800">거래 매칭</h3>
-                  {candidateMatches.length > 0 && (
-                    <div className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-2 py-1">
-                      ⚡ 자동 매칭 후보 {candidateMatches.length}건 — 아래에서 선택해 확정하세요
-                    </div>
-                  )}
                   <select
                     value={selectedTxId}
                     onChange={(e) => setSelectedTxId(e.target.value)}
@@ -532,11 +531,16 @@ export default function ReceiptDetailModal({ receiptId, onClose, onChange }: Pro
         <ReceiptSplitModal
           receiptId={receiptId}
           onClose={() => setShowSplit(false)}
-          onSuccess={async (n) => {
+          onSuccess={async (createdIds) => {
             setShowSplit(false);
             await onChange();
-            onClose();
-            setTimeout(() => alert(`${n}개 영수증으로 분할되었습니다. (OCR 처리 중)`), 100);
+            if (onSplit && createdIds.length > 0) {
+              // 부모가 큐로 처리 (현재 모달 닫고 첫 분할 영수증 모달 오픈)
+              onSplit(createdIds);
+            } else {
+              onClose();
+              setTimeout(() => alert(`${createdIds.length}개 영수증으로 분할되었습니다. (OCR 처리 중)`), 100);
+            }
           }}
         />
       )}

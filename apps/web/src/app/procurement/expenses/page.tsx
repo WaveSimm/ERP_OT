@@ -30,6 +30,19 @@ export default function ExpensesPage() {
   const [checkedItems, setCheckedItems] = useState<number[]>([]);
   const [decisionNote, setDecisionNote] = useState("");
 
+  // 송금 처리 입력 상태
+  const [payDate, setPayDate] = useState("");
+  const [payAmount, setPayAmount] = useState("");
+  const [payNote, setPayNote] = useState("");
+
+  // 입고 처리 입력 상태
+  const [arrivalDate, setArrivalDate] = useState("");
+  const [arrivalLocation, setArrivalLocation] = useState("");
+  const [arrivalNote, setArrivalNote] = useState("");
+
+  // 영수증 미리보기 패널 (인라인 표시용)
+  const [previewReceipt, setPreviewReceipt] = useState<{ id: string; name?: string } | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -45,6 +58,28 @@ export default function ExpensesPage() {
     setSelectedItem(item);
     setCheckedItems([]);
     setDecisionNote("");
+    setPreviewReceipt(null);
+    // 송금 처리 — 기존 값 복원, 없으면 오늘 날짜+결재 금액 기본
+    if (item.paymentCompletedAt) {
+      setPayDate(new Date(item.paymentCompletedAt).toISOString().slice(0, 10));
+      setPayAmount(item.paymentAmount?.toString() ?? "");
+      setPayNote(item.paymentNote ?? "");
+    } else {
+      setPayDate(new Date().toISOString().slice(0, 10));
+      const ad = item.approvalDocument;
+      setPayAmount((ad?.itemsTotal ?? ad?.amount ?? "").toString());
+      setPayNote("");
+    }
+    // 입고 처리 — 기존 값 복원, 없으면 오늘+기본 위치
+    if (item.arrivalDate) {
+      setArrivalDate(new Date(item.arrivalDate).toISOString().slice(0, 10));
+      setArrivalLocation(item.arrivalLocation ?? "");
+      setArrivalNote(item.arrivalNote ?? "");
+    } else {
+      setArrivalDate(new Date().toISOString().slice(0, 10));
+      setArrivalLocation("본사 창고");
+      setArrivalNote("");
+    }
     // 기존 판정된 인덱스 복원
     if (item.notes) {
       try {
@@ -52,6 +87,49 @@ export default function ExpensesPage() {
         if (parsed.inventoryItemIndices) setCheckedItems(parsed.inventoryItemIndices);
       } catch {}
     }
+    // 첫 번째 영수증 자동 프리뷰
+    const items = getItemsData(item);
+    const firstWithReceipt = items.find((row: any) => row.receiptId);
+    if (firstWithReceipt) {
+      setPreviewReceipt({ id: firstWithReceipt.receiptId, name: firstWithReceipt.evidence });
+    }
+  };
+
+  // referenceType으로 송금 종류 판별
+  const getPaymentType = (item: any): { label: string; color: string } => {
+    const refType = item?.approvalDocument?.referenceType;
+    if (refType === "EXPENSE_SETTLEMENT") {
+      return { label: "개인경비 송금", color: "bg-purple-100 text-purple-700" };
+    }
+    return { label: "업체 송금", color: "bg-cyan-100 text-cyan-700" };
+  };
+
+  const handleMarkPayment = async () => {
+    if (!selectedItem) return;
+    if (!payDate) { alert("송금일을 입력하세요."); return; }
+    setActing(true);
+    try {
+      await expenseFollowupApi.markPayment(selectedItem.id, {
+        paidAt: payDate,
+        ...(payAmount && { paidAmount: Number(payAmount) }),
+        ...(payNote && { paidNote: payNote }),
+      });
+      load();
+      setSelectedItem(null);
+    } catch (e: any) { alert(e.message); }
+    finally { setActing(false); }
+  };
+
+  const handleClearPayment = async () => {
+    if (!selectedItem) return;
+    if (!confirm("송금 처리를 해제하시겠습니까?")) return;
+    setActing(true);
+    try {
+      await expenseFollowupApi.clearPayment(selectedItem.id);
+      load();
+      setSelectedItem(null);
+    } catch (e: any) { alert(e.message); }
+    finally { setActing(false); }
   };
 
   const getItemsData = (item: any): any[] => {
@@ -94,10 +172,16 @@ export default function ExpensesPage() {
     finally { setActing(false); }
   };
 
-  const handleConfirm = async (id: string) => {
+  const handleConfirm = async () => {
+    if (!selectedItem) return;
+    if (!arrivalDate) { alert("입고일을 입력하세요."); return; }
     setActing(true);
     try {
-      await expenseFollowupApi.confirmArrival(id, { arrivalDate: new Date().toISOString().slice(0, 10) });
+      await expenseFollowupApi.confirmArrival(selectedItem.id, {
+        arrivalDate,
+        ...(arrivalLocation && { arrivalLocation }),
+        ...(arrivalNote && { arrivalNote }),
+      });
       load();
       setSelectedItem(null);
     } catch (e: any) { alert(e.message); }
@@ -121,8 +205,8 @@ export default function ExpensesPage() {
         <div className="text-center py-12 text-gray-400">로딩 중...</div>
       ) : items.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
-          지출결의서 후속처리 건이 없습니다.
-          <p className="text-xs mt-2">결재 승인 후 자동으로 등록됩니다.</p>
+          재무 접수 건이 없습니다.
+          <p className="text-xs mt-2">지출결의서·개인정산 결재 승인 후 자동으로 등록됩니다.</p>
         </div>
       ) : (
         <div className="bg-white rounded-lg border overflow-hidden">
@@ -131,21 +215,27 @@ export default function ExpensesPage() {
               <tr>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">문서번호</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">제목</th>
+                <th className="px-4 py-3 text-center font-medium text-gray-600">종류</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">상신자</th>
                 <th className="px-4 py-3 text-right font-medium text-gray-600">총액</th>
                 <th className="px-4 py-3 text-center font-medium text-gray-600">접수일</th>
                 <th className="px-4 py-3 text-center font-medium text-gray-600">상태</th>
+                <th className="px-4 py-3 text-center font-medium text-gray-600">송금</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {items.map((item: any) => {
                 const ad = item.approvalDocument;
+                const payType = getPaymentType(item);
                 return (
                   <tr key={item.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => openDetail(item)}>
                     <td className="px-4 py-3 font-mono text-xs text-gray-500">
                       {ad?.documentNumber || ad?.document_number || "-"}
                     </td>
                     <td className="px-4 py-3 font-medium">{ad?.title || "-"}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`text-xs px-2 py-0.5 rounded ${payType.color}`}>{payType.label}</span>
+                    </td>
                     <td className="px-4 py-3 text-gray-600">{ad?.requesterName || ad?.requester_name || "-"}</td>
                     <td className="px-4 py-3 text-right">{fmtMoney(ad?.itemsTotal || ad?.items_total || ad?.amount)}</td>
                     <td className="px-4 py-3 text-center text-gray-500">
@@ -156,6 +246,11 @@ export default function ExpensesPage() {
                         {STATUS_LABELS[item.status]}
                       </span>
                     </td>
+                    <td className="px-4 py-3 text-center">
+                      {item.paymentCompletedAt
+                        ? <span className="text-xs text-emerald-600 font-medium">✓ {new Date(item.paymentCompletedAt).toLocaleDateString("ko-KR")}</span>
+                        : <span className="text-xs text-gray-400">미처리</span>}
+                    </td>
                   </tr>
                 );
               })}
@@ -164,12 +259,13 @@ export default function ExpensesPage() {
         </div>
       )}
 
-      {/* 상세/액션 모달 */}
+      {/* 상세/액션 모달 — 좌: 정보·액션, 우: 영수증 미리보기 */}
       {selectedItem && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setSelectedItem(null)}>
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            {/* 헤더 */}
-            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl mx-4 h-[90vh] flex" onClick={(e) => e.stopPropagation()}>
+            {/* 좌측 패널: 정보 + 액션 */}
+            <div className="flex-1 min-w-0 overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between z-10">
               <h3 className="text-lg font-bold">후속처리 상세</h3>
               <button onClick={() => setSelectedItem(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
             </div>
@@ -224,6 +320,7 @@ export default function ExpensesPage() {
                           <th className="px-3 py-2 text-center w-16">수량</th>
                           <th className="px-3 py-2 text-right w-24">단가</th>
                           <th className="px-3 py-2 text-right w-24">금액</th>
+                          <th className="px-3 py-2 text-center w-16">영수증</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">
@@ -240,6 +337,20 @@ export default function ExpensesPage() {
                             <td className="px-3 py-2 text-center">{row.quantity || 1}</td>
                             <td className="px-3 py-2 text-right">{fmtMoney(row.unitPrice)}</td>
                             <td className="px-3 py-2 text-right font-medium">{fmtMoney(row.subtotal || (Number(row.unitPrice || 0) * Number(row.quantity || 1)))}</td>
+                            <td className="px-3 py-2 text-center">
+                              {row.receiptId ? (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setPreviewReceipt({ id: row.receiptId, name: row.evidence }); }}
+                                  title={row.evidence || "영수증 보기"}
+                                  className={`hover:bg-blue-100 rounded px-1.5 ${previewReceipt?.id === row.receiptId ? "bg-blue-100" : ""}`}>
+                                  <span className="text-blue-600">📎</span>
+                                </button>
+                              ) : row.evidence ? (
+                                <span title={row.evidence} className="text-gray-400 text-xs">📄</span>
+                              ) : (
+                                <span className="text-gray-300 text-xs">-</span>
+                              )}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -303,12 +414,128 @@ export default function ExpensesPage() {
                 </div>
               )}
 
-              {/* 입고 확인 (INVENTORY_DECIDED 상태) */}
-              {selectedItem.status === "INVENTORY_DECIDED" && selectedItem.isInventoryTarget && (
-                <button disabled={acting} onClick={() => handleConfirm(selectedItem.id)}
-                  className="w-full px-3 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium disabled:opacity-50">
-                  입고 확인
-                </button>
+              {/* 입고 처리 (재고 대상 + INVENTORY_DECIDED/ARRIVED) */}
+              {selectedItem.isInventoryTarget && ["INVENTORY_DECIDED", "ARRIVED", "COMPLETED"].includes(selectedItem.status) && (
+                <div className="border-t pt-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <h4 className="text-sm font-semibold text-gray-700">입고 처리</h4>
+                    {selectedItem.arrivalDate && (
+                      <span className="text-xs text-emerald-600 ml-auto">✓ 입고 완료</span>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-gray-500">입고일</label>
+                        <input type="date" value={arrivalDate} onChange={(e) => setArrivalDate(e.target.value)}
+                          className="w-full border rounded px-2 py-1.5 text-sm mt-0.5" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500">입고 위치</label>
+                        <input type="text" value={arrivalLocation} onChange={(e) => setArrivalLocation(e.target.value)}
+                          placeholder="본사 창고"
+                          className="w-full border rounded px-2 py-1.5 text-sm mt-0.5" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500">입고 메모</label>
+                      <input type="text" value={arrivalNote} onChange={(e) => setArrivalNote(e.target.value)}
+                        placeholder="제품 상태, 부족 수량, 특이사항"
+                        className="w-full border rounded px-2 py-1.5 text-sm mt-0.5" />
+                    </div>
+                    <button disabled={acting || selectedItem.status === "COMPLETED"} onClick={handleConfirm}
+                      className="w-full px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-medium disabled:opacity-50">
+                      {selectedItem.arrivalDate ? "입고 정보 업데이트" : "입고 완료 처리"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* 송금 처리 — 입고와 독립, 항상 표시 */}
+              <div className="border-t pt-4 mt-2">
+                <div className="flex items-center gap-2 mb-3">
+                  <h4 className="text-sm font-semibold text-gray-700">송금 처리</h4>
+                  <span className={`text-xs px-2 py-0.5 rounded ${getPaymentType(selectedItem).color}`}>
+                    {getPaymentType(selectedItem).label}
+                  </span>
+                  {selectedItem.paymentCompletedAt && (
+                    <span className="text-xs text-emerald-600 ml-auto">✓ 송금 완료</span>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs text-gray-500">송금일</label>
+                      <input type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)}
+                        className="w-full border rounded px-2 py-1.5 text-sm mt-0.5" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500">송금 금액</label>
+                      <input type="number" value={payAmount} onChange={(e) => setPayAmount(e.target.value)}
+                        placeholder="결재 금액과 다를 시 입력"
+                        className="w-full border rounded px-2 py-1.5 text-sm mt-0.5 text-right" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">메모/사유</label>
+                    <input type="text" value={payNote} onChange={(e) => setPayNote(e.target.value)}
+                      placeholder="계좌·참조·특이사항"
+                      className="w-full border rounded px-2 py-1.5 text-sm mt-0.5" />
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <button disabled={acting} onClick={handleMarkPayment}
+                      className="flex-1 px-3 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium disabled:opacity-50">
+                      {selectedItem.paymentCompletedAt ? "송금 정보 업데이트" : "송금 완료 처리"}
+                    </button>
+                    {selectedItem.paymentCompletedAt && (
+                      <button disabled={acting} onClick={handleClearPayment}
+                        className="px-3 py-2 border border-red-300 text-red-600 rounded-lg text-sm disabled:opacity-50">
+                        해제
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+            </div>
+
+            {/* 우측 패널: 영수증 미리보기 */}
+            <div className="w-[480px] border-l bg-gray-50 flex flex-col">
+              <div className="px-4 py-3 border-b bg-white flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-gray-700">영수증</h4>
+                {previewReceipt && (
+                  <a href={`/api/v1/expense/receipts/${previewReceipt.id}/download`}
+                    target="_blank" rel="noopener"
+                    className="text-xs text-blue-600 hover:underline">새 창</a>
+                )}
+              </div>
+              {previewReceipt ? (
+                <div className="flex-1 overflow-hidden flex flex-col">
+                  {(previewReceipt.name || "").toLowerCase().endsWith(".pdf") ? (
+                    <iframe
+                      src={`/api/v1/expense/receipts/${previewReceipt.id}/download`}
+                      className="flex-1 w-full bg-white"
+                      title={previewReceipt.name || "receipt"}
+                    />
+                  ) : (
+                    <div className="flex-1 overflow-auto flex items-center justify-center bg-white p-2">
+                      <img
+                        src={`/api/v1/expense/receipts/${previewReceipt.id}/download`}
+                        alt={previewReceipt.name || "receipt"}
+                        className="max-w-full max-h-full object-contain"
+                      />
+                    </div>
+                  )}
+                  {previewReceipt.name && (
+                    <div className="px-3 py-2 text-xs text-gray-500 border-t bg-white truncate" title={previewReceipt.name}>
+                      📎 {previewReceipt.name}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
+                  지출 내역의 영수증 아이콘을 클릭하세요
+                </div>
               )}
             </div>
           </div>

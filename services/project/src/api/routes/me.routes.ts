@@ -8,7 +8,8 @@ export async function meRoutes(fastify: FastifyInstance) {
     const today = q.date ? new Date(q.date) : new Date();
     today.setHours(0, 0, 0, 0);
     const todayStr = today.toISOString().slice(0, 10);
-    const resource = await fastify.prisma.resource.findFirst({ where: { userId: req.userEmail } });
+    // 자원-모델-분리 Phase 4 (2026-05-13): legacy resource 조회 → auth_user id (req.userId) 직접 사용
+    const resource = { id: req.userId };
     if (!resource) return reply.send({ date: todayStr, columns: { UPCOMING: [], IN_PROGRESS: [], DUE_SOON: [], DONE: [] }, staleCount: 0, totalAssigned: 0 });
 
     const assignments = await fastify.prisma.segmentAssignment.findMany({
@@ -93,7 +94,8 @@ export async function meRoutes(fastify: FastifyInstance) {
     }).parse(req.body);
 
     // 권한 확인: 해당 세그먼트에 배정된 사용자인지
-    const resource = await fastify.prisma.resource.findFirst({ where: { userId: req.userEmail } });
+    // 자원-모델-분리 Phase 4 (2026-05-13): legacy resource 조회 → auth_user id (req.userId) 직접 사용
+    const resource = { id: req.userId };
     if (!resource) return reply.status(403).send({ code: "FORBIDDEN", message: "자원 정보가 없습니다." });
 
     const assignment = await fastify.prisma.segmentAssignment.findFirst({
@@ -122,7 +124,8 @@ export async function meRoutes(fastify: FastifyInstance) {
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6);
 
-    const resource = await fastify.prisma.resource.findFirst({ where: { userId: req.userEmail } });
+    // 자원-모델-분리 Phase 4 (2026-05-13): legacy resource 조회 → auth_user id (req.userId) 직접 사용
+    const resource = { id: req.userId };
     if (!resource) return reply.send({ weekStart: weekStart.toISOString().slice(0, 10), weekEnd: weekEnd.toISOString().slice(0, 10), days: [] });
 
     const assignments = await fastify.prisma.segmentAssignment.findMany({
@@ -194,7 +197,8 @@ export async function meRoutes(fastify: FastifyInstance) {
 
   // ─── GET /api/v1/me/projects ──────────────────────────────────────────────
   fastify.get("/projects", async (req, reply) => {
-    const resource = await fastify.prisma.resource.findFirst({ where: { userId: req.userEmail } });
+    // 자원-모델-분리 Phase 4 (2026-05-13): legacy resource 조회 → auth_user id (req.userId) 직접 사용
+    const resource = { id: req.userId };
     if (!resource) return reply.send([]);
 
     const assignments = await fastify.prisma.segmentAssignment.findMany({
@@ -249,7 +253,8 @@ export async function meRoutes(fastify: FastifyInstance) {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - staleDays);
 
-    const resource = await fastify.prisma.resource.findFirst({ where: { userId: req.userEmail } });
+    // 자원-모델-분리 Phase 4 (2026-05-13): legacy resource 조회 → auth_user id (req.userId) 직접 사용
+    const resource = { id: req.userId };
     if (!resource) return reply.send([]);
 
     const today = new Date();

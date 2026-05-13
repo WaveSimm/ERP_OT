@@ -3,11 +3,8 @@ import { FastifyInstance } from "fastify";
 export async function myTasksRoutes(fastify: FastifyInstance) {
   // GET /api/v1/tasks/mine
   fastify.get("/mine", async (req, reply) => {
-    const resource = await fastify.prisma.resource.findFirst({
-      where: { userId: req.userEmail },
-    });
-
-    if (!resource) return reply.send([]);
+    // 자원-모델-분리 Phase 4 (2026-05-13): legacy resource 조회 폐기 → auth_user id 직접 사용
+    const resource = { id: req.userId };
 
     const assignments = await fastify.prisma.segmentAssignment.findMany({
       where: { resourceId: resource.id },

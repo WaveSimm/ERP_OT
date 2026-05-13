@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import Redis from "ioredis";
 import { IssueDetectorService, DashboardIssue } from "./issue-detector.service.js";
 import { TimelineService, TimelineEvent } from "./timeline.service.js";
+import { resolveResourceNames } from "../shared/resource-name-resolver.js";
 
 const TTL = 300; // 5분
 
@@ -258,12 +259,8 @@ export class DashboardService {
         },
         orderBy: { startDate: "asc" },
       });
-      const resourceIds = [...new Set(segments.flatMap((s: any) => s.assignments.map((a: any) => a.resourceId)))];
-      const resources = await this.prisma.resource.findMany({
-        where: { id: { in: resourceIds } },
-        select: { id: true, name: true },
-      });
-      const resMap = new Map(resources.map((r) => [r.id, r.name]));
+      const resourceIds = segments.flatMap((s: any) => s.assignments.map((a: any) => a.resourceId));
+      const resMap = await resolveResourceNames(this.prisma, resourceIds);
       return segments.map((s: any) => ({
         segmentId: s.id,
         segmentName: s.name,
@@ -287,12 +284,8 @@ export class DashboardService {
         },
         orderBy: { endDate: "asc" },
       });
-      const resourceIds = [...new Set(segments.flatMap((s: any) => s.assignments.map((a: any) => a.resourceId)))];
-      const resources = await this.prisma.resource.findMany({
-        where: { id: { in: resourceIds } },
-        select: { id: true, name: true },
-      });
-      const resMap = new Map(resources.map((r) => [r.id, r.name]));
+      const resourceIds = segments.flatMap((s: any) => s.assignments.map((a: any) => a.resourceId));
+      const resMap = await resolveResourceNames(this.prisma, resourceIds);
       const milestones: any[] = await this.prisma.task.findMany({
         where: {
           isMilestone: true,

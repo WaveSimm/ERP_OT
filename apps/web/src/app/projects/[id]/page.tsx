@@ -721,7 +721,7 @@ export default function ProjectDetailPage() {
   // ── 자원 목록 ────────────────────────────────────────────────────────────────
   const [resources, setResources] = useState<any[]>([]);
   useEffect(() => {
-    resourceApi.list({ isActive: true }).then(setResources).catch(() => {});
+    listAssignableResources().then(setResources).catch(() => {});
   }, []);
 
   // ── 타임라인 표시 범위 ──────────────────────────────────────────────────────

@@ -498,7 +498,9 @@
       "PowerShell(docker cp \"E:\\\\claude\\\\ERP_OT\\\\services\\\\expense\\\\scripts\\\\backfill-receipt-attachments.mjs\" erp-ot-expense:/app/backfill.mjs)",
       "PowerShell(docker exec erp-ot-expense node /app/backfill.mjs 2>&1)",
       "Bash(grep -n \"getDocumentFiles\\\\|approvalApi\\\\\\\\.getDoc\" E:/claude/ERP_OT/apps/web/src/lib/api.ts)",
-      "Bash(awk '{print $1}')"
+      "Bash(awk '{print $1}')",
+      "Bash(grep -n \"inventoryNo\\\\s*=\\\\|inventory_no.*\\\\`E\\\\|next seq\\\\|generate.*Inventory\\\\|E\\\\\\\\\\\\\\\\\\\\${\" /e/claude/ERP_OT/services/equipment/src/application/inventory.service.ts)",
+      "Bash(grep -rn \"inventory_no\\\\|inventoryNo.*=.*\\\\`\\\\|generateInventoryNo\\\\|^E\\\\${\" /e/claude/ERP_OT/services/equipment/src/application --include=\"*.ts\")"
     ]
   }
 }

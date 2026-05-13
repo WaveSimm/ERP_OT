@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { TaskService } from "../../application/task.service.js";
 import { CpmService } from "../../application/cpm.service.js";
+import { resolveResourceNames } from "../../application/shared/resource-name-resolver.js";
 import { requireRole, requireManager, requireOperator, requireSelfOrManager } from "../middleware/auth.middleware.js";
 import { TaskStatus, DependencyType, AllocationMode } from "@prisma/client";
 
@@ -64,12 +65,8 @@ async function isTaskMember(fastify: FastifyInstance, taskId: string, req: Fasti
   });
   if (!task) return false;
   if (task.createdBy === req.userId) return true;
-  const ownResource = await fastify.prisma.resource.findFirst({
-    where: { userId: req.userEmail },
-    select: { id: true },
-  });
-  if (!ownResource) return false;
-  return task.segments.some(s => s.assignments.some(a => a.resourceId === ownResource.id));
+  // 자원-모델-분리 Phase 4: legacy resource 조회 → auth_user id (req.userId) 직접 사용
+  return task.segments.some(s => s.assignments.some(a => a.resourceId === req.userId));
 }
 
 export async function taskRoutes(fastify: FastifyInstance) {
@@ -228,17 +225,18 @@ export async function taskRoutes(fastify: FastifyInstance) {
     const assignments = await fastify.prisma.segmentAssignment.findMany({
       where: { segmentId },
     });
-    // Enrich with resource info
+    // Enrich with resource info — Phase 5 polymorphic resolver
     const resourceIds = assignments.map((a) => a.resourceId);
-    const resources = await fastify.prisma.resource.findMany({
-      where: { id: { in: resourceIds } },
+    const rMap = await resolveResourceNames(fastify.prisma, resourceIds);
+    const result = assignments.map((a) => {
+      // polymorphic FK 기반 타입 결정
+      const type = a.personUserId ? "PERSON" : a.externalPersonId ? "EXTERNAL" : a.equipmentResourceId ? "EQUIPMENT" : "PERSON";
+      return {
+        ...a,
+        resourceName: rMap.get(a.resourceId) ?? a.resourceId,
+        resourceType: type,
+      };
     });
-    const rMap = new Map(resources.map((r) => [r.id, r]));
-    const result = assignments.map((a) => ({
-      ...a,
-      resourceName: rMap.get(a.resourceId)?.name ?? a.resourceId,
-      resourceType: rMap.get(a.resourceId)?.type ?? "PERSON",
-    }));
     return reply.send(result);
   });
 

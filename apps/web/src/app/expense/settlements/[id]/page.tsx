@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { expenseApi } from "@/lib/api";
+import { expenseApi, projectApi, departmentApi, userManagementApi, approvalLineApi } from "@/lib/api";
 import { fmtDate, fmtDateTime24 } from "@/lib/datetime";
 import { SettlementStatusBadge } from "../../page";
 
@@ -17,6 +17,29 @@ export function SettlementDetail({ id, onBack }: { id: string; onBack?: () => vo
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [canceling, setCanceling] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
+  const [titleSaving, setTitleSaving] = useState(false);
+
+  // 결재 상신 시 함께 보낼 옵션 — 지출결의서 편집 단계 생략용
+  const [projectName, setProjectName] = useState("");
+  const [body, setBody] = useState("");
+  const [projects, setProjects] = useState<any[]>([]);
+  const [projectSearch, setProjectSearch] = useState("");
+  const [showProjectDropdown, setShowProjectDropdown] = useState(false);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [allMembers, setAllMembers] = useState<any[]>([]);
+  const [approvalLine, setApprovalLine] = useState<{ userId: string; userName: string; role: string }[]>([]);
+  const [selectedDeptId, setSelectedDeptId] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [selectedRole, setSelectedRole] = useState("APPROVER");
+
+  const filteredProjects = projectSearch
+    ? projects.filter((p: any) => (p.name || "").toLowerCase().includes(projectSearch.toLowerCase()))
+    : projects;
+  const filteredMembers = selectedDeptId
+    ? allMembers.filter((m: any) => m.departmentId === selectedDeptId)
+    : allMembers;
 
   const load = async () => {
     setLoading(true);
@@ -28,11 +51,65 @@ export function SettlementDetail({ id, onBack }: { id: string; onBack?: () => vo
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
 
+  // DRAFT/REJECTED 일 때만 결재 상신 입력용 데이터 로드
+  useEffect(() => {
+    if (!s) return;
+    if (!["DRAFT", "REJECTED"].includes(s.status)) return;
+    Promise.all([
+      projectApi.list().then((r: any) => r.items || r).catch(() => []),
+      departmentApi.list().catch(() => []),
+      userManagementApi.members(true).catch(() => []),
+    ]).then(([projs, depts, members]) => {
+      setProjects(Array.isArray(projs) ? projs : []);
+      setDepartments(Array.isArray(depts) ? depts : []);
+      setAllMembers(Array.isArray(members) ? members : []);
+    });
+  }, [s?.status]);
+
+  const addApprover = () => {
+    if (!selectedUserId) return;
+    const m = allMembers.find((x: any) => x.id === selectedUserId);
+    if (!m) return;
+    if (approvalLine.some((a) => a.userId === selectedUserId)) return;
+    setApprovalLine((prev) => [...prev, { userId: m.id, userName: m.name, role: selectedRole }]);
+    setSelectedUserId("");
+  };
+  const removeApprover = (idx: number) => setApprovalLine((p) => p.filter((_, i) => i !== idx));
+
+  const loadMyApprovalLine = async () => {
+    try {
+      const info = await approvalLineApi.getMe();
+      if (!info) return;
+      const line: { userId: string; userName: string; role: string }[] = [];
+      if (info.approverId && info.approverName) {
+        line.push({ userId: info.approverId, userName: info.approverName + (info.isDelegated ? " (위임)" : ""), role: "APPROVER" });
+      }
+      if (info.secondApproverId && info.secondApproverName) {
+        line.push({ userId: info.secondApproverId, userName: info.secondApproverName, role: "APPROVER" });
+      }
+      if (info.thirdApproverId && info.thirdApproverName) {
+        line.push({ userId: info.thirdApproverId, userName: info.thirdApproverName, role: "APPROVER" });
+      }
+      if (line.length > 0) setApprovalLine(line);
+    } catch { /* ignore */ }
+  };
+
   const submit = async () => {
     if (!confirm("결재를 상신하시겠습니까?\n상신 후에는 정산 내용을 수정할 수 없습니다.")) return;
     setSubmitting(true);
     try {
-      await expenseApi.submitSettlement(id);
+      await expenseApi.submitSettlement(id, {
+        projectName: projectName.trim() || null,
+        body: body.trim() || null,
+        approvers: approvalLine.length > 0
+          ? approvalLine.map((a, i) => ({
+              stepOrder: i + 1,
+              roleName: a.role === "AGREEER" ? "합의" : "결재",
+              approverId: a.userId,
+              approverName: a.userName,
+            }))
+          : undefined,
+      });
       await load();
     } catch (e: any) {
       alert(e.message);
@@ -70,10 +147,55 @@ export function SettlementDetail({ id, onBack }: { id: string; onBack?: () => vo
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex-1 min-w-0">
           <button onClick={() => onBack ? onBack() : router.push("/expense/settlements")} className="text-xs text-gray-500 hover:underline mb-1">← 목록</button>
-          <h1 className="text-2xl font-bold text-gray-900">{s.title}</h1>
+          {editingTitle ? (
+            <div className="flex items-center gap-2">
+              <input type="text" value={titleDraft} onChange={(e) => setTitleDraft(e.target.value)}
+                onKeyDown={async (e) => {
+                  if (e.key === "Enter" && titleDraft.trim()) {
+                    setTitleSaving(true);
+                    try {
+                      await expenseApi.updateSettlementTitle(id, titleDraft.trim());
+                      setEditingTitle(false);
+                      await load();
+                    } catch (err: any) {
+                      alert(err.message);
+                    } finally { setTitleSaving(false); }
+                  } else if (e.key === "Escape") {
+                    setEditingTitle(false);
+                  }
+                }}
+                autoFocus
+                className="text-2xl font-bold text-gray-900 border-b-2 border-blue-500 outline-none flex-1 min-w-0 bg-transparent"
+              />
+              <button onClick={async () => {
+                if (!titleDraft.trim()) return;
+                setTitleSaving(true);
+                try {
+                  await expenseApi.updateSettlementTitle(id, titleDraft.trim());
+                  setEditingTitle(false);
+                  await load();
+                } catch (err: any) { alert(err.message); }
+                finally { setTitleSaving(false); }
+              }} disabled={titleSaving || !titleDraft.trim()}
+                className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
+                {titleSaving ? "저장 중" : "저장"}
+              </button>
+              <button onClick={() => setEditingTitle(false)} className="px-2 py-1 text-xs border border-gray-300 rounded">취소</button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-gray-900">{s.title}</h1>
+              {["DRAFT", "REJECTED", "SUBMITTED"].includes(s.status) && (
+                <button onClick={() => { setTitleDraft(s.title); setEditingTitle(true); }}
+                  className="text-xs text-gray-400 hover:text-blue-600" title="제목 편집">
+                  ✏️
+                </button>
+              )}
+            </div>
+          )}
         </div>
         <SettlementStatusBadge status={s.status} />
       </div>
@@ -148,6 +270,101 @@ export function SettlementDetail({ id, onBack }: { id: string; onBack?: () => vo
           </tbody>
         </table>
       </div>
+
+      {/* 결재 상신 입력 (DRAFT/REJECTED 만) — 지출결의서 편집 단계 생략용 */}
+      {(isDraft || isRejected) && (
+        <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+          <h2 className="text-sm font-bold text-gray-700">결재 상신 정보</h2>
+          <p className="text-xs text-gray-500">아래 항목은 상신할 결재 문서에 함께 들어갑니다. 비워두면 기본값 사용.</p>
+
+          {/* 프로젝트 (옵션) */}
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">프로젝트 (옵션)</label>
+            <div className="relative">
+              <input
+                type="text"
+                value={projectName}
+                onChange={(e) => { setProjectName(e.target.value); setProjectSearch(e.target.value); setShowProjectDropdown(true); }}
+                onFocus={() => setShowProjectDropdown(true)}
+                onBlur={() => setTimeout(() => setShowProjectDropdown(false), 150)}
+                placeholder="프로젝트명 검색 또는 직접 입력"
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              />
+              {showProjectDropdown && filteredProjects.length > 0 && (
+                <ul className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg max-h-48 overflow-y-auto shadow-lg">
+                  {filteredProjects.slice(0, 20).map((p: any) => (
+                    <li key={p.id}
+                      onMouseDown={() => { setProjectName(p.name); setShowProjectDropdown(false); }}
+                      className="px-3 py-1.5 text-sm hover:bg-blue-50 cursor-pointer">
+                      {p.name}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+
+          {/* 본문 (옵션) */}
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">본문 (옵션)</label>
+            <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={3}
+              placeholder="결재 문서 본문 — 비워두면 기본값"
+              className="w-full border rounded-lg px-3 py-2 text-sm" />
+          </div>
+
+          {/* 결재선 */}
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <label className="text-xs text-gray-600">결재선 (비우면 부서 기본선 자동 적용)</label>
+              <button onClick={loadMyApprovalLine} className="text-xs text-blue-500 hover:underline">부서 기본선 불러오기</button>
+            </div>
+            {approvalLine.length > 0 && (
+              <div className="flex gap-2 flex-wrap mb-2">
+                {approvalLine.map((a, i) => (
+                  <div key={i} className="flex items-center gap-1 bg-blue-50 rounded-full px-3 py-1 text-sm">
+                    <span className="text-xs text-blue-500">{i + 1}차</span>
+                    <span>{a.userName}</span>
+                    <span className="text-xs text-gray-400">({a.role === "APPROVER" ? "결재" : "합의"})</span>
+                    <button onClick={() => removeApprover(i)} className="text-gray-400 hover:text-red-500 ml-1">✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2 items-end flex-wrap">
+              <div>
+                <label className="block text-xs text-gray-500 mb-0.5">부서</label>
+                <select value={selectedDeptId} onChange={(e) => { setSelectedDeptId(e.target.value); setSelectedUserId(""); }}
+                  className="border rounded px-2 py-1 text-sm w-36">
+                  <option value="">전체 부서</option>
+                  {departments.map((d: any) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-0.5">이름</label>
+                <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)}
+                  className="border rounded px-2 py-1 text-sm w-40">
+                  <option value="">선택하세요</option>
+                  {filteredMembers.map((m: any) => (
+                    <option key={m.id} value={m.id}>{m.name}{m.position ? ` (${m.position})` : ""}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-0.5">역할</label>
+                <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)}
+                  className="border rounded px-2 py-1 text-sm">
+                  <option value="APPROVER">결재</option>
+                  <option value="AGREEER">합의</option>
+                </select>
+              </div>
+              <button onClick={addApprover} disabled={!selectedUserId}
+                className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm disabled:opacity-40">추가</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 액션 */}
       <div className="flex flex-wrap gap-2">

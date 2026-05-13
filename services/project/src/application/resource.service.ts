@@ -1,4 +1,8 @@
-import { PrismaClient, Resource, ResourceGroup, ResourceType, AllocationMode } from "@prisma/client";
+import { PrismaClient, ResourceGroup, AllocationMode } from "@prisma/client";
+
+// Phase 5 (2026-05-13): legacy Resource·ResourceType 폐기로 stub 타입만 유지 (API 계약 호환용)
+type Resource = unknown;
+type ResourceType = "PERSON" | "EQUIPMENT" | "VEHICLE" | "FACILITY";
 import { AppError } from "@erp-ot/shared";
 import { ProjectCacheService } from "../infrastructure/cache/project.cache.js";
 
@@ -257,45 +261,21 @@ export class ResourceService {
   // ─── ⚠️ deprecated CRUD (Phase 4에서 제거) ─────────────────────────────────
   // 신규 화면은 /api/v1/equipment-resources, /api/v1/external-persons, /api/v1/users 사용
 
-  async listResources(filter?: { type?: ResourceType; isActive?: boolean }) {
-    const where: Record<string, unknown> = {};
-    if (filter?.type) where.type = filter.type;
-    if (filter?.isActive !== undefined) where.isActive = filter.isActive;
-    return this.prisma.resource.findMany({
-      where,
-      orderBy: [{ type: "asc" }, { name: "asc" }],
-    });
+  // Phase 5 (2026-05-13): legacy Resource CRUD 폐기 — 모두 410 Gone 응답
+  async listResources(_filter?: { type?: ResourceType; isActive?: boolean }): Promise<never> {
+    throw new AppError(410, "RESOURCE_LEGACY_REMOVED", "legacy Resource는 폐기되었습니다. /api/v1/users, /api/v1/external-persons, /api/v1/equipment-resources 를 사용하세요.");
   }
 
-  async getResource(id: string): Promise<Resource> {
-    const r = await this.prisma.resource.findUnique({ where: { id } });
-    if (!r) throw new AppError(404, "RESOURCE_NOT_FOUND", "자원을 찾을 수 없습니다.");
-    return r;
+  async getResource(_id: string): Promise<never> {
+    throw new AppError(410, "RESOURCE_LEGACY_REMOVED", "legacy Resource는 폐기되었습니다.");
   }
 
-  async createResource(dto: CreateResourceDto): Promise<Resource> {
-    return this.prisma.resource.create({
-      data: {
-        name: dto.name,
-        type: dto.type ?? "PERSON",
-        userId: dto.userId ?? null,
-        dailyCapacityHours: dto.dailyCapacityHours ?? 8.0,
-      },
-    });
+  async createResource(_dto: CreateResourceDto): Promise<never> {
+    throw new AppError(410, "RESOURCE_LEGACY_REMOVED", "legacy Resource는 폐기되었습니다.");
   }
 
-  async updateResource(id: string, dto: UpdateResourceDto): Promise<Resource> {
-    await this.getResource(id);
-    return this.prisma.resource.update({
-      where: { id },
-      data: {
-        ...(dto.name !== undefined && { name: dto.name }),
-        ...(dto.type !== undefined && { type: dto.type }),
-        ...(dto.userId !== undefined && { userId: dto.userId }),
-        ...(dto.dailyCapacityHours !== undefined && { dailyCapacityHours: dto.dailyCapacityHours }),
-        ...(dto.isActive !== undefined && { isActive: dto.isActive }),
-      },
-    });
+  async updateResource(_id: string, _dto: UpdateResourceDto): Promise<never> {
+    throw new AppError(410, "RESOURCE_LEGACY_REMOVED", "legacy Resource는 폐기되었습니다.");
   }
 
   // ─── #26 Utilization (자원-모델-분리: polymorphic) ─────────────────────────
@@ -327,19 +307,7 @@ export class ResourceService {
     const authResolved = await this.resolveAuthUser(id);
     if (authResolved) return { kind: "PERSON", id, name: authResolved.name, dailyCapacityHours: DEFAULT_CAPACITY_HOURS };
 
-    // 4. Legacy Resource (Phase 4까지 호환)
-    const legacy = await this.prisma.resource.findUnique({ where: { id } });
-    if (legacy) {
-      if (legacy.type === "PERSON") {
-        // userId(email)로 auth_user 찾아서 personUserId로 변환
-        const authId = legacy.userId ? await this.lookupAuthIdByEmail(legacy.userId) : null;
-        if (authId) {
-          return { kind: "PERSON", id: authId, name: legacy.name, dailyCapacityHours: legacy.dailyCapacityHours };
-        }
-      } else {
-        return { kind: "EQUIPMENT", id: legacy.id, name: legacy.name, dailyCapacityHours: legacy.dailyCapacityHours, type: legacy.type };
-      }
-    }
+    // Phase 5: legacy Resource fallback 제거
     return null;
   }
 

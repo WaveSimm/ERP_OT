@@ -59,7 +59,11 @@ export default function ReceiptsPage() {
         case "extractedMerchant": return r.extractedMerchant ?? "";
         case "extractedAmount": return r.extractedAmount != null ? Number(r.extractedAmount) : null;
         case "extractedDate": return r.extractedDate ? new Date(r.extractedDate) : null;
-        case "matches": return r.matches?.length ?? 0;
+        case "matches": {
+          const confirmed = (r.matches ?? []).filter((m: any) => m.confirmedAt).length;
+          // confirmed 우선 정렬 (가중치), candidate는 작은 값
+          return confirmed * 1000 + ((r.matches?.length ?? 0) - confirmed);
+        }
       }
     },
   });
@@ -241,11 +245,13 @@ export default function ReceiptsPage() {
                     {r.extractedDate ? fmtDateTime24(r.extractedDate, { short: true }) : <span className="text-gray-400">-</span>}
                   </td>
                   <td className="px-3 py-2 text-center text-xs">
-                    {r.matches?.length > 0 ? (
-                      <span className="text-emerald-600">📎 {r.matches.length}</span>
-                    ) : (
-                      <span className="text-gray-400">없음</span>
-                    )}
+                    {(() => {
+                      const confirmed = (r.matches ?? []).filter((m: any) => m.confirmedAt).length;
+                      const candidate = (r.matches ?? []).filter((m: any) => !m.confirmedAt).length;
+                      if (confirmed > 0) return <span className="text-emerald-600">📎 {confirmed}</span>;
+                      if (candidate > 0) return <span className="text-amber-600">⚡{candidate}</span>;
+                      return <span className="text-gray-400">없음</span>;
+                    })()}
                   </td>
                   <td className="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">{fmtDateTime24(r.uploadedAt, { short: true })}</td>
                 </tr>
@@ -260,6 +266,11 @@ export default function ReceiptsPage() {
           receiptId={detailId}
           onClose={handleModalClose}
           onChange={load}
+          onSplit={(createdIds) => {
+            // 분할된 영수증들을 큐 맨 앞에 삽입
+            setUploadQueue([...createdIds.slice(1), ...uploadQueue]);
+            setDetailId(createdIds[0]);
+          }}
         />
       )}
     </div>

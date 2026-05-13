@@ -73,10 +73,31 @@ export async function settlementRoutes(app: FastifyInstance, opts: { service: Se
     return reply.code(204).send();
   });
 
+  // 제목 수정
+  app.patch("/:id/title", async (req) => {
+    const { id } = req.params as { id: string };
+    const body = z.object({ title: z.string().min(1).max(200) }).parse(req.body);
+    return service.updateTitle(req.userId, id, body.title);
+  });
+
   // 결재 상신 — DRAFT → SUBMITTED + approval 자동 생성
+  // body 옵션: projectName, body(richBody), approvers[] — 지출결의서 편집 단계 생략용
   app.post("/:id/submit", async (req) => {
     const { id } = req.params as { id: string };
-    return service.submit(req.userId, id);
+    const body = (req.body ?? {}) as {
+      projectName?: string | null;
+      body?: string | null;
+      approvers?: Array<{ stepOrder?: number; roleName?: string; approverId: string; approverName?: string }>;
+    };
+    const options: {
+      projectName?: string | null;
+      body?: string | null;
+      approvers?: Array<{ stepOrder?: number; roleName?: string; approverId: string; approverName?: string }>;
+    } = {};
+    if (body.projectName !== undefined) options.projectName = body.projectName;
+    if (body.body !== undefined) options.body = body.body;
+    if (body.approvers !== undefined) options.approvers = body.approvers;
+    return service.submit(req.userId, id, options);
   });
 
   // 결재 상신 취소 — SUBMITTED → DRAFT + approval 문서 withdraw
@@ -165,5 +186,35 @@ export async function settlementInternalRoutes(app: FastifyInstance, opts: { ser
       ...(body.reason && { reason: body.reason }),
     });
     return updated;
+  });
+
+  // 재무 후속 모듈 송금 처리 → settlement PAID 동기화 (2026-05-12)
+  app.post("/settlements/from-payment", async (req, reply) => {
+    const body = req.body as {
+      approvalDocumentId: string;
+      paidAt?: string;
+      paidAmount?: number;
+      paidNote?: string;
+      paidById?: string;
+    };
+    if (!body.approvalDocumentId) {
+      return reply.code(400).send({ error: "approvalDocumentId required" });
+    }
+    const updated = await service.syncFromPayment(body.approvalDocumentId, {
+      ...(body.paidAt && { paidAt: body.paidAt }),
+      ...(body.paidAmount !== undefined && { paidAmount: body.paidAmount }),
+      ...(body.paidNote && { paidNote: body.paidNote }),
+      ...(body.paidById && { paidById: body.paidById }),
+    });
+    return updated;
+  });
+
+  // 송금 해제 동기화 (PAID → APPROVED)
+  app.delete("/settlements/from-payment", async (req, reply) => {
+    const body = req.body as { approvalDocumentId: string };
+    if (!body.approvalDocumentId) {
+      return reply.code(400).send({ error: "approvalDocumentId required" });
+    }
+    return service.clearPaymentSync(body.approvalDocumentId);
   });
 }

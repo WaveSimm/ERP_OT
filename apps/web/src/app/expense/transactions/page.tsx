@@ -7,8 +7,13 @@ import { useTableSort } from "@/lib/hooks/useTableSort";
 import { useBulkSelect } from "@/lib/hooks/useBulkSelect";
 import ReceiptDetailModal from "@/components/expense/ReceiptDetailModal";
 
+// 브라우저 로컬 시간대 기준 YYYY-MM-DD (한국 사용자 = KST). toISOString은 UTC라 사용 금지.
+function fmtLocalYmd(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 const STATUS_LABELS: Record<string, string> = {
-  PENDING: "미분류",
+  PENDING: "미내역분류",
   CATEGORIZED: "분류완료",
   EXCLUDED: "제외",
   CANCELED: "취소",
@@ -23,11 +28,17 @@ const STATUS_COLORS: Record<string, string> = {
   SETTLED: "bg-emerald-100 text-emerald-700",
 };
 
-export default function TransactionsPage() {
+export default function TransactionsPage({ initialStatus = "", onChange }: { initialStatus?: string; onChange?: () => void } = {}) {
   const [items, setItems] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
+
+  // 부모 컴포넌트(ExpenseView)가 카드 클릭으로 initialStatus를 바꾸면 동기화
+  useEffect(() => {
+    setStatusFilter(initialStatus);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialStatus]);
   const [importing, setImporting] = useState(false);
   const [showManual, setShowManual] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
@@ -43,6 +54,10 @@ export default function TransactionsPage() {
   const [bulkApplying, setBulkApplying] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [receiptModalId, setReceiptModalId] = useState<string | null>(null);
+  const [receiptQueue, setReceiptQueue] = useState<string[]>([]);
+  const receiptMultiInputRef = useRef<HTMLInputElement>(null);
+  const singleReceiptInputRef = useRef<HTMLInputElement>(null);
+  const [singleUploadTxId, setSingleUploadTxId] = useState<string | null>(null);
 
   // 가상 상태 client-side 필터 적용
   const filteredItems = items.filter((t: any) => {
@@ -53,6 +68,14 @@ export default function TransactionsPage() {
     if (statusFilter === "UNAPPROVED") {
       // 정산묶음에 들어갔지만 결재 상신 전 (settlement.status === DRAFT)
       return (t.settlementItems ?? []).some((si: any) => si.settlement?.status === "DRAFT");
+    }
+    if (statusFilter === "SETTLED") {
+      // 정산됨 = SETTLED (정산묶음 결재 진행 ~ 정산완료까지 모두 포함, 4단계 진행 표시용)
+      return t.status === "SETTLED";
+    }
+    if (statusFilter === "PAID") {
+      // 입금완료 = SETTLED + 정산묶음 PAID (subset of 정산됨)
+      return t.status === "SETTLED" && (t.settlementItems ?? []).some((si: any) => si.settlement?.status === "PAID");
     }
     return true;
   });
@@ -91,11 +114,13 @@ export default function TransactionsPage() {
   const load = async () => {
     setLoading(true);
     try {
-      // 가상 상태 (UNSETTLED/UNAPPROVED) → 백엔드는 CATEGORIZED로 호출
+      // 가상 상태 → 백엔드 status 매핑
       const apiStatus =
         statusFilter === "UNSETTLED" || statusFilter === "UNAPPROVED"
           ? "CATEGORIZED"
-          : statusFilter;
+          : statusFilter === "PAID"
+            ? "SETTLED"
+            : statusFilter;
       const [tx, srcs, cats, stls] = await Promise.all([
         expenseApi.listTransactions({ ...(apiStatus && { status: apiStatus }), limit: 200 }),
         expenseApi.listSources(),
@@ -129,6 +154,7 @@ export default function TransactionsPage() {
       setCategories(cats);
     } finally {
       setLoading(false);
+      onChange?.();
     }
   };
 
@@ -166,6 +192,88 @@ export default function TransactionsPage() {
     await load();
   };
 
+  // 다중 영수증 업로드 → 큐로 모달 순차 오픈
+  const handleReceiptMultiUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+    const uploaded: any[] = [];
+    let fail = 0;
+    for (const file of files) {
+      try {
+        const r = await expenseApi.uploadReceipt(file);
+        uploaded.push(r);
+      } catch (err: any) {
+        fail++;
+        console.error(err);
+      }
+    }
+    if (fail > 0) alert(`${fail}건 업로드 실패`);
+    if (uploaded.length > 0) {
+      const ids = uploaded.map((r) => r.id);
+      setReceiptQueue(ids.slice(1));
+      setReceiptModalId(ids[0]);
+    }
+    if (receiptMultiInputRef.current) receiptMultiInputRef.current.value = "";
+  };
+
+  // 영수증 모달 닫기 — 큐 다음 항목 자동 오픈
+  const handleReceiptModalClose = () => {
+    if (receiptQueue.length > 0) {
+      const next = receiptQueue[0];
+      setReceiptQueue(receiptQueue.slice(1));
+      setReceiptModalId(next);
+    } else {
+      setReceiptModalId(null);
+      load(); // 모달 닫힐 때 거래 목록 새로고침 (매칭/추가 반영)
+    }
+  };
+
+  // 거래 행에서 "— (영수증 없음)" 클릭 → 단일 파일 업로드 + 자동 매칭
+  const triggerSingleReceiptUpload = (txId: string) => {
+    setSingleUploadTxId(txId);
+    singleReceiptInputRef.current?.click();
+  };
+
+  const handleSingleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const txId = singleUploadTxId;
+    if (!file || !txId) {
+      if (singleReceiptInputRef.current) singleReceiptInputRef.current.value = "";
+      setSingleUploadTxId(null);
+      return;
+    }
+    const tx = items.find((t: any) => t.id === txId);
+    try {
+      const r = await expenseApi.uploadReceipt(file);
+      // 영수증의 추출 정보를 클릭한 거래 정보로 즉시 채움 (OCR 결과는 보존만 — 백엔드가 덮어쓰지 않음)
+      if (tx) {
+        try {
+          await expenseApi.updateReceipt(r.id, {
+            extractedMerchant: tx.merchantName ?? null,
+            extractedAmount: tx.amount != null ? Number(tx.amount) : null,
+            extractedDate: tx.transactedAt ?? null,
+          });
+        } catch (err: any) {
+          console.error("영수증 정보 동기화 실패:", err.message);
+        }
+      }
+      // 즉시 매칭
+      try {
+        const m = await expenseApi.createMatch(txId, r.id);
+        if (m?.id) await expenseApi.confirmMatch(m.id);
+      } catch (err: any) {
+        console.error("자동 매칭 실패:", err.message);
+      }
+      setReceiptModalId(r.id);
+      await load();
+    } catch (err: any) {
+      alert("영수증 업로드 실패: " + (err.message ?? err));
+    } finally {
+      if (singleReceiptInputRef.current) singleReceiptInputRef.current.value = "";
+      setSingleUploadTxId(null);
+    }
+  };
+
   /**
    * 거래의 정산분류 변경. settlementId가 "__new__"면 거래의 카테고리-detail로 새 정산 묶음 생성.
    * "__clear__"는 정산 해제.
@@ -175,7 +283,7 @@ export default function TransactionsPage() {
       if (settlementId === "__new__") {
         const cat = tx.category?.name ?? "";
         const detail = (tx.detail ?? "").trim();
-        const ymd = new Date(tx.transactedAt).toISOString().slice(0, 10);
+        const ymd = fmtLocalYmd(new Date(tx.transactedAt));
         const tail = (cat && detail) ? `${cat}-${detail}` : (cat || detail || tx.merchantName);
         const title = `${ymd} ${tail}`;
         const created = await expenseApi.createEmptySettlement({ title });
@@ -251,10 +359,10 @@ export default function TransactionsPage() {
         if (bulkSettlementId === "__new__") {
           // 새 정산 묶음 생성: 'YYYY-MM-DD 카테고리-상세내역' 조합을 중복 제거하여 '/'로 join
           const selectedTxs = sortedItems.filter((t) => sel.isSelected(t.id));
-          // 거래일 가장 빠른 거래의 날짜를 제목 앞에 붙임
-          const earliestDate = selectedTxs.length > 0
-            ? new Date(Math.min(...selectedTxs.map((t) => new Date(t.transactedAt).getTime()))).toISOString().slice(0, 10)
-            : new Date().toISOString().slice(0, 10);
+          // 거래일 가장 늦은(최근) 거래의 날짜를 제목 앞에 붙임 (브라우저 로컬 시간대 = KST)
+          const latestDate = selectedTxs.length > 0
+            ? fmtLocalYmd(new Date(Math.max(...selectedTxs.map((t) => new Date(t.transactedAt).getTime()))))
+            : fmtLocalYmd(new Date());
           let tail: string;
           if (bulkCategoryId || bulkDetail.trim()) {
             const cat = bulkCategoryId ? categories.find((c) => c.id === bulkCategoryId)?.name ?? "" : "";
@@ -273,7 +381,7 @@ export default function TransactionsPage() {
             ));
             tail = pairs.length > 0 ? pairs.join(" / ") : (selectedTxs[0]?.merchantName ?? "정산");
           }
-          const title = `${earliestDate} ${tail}`;
+          const title = `${latestDate} ${tail}`;
           const created = await expenseApi.createEmptySettlement({ title });
           targetSettlementId = created.id;
         } else if (bulkSettlementId === "__clear__") {
@@ -312,7 +420,7 @@ export default function TransactionsPage() {
         <span className="text-xs text-gray-500">상태:</span>
         {[
           { v: "", l: "전체" },
-          { v: "PENDING", l: "미분류" },
+          { v: "PENDING", l: "미내역분류" },
           { v: "UNSETTLED", l: "미정산분류" },
           { v: "UNAPPROVED", l: "미결재" },
           { v: "SETTLED", l: "정산됨" },
@@ -324,7 +432,7 @@ export default function TransactionsPage() {
           </button>
         ))}
         <span className="text-xs text-gray-500">
-          {statusFilter === "UNSETTLED" || statusFilter === "UNAPPROVED"
+          {["UNSETTLED", "UNAPPROVED", "SETTLED", "PAID"].includes(statusFilter)
             ? `${filteredItems.length}건`
             : `총 ${total}건`}
         </span>
@@ -339,6 +447,15 @@ export default function TransactionsPage() {
             className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">
             + 수동 입력
           </button>
+          <input ref={receiptMultiInputRef} type="file" multiple accept="image/*,.pdf"
+            onChange={handleReceiptMultiUpload} className="hidden" id="tx-receipt-multi" />
+          <label htmlFor="tx-receipt-multi"
+            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 cursor-pointer">
+            + 영수증 업로드
+          </label>
+          {/* 거래 행에서 트리거하는 단일 영수증 업로드용 hidden input */}
+          <input ref={singleReceiptInputRef} type="file" accept="image/*,.pdf"
+            onChange={handleSingleReceiptUpload} className="hidden" />
         </div>
       </div>
 
@@ -386,7 +503,22 @@ export default function TransactionsPage() {
         {sel.count > 0 && (
           <button onClick={sel.clear} className="text-xs text-gray-600 hover:text-gray-800">선택 해제</button>
         )}
-        <span className="ml-auto text-[11px] text-gray-500">💡 Shift+클릭으로 범위 선택</span>
+        {/* 정산 진행 단계 범례 — 정산됨/입금완료 view 한정 */}
+        {(statusFilter === "SETTLED" || statusFilter === "PAID") && (
+          <div className="ml-auto flex items-center gap-1.5 text-[11px] text-gray-500">
+            <span className="mr-1">진행 단계:</span>
+            <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-700">결재중</span>
+            <span className="text-gray-300">→</span>
+            <span className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">결재완료</span>
+            <span className="text-gray-300">→</span>
+            <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">정산완료</span>
+            <span className="ml-3 text-gray-400">|</span>
+            <span className="ml-1">💡 Shift+클릭으로 범위 선택</span>
+          </div>
+        )}
+        {statusFilter !== "SETTLED" && statusFilter !== "PAID" && (
+          <span className="ml-auto text-[11px] text-gray-500">💡 Shift+클릭으로 범위 선택</span>
+        )}
       </div>
 
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
@@ -476,13 +608,40 @@ export default function TransactionsPage() {
                             className="inline-block text-amber-600 hover:text-amber-700 text-xs">⚡{matches.length}</button>
                         );
                       }
-                      return <span className="text-xs text-gray-300">—</span>;
+                      return (
+                        <button onClick={(e) => { e.stopPropagation(); triggerSingleReceiptUpload(t.id); }}
+                          title="영수증 업로드 + 자동 매칭"
+                          className="text-xs text-gray-300 hover:text-blue-600 cursor-pointer">
+                          +
+                        </button>
+                      );
                     })()}
                   </td>
                   <td className="px-3 py-2 text-center">
-                    <span className={`px-2 py-0.5 text-xs rounded whitespace-nowrap ${STATUS_COLORS[t.status]}`}>
-                      {STATUS_LABELS[t.status]}
-                    </span>
+                    {(() => {
+                      // 정산됨/입금완료 필터일 때는 정산 진행 단계 표시 (3-stage: 결재중/결재완료/정산완료)
+                      // RECEIVED는 legacy(현재 워크플로우에선 미사용) — 결재완료로 표시
+                      if (statusFilter === "SETTLED" || statusFilter === "PAID") {
+                        const s = (t.settlementItems ?? [])[0]?.settlement;
+                        if (s) {
+                          const stage = s.status === "SUBMITTED" ? { label: "결재중", color: "bg-blue-100 text-blue-700" }
+                            : ["APPROVED", "RECEIVED"].includes(s.status) ? { label: "결재완료", color: "bg-indigo-100 text-indigo-700" }
+                            : s.status === "PAID" ? { label: "정산완료", color: "bg-emerald-100 text-emerald-700" }
+                            : s.status === "REJECTED" ? { label: "반려", color: "bg-red-100 text-red-700" }
+                            : { label: s.status, color: "bg-gray-100 text-gray-700" };
+                          return (
+                            <span className={`px-2 py-0.5 text-xs rounded whitespace-nowrap ${stage.color}`}>
+                              {stage.label}
+                            </span>
+                          );
+                        }
+                      }
+                      return (
+                        <span className={`px-2 py-0.5 text-xs rounded whitespace-nowrap ${STATUS_COLORS[t.status]}`}>
+                          {STATUS_LABELS[t.status]}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="px-3 py-2">
                     {(() => {
@@ -531,8 +690,13 @@ export default function TransactionsPage() {
       {receiptModalId && (
         <ReceiptDetailModal
           receiptId={receiptModalId}
-          onClose={() => setReceiptModalId(null)}
+          onClose={handleReceiptModalClose}
           onChange={load}
+          onSplit={(createdIds) => {
+            // 분할된 영수증들을 큐 맨 앞에 삽입 (현재 모달 자동으로 다음으로 전환)
+            setReceiptQueue([...createdIds.slice(1), ...receiptQueue]);
+            setReceiptModalId(createdIds[0]);
+          }}
         />
       )}
     </div>

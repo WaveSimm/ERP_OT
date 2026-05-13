@@ -127,15 +127,7 @@ export class ReceiptService {
       data: updateData,
     });
 
-    // 매칭 후보 재생성 (값 변경 시)
-    if (updated.ocrStatus === "DONE" && updated.extractedAmount && updated.extractedDate) {
-      try {
-        await this.suggestMatchesForReceipt(updated.id);
-      } catch (err: any) {
-        console.error(`[match-suggest] ${updated.id}:`, err.message);
-      }
-    }
-
+    // 자동 매칭 후보 생성 비활성 (2026-05-12) — 사용자가 모달에서 직접 매칭
     return updated;
   }
 
@@ -150,6 +142,12 @@ export class ReceiptService {
       throw new Error("이미지 파일만 분할 가능합니다 (PDF는 외부 도구 필요).");
     }
     if (regions.length === 0) throw new Error("최소 1개 영역이 필요합니다.");
+
+    // 원본의 confirmed 매칭 (있으면 첫 분할 영수증으로 이관)
+    const originalMatch = await this.prisma.transactionReceiptMatch.findFirst({
+      where: { receiptId: id, confirmedAt: { not: null } },
+      include: { transaction: true },
+    });
 
     const originalDiskPath = this.storage.resolveDiskPath(original.storageKey);
     const meta = await sharp(originalDiskPath).metadata();
@@ -173,6 +171,16 @@ export class ReceiptService {
       const newName = `${baseName}__${i + 1}${ext}`;
       const { storageKey: newKey } = await this.storage.save(croppedBuf, newName);
 
+      // 첫 분할 영수증 + 원본 매칭이 있으면 거래 정보로 extracted 채우기
+      const isFirst = i === 0;
+      const dataExtra: any = {};
+      if (isFirst && originalMatch?.transaction) {
+        const tx = originalMatch.transaction;
+        dataExtra.extractedMerchant = tx.merchantName ?? null;
+        dataExtra.extractedAmount = tx.amount as any;
+        dataExtra.extractedDate = tx.transactedAt ?? null;
+      }
+
       const newReceipt = await this.prisma.expenseReceipt.create({
         data: {
           userId,
@@ -182,6 +190,7 @@ export class ReceiptService {
           fileType: original.fileType,
           fileSize: croppedBuf.length,
           ocrStatus: "PENDING",
+          ...dataExtra,
         },
       });
       created.push({ id: newReceipt.id, ocrStatus: newReceipt.ocrStatus });
@@ -194,7 +203,25 @@ export class ReceiptService {
       });
     }
 
-    // 원본 삭제 (DB + 파일)
+    // 원본의 매칭을 첫 분할 영수증으로 이관 (원본 삭제 전에 매칭 새로 만들고 원본 삭제 시 cascade로 매칭 삭제됨)
+    if (originalMatch && created.length > 0) {
+      try {
+        await this.prisma.transactionReceiptMatch.create({
+          data: {
+            transactionId: originalMatch.transactionId,
+            receiptId: created[0]!.id,
+            source: "MANUAL",
+            confidence: originalMatch.confidence,
+            confirmedAt: new Date(),
+          },
+        });
+      } catch (err: any) {
+        console.error(`[split] 매칭 이관 실패: ${err.message}`);
+      }
+    }
+
+    // 원본 삭제 (DB + 파일) — 매칭은 onDelete: Cascade로 자동 정리
+    // 2026-05-13 정책: 원본 보존 안 함. 필요 시 사용자가 본인 폴더에서 재업로드.
     await this.prisma.expenseReceipt.delete({ where: { id: original.id } });
     await this.storage.remove(original.storageKey);
 
@@ -259,6 +286,12 @@ export class ReceiptService {
       const norm: NormalizedReceipt = normalizeReceiptOcr(raw);
       const engineUsed = "clova-ocr";
 
+      // 사용자가 미리 채워둔 값(예: + 단일 업로드 시 거래 정보로 즉시 update)이 있으면 보존
+      const current = await this.prisma.expenseReceipt.findUnique({
+        where: { id: receiptId },
+        select: { extractedAmount: true, extractedMerchant: true, extractedDate: true },
+      });
+
       await this.prisma.expenseReceipt.update({
         where: { id: receiptId },
         data: {
@@ -266,19 +299,14 @@ export class ReceiptService {
           ocrEngineUsed: preInfo ? `${engineUsed} [pre:${preInfo}]` : engineUsed,
           ocrRawJson: raw as any,
           ocrText: norm.fullText,
-          extractedAmount: norm.amount ?? null,
-          extractedMerchant: norm.merchantName ?? null,
-          extractedDate: norm.transactedAt ?? null,
+          extractedAmount: current?.extractedAmount ?? norm.amount ?? null,
+          extractedMerchant: current?.extractedMerchant ?? norm.merchantName ?? null,
+          extractedDate: current?.extractedDate ?? norm.transactedAt ?? null,
           ocrCompletedAt: new Date(),
         },
       });
 
-      // 자동 매칭 후보 생성
-      try {
-        await this.suggestMatchesForReceipt(receiptId);
-      } catch (err: any) {
-        console.error(`[match-suggest] ${receiptId}:`, err.message);
-      }
+      // 자동 매칭 후보 생성 비활성 (2026-05-12) — 사용자가 모달에서 직접 매칭
     } catch (err: any) {
       await this.prisma.expenseReceipt.update({
         where: { id: receiptId },

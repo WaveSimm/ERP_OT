@@ -141,10 +141,9 @@ export class TransactionService {
     return this.prisma.expenseTransaction.update({ where: { id }, data: updateData });
   }
 
-  // isManual=true 거래만 삭제 가능
+  // 자동/수동 구분 없이 모두 삭제 허용 (2026-05-12, pre-prod 단계)
   async deleteManual(userId: string, id: string) {
-    const tx = await this.get(userId, id);
-    if (!tx.isManual) throw new Error("자동 import 거래는 삭제할 수 없습니다 (status를 EXCLUDED로 변경하세요).");
+    await this.get(userId, id);
     return this.prisma.expenseTransaction.delete({ where: { id } });
   }
 }

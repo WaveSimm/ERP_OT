@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ko-KR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>경비정산 사용자 매뉴얼</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    /* 경비정산 플로우차트 스타일 — 수리 매뉴얼 패턴 재사용 */
+    .as-flowchart { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin: 20px 0; }
+    .as-flowchart-header h2 { margin-top: 0; }
+    .as-flow-grid { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+    .as-flow-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
+    .as-flow-node {
+      display: inline-flex; flex-direction: column; align-items: center;
+      min-width: 110px; padding: 10px 14px; border-radius: 10px;
+      text-decoration: none; color: #1f2937;
+      border: 2px solid #cbd5e1; background: #fff;
+      transition: all 0.15s;
+    }
+    .as-flow-node:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    .as-flow-node .step-num { font-size: 11px; font-weight: 600; opacity: 0.6; }
+    .as-flow-node .step-title { font-weight: 600; font-size: 14px; margin: 2px 0; }
+    .as-flow-node .step-status { font-size: 10px; color: #6b7280; font-family: monospace; }
+    .node-start { background: #fef3c7; border-color: #f59e0b; }
+    .node-receipt { background: #dbeafe; border-color: #3b82f6; }
+    .node-classify { background: #dcfce7; border-color: #22c55e; }
+    .node-settle { background: #fce7f3; border-color: #ec4899; }
+    .node-approve { background: #ede9fe; border-color: #8b5cf6; }
+    .node-finance { background: #ccfbf1; border-color: #14b8a6; }
+    .node-paid { background: #d1fae5; border-color: #10b981; }
+    .as-flow-arrow { font-size: 24px; color: #94a3b8; }
+    .as-flow-divider { text-align: center; color: #6b7280; font-size: 12px; padding: 4px 0; }
+    .as-flow-row-branch { padding-left: 20px; padding-right: 20px; }
+
+    /* 페이지별 안내 박스 */
+    .page-box { border-left: 4px solid #3b82f6; background: #eff6ff; padding: 12px 16px; margin: 12px 0; border-radius: 0 6px 6px 0; }
+    .page-box.warn { border-left-color: #f59e0b; background: #fffbeb; }
+    .page-box.info { border-left-color: #14b8a6; background: #f0fdfa; }
+
+    /* 상태 뱃지 */
+    .badge { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 11px; font-weight: 500; font-family: monospace; }
+    .badge-pending { background: #fef3c7; color: #92400e; }
+    .badge-categorized { background: #dbeafe; color: #1e40af; }
+    .badge-settled { background: #d1fae5; color: #065f46; }
+    .badge-excluded { background: #f3f4f6; color: #6b7280; }
+    .badge-draft { background: #f3f4f6; color: #4b5563; }
+    .badge-submitted { background: #dbeafe; color: #1e40af; }
+    .badge-approved { background: #e0e7ff; color: #3730a3; }
+    .badge-paid { background: #d1fae5; color: #047857; }
+    .badge-rejected { background: #fee2e2; color: #991b1b; }
+    .stage-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+    .stage-submitted { background: #dbeafe; color: #1e40af; }
+    .stage-approved { background: #e0e7ff; color: #3730a3; }
+    .stage-paid { background: #d1fae5; color: #065f46; }
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+  <h1 class="title">경비정산 사용자 매뉴얼</h1>
+</header>
+
+<h1 id="경비정산-사용자-매뉴얼">💳 경비정산 사용자 매뉴얼</h1>
+<ul>
+  <li><strong>버전</strong>: v1.3 (2026-05-13 — 결재 후속 통합 + 송금 sync + 3단계 진행 + 개인경비 범위 명확화)</li>
+  <li><strong>대상 사용자</strong>: 모든 직원 (본인 경비 정산)</li>
+</ul>
+<hr />
+
+<h2 id="목차">📑 목차</h2>
+<ol>
+  <li><a href="#1-개요">개요</a></li>
+  <li><a href="#2-메뉴-구조">메뉴 구조</a></li>
+  <li><a href="#3-업무-전체-흐름">업무 전체 흐름</a></li>
+  <li><a href="#4-거래-등록">거래 등록 (카드 명세서/수동)</a></li>
+  <li><a href="#5-영수증-처리">영수증 업로드 + 매칭 + 분할</a></li>
+  <li><a href="#6-정산내역관리">정산내역관리 (카테고리·정산분류)</a></li>
+  <li><a href="#7-정산결재">정산결재 (결재 상신)</a></li>
+  <li><a href="#8-재무-처리">재무 처리 (재무 접수·송금)</a></li>
+  <li><a href="#9-상태-필터">상태 필터·진행 단계</a></li>
+  <li><a href="#10-faq">자주 묻는 사용법</a></li>
+</ol>
+<hr />
+
+<!-- 🗺️ 인터랙티브 업무 플로우 -->
+<div class="as-flowchart">
+  <div class="as-flowchart-header">
+    <h2 id="한눈에-보기">🗺️ 한눈에 보기 — 경비정산 업무 플로우</h2>
+    <p>아래 단계 박스를 <strong>클릭</strong>하면 해당 매뉴얼 섹션으로 이동합니다.</p>
+  </div>
+
+  <div class="as-flow-grid">
+    <div class="as-flow-row">
+      <a href="#4-거래-등록" class="as-flow-node node-start" title="카드 명세서 import 또는 수동 입력">
+        <span class="step-num">①</span><span class="step-title">거래 등록</span><span class="step-status">PENDING</span>
+      </a>
+      <span class="as-flow-arrow">→</span>
+      <a href="#6-정산내역관리" class="as-flow-node node-classify" title="카테고리·상세내역·메모">
+        <span class="step-num">②</span><span class="step-title">분류</span><span class="step-status">CATEGORIZED</span>
+      </a>
+      <span class="as-flow-arrow">→</span>
+      <a href="#5-영수증-처리" class="as-flow-node node-receipt" title="영수증 업로드 + 거래 매칭">
+        <span class="step-num">③</span><span class="step-title">영수증 매칭</span><span class="step-status">📎 confirmed</span>
+      </a>
+      <span class="as-flow-arrow">→</span>
+      <a href="#6-정산내역관리" class="as-flow-node node-settle" title="정산묶음 할당">
+        <span class="step-num">④</span><span class="step-title">정산묶음</span><span class="step-status">미결재</span>
+      </a>
+    </div>
+
+    <div class="as-flow-divider">↓</div>
+
+    <div class="as-flow-row">
+      <a href="#7-정산결재" class="as-flow-node node-approve" title="결재 상신 (지출결의서 양식)">
+        <span class="step-num">⑤</span><span class="step-title">결재 상신</span><span class="step-status">결재중</span>
+      </a>
+      <span class="as-flow-arrow">→</span>
+      <a href="#7-정산결재" class="as-flow-node node-approve" title="결재 완료">
+        <span class="step-num">⑥</span><span class="step-title">결재 완료</span><span class="step-status">결재완료</span>
+      </a>
+      <span class="as-flow-arrow">→</span>
+      <a href="#8-재무-처리" class="as-flow-node node-finance" title="재무팀 — 재무 접수 + 송금 처리">
+        <span class="step-num">⑦</span><span class="step-title">재무 송금</span><span class="step-status">재무팀</span>
+      </a>
+      <span class="as-flow-arrow">→</span>
+      <a href="#9-상태-필터" class="as-flow-node node-paid">
+        <span class="step-num">⑧</span><span class="step-title">💰 입금완료</span><span class="step-status">정산완료</span>
+      </a>
+    </div>
+  </div>
+</div>
+
+<hr />
+
+<h2 id="1-개요">1. 개요</h2>
+<p>경비정산은 직원이 회사 일로 사용한 비용 중 <strong>개인카드·현금</strong>으로 결제한 금액을 환급받는 워크플로우입니다.</p>
+<div class="page-box warn">
+  ⚠ <strong>법인카드는 경비정산 대상이 아닙니다.</strong> 법인카드는 회사가 직접 결제하므로 환급(송금)이 필요 없습니다.<br />
+  법인카드 사용분은 <strong>전자결재 → 새 결재 → 지출결의서</strong> 양식으로 직접 작성하세요.<br />
+  경비정산 시스템은 <strong>개인 비용(개인카드·현금)을 회사가 환급</strong>하기 위한 도구입니다.
+</div>
+<ul>
+  <li><strong>입력</strong>: 개인카드 명세서 파일(Excel/HTML) import, 수동 거래 입력(현금 결제), 영수증 사진 업로드</li>
+  <li><strong>분류</strong>: 카테고리(식대·교통비·접대비 등) 및 상세 내역 입력</li>
+  <li><strong>매칭</strong>: 영수증과 거래를 묶어 증빙 확보 (수동 매칭)</li>
+  <li><strong>정산</strong>: 거래를 정산묶음으로 모아서 결재 상신</li>
+  <li><strong>결재</strong>: <strong>지출결의서</strong> 양식 사용, 결제수단 <strong>"개인정산"</strong>으로 표시</li>
+  <li><strong>재무 처리</strong>: 결재 완료 후 자동으로 <strong>회계 &gt; 재무 접수</strong> 모듈로 이관 → 재무팀이 본인 계좌로 송금 → 정산완료</li>
+</ul>
+<hr />
+
+<h2 id="2-메뉴-구조">2. 메뉴 구조</h2>
+<p>경비정산은 <strong>내 대시보드 &gt; 경비</strong> 탭에서 모든 기능 사용 가능합니다.</p>
+<div class="page-box">
+  <strong>접근 경로</strong><br />
+  내 대시보드 → 상단 탭 <strong>"경비"</strong> 클릭<br />
+  → 요약 카드 5개 (미내역분류 / 미정산분류 / 미결재 / 정산됨 / 입금완료)<br />
+  → 빠른 작업 버튼: 정산내역관리, 정산결재, 카테고리, 카드 관리, 매뉴얼<br />
+  → 최근 정산 (아무 빠른 작업도 선택 안 했을 때만 표시)<br />
+</div>
+
+<table>
+<thead><tr><th>빠른 작업</th><th>역할</th></tr></thead>
+<tbody>
+<tr><td>📋 정산내역관리</td><td>거래 목록 — 카테고리 분류, 상세내역, 정산분류 할당, 영수증 업로드·매칭·분할 모두 여기서 처리</td></tr>
+<tr><td>📦 정산결재</td><td>정산묶음 목록 + 상세 + 결재 상신·취소</td></tr>
+<tr><td>🏷 카테고리</td><td>표준 카테고리 + 개인 카테고리 관리</td></tr>
+<tr><td>💳 카드 관리</td><td>본인 <strong>개인카드</strong> 등록 (명세서 import 시 사용. 법인카드 X)</td></tr>
+<tr><td>📘 매뉴얼</td><td>이 문서 (새 탭)</td></tr>
+</tbody>
+</table>
+<div class="page-box info">
+  ℹ <strong>영수증 관련 모든 작업은 정산내역관리 페이지 안에서 처리</strong>됩니다 (별도 페이지 없음).
+</div>
+<hr />
+
+<h2 id="3-업무-전체-흐름">3. 업무 전체 흐름</h2>
+<ol>
+  <li><strong>거래 등록</strong>: 카드 명세서 파일을 import하거나 현금 거래를 수동 입력</li>
+  <li><strong>카테고리·상세내역 입력</strong>: 거래마다 카테고리·상세내역 분류</li>
+  <li><strong>영수증 업로드 + 매칭</strong>: 정산내역관리 상단 <strong>"+ 영수증 업로드"</strong>로 다중 업로드 또는 거래 행의 <strong>+</strong> 버튼으로 단일 업로드. 모달에서 거래에 직접 매칭</li>
+  <li><strong>정산분류 할당</strong>: 같은 정산 묶음에 포함될 거래들을 정산분류 셀렉트로 묶음 (혹은 "+ 새 정산"으로 새 묶음 생성)</li>
+  <li><strong>결재 상신</strong>: 정산결재에서 정산묶음 선택 → 프로젝트(옵션)·본문(옵션)·결재선 입력 → "결재 상신"</li>
+  <li><strong>결재 진행</strong>: 결재중 → 결재완료 (결재자 승인 시)</li>
+  <li><strong>재무 처리</strong>: 회계 &gt; 재무 접수 자동 등록 → 재무팀 송금 처리 → 정산완료(입금)</li>
+</ol>
+<hr />
+
+<h2 id="4-거래-등록">4. 거래 등록</h2>
+<h3>4-1. 개인카드 명세서 import (자동)</h3>
+<div class="page-box">
+  📋 <strong>정산내역관리</strong> → 우측 상단 <strong>"📥 카드 명세서 import"</strong>
+</div>
+<ol>
+  <li>카드사 사이트에서 <strong>개인카드</strong> 명세서 Excel(.xls/.xlsx) 또는 HTML 파일 다운로드</li>
+  <li>파일 선택 → 자동 파싱(신한카드/국민카드/현대카드 등) → 거래들이 <span class="badge badge-pending">미내역분류</span> 상태로 추가</li>
+  <li>같은 거래가 중복 등록되지 않도록 승인번호 기준 자동 skip</li>
+</ol>
+<p><strong>지원 카드사</strong>: 신한카드, 국민카드, 현대카드 (다른 카드사는 수동 입력 또는 영수증 업로드 사용)</p>
+<div class="page-box warn">
+  ⚠ 법인카드 명세서는 올리지 마세요. 법인카드 사용분이 섞이면 회사가 이미 결제한 금액을 다시 환급하는 오류가 발생합니다.<br />
+  법인카드는 <strong>전자결재 → 새 결재 → 지출결의서</strong> 양식으로 별도 처리하세요.<br />
+  명세서에 사적·법인카드 거래가 섞여 들어왔다면 해당 거래는 "제외" 상태로 변경하세요.
+</div>
+
+<h3>4-2. 수동 입력 (현금)</h3>
+<div class="page-box">
+  📋 <strong>정산내역관리</strong> → 우측 상단 <strong>"+ 수동 입력"</strong>
+</div>
+<p>거래일·가맹점·금액·결제수단을 직접 입력해 거래 생성. 명세서에 없는 <strong>현금 결제</strong>, 외부 결제 등에 사용. 결제수단 드롭다운에서 "현금" 선택.</p>
+
+<h3>4-3. 영수증 모달에서 자동 생성</h3>
+<p>영수증 업로드 시 모달에서 <strong>"➕ 내역 추가"</strong> 클릭하면 영수증 정보(가맹점/금액/날짜)로 거래 자동 생성 + 매칭. 카드 명세서에 없는 영수증을 빠르게 정리 가능.</p>
+<hr />
+
+<h2 id="5-영수증-처리">5. 영수증 업로드 + 매칭 + 분할</h2>
+
+<h3>5-1. 업로드 방법 2가지</h3>
+<div class="page-box">
+  <strong>다중 업로드</strong>: 📋 정산내역관리 → 우측 상단 <strong>"+ 영수증 업로드"</strong> → 파일 다중 선택 → 모달이 순차 큐로 열림<br />
+  <strong>단일 업로드</strong>: 거래 행의 영수증 컬럼 <strong>+</strong> 버튼 → 해당 거래에 바로 매칭됨
+</div>
+<ol>
+  <li>이미지(JPG/PNG/WebP) 또는 PDF 업로드</li>
+  <li>OCR 자동 시작 (CLOVA OCR) — 보통 1~3초</li>
+  <li>OCR 완료 후 가맹점·금액·날짜 자동 추출</li>
+  <li>다중 업로드 시 영수증 모달이 자동 큐로 순차 열림</li>
+</ol>
+
+<h3>5-2. 영수증 모달에서 매칭 (수동)</h3>
+<p>모달 좌측: 영수증 이미지(줌 가능). 우측: 추출 정보 + 거래 매칭.</p>
+<ul>
+  <li><strong>추출 정보 수정</strong>: OCR 잘못 인식한 경우 직접 수정</li>
+  <li><strong>결제수단 자동 추정</strong>: 영수증 텍스트에서 카드번호 끝 4자리·카드사명·"현금" 인식 (등록된 본인 개인카드 매칭)</li>
+  <li><strong>매칭할 거래 선택</strong>: 미매칭 거래 목록에서 직접 고름 (자동 매칭 후보 X — 사용자 책임으로 정확 매칭)</li>
+  <li><strong>"이 거래에 매칭"</strong> 클릭 → 즉시 확정. 영수증의 추출 정보가 거래 정보로 동기화</li>
+</ul>
+<div class="page-box info">
+  ℹ 자동 매칭 후보는 비활성화 상태입니다. 모든 매칭은 사용자가 명시적으로 선택.
+</div>
+
+<h3>5-3. 두 버튼 — "💾 저장" vs "➕ 내역 추가"</h3>
+<table>
+<thead><tr><th>버튼</th><th>언제 쓰나</th></tr></thead>
+<tbody>
+<tr><td><strong>💾 저장</strong></td><td>OCR 추출 정보만 수정 (영수증 메타데이터 업데이트). 거래 생성·매칭 X</td></tr>
+<tr><td><strong>➕ 내역 추가</strong></td><td>카드 명세서에 없는 영수증 — 결제수단 선택 + 정보 입력 → 거래 자동 생성 + 매칭</td></tr>
+</tbody>
+</table>
+
+<h3>5-4. 영수증 분할</h3>
+<p>모달 하단 <strong>"분할"</strong> 버튼: 영수증 1장에 여러 거래가 함께 있을 때(여러 영수증 사진을 합쳐 찍었을 때 등) N개 영역으로 분할해 각각 매칭 가능.</p>
+<ul>
+  <li>각 영역을 드래그로 선택 → 분할 실행</li>
+  <li>분할된 영수증마다 별도 OCR + 매칭 모달 자동 큐 처리</li>
+  <li><strong>원본 영수증은 분할 완료 시 자동 삭제</strong> (필요하면 본인 폴더에서 다시 업로드)</li>
+</ul>
+<hr />
+
+<h2 id="6-정산내역관리">6. 정산내역관리</h2>
+<p>거래 목록 페이지. 모든 거래의 카테고리·상세내역·정산묶음 할당을 관리. 영수증 업로드·매칭·분할도 모두 이 페이지에서.</p>
+
+<h3>6-1. 행별 인라인 편집</h3>
+<table>
+<thead><tr><th>컬럼</th><th>편집</th></tr></thead>
+<tbody>
+<tr><td>카테고리</td><td>드롭다운 — 표준 + 개인 카테고리</td></tr>
+<tr><td>상세 내역</td><td>자유 텍스트 (정산묶음 제목에 사용됨)</td></tr>
+<tr><td>메모</td><td>자유 텍스트 (참고용)</td></tr>
+<tr><td>영수증</td><td>📎 보기 / ⚡N 매칭 후보 / <strong>+</strong> 업로드 (없음)</td></tr>
+<tr><td>정산분류</td><td>드롭다운 — 미설정 / 기존 DRAFT 정산묶음 / "+ 새 정산"</td></tr>
+</tbody>
+</table>
+
+<h3>6-2. 일괄 작업 (상단 바)</h3>
+<div class="page-box">
+  체크박스로 거래 1건 이상 선택 → 상단 일괄 작업바에서 카테고리·상세내역·메모·정산분류 한 번에 적용
+</div>
+<p><strong>Tip</strong>: Shift+클릭으로 범위 선택. 정산됨/입금완료 필터에서는 진행 단계 범례(<span class="stage-tag stage-submitted">결재중</span> → <span class="stage-tag stage-approved">결재완료</span> → <span class="stage-tag stage-paid">정산완료</span>)가 우측에 표시됩니다.</p>
+
+<h3>6-3. 정산분류 "+ 새 정산"</h3>
+<p>여러 거래를 한 정산묶음으로 묶을 때:</p>
+<ol>
+  <li>거래들을 체크 → 정산분류 셀렉트에서 "<strong>+ 새 정산</strong>" 선택 → 일괄 적용</li>
+  <li>자동으로 정산묶음 생성. 제목: <code>YYYY-MM-DD 카테고리-상세내역</code> (가장 최근 거래 날짜 + 거래들의 카테고리-상세내역 조합, 구분자 "/")</li>
+  <li>선택한 거래 모두 새 정산묶음에 할당됨. 제목은 정산결재 상세 화면에서 ✏️ 클릭해 수동 수정 가능 (DRAFT/REJECTED/SUBMITTED 단계까지)</li>
+</ol>
+
+<h3>6-4. 선택 삭제</h3>
+<p>일괄 작업바의 <strong>"선택 삭제"</strong>: 선택한 거래 영구 삭제 (매칭·정산 할당도 해제). 카드 명세서 재import 시 다시 복원됨.</p>
+<hr />
+
+<h2 id="7-정산결재">7. 정산결재</h2>
+<h3>7-1. 정산묶음 목록</h3>
+<div class="page-box">
+  📦 <strong>정산결재</strong> → 정산묶음 행 클릭 → 상세 화면 (인라인)
+</div>
+
+<h3>7-2. 정산묶음 상세에서 결재 상신 정보 입력</h3>
+<p>DRAFT/REJECTED 상태에서 결재 상신 직전에 다음 정보 입력 (모두 옵션):</p>
+<ul>
+  <li><strong>프로젝트</strong>: 검색 드롭다운 + 직접 입력 가능 — 결재 문서의 "프로젝트" 필드</li>
+  <li><strong>본문</strong>: 결재 문서에 함께 들어갈 자유 텍스트 (지출 사유 등)</li>
+  <li><strong>결재선</strong>: 부서·이름 셀렉트로 결재자 추가 (역할: 결재/합의). "부서 기본선 불러오기" 버튼으로 본인의 기본 결재라인 한번에 로드</li>
+</ul>
+<div class="page-box info">
+  ℹ 결재선을 비우면 부서 기본 결재라인이 자동 적용됩니다.
+</div>
+
+<h3>7-3. 결재 상신 — 바로 결재 진행</h3>
+<ul>
+  <li><strong>📤 결재 상신</strong>: <span class="badge badge-draft">DRAFT</span> 또는 <span class="badge badge-rejected">REJECTED</span>에서 클릭</li>
+  <li>지출결의서 결재 문서 자동 생성 + <strong>임시저장 거치지 않고 바로 결재 대기 상태</strong>로 진행</li>
+  <li>거래 정보가 자동 변환되어 결재 문서 항목에 등재됨 (가맹점+카테고리+메모 → "내역", 결제수단 <strong>"개인정산"</strong>)</li>
+  <li>매칭된 영수증의 파일명은 "증빙" 컬럼에 표시 + 결재 문서 첨부로 자동 업로드</li>
+  <li><strong>영수증이 없는 거래가 있으면 상신 차단</strong>됩니다 (가맹점 N건 외 N건 메시지 표시)</li>
+</ul>
+
+<h3>7-4. 결재 취소·삭제</h3>
+<ul>
+  <li><strong>↩ 결재 취소</strong>: 결재중(SUBMITTED) 상태에서 가능. 결재 문서 회수 + 정산묶음 DRAFT 복귀</li>
+  <li><strong>삭제</strong>: DRAFT 또는 REJECTED 상태에서만 가능</li>
+  <li><strong>📥 Excel 다운로드</strong>: 정산묶음 전체를 엑셀로 받기</li>
+  <li><strong>📄 결재 문서 보기</strong>: 결재 시스템 화면으로 이동</li>
+</ul>
+
+<h3>7-5. 결재 양식 — 지출결의서 통합</h3>
+<div class="page-box info">
+  ℹ <strong>경비정산은 지출결의서 양식으로 결재됩니다</strong>.<br />
+  • 결제수단: <strong>"개인정산"</strong>으로 자동 표시 (일반 지출결의서는 "법인카드" 기본)<br />
+  • 거래 항목별로 영수증 다운로드 링크가 결재 문서에 포함됨
+</div>
+<hr />
+
+<h2 id="8-재무-처리">8. 재무 처리 (재무팀 전용)</h2>
+<p>결재가 완료되면 자동으로 <strong>회계 메뉴 &gt; 재무 접수</strong> 페이지에 등록됩니다. 재무팀이 송금 처리하면 기안자 화면에 "정산완료"로 자동 반영.</p>
+
+<div class="page-box">
+  <strong>접근 경로</strong>: 상단 메뉴 <strong>회계 &gt; 재무 접수</strong> (재무팀·관리자만 권한)
+</div>
+
+<h3>8-1. 재무 접수 화면</h3>
+<ul>
+  <li>결재 승인된 모든 지출 건이 자동 등록 (지출결의서 + 개인정산 모두)</li>
+  <li>종류 배지 표시: <strong>업체 송금</strong>(일반 지출결의서) / <strong>개인경비 송금</strong>(경비정산)</li>
+  <li>송금 컬럼: 송금 처리 완료 시 ✓ 날짜, 미처리 시 "미처리"</li>
+  <li>행 클릭 → 상세 모달 (좌: 정보/액션, 우: <strong>영수증 미리보기 패널</strong>)</li>
+</ul>
+
+<h3>8-2. 송금 처리</h3>
+<ol>
+  <li>상세 모달의 <strong>송금 처리</strong> 섹션에서 송금일·송금 금액·메모/사유 입력</li>
+  <li><strong>"송금 완료 처리"</strong> 클릭 → 자동으로 settlement.status = PAID 동기화</li>
+  <li>기안자의 정산내역관리 화면에서 즉시 <span class="stage-tag stage-paid">정산완료</span>로 표시</li>
+  <li>실수했을 경우 <strong>"해제"</strong> 버튼으로 송금 처리 취소 가능 (settlement → 결재완료로 롤백)</li>
+</ol>
+
+<h3>8-3. 영수증 미리보기 (우측 패널)</h3>
+<ul>
+  <li>모달 열 때 첫 번째 영수증 자동 미리보기</li>
+  <li>지출 내역 테이블의 📎 클릭 → 우측 패널에서 즉시 표시 (새 창 X)</li>
+  <li>이미지는 패널 크기에 맞춰 자동 축소, PDF는 iframe으로 표시</li>
+  <li>필요 시 우측 상단 "새 창" 링크로 별도 탭 열기 가능</li>
+</ul>
+
+<h3>8-4. (재고 대상) 입고 처리</h3>
+<p>구매성 지출결의서에는 추가 단계: 재고 판정 → 입고 처리 (입고일·위치·메모 입력). 개인경비 정산은 이 단계 없음.</p>
+<hr />
+
+<h2 id="9-상태-필터">9. 상태 필터·진행 단계</h2>
+
+<h3>9-1. 상단 카드 5개</h3>
+<p>내 대시보드 &gt; 경비 상단의 카운트 카드를 클릭하면 해당 필터로 정산내역관리 진입.</p>
+<table>
+<thead><tr><th>카드</th><th>의미</th><th>다음 작업</th></tr></thead>
+<tbody>
+<tr><td><span class="badge badge-pending">미내역분류</span> (빨강)</td><td>카테고리 미분류 거래</td><td>카테고리 셀렉트로 분류</td></tr>
+<tr><td>미정산분류 (주황)</td><td>카테고리 됐지만 정산묶음 미할당</td><td>정산분류 셀렉트로 묶음 할당</td></tr>
+<tr><td>미결재 (파랑)</td><td>정산묶음 있지만 결재 상신 전</td><td>정산결재에서 상신</td></tr>
+<tr><td><span class="badge badge-settled">정산됨</span> (청록)</td><td>결재 진행 ~ 정산완료 전체</td><td>진행 단계 모니터링</td></tr>
+<tr><td><span class="badge badge-paid">입금완료</span> (초록)</td><td>송금 처리 완료 (정산됨의 부분집합)</td><td>완료</td></tr>
+</tbody>
+</table>
+
+<h3>9-2. 정산됨 진행 단계 (3단계)</h3>
+<p>정산됨 또는 입금완료 필터에서 거래 행의 상태 컬럼은 정산묶음의 진행 단계를 표시:</p>
+<table>
+<thead><tr><th>단계</th><th>의미</th><th>조건</th></tr></thead>
+<tbody>
+<tr><td><span class="stage-tag stage-submitted">결재중</span></td><td>결재 진행 중</td><td>정산묶음 SUBMITTED</td></tr>
+<tr><td><span class="stage-tag stage-approved">결재완료</span></td><td>결재 통과, 송금 대기</td><td>정산묶음 APPROVED — 재무 접수 모듈에 등록됨</td></tr>
+<tr><td><span class="stage-tag stage-paid">정산완료</span></td><td>송금 처리 완료</td><td>정산묶음 PAID — 재무팀 송금 후 자동 sync</td></tr>
+</tbody>
+</table>
+<div class="page-box info">
+  ℹ 일괄 작업바 우측에 진행 단계 범례가 함께 표시되어 작업 흐름 파악 용이.
+</div>
+
+<h3>9-3. 정산내역관리 상단 필터 버튼</h3>
+<table>
+<thead><tr><th>필터</th><th>대상</th></tr></thead>
+<tbody>
+<tr><td>전체</td><td>모든 활성 거래</td></tr>
+<tr><td>미내역분류 / 미정산분류 / 미결재</td><td>위 카드와 동일</td></tr>
+<tr><td>정산됨</td><td>정산 진행 전체 (결재중·결재완료·정산완료 포함)</td></tr>
+<tr><td>제외</td><td>정산 대상 외 (사적 결제 등)</td></tr>
+</tbody>
+</table>
+<hr />
+
+<h2 id="10-faq">10. 자주 묻는 사용법</h2>
+
+<h3>Q1. 카드 명세서 import 했는데 같은 거래가 또 들어와요</h3>
+<p>승인번호(approvalNo)가 있는 거래는 자동 중복 skip. 승인번호가 없는 거래(현금영수증 등)는 NULL이라 중복 체크 못함. 필요 시 수동 삭제.</p>
+
+<h3>Q2. 영수증 OCR이 가맹점/금액을 잘못 인식했어요</h3>
+<p>영수증 모달의 추출 정보 영역에서 직접 수정 후 "💾 저장". 또는 거래에 매칭하면 거래 정보로 자동 동기화됩니다.</p>
+
+<h3>Q3. 한 영수증에 여러 거래가 함께 있어요 (분할 결제)</h3>
+<p>영수증 모달 하단 <strong>"분할"</strong> 버튼으로 영역을 N개로 나눠 각각 매칭하세요. 분할 완료 시 원본은 자동 삭제됩니다.</p>
+
+<h3>Q4. 영수증 매칭이 후보로 안 떠요</h3>
+<p>자동 매칭 후보 기능은 비활성화되어 있습니다. 모달에서 거래 목록을 직접 보고 선택해 매칭하세요. 잘못된 자동 매칭이 결재에 섞이는 것을 방지하기 위함입니다.</p>
+
+<h3>Q5. 정산묶음에 거래를 추가/제거하고 싶어요</h3>
+<p>정산내역관리에서 거래의 정산분류 셀렉트를 변경. 다른 정산묶음 선택 또는 "미설정"으로 해제 가능. 단 결재 상신(SUBMITTED) 후에는 변경 불가 — 결재 취소 먼저.</p>
+
+<h3>Q6. 결재 반려됐어요</h3>
+<p>정산결재 상세 → 정산묶음이 <span class="badge badge-rejected">REJECTED</span> 상태로 보임. 필요 정보 보강 후 다시 결재 상신, 또는 삭제 후 다른 묶음으로 재구성.</p>
+
+<h3>Q7. 사적인 결제가 개인카드 명세서에 같이 들어왔어요</h3>
+<p>해당 거래의 상태를 "제외"로 변경 (정산 대상에서 제외됨). 사적 비용은 환급 대상이 아닙니다.</p>
+
+<h3>Q7-2. 법인카드 사용분은 어떻게 처리하나요?</h3>
+<p><strong>법인카드는 경비정산이 아닌 지출결의서로 처리</strong>합니다. 법인카드 결제는 회사가 카드사에 직접 지급하므로 환급할 금액이 없습니다.</p>
+<ul>
+  <li>경로: <strong>전자결재 → 새 결재 → 지출결의서</strong></li>
+  <li>결제수단: <strong>"법인카드"</strong> 선택</li>
+  <li>거래 내역·영수증을 직접 항목 입력 (경비정산 시스템 사용 안 함)</li>
+  <li>승인되면 회계 &gt; 재무 접수에 자동 등록 (단, 송금 처리는 불필요 — 회계 처리만)</li>
+</ul>
+
+<h3>Q8. 영수증을 분실했어요</h3>
+<p>매칭된 영수증이 없는 거래가 있으면 <strong>결재 상신이 차단</strong>됩니다 ("영수증이 매칭되지 않은 거래가 N건..." 에러). 영수증 재확보 또는 해당 거래를 정산묶음에서 제외해야 상신 가능.</p>
+
+<h3>Q9. 결재 상신 시 프로젝트·본문을 꼭 입력해야 하나요?</h3>
+<p>모두 옵션입니다. 결재선도 비우면 부서 기본 결재라인이 자동 적용. 단, 부서 기본 결재라인이 없으면 결재선을 직접 추가해야 합니다.</p>
+
+<h3>Q10. 결재 완료됐는데 입금이 안 됐어요</h3>
+<p>결재 완료 후 회계 &gt; 재무 접수에 자동 등록되고 재무팀이 송금 처리하면 정산완료로 전환됩니다. 송금 처리 전이라면 "결재완료" 단계에 머물러 있습니다. 재무팀에 문의하세요.</p>
+
+<h3>Q11. 정산묶음 제목을 바꾸고 싶어요</h3>
+<p>정산결재 상세 화면에서 제목 옆 ✏️ 클릭 → 직접 수정. DRAFT/REJECTED/SUBMITTED 단계까지 가능 (APPROVED/PAID 이후는 잠김).</p>
+
+<hr />
+<p style="color: #6b7280; font-size: 12px; text-align: center;">
+경비정산 v1.3 · 2026-05-13 · 결재 후속 통합 + 송금 sync + 3단계 진행 + 개인경비 범위 명확화
+</p>
+</body>
+</html>

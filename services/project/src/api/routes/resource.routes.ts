@@ -2,7 +2,9 @@ import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { ResourceService } from "../../application/resource.service.js";
 import { requireRole } from "../middleware/auth.middleware.js";
-import { ResourceType } from "@prisma/client";
+
+// Phase 5 (2026-05-13): legacy ResourceType enum 폐기. zod stub만 유지
+const ResourceType = { PERSON: "PERSON", EQUIPMENT: "EQUIPMENT", VEHICLE: "VEHICLE", FACILITY: "FACILITY" } as const;
 
 const createGroupSchema = z.object({
   name: z.string().min(1).max(100),

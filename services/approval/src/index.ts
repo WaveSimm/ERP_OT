@@ -143,21 +143,30 @@ async function buildApp() {
       templateId = tpl.id;
     }
 
-    // approver 자동 로드
+    // approver: body.steps override > 자동 로드
     let steps: any[] = [];
-    try {
-      const authUrl = process.env.AUTH_SERVICE_URL || "http://auth-service:3001";
-      const token = process.env.INTERNAL_API_TOKEN as string;
-      const resp = await fetch(`${authUrl}/internal/users/${body.userId}/approver`, {
-        headers: { "X-Internal-Token": token },
-      });
-      if (resp.ok) {
-        const line = (await resp.json()) as any;
-        if (line.approverId) steps.push({ stepOrder: 1, roleName: "결재", approverId: line.approverId, approverName: line.approverName || "—" });
-        if (line.secondApproverId) steps.push({ stepOrder: 2, roleName: "결재", approverId: line.secondApproverId, approverName: line.secondApproverName || "—" });
-        if (line.thirdApproverId) steps.push({ stepOrder: 3, roleName: "결재", approverId: line.thirdApproverId, approverName: line.thirdApproverName || "—" });
-      }
-    } catch { /* fallback: no steps */ }
+    if (Array.isArray(body.steps) && body.steps.length > 0) {
+      steps = body.steps.map((s: any, i: number) => ({
+        stepOrder: typeof s.stepOrder === "number" ? s.stepOrder : i + 1,
+        roleName: s.roleName || "결재",
+        approverId: s.approverId,
+        approverName: s.approverName || "—",
+      }));
+    } else {
+      try {
+        const authUrl = process.env.AUTH_SERVICE_URL || "http://auth-service:3001";
+        const token = process.env.INTERNAL_API_TOKEN as string;
+        const resp = await fetch(`${authUrl}/internal/users/${body.userId}/approver`, {
+          headers: { "X-Internal-Token": token },
+        });
+        if (resp.ok) {
+          const line = (await resp.json()) as any;
+          if (line.approverId) steps.push({ stepOrder: 1, roleName: "결재", approverId: line.approverId, approverName: line.approverName || "—" });
+          if (line.secondApproverId) steps.push({ stepOrder: 2, roleName: "결재", approverId: line.secondApproverId, approverName: line.secondApproverName || "—" });
+          if (line.thirdApproverId) steps.push({ stepOrder: 3, roleName: "결재", approverId: line.thirdApproverId, approverName: line.thirdApproverName || "—" });
+        }
+      } catch { /* fallback: no steps */ }
+    }
 
     // requesterName · department 자동 로드
     let department = body.department || "";
@@ -186,6 +195,7 @@ async function buildApp() {
         department,
         approvalStepCount: steps.length,
         content: body.fields,
+        richBody: body.richBody,
         itemsData: body.items,
         itemsTotal: body.totalAmount,
         amount: body.totalAmount,
@@ -193,6 +203,18 @@ async function buildApp() {
         referenceId: body.referenceId,
         steps,
       });
+
+      // 즉시 상신 옵션: DRAFT → STEP_1_PENDING/AGREEMENT_PENDING 전이
+      // 결재선 비어있으면 상신 불가 — DRAFT 그대로 반환 (호출 측에서 처리)
+      if (body.submitImmediately === true && steps.length > 0) {
+        try {
+          const submitted = await app.documentService.submit(result.id);
+          return reply.status(201).send(submitted);
+        } catch (err: any) {
+          // 상신 실패 시 문서는 DRAFT로 남고 에러만 응답
+          return reply.status(500).send({ error: `document created but submit failed: ${err.message}`, documentId: result.id });
+        }
+      }
       return reply.status(201).send(result);
     } catch (err: any) {
       return reply.status(500).send({ error: err.message });

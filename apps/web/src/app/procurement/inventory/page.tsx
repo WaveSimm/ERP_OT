@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { inventoryApi, procurementApi } from "@/lib/api";
+import { inventoryApi, procurementApi, supplierApi } from "@/lib/api";
 import LocationSelect from "@/components/LocationSelect";
 import SearchableSelect from "@/components/SearchableSelect";
 import Pagination from "@/components/Pagination";
@@ -42,11 +42,37 @@ export default function InventoryPage() {
     productMasterId: "", itemName: "", manufacturer: "", serialNumber: "",
     trackingMode: "INDIVIDUAL", quantity: "1", category: "PRODUCT",
     currentLocation: "", unitPrice: "",
+    supplierId: "", supplierName: "",  // 2026-05-13: BULK 머지 조건
     projectName: "", assigneeName: "", notes: "",
   });
   const [saving, setSaving] = useState(false);
   const [pmSearch, setPmSearch] = useState("");
   const [pmResults, setPmResults] = useState<any[]>([]);
+
+  // 공급사 검색 (BULK 머지용)
+  const [supSearch, setSupSearch] = useState("");
+  const [supResults, setSupResults] = useState<any[]>([]);
+  const [showSupDropdown, setShowSupDropdown] = useState(false);
+
+  const searchSuppliers = async (q: string) => {
+    setSupSearch(q);
+    if (!q.trim()) { setSupResults([]); setShowSupDropdown(false); return; }
+    try {
+      const r = await supplierApi.list({ search: q, limit: 10 });
+      const items = Array.isArray(r) ? r : (r.items ?? []);
+      setSupResults(items);
+      setShowSupDropdown(true);
+    } catch { setSupResults([]); }
+  };
+  const selectSupplier = (s: any) => {
+    setForm(f => ({ ...f, supplierId: s.id, supplierName: s.name }));
+    setSupSearch(s.name);
+    setShowSupDropdown(false);
+  };
+  const clearSupplier = () => {
+    setForm(f => ({ ...f, supplierId: "", supplierName: "" }));
+    setSupSearch("");
+  };
   const [showPmDropdown, setShowPmDropdown] = useState(false);
   const pmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -104,9 +130,12 @@ export default function InventoryPage() {
       productMasterId: "", itemName: "", manufacturer: "", serialNumber: "",
       trackingMode: "INDIVIDUAL", quantity: "1", category: "PRODUCT",
       currentLocation: "", unitPrice: "",
+      supplierId: "", supplierName: "",
       projectName: "", assigneeName: "", notes: "",
     });
     setPmSearch("");
+    setSupSearch("");
+    setShowSupDropdown(false);
     setShowCreateModal(false);
   };
 
@@ -129,6 +158,7 @@ export default function InventoryPage() {
         unitPrice,
         supplyAmount: totalAmount,
         totalAmount,
+        supplierId: form.supplierId || undefined,
         projectName: form.projectName || undefined,
         assigneeName: form.assigneeName || undefined,
         notes: form.notes || undefined,
@@ -340,6 +370,37 @@ export default function InventoryPage() {
                     </span>
                   )}
                 </div>
+              </div>
+
+              {/* 공급사 — BULK 머지 조건 (마스터+단가+공급사 동일하면 수량 누적) */}
+              <div className="relative">
+                <label className="text-sm text-gray-600 mb-1 block">
+                  공급사
+                  {form.trackingMode === "BULK" && (
+                    <span className="text-xs text-amber-600 ml-2">※ 같은 마스터+단가+공급사면 오늘 입고분에 수량 누적</span>
+                  )}
+                </label>
+                <div className="flex gap-2">
+                  <input value={supSearch} onChange={(e) => searchSuppliers(e.target.value)}
+                    onFocus={() => supResults.length > 0 && setShowSupDropdown(true)}
+                    placeholder="공급사명 검색..."
+                    className={`flex-1 border rounded px-3 py-2 text-sm ${form.supplierId ? "bg-blue-50 border-blue-300" : ""}`}
+                    readOnly={!!form.supplierId} />
+                  {form.supplierId ? (
+                    <button onClick={clearSupplier} className="text-xs text-gray-400 hover:text-red-500 px-2 shrink-0">변경</button>
+                  ) : null}
+                </div>
+                {showSupDropdown && supResults.length > 0 && (
+                  <div className="absolute z-10 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {supResults.map((s: any) => (
+                      <button key={s.id} onClick={() => selectSupplier(s)}
+                        className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm flex justify-between">
+                        <span className="truncate">{s.name}</span>
+                        <span className="text-gray-400 text-xs ml-2 shrink-0">{s.country ?? ""}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* 프로젝트 / 담당자 */}

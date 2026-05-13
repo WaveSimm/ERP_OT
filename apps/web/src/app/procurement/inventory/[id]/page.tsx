@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { inventoryApi } from "@/lib/api";
 import LocationSelect from "@/components/LocationSelect";
 import { DateInput } from "@/components/ui/DateInput";
+import { usePermission } from "@/hooks/usePermission";
 
 const STATUS_LABELS: Record<string, string> = { IN_STOCK: "재고", RELEASED: "출고", IN_REPAIR: "수리중" };
 const STATUS_COLORS: Record<string, string> = { IN_STOCK: "bg-green-100 text-green-700", RELEASED: "bg-blue-100 text-blue-700", IN_REPAIR: "bg-orange-100 text-orange-700" };
@@ -20,9 +21,30 @@ export default function InventoryDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
+  const { isAdmin } = usePermission();
 
   const [item, setItem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!item) return;
+    const ok = confirm(
+      `정말 재고 [${item.inventoryNo}] 를 삭제하시겠습니까?\n\n` +
+      `⚠ 의존 이력(입출고 ${item._count?.transactions ?? 0}건, 원가이력, 재고실사) 도 함께 영구 삭제됩니다.\n` +
+      `이 작업은 되돌릴 수 없습니다.\n\n` +
+      `(운용 전 데이터 정리용. 운용 도입 후엔 이 버튼은 제거되고 폐기 상태로 대체됩니다.)`
+    );
+    if (!ok) return;
+    setDeleting(true);
+    try {
+      await inventoryApi.delete(id);
+      router.push("/procurement/inventory");
+    } catch (e: any) {
+      alert(e.message || "삭제 실패");
+      setDeleting(false);
+    }
+  };
 
   // Edit mode
   const [editing, setEditing] = useState(false);
@@ -151,7 +173,16 @@ export default function InventoryDetailPage() {
                 className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">저장</button>
             </div>
           ) : (
-            <button onClick={startEdit} className="px-3 py-1 text-xs border rounded hover:bg-gray-100">편집</button>
+            <div className="flex gap-2">
+              <button onClick={startEdit} className="px-3 py-1 text-xs border rounded hover:bg-gray-100">편집</button>
+              {isAdmin && (
+                <button onClick={handleDelete} disabled={deleting}
+                  title="운용 전 정리용 — 의존 이력도 함께 영구 삭제됨"
+                  className="px-3 py-1 text-xs border border-red-300 text-red-600 rounded hover:bg-red-50 disabled:opacity-50">
+                  {deleting ? "삭제 중..." : "🗑 삭제 (ADMIN)"}
+                </button>
+              )}
+            </div>
           )}
         </div>
         <div className="p-5">

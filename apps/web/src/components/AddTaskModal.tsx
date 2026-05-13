@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { taskApi, resourceApi } from "@/lib/api";
+import { taskApi, listAssignableResources } from "@/lib/api";
 import { DateInput } from "@/components/ui/DateInput";
 
 interface Props {
@@ -41,7 +41,7 @@ export default function AddTaskModal({ projectId, defaultParentId, defaultSortOr
   const [error, setError] = useState("");
 
   useEffect(() => {
-    resourceApi.list({ isActive: true }).then(setResources).catch(() => {});
+    listAssignableResources().then(setResources).catch(() => {});
   }, [projectId]);
 
   const handleSubmit = async (e: React.FormEvent) => {

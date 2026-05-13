@@ -1,5 +1,6 @@
 import { PrismaClient, ProjectBaseline } from "@prisma/client";
 import { AppError } from "@erp-ot/shared";
+import { resolveResourceNames } from "./shared/resource-name-resolver.js";
 
 export interface CreateBaselineDto {
   name: string;
@@ -243,15 +244,7 @@ export class BaselineService {
       }
     } catch {}
 
-    // 2) fallback: Resource.userId 역조회 (auth에 없는 경우 대비)
-    const missingIds = changedByIds.filter((id) => !userMap.has(id));
-    if (missingIds.length > 0) {
-      const userResources = await this.prisma.resource.findMany({
-        where: { userId: { in: missingIds } },
-        select: { userId: true, name: true },
-      });
-      for (const r of userResources) if (r.userId) userMap.set(r.userId, r.name);
-    }
+    // Phase 5 (2026-05-13): legacy Resource fallback 제거 — auth-service만 사용
 
     // ASSIGNMENT_CHANGED 항목의 resourceId 수집 → Resource.name 역조회
     const resourceIds: string[] = [];
@@ -263,11 +256,7 @@ export class BaselineService {
         }
       }
     }
-    const resourceRecords = await this.prisma.resource.findMany({
-      where: { id: { in: [...new Set(resourceIds)] } },
-      select: { id: true, name: true },
-    });
-    const resourceMap = new Map(resourceRecords.map((r) => [r.id, r.name]));
+    const resourceMap = await resolveResourceNames(this.prisma, resourceIds);
 
     const formatAssignment = (val: string | null) => {
       if (!val) return null;

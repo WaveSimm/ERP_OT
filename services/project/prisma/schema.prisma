@@ -50,14 +50,8 @@ enum AllocationMode {
   @@schema("project")
 }
 
-enum ResourceType {
-  PERSON
-  EQUIPMENT
-  VEHICLE
-  FACILITY
-
-  @@schema("project")
-}
+// Phase 5 (2026-05-13): ResourceType enum 폐기 (legacy Resource 모델 종속)
+//   비인력 분류는 EquipmentType (VEHICLE/FACILITY/EQUIPMENT) 사용
 
 // 자원-모델-분리 PDCA Phase 1 (2026-05-04)
 // EQUIPMENT 타입 폐기 (2026-05-05) — 공용자산은 시설/차량만 관리, 프로젝트 미연계.
@@ -330,7 +324,7 @@ model ResourceGroupMember {
   equipmentResourceId   String?
 
   group     ResourceGroup       @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  resource  Resource            @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  // resource FK removed (Phase 4, 2026-05-13) — resourceId는 auth_users.id/external_persons.id/equipment_resources.id 중 하나의 logical pointer
   external  ExternalPerson?     @relation(fields: [externalPersonId], references: [id], onDelete: Cascade)
   equipment EquipmentResource?  @relation(fields: [equipmentResourceId], references: [id], onDelete: Cascade)
 
@@ -342,23 +336,8 @@ model ResourceGroupMember {
   @@schema("project")
 }
 
-// ⚠️ deprecated — 자원-모델-분리 PDCA Phase 4에서 drop 예정.
-//   사람은 auth_users로, 외부는 ExternalPerson, 비인력은 EquipmentResource로 이전.
-model Resource {
-  id                 String       @id @default(cuid())
-  userId             String?      @unique // user-service userId (email)
-  name               String
-  type               ResourceType @default(PERSON)
-  dailyCapacityHours Float        @default(8.0)
-  isActive           Boolean      @default(true)
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
-
-  groupMemberships ResourceGroupMember[]
-
-  @@map("resources")
-  @@schema("project")
-}
+// ✅ Phase 5 (2026-05-13): legacy Resource 모델 전면 폐기
+//    사람=auth_users, 외부=ExternalPerson, 비인력=EquipmentResource 단일 ID 모델
 
 // 자원-모델-분리 PDCA Phase 1 (2026-05-04): 공용자산 (차량/시설)
 // EQUIPMENT 타입 폐기 (2026-05-05) — 프로젝트 미연계 단순 마스터, /admin/equipment-resources에서 관리

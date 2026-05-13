@@ -83,7 +83,7 @@ function SegmentCard({
 
   useEffect(() => {
     loadAssignments();
-    resourceApi.list({ isActive: true }).then(setResources).catch(() => {});
+    listAssignableResources().then(setResources).catch(() => {});
   }, [seg.id]);
 
   // undo/redo 후 로컬 상태 + assignments 강제 갱신
@@ -500,7 +500,7 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
   useEffect(() => {
     if (!isParent || !parentSegId) return;
     taskApi.listAssignments(projectId, task.id, parentSegId).then(setParentSegAssignments).catch(() => {});
-    resourceApi.list({ isActive: true }).then(setAllResources).catch(() => {});
+    listAssignableResources().then(setAllResources).catch(() => {});
   }, [isParent, parentSegId]);
 
   const handleAddParentRes = async (e: React.FormEvent) => {
@@ -891,7 +891,7 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
                 <div className="flex justify-end">
                   <button onClick={() => {
                     if (!showAddSeg) {
-                      resourceApi.list({ isActive: true }).then(setSegFormResources).catch(() => {});
+                      listAssignableResources().then(setSegFormResources).catch(() => {});
                       setSegFormAssigns(defaultAssigns());
                       setSegResSearch("");
                     }

@@ -62,6 +62,13 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
   fastify.patch("/:id", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
     return fastify.inventoryService.update((request.params as any).id, request.body as any);
   });
+
+  // 삭제 (2026-05-13, 운용 전 한정): ADMIN — 재고+의존 이력 cascade
+  // 운용 도입 후엔 폐기/EXCLUDED 상태 변경으로 대체 예정
+  fastify.delete("/:id", { preHandler: [requireRole("ADMIN")] }, async (request, reply) => {
+    await fastify.inventoryService.delete((request.params as any).id);
+    return reply.status(204).send();
+  });
 }
 
 export async function inventoryTransactionRoutes(fastify: FastifyInstance) {

@@ -14,7 +14,7 @@ interface Region {
 interface Props {
   receiptId: string;
   onClose: () => void;
-  onSuccess: (createdCount: number) => void;
+  onSuccess: (createdIds: string[]) => void;
 }
 
 // 사용자가 마우스 드래그로 사각형 영역을 그려 영수증을 N개로 분할.
@@ -90,7 +90,8 @@ export default function ReceiptSplitModal({ receiptId, onClose, onSuccess }: Pro
         receiptId,
         regions.map((r) => ({ x: r.x, y: r.y, width: r.width, height: r.height })),
       );
-      onSuccess(data.created.length);
+      const ids = (data.created ?? []).map((r: any) => r.id).filter(Boolean);
+      onSuccess(ids);
     } catch (e: any) {
       alert("분할 실패: " + (e.message ?? e));
     } finally {

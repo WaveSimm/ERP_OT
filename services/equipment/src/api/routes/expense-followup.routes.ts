@@ -30,8 +30,25 @@ export async function expenseFollowUpRoutes(fastify: FastifyInstance) {
     return fastify.expenseFollowUpService.confirmArrival((request.params as any).id, {
       arrivalDate: body.arrivalDate,
       arrivalLocation: body.arrivalLocation,
+      arrivalNote: body.arrivalNote,
       confirmedBy: request.userId,
     });
+  });
+
+  // 송금 처리 (체크): ADMIN, MANAGER
+  fastify.post("/:id/payment", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
+    const body = request.body as any;
+    return fastify.expenseFollowUpService.markPayment((request.params as any).id, {
+      paidAt: body.paidAt,
+      paidAmount: body.paidAmount,
+      paidNote: body.paidNote,
+      paidBy: request.userId,
+    });
+  });
+
+  // 송금 처리 해제: ADMIN, MANAGER
+  fastify.delete("/:id/payment", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
+    return fastify.expenseFollowUpService.clearPayment((request.params as any).id);
   });
 }
 

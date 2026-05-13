@@ -7,13 +7,19 @@ import { SettlementStatusBadge } from "../page";
 import { useTableSort } from "@/lib/hooks/useTableSort";
 import { SettlementDetail } from "./[id]/page";
 
-export default function SettlementsPage() {
+export default function SettlementsPage({ statusFilter }: { statusFilter?: string } = {}) {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   type SortKey = "title" | "periodStart" | "totalCount" | "totalAmount" | "status";
-  const sort = useTableSort<any, SortKey>(items, {
+  // statusFilter 적용
+  const filteredItems = items.filter((s) => {
+    if (statusFilter === "SETTLED") return ["SUBMITTED", "APPROVED", "RECEIVED"].includes(s.status);
+    if (statusFilter === "PAID") return s.status === "PAID";
+    return true;
+  });
+  const sort = useTableSort<any, SortKey>(filteredItems, {
     initialKey: "periodStart",
     initialDir: "desc",
     keyExtractor: (s, key) => {
@@ -31,7 +37,7 @@ export default function SettlementsPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const r = await expenseApi.listSettlements({ limit: 100 });
+      const r = await expenseApi.listSettlements({ limit: 200 });
       setItems(r.items);
     } finally {
       setLoading(false);

@@ -18,19 +18,15 @@ export function canEditWorkLog(log: WorkLogContext, user: AuthUser): boolean {
 
 export const canDeleteWorkLog = canEditWorkLog;
 
+// 자원-모델-분리 Phase 4 (2026-05-13): legacy resource lookup 제거 → auth_user id 직접 사용
 export async function isAssignedToTask(
   prisma: PrismaClient,
-  userEmail: string,
+  userId: string,
   taskId: string,
 ): Promise<boolean> {
-  const resource = await prisma.resource.findFirst({
-    where: { userId: userEmail },
-    select: { id: true },
-  });
-  if (!resource) return false;
   const assignment = await prisma.segmentAssignment.findFirst({
     where: {
-      resourceId: resource.id,
+      resourceId: userId,
       segment: { taskId },
     },
     select: { id: true },
@@ -45,22 +41,17 @@ export async function canCreateWorkLog(
 ): Promise<boolean> {
   if (user.role === "ADMIN" || user.role === "MANAGER") return true;
   if (user.role === "VIEWER") return false;
-  return await isAssignedToTask(prisma, user.email, taskId);
+  return await isAssignedToTask(prisma, user.id, taskId);
 }
 
 export async function isProjectMember(
   prisma: PrismaClient,
-  userEmail: string,
+  userId: string,
   projectId: string,
 ): Promise<boolean> {
-  const resource = await prisma.resource.findFirst({
-    where: { userId: userEmail },
-    select: { id: true },
-  });
-  if (!resource) return false;
   const assignment = await prisma.segmentAssignment.findFirst({
     where: {
-      resourceId: resource.id,
+      resourceId: userId,
       segment: { task: { projectId } },
     },
     select: { id: true },

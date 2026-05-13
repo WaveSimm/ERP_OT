@@ -3,15 +3,27 @@ import { PrismaClient, InventoryTrackingMode, InventoryStatus, InventoryCategory
 export class InventoryService {
   constructor(private prisma: PrismaClient) {}
 
-  /** 재고번호 자동생성: E{5자리 시퀀스} */
-  private async generateInventoryNo(): Promise<string> {
-    const last = await this.prisma.inventoryItem.findFirst({ orderBy: { createdAt: "desc" } });
+  /**
+   * 재고번호 자동생성 (2026-05-13 룰 변경): INV-{YYMM}-{NNNN}
+   *   ecount 마이그레이션 데이터 (E#####_#)와 명확히 구분.
+   *   월별 시퀀스 reset.
+   */
+  private async generateInventoryNo(now: Date = new Date()): Promise<string> {
+    const yy = String(now.getFullYear()).slice(-2);
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const prefix = `INV-${yy}${mm}-`;
+
+    const last = await this.prisma.inventoryItem.findFirst({
+      where: { inventoryNo: { startsWith: prefix } },
+      orderBy: { inventoryNo: "desc" },
+      select: { inventoryNo: true },
+    });
     let seq = 1;
     if (last) {
-      const m = last.inventoryNo.match(/^E(\d+)/);
+      const m = last.inventoryNo.match(/^INV-\d{4}-(\d+)$/);
       if (m && m[1]) seq = parseInt(m[1], 10) + 1;
     }
-    return `E${String(seq).padStart(5, "0")}`;
+    return `${prefix}${String(seq).padStart(4, "0")}`;
   }
 
   /** 재고 목록 (필터/페이징) */
@@ -125,7 +137,42 @@ export class InventoryService {
     return { ...item, costSettlement: costItem?.settlement ?? null };
   }
 
-  /** 수동 재고 등록 */
+  /**
+   * BULK 머지 후보 검색 — 동일 마스터+단가+공급사+입고일 + IN_STOCK + 시리얼 없음.
+   * 2026-05-13: 원가 레이어 추적 룰. 같은 사양·단가는 묶음 + 수량 누적.
+   */
+  private async findMergeable(input: {
+    productMasterId: string;
+    unitPrice: number;
+    supplierId: string;
+  }): Promise<{ id: string; inventoryNo: string; quantity: number; totalAmount: number } | null> {
+    // 오늘 날짜 (서버 시간 기준 KST) 시작/끝
+    const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1);
+
+    const candidates = await this.prisma.inventoryItem.findMany({
+      where: {
+        productMasterId: input.productMasterId,
+        unitPrice: input.unitPrice,
+        supplierId: input.supplierId,
+        serialNumber: null,
+        currentStatus: "IN_STOCK",
+        createdAt: { gte: dayStart, lt: dayEnd },
+      },
+      orderBy: { createdAt: "asc" },
+      take: 1,
+    });
+    if (candidates.length === 0) return null;
+    const c = candidates[0]!;
+    return {
+      id: c.id,
+      inventoryNo: c.inventoryNo,
+      quantity: c.quantity,
+      totalAmount: Number(c.totalAmount ?? 0),
+    };
+  }
+
+  /** 수동 재고 등록 — BULK는 동일 조건 시 머지, 그 외는 신규 발급 */
   async create(data: {
     productMasterId?: string;
     itemName?: string;
@@ -140,13 +187,38 @@ export class InventoryService {
     totalAmount?: number;
     sourceType?: InventorySourceType;
     sourceId?: string;
+    supplierId?: string;
     projectName?: string;
     assigneeName?: string;
     notes?: string;
     createdBy: string;
   }) {
-    const inventoryNo = await this.generateInventoryNo();
+    const qty = data.quantity || 1;
+    const unitPriceVal = data.unitPrice ?? null;
 
+    // 머지 조건: 시리얼 없음 + 마스터·단가·공급사 모두 있음
+    if (!data.serialNumber && data.productMasterId && unitPriceVal != null && data.supplierId) {
+      const merge = await this.findMergeable({
+        productMasterId: data.productMasterId,
+        unitPrice: Number(unitPriceVal),
+        supplierId: data.supplierId,
+      });
+      if (merge) {
+        const newQty = merge.quantity + qty;
+        const newTotal = Number(unitPriceVal) * newQty;
+        return this.prisma.inventoryItem.update({
+          where: { id: merge.id },
+          data: {
+            quantity: newQty,
+            totalAmount: newTotal,
+            totalCostOfOwnership: newTotal,
+          },
+          include: { productMaster: true },
+        });
+      }
+    }
+
+    const inventoryNo = await this.generateInventoryNo();
     return this.prisma.inventoryItem.create({
       data: {
         inventoryNo,
@@ -154,8 +226,8 @@ export class InventoryService {
         itemName: data.itemName ?? null,
         manufacturer: data.manufacturer ?? null,
         serialNumber: data.serialNumber ?? null,
-        trackingMode: data.trackingMode || "INDIVIDUAL",
-        quantity: data.quantity || 1,
+        trackingMode: data.trackingMode || (data.serialNumber ? "INDIVIDUAL" : "BULK"),
+        quantity: qty,
         category: data.category || "PRODUCT",
         currentLocation: data.currentLocation ?? null,
         currentStatus: "IN_STOCK",
@@ -166,6 +238,7 @@ export class InventoryService {
         totalCostOfOwnership: data.totalAmount || 0,
         sourceType: data.sourceType ?? null,
         sourceId: data.sourceId ?? null,
+        supplierId: data.supplierId ?? null,
         projectName: data.projectName ?? null,
         assigneeName: data.assigneeName ?? null,
         notes: data.notes ?? null,
@@ -251,6 +324,27 @@ export class InventoryService {
         ...(data.notes !== undefined && { notes: data.notes }),
       },
       include: { productMaster: true },
+    });
+  }
+
+  /**
+   * 재고 삭제 — ADMIN 한정, 운용 전 정리용 (2026-05-13).
+   * 의존 이력(transactions, costEvents, auditItems)도 cascade 삭제.
+   * 운용 도입 후엔 폐기/EXCLUDED 상태로 대체 예정.
+   */
+  async delete(id: string) {
+    const existing = await this.prisma.inventoryItem.findUnique({
+      where: { id },
+      select: { id: true, inventoryNo: true },
+    });
+    if (!existing) throw new Error("재고를 찾을 수 없습니다.");
+
+    return this.prisma.$transaction(async (tx) => {
+      // 의존 이력 명시 삭제 (Prisma CASCADE이 없을 경우 대비)
+      await tx.inventoryTransaction.deleteMany({ where: { inventoryItemId: id } });
+      await tx.assetCostEvent.deleteMany({ where: { inventoryItemId: id } });
+      await tx.inventoryAuditItem.deleteMany({ where: { inventoryItemId: id } });
+      return tx.inventoryItem.delete({ where: { id } });
     });
   }
 

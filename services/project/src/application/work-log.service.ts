@@ -170,7 +170,7 @@ export class WorkLogService {
     user: AuthUser & { email: string },
   ) {
     if (user.role !== "ADMIN" && user.role !== "MANAGER") {
-      const member = await isProjectMember(this.prisma, user.email, projectId);
+      const member = await isProjectMember(this.prisma, user.id, projectId);
       if (!member) throw new WorkLogError("FORBIDDEN_READ", "프로젝트 조회 권한이 없습니다.", 403);
     }
 
@@ -264,10 +264,8 @@ export class WorkLogService {
     if (user.role === "ADMIN" || user.role === "MANAGER") {
       projectIds = null; // null = 제한 없음
     } else {
-      const resource = await this.prisma.resource.findFirst({
-        where: { userId: user.email },
-        select: { id: true },
-      });
+      // Phase 4 (2026-05-13): legacy resource → auth_user id 직접 사용
+      const resource = { id: user.id };
       if (!resource) return [];
       const assignments = await this.prisma.segmentAssignment.findMany({
         where: { resourceId: resource.id },
@@ -379,10 +377,8 @@ export class WorkLogService {
     } else {
       const projectIdSet = new Set<string>();
 
-      const resource = await this.prisma.resource.findFirst({
-        where: { userId: user.email },
-        select: { id: true },
-      });
+      // Phase 4 (2026-05-13): legacy resource → auth_user id 직접 사용
+      const resource = { id: user.id };
       if (resource) {
         const assignments = await this.prisma.segmentAssignment.findMany({
           where: { resourceId: resource.id },
@@ -473,10 +469,8 @@ export class WorkLogService {
     }
 
     // OPERATOR/MANAGER: 본인 참여 프로젝트 + 본인이 글 작성한 프로젝트
-    const resource = await this.prisma.resource.findFirst({
-      where: { userId: user.email },
-      select: { id: true },
-    });
+    // Phase 4 (2026-05-13): legacy resource → auth_user id 직접 사용
+    const resource = { id: user.id };
 
     const memberProjectIds = new Set<string>();
     if (resource) {
