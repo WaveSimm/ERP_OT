@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { expenseFollowupApi } from "@/lib/api";
+import SortableHeader, { SortOrder } from "@/components/SortableHeader";
+import OrderPaymentRequestsTab from "@/components/procurement/OrderPaymentRequestsTab";
 
 const STATUS_LABELS: Record<string, string> = {
   FINANCE_RECEIVED: "재무 접수",
@@ -21,10 +23,39 @@ function fmtMoney(v: number | string | null | undefined) {
   return `₩${Number(v).toLocaleString()}`;
 }
 
+// v1.6 (2026-05-14): 재무 접수 sub-tab — 결재송금 / 발주송금
+type SubTab = "approval" | "order";
+
 export default function ExpensesPage() {
+  const [subTab, setSubTab] = useState<SubTab>("approval");
+  return (
+    <div>
+      <div className="flex gap-2 border-b border-gray-200 mb-4">
+        <button
+          onClick={() => setSubTab("approval")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            subTab === "approval" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >결재송금</button>
+        <button
+          onClick={() => setSubTab("order")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            subTab === "order" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >발주송금</button>
+      </div>
+      {subTab === "approval" ? <ExpenseApprovalTab /> : <OrderPaymentRequestsTab />}
+    </div>
+  );
+}
+
+function ExpenseApprovalTab() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
+  const [sortBy, setSortBy] = useState<string>("");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const handleSort = (k: string, o: SortOrder) => { setSortBy(k); setSortOrder(o); };
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [acting, setActing] = useState(false);
   const [checkedItems, setCheckedItems] = useState<number[]>([]);
@@ -35,10 +66,7 @@ export default function ExpensesPage() {
   const [payAmount, setPayAmount] = useState("");
   const [payNote, setPayNote] = useState("");
 
-  // 입고 처리 입력 상태
-  const [arrivalDate, setArrivalDate] = useState("");
-  const [arrivalLocation, setArrivalLocation] = useState("");
-  const [arrivalNote, setArrivalNote] = useState("");
+  // 입고 처리 상태 폐기 (v1.6, 2026-05-13): InboundRequest 큐로 이관
 
   // 영수증 미리보기 패널 (인라인 표시용)
   const [previewReceipt, setPreviewReceipt] = useState<{ id: string; name?: string } | null>(null);
@@ -46,11 +74,14 @@ export default function ExpensesPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await expenseFollowupApi.list(statusFilter || undefined);
+      const res = await expenseFollowupApi.list({
+        ...(statusFilter && { status: statusFilter }),
+        ...(sortBy && { sortBy, sortOrder }),
+      });
       setItems(Array.isArray(res) ? res : []);
     } catch { setItems([]); }
     finally { setLoading(false); }
-  }, [statusFilter]);
+  }, [statusFilter, sortBy, sortOrder]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -70,16 +101,7 @@ export default function ExpensesPage() {
       setPayAmount((ad?.itemsTotal ?? ad?.amount ?? "").toString());
       setPayNote("");
     }
-    // 입고 처리 — 기존 값 복원, 없으면 오늘+기본 위치
-    if (item.arrivalDate) {
-      setArrivalDate(new Date(item.arrivalDate).toISOString().slice(0, 10));
-      setArrivalLocation(item.arrivalLocation ?? "");
-      setArrivalNote(item.arrivalNote ?? "");
-    } else {
-      setArrivalDate(new Date().toISOString().slice(0, 10));
-      setArrivalLocation("본사 창고");
-      setArrivalNote("");
-    }
+    // 입고 처리 입력 폐기 (v1.6, 2026-05-13): InboundRequest 큐로 이관
     // 기존 판정된 인덱스 복원
     if (item.notes) {
       try {
@@ -172,21 +194,8 @@ export default function ExpensesPage() {
     finally { setActing(false); }
   };
 
-  const handleConfirm = async () => {
-    if (!selectedItem) return;
-    if (!arrivalDate) { alert("입고일을 입력하세요."); return; }
-    setActing(true);
-    try {
-      await expenseFollowupApi.confirmArrival(selectedItem.id, {
-        arrivalDate,
-        ...(arrivalLocation && { arrivalLocation }),
-        ...(arrivalNote && { arrivalNote }),
-      });
-      load();
-      setSelectedItem(null);
-    } catch (e: any) { alert(e.message); }
-    finally { setActing(false); }
-  };
+  // handleConfirm 폐기 (v1.6, 2026-05-13):
+  //   재고 판정 시 InboundRequest 자동 생성 → 자재 담당자가 입고 큐에서 receive 처리.
 
   const doc = selectedItem?.approvalDocument;
   const itemsData = selectedItem ? getItemsData(selectedItem) : [];
@@ -218,9 +227,9 @@ export default function ExpensesPage() {
                 <th className="px-4 py-3 text-center font-medium text-gray-600">종류</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">상신자</th>
                 <th className="px-4 py-3 text-right font-medium text-gray-600">총액</th>
-                <th className="px-4 py-3 text-center font-medium text-gray-600">접수일</th>
-                <th className="px-4 py-3 text-center font-medium text-gray-600">상태</th>
-                <th className="px-4 py-3 text-center font-medium text-gray-600">송금</th>
+                <SortableHeader sortKey="receivedAt" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 text-center font-medium text-gray-600">접수일</SortableHeader>
+                <SortableHeader sortKey="status" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 text-center font-medium text-gray-600">상태</SortableHeader>
+                <SortableHeader sortKey="paymentCompletedAt" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 text-center font-medium text-gray-600">송금</SortableHeader>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -414,39 +423,29 @@ export default function ExpensesPage() {
                 </div>
               )}
 
-              {/* 입고 처리 (재고 대상 + INVENTORY_DECIDED/ARRIVED) */}
-              {selectedItem.isInventoryTarget && ["INVENTORY_DECIDED", "ARRIVED", "COMPLETED"].includes(selectedItem.status) && (
+              {/* 입고 큐 안내 (재고 대상 + INVENTORY_DECIDED/ARRIVED) — v1.6 2026-05-13 */}
+              {selectedItem.isInventoryTarget && ["INVENTORY_DECIDED", "ARRIVED"].includes(selectedItem.status) && (
                 <div className="border-t pt-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <h4 className="text-sm font-semibold text-gray-700">입고 처리</h4>
-                    {selectedItem.arrivalDate && (
-                      <span className="text-xs text-emerald-600 ml-auto">✓ 입고 완료</span>
-                    )}
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-amber-800 font-semibold text-sm">📦 입고 대기 중</span>
+                    </div>
+                    <p className="text-xs text-amber-700">
+                      이 건은 자동으로 <a href="/procurement/inbound" className="underline font-medium">입고 큐</a>에 등록되었습니다.
+                      자재 담당자가 큐에서 receive 처리하면 재고가 생성되고 본 항목도 자동으로 완료 처리됩니다.
+                    </p>
                   </div>
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-xs text-gray-500">입고일</label>
-                        <input type="date" value={arrivalDate} onChange={(e) => setArrivalDate(e.target.value)}
-                          className="w-full border rounded px-2 py-1.5 text-sm mt-0.5" />
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-500">입고 위치</label>
-                        <input type="text" value={arrivalLocation} onChange={(e) => setArrivalLocation(e.target.value)}
-                          placeholder="본사 창고"
-                          className="w-full border rounded px-2 py-1.5 text-sm mt-0.5" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500">입고 메모</label>
-                      <input type="text" value={arrivalNote} onChange={(e) => setArrivalNote(e.target.value)}
-                        placeholder="제품 상태, 부족 수량, 특이사항"
-                        className="w-full border rounded px-2 py-1.5 text-sm mt-0.5" />
-                    </div>
-                    <button disabled={acting || selectedItem.status === "COMPLETED"} onClick={handleConfirm}
-                      className="w-full px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-medium disabled:opacity-50">
-                      {selectedItem.arrivalDate ? "입고 정보 업데이트" : "입고 완료 처리"}
-                    </button>
+                </div>
+              )}
+
+              {/* 입고 완료 표시 (COMPLETED) */}
+              {selectedItem.isInventoryTarget && selectedItem.status === "COMPLETED" && (
+                <div className="border-t pt-4">
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                    <div className="text-sm font-semibold text-emerald-800">✓ 입고 완료</div>
+                    {selectedItem.inventoryItemId && (
+                      <p className="text-xs text-emerald-700 mt-1">재고가 생성되었습니다.</p>
+                    )}
                   </div>
                 </div>
               )}

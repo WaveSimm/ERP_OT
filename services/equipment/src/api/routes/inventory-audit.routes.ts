@@ -3,7 +3,13 @@ import { requireRole } from "../middleware/auth.middleware.js";
 
 export async function inventoryAuditRoutes(fastify: FastifyInstance) {
   // 조회: 전체 허용
-  fastify.get("/", async () => fastify.inventoryAuditService.list());
+  fastify.get("/", async (request) => {
+    const q = request.query as any;
+    return fastify.inventoryAuditService.list({
+      ...(q.sortBy && { sortBy: q.sortBy }),
+      ...((q.sortOrder === "asc" || q.sortOrder === "desc") && { sortOrder: q.sortOrder }),
+    });
+  });
 
   fastify.get("/:id", async (request) =>
     fastify.inventoryAuditService.getById((request.params as any).id));

@@ -3,8 +3,8 @@ import { PrismaClient, ContractStatus } from "@prisma/client";
 export class ContractService {
   constructor(private prisma: PrismaClient) {}
 
-  async list(params: { search?: string; status?: ContractStatus; page?: number; limit?: number } = {}) {
-    const { search, status, page = 1, limit = 100 } = params;
+  async list(params: { search?: string; status?: ContractStatus; page?: number; limit?: number; sortBy?: string; sortOrder?: "asc" | "desc" } = {}) {
+    const { search, status, page = 1, limit = 100, sortBy, sortOrder = "asc" } = params;
     const where: any = {};
 
     if (search) {
@@ -18,11 +18,23 @@ export class ContractService {
     }
     if (status) where.status = status;
 
+    // v1.6 (2026-05-13)
+    const SORTABLE: Record<string, any> = {
+      contractNumber: { contractNumber: sortOrder },
+      name: { name: sortOrder },
+      client: { client: sortOrder },
+      manufacturer: { manufacturer: sortOrder },
+      status: { status: sortOrder },
+      startDate: { startDate: sortOrder },
+      endDate: { endDate: sortOrder },
+    };
+    const orderBy = sortBy && SORTABLE[sortBy] ? SORTABLE[sortBy] : { contractNumber: "asc" };
+
     const [items, total] = await Promise.all([
       this.prisma.contract.findMany({
         where,
         include: { _count: { select: { orders: true } } },
-        orderBy: { contractNumber: "asc" },
+        orderBy,
         skip: (page - 1) * limit,
         take: limit,
       }),

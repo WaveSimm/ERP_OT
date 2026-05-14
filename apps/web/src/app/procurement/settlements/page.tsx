@@ -3,18 +3,23 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { settlementApi } from "@/lib/api";
+import SortableHeader, { SortOrder } from "@/components/SortableHeader";
 
 export default function SettlementsPage() {
   const router = useRouter();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sortBy, setSortBy] = useState<string>("");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const handleSort = (k: string, o: SortOrder) => { setSortBy(k); setSortOrder(o); };
 
   useEffect(() => {
-    settlementApi.list()
+    setLoading(true);
+    settlementApi.list({ ...(sortBy && { sortBy, sortOrder }) })
       .then((res) => setItems(Array.isArray(res) ? res : []))
       .catch(() => setItems([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [sortBy, sortOrder]);
 
   return (
     <div>
@@ -35,14 +40,14 @@ export default function SettlementsPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-600">
               <tr>
-                <th className="text-left px-4 py-3 font-medium">신고번호</th>
-                <th className="text-left px-4 py-3 font-medium">공급업체</th>
+                <SortableHeader sortKey="declarationNo" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="text-left px-4 py-3 font-medium">신고번호</SortableHeader>
+                <SortableHeader sortKey="supplier" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="text-left px-4 py-3 font-medium">공급업체</SortableHeader>
                 <th className="text-center px-3 py-3 font-medium">통화</th>
                 <th className="text-right px-4 py-3 font-medium">수입원가</th>
                 <th className="text-right px-4 py-3 font-medium">부대비용</th>
-                <th className="text-right px-4 py-3 font-medium">공급가액</th>
+                <SortableHeader sortKey="totalAmount" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="right" className="text-right px-4 py-3 font-medium">공급가액</SortableHeader>
                 <th className="text-center px-3 py-3 font-medium">품목</th>
-                <th className="text-right px-4 py-3 font-medium">신고일</th>
+                <SortableHeader sortKey="declarationDate" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="right" className="text-right px-4 py-3 font-medium">신고일</SortableHeader>
               </tr>
             </thead>
             <tbody className="divide-y">

@@ -90,6 +90,14 @@ const nextConfig = {
       // 구매/재고 (신규)
       { source: "/api/v1/procurement/:path*", destination: `${eq}/api/v1/procurement/:path*` },
       { source: "/api/v1/inventory/:path*", destination: `${eq}/api/v1/inventory/:path*` },
+      // v1.6 SKU 모델 (2026-05-13)
+      { source: "/api/v1/product-variants", destination: `${eq}/api/v1/product-variants` },
+      { source: "/api/v1/product-variants/:path*", destination: `${eq}/api/v1/product-variants/:path*` },
+      { source: "/api/v1/inbound-requests", destination: `${eq}/api/v1/inbound-requests` },
+      { source: "/api/v1/inbound-requests/:path*", destination: `${eq}/api/v1/inbound-requests/:path*` },
+      // bom-definitions 폐기 (v1.6 B안, 2026-05-13). ProductMaster(BUNDLE)로 통합.
+      { source: "/api/v1/bundle-shipments", destination: `${eq}/api/v1/bundle-shipments` },
+      { source: "/api/v1/bundle-shipments/:path*", destination: `${eq}/api/v1/bundle-shipments/:path*` },
 
       // ── auth-service ──
       { source: "/api/v1/auth", destination: `${auth}/api/v1/auth` },

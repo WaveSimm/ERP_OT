@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { inventoryApi, procurementApi, supplierApi } from "@/lib/api";
 import LocationSelect from "@/components/LocationSelect";
 import SearchableSelect from "@/components/SearchableSelect";
+import SortableHeader, { SortOrder } from "@/components/SortableHeader";
 import Pagination from "@/components/Pagination";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -35,6 +36,9 @@ export default function InventoryPage() {
   const [category, setCategory] = useState("");
   const [status, setStatus] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
+  const [sortBy, setSortBy] = useState<string>("");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const handleSort = (k: string, o: SortOrder) => { setSortBy(k); setSortOrder(o); };
   const [filterOptions, setFilterOptions] = useState<{ locations: string[]; projects: string[]; assignees: string[] }>({ locations: [], projects: [], assignees: [] });
   const [stats, setStats] = useState<any>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -44,7 +48,10 @@ export default function InventoryPage() {
     currentLocation: "", unitPrice: "",
     supplierId: "", supplierName: "",  // 2026-05-13: BULK 머지 조건
     projectName: "", assigneeName: "", notes: "",
+    itemType: "SIMPLE" as "SIMPLE" | "BUNDLE",  // v1.6 (2026-05-13): 선택된 마스터의 유형
   });
+  // v1.6 (2026-05-13): 번들 조립용 구성품 상태 (마스터가 BUNDLE일 때만 사용)
+  const [bundleComponents, setBundleComponents] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
   const [pmSearch, setPmSearch] = useState("");
   const [pmResults, setPmResults] = useState<any[]>([]);
@@ -81,12 +88,12 @@ export default function InventoryPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await inventoryApi.list({ search, category: category || undefined, status: status || undefined, location: locationFilter || undefined, page, limit: PAGE_SIZE });
+      const res = await inventoryApi.list({ search, category: category || undefined, status: status || undefined, location: locationFilter || undefined, page, limit: PAGE_SIZE, ...(sortBy && { sortBy, sortOrder }) });
       setItems(res.items || []);
       setTotal(res.total || 0);
     } catch { setItems([]); }
     finally { setLoading(false); }
-  }, [search, category, status, locationFilter, page]);
+  }, [search, category, status, locationFilter, page, sortBy, sortOrder]);
 
   // 필터 변경 시 첫 페이지로
   useEffect(() => { setPage(1); }, [search, category, status, locationFilter]);
@@ -101,28 +108,57 @@ export default function InventoryPage() {
     if (!q.trim()) { setPmResults([]); setShowPmDropdown(false); return; }
     pmTimer.current = setTimeout(async () => {
       try {
-        const res = await procurementApi.getProducts({ search: q, limit: 10 });
+        // v1.6 B안: 번들도 함께 검색 가능하게 includeBundle=true
+        const res = await procurementApi.getProducts({ search: q, includeBundle: true, limit: 10 });
         setPmResults(res.items || []);
         setShowPmDropdown(true);
       } catch { setPmResults([]); }
     }, 300);
   };
 
-  const selectProductMaster = (pm: any) => {
+  const selectProductMaster = async (pm: any) => {
     setForm(f => ({
       ...f,
       productMasterId: pm.id,
       itemName: pm.name,
       manufacturer: pm.manufacturer,
+      itemType: pm.itemType === "BUNDLE" ? "BUNDLE" : "SIMPLE",
     }));
     setPmSearch(`${pm.name} (${pm.manufacturer})`);
     setShowPmDropdown(false);
+
+    // v1.6 B안: BUNDLE이면 구성품 자동 로드
+    if (pm.itemType === "BUNDLE") {
+      try {
+        const items = await procurementApi.getBundleItems(pm.id);
+        setBundleComponents((items || []).map((b: any) => ({
+          bomItemId: b.id,
+          productMasterId: b.productMasterId,
+          productMasterName: b.productMaster?.name,
+          productMasterModel: b.productMaster?.modelName,
+          slotType: b.slotType,
+          requiredQty: b.quantity,
+          inventoryItemId: "",
+          inventoryNo: "",
+          availableLocations: [] as any[],
+          locationId: "",
+          quantity: b.quantity,
+        })));
+      } catch (e: any) { alert(e.message || "구성품 조회 실패"); }
+    } else {
+      setBundleComponents([]);
+    }
   };
 
   const clearProductMaster = () => {
-    setForm(f => ({ ...f, productMasterId: "", itemName: "", manufacturer: "" }));
+    setForm(f => ({ ...f, productMasterId: "", itemName: "", manufacturer: "", itemType: "SIMPLE" }));
     setPmSearch("");
     setPmResults([]);
+    setBundleComponents([]);
+  };
+
+  const updateBundleComponent = (idx: number, patch: any) => {
+    setBundleComponents(rows => rows.map((r, i) => i === idx ? { ...r, ...patch } : r));
   };
 
   const resetCreateForm = () => {
@@ -132,7 +168,9 @@ export default function InventoryPage() {
       currentLocation: "", unitPrice: "",
       supplierId: "", supplierName: "",
       projectName: "", assigneeName: "", notes: "",
+      itemType: "SIMPLE",
     });
+    setBundleComponents([]);
     setPmSearch("");
     setSupSearch("");
     setShowSupDropdown(false);
@@ -142,10 +180,39 @@ export default function InventoryPage() {
   const handleCreate = async () => {
     setSaving(true);
     try {
+      if (!form.productMasterId) { alert("장비마스터를 선택해주세요."); setSaving(false); return; }
+
+      // v1.6 B안 (2026-05-13): BUNDLE은 조립 API 호출 (구성품 차감 + 번들 InventoryItem 생성)
+      if (form.itemType === "BUNDLE") {
+        if (bundleComponents.length === 0) { alert("번들에 구성품이 정의되어 있지 않습니다."); setSaving(false); return; }
+        if (bundleComponents.some((c: any) => !c.inventoryItemId)) {
+          alert("모든 구성품의 재고를 지정해주세요."); setSaving(false); return;
+        }
+        const qty = form.trackingMode === "BULK" ? Number(form.quantity) || 1 : 1;
+        const unitPrice = form.unitPrice ? Number(form.unitPrice) : undefined;
+        // currentLocation 텍스트를 location 객체로 매핑 (선택사항)
+        await procurementApi.assembleBundle(form.productMasterId, {
+          components: bundleComponents.map((c: any) => ({
+            inventoryItemId: c.inventoryItemId,
+            ...(c.locationId && { locationId: c.locationId }),
+            quantity: c.quantity,
+          })),
+          output: {
+            quantity: qty,
+            ...(unitPrice !== undefined && { unitPrice }),
+            ...(form.serialNumber && { serialNumber: form.serialNumber }),
+            ...(form.notes && { notes: form.notes }),
+          },
+        });
+        resetCreateForm();
+        load();
+        return;
+      }
+
+      // SIMPLE 흐름 (기존)
       const qty = form.trackingMode === "BULK" ? Number(form.quantity) || 1 : 1;
       const unitPrice = form.unitPrice ? Number(form.unitPrice) : undefined;
       const totalAmount = unitPrice ? unitPrice * qty : undefined;
-      if (!form.productMasterId) { alert("장비마스터를 선택해주세요."); setSaving(false); return; }
       await inventoryApi.create({
         productMasterId: form.productMasterId,
         itemName: form.itemName || undefined,
@@ -235,13 +302,14 @@ export default function InventoryPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-600">
               <tr>
-                <th className="text-left px-4 py-3 font-medium">재고번호</th>
+                <SortableHeader sortKey="inventoryNo" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="text-left px-4 py-3 font-medium">재고번호</SortableHeader>
                 <th className="text-left px-4 py-3 font-medium">품명</th>
-                <th className="text-left px-4 py-3 font-medium">시리얼</th>
-                <th className="text-center px-4 py-3 font-medium">분류</th>
-                <th className="text-center px-4 py-3 font-medium">상태</th>
-                <th className="text-left px-4 py-3 font-medium">위치</th>
-                <th className="text-right px-4 py-3 font-medium">TCO</th>
+                <SortableHeader sortKey="serialNumber" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="text-left px-4 py-3 font-medium">시리얼</SortableHeader>
+                <SortableHeader sortKey="category" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="text-center px-4 py-3 font-medium">분류</SortableHeader>
+                <SortableHeader sortKey="currentStatus" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="text-center px-4 py-3 font-medium">상태</SortableHeader>
+                <SortableHeader sortKey="quantity" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="right" className="text-right px-4 py-3 font-medium">수량</SortableHeader>
+                <SortableHeader sortKey="currentLocation" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="text-left px-4 py-3 font-medium">위치</SortableHeader>
+                <SortableHeader sortKey="totalCostOfOwnership" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="right" className="text-right px-4 py-3 font-medium">TCO</SortableHeader>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -261,6 +329,7 @@ export default function InventoryPage() {
                       {STATUS_LABELS[item.currentStatus] || item.currentStatus}
                     </span>
                   </td>
+                  <td className="px-4 py-3 text-right font-mono">{item.quantity ?? "-"}</td>
                   <td className="px-4 py-3 text-gray-600">{item.currentLocation || "-"}</td>
                   <td className="px-4 py-3 text-right">
                     {item.totalCostOfOwnership ? `₩${Number(item.totalCostOfOwnership).toLocaleString()}` : "-"}
@@ -293,12 +362,26 @@ export default function InventoryPage() {
                   ) : null}
                 </div>
                 {showPmDropdown && pmResults.length > 0 && (
-                  <div className="absolute z-10 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                  <div className="absolute z-[60] mt-1 w-full bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
                     {pmResults.map((pm: any) => (
                       <button key={pm.id} onClick={() => selectProductMaster(pm)}
-                        className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm flex justify-between">
-                        <span className="truncate">{pm.name}</span>
-                        <span className="text-gray-400 text-xs ml-2 shrink-0">{pm.manufacturer}</span>
+                        className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b last:border-b-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium truncate">{pm.name}</span>
+                          {pm.itemType === "BUNDLE" && (
+                            <span className="px-1.5 py-0.5 text-[10px] rounded bg-amber-100 text-amber-700 shrink-0">📦</span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-gray-500 mt-0.5">
+                          {[pm.modelName, pm.manufacturer].filter(Boolean).join(" · ")}
+                          {pm.stockSummary && (
+                            <span className={`ml-2 ${pm.stockSummary.items > 0 ? "text-emerald-600" : "text-gray-400"}`}>
+                              {pm.stockSummary.items > 0
+                                ? `재고 ${pm.stockSummary.items}건·${pm.stockSummary.quantity}개`
+                                : "재고 없음"}
+                            </span>
+                          )}
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -307,9 +390,102 @@ export default function InventoryPage() {
                   <div className="mt-1.5 flex gap-4 text-xs text-gray-500">
                     <span>품명: <span className="text-gray-700 font-medium">{form.itemName}</span></span>
                     <span>제조사: <span className="text-gray-700 font-medium">{form.manufacturer}</span></span>
+                    {form.itemType === "BUNDLE" && (
+                      <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">📦 번들 (조립 입고)</span>
+                    )}
                   </div>
                 )}
               </div>
+
+              {/* v1.6 B안 (2026-05-13): BUNDLE이면 구성품 매칭 섹션 */}
+              {form.itemType === "BUNDLE" && form.productMasterId && (
+                <div className="border-2 border-amber-200 rounded-lg p-3 bg-amber-50/30">
+                  <div className="text-sm font-medium text-amber-800 mb-2">📦 번들 조립 — 구성품 재고 지정</div>
+                  {bundleComponents.length === 0 ? (
+                    <div className="text-xs text-gray-400 py-3 text-center">
+                      구성품이 정의되지 않았습니다. <a href="/procurement/products?itemType=BUNDLE" className="text-amber-700 underline">[장비 마스터]</a>의 [구성품] 버튼으로 먼저 등록하십시오.
+                    </div>
+                  ) : (
+                    <div className="border rounded bg-white overflow-hidden">
+                      <table className="w-full text-xs">
+                        <thead className="bg-gray-50 border-b">
+                          <tr>
+                            <th className="px-2 py-1.5 text-left">구성품</th>
+                            <th className="px-2 py-1.5 text-center">필요</th>
+                            <th className="px-2 py-1.5 text-left">모델명</th>
+                            <th className="px-2 py-1.5 text-left">재고번호 (검색)</th>
+                            <th className="px-2 py-1.5 text-center">차감</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {bundleComponents.map((c: any, idx: number) => (
+                            <tr key={c.bomItemId}>
+                              <td className="px-2 py-1.5">
+                                <div>{c.productMasterName}</div>
+                                <div className="text-[10px] text-gray-400">
+                                  <span className={`px-1 py-0.5 rounded ${c.slotType === "MAIN" ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-600"}`}>
+                                    {c.slotType}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-2 py-1.5 text-center text-gray-500">{c.requiredQty}</td>
+                              <td className="px-2 py-1.5 font-mono text-[11px] text-gray-700">{c.productMasterModel || "-"}</td>
+                              <td className="px-2 py-1.5">
+                                <SearchableSelect
+                                  value={c.inventoryNo || ""}
+                                  onChange={(v) => updateBundleComponent(idx, { inventoryNo: v })}
+                                  onSelect={async (item) => {
+                                    if (!item) {
+                                      updateBundleComponent(idx, { inventoryItemId: "", inventoryNo: "", availableLocations: [], locationId: "", locationName: "" });
+                                      return;
+                                    }
+                                    try {
+                                      const detail = await inventoryApi.getById(item.id);
+                                      const loc = detail.locations?.[0];
+                                      updateBundleComponent(idx, {
+                                        inventoryItemId: detail.id,
+                                        inventoryNo: detail.inventoryNo,
+                                        availableLocations: detail.locations || [],
+                                        locationId: loc?.locationId || "",
+                                        locationName: loc?.location?.name || "",
+                                      });
+                                    } catch (e: any) { alert(e.message || "재고 상세 조회 실패"); }
+                                  }}
+                                  placeholder="모델명·재고번호 검색..."
+                                  loadOptions={async (q) => {
+                                    const res = await inventoryApi.list({
+                                      productMasterId: c.productMasterId,
+                                      status: "IN_STOCK",
+                                      ...(q && { search: q }),
+                                      limit: 20,
+                                    });
+                                    return (res.items || []).map((inv: any) => ({
+                                      id: inv.id,
+                                      name: inv.inventoryNo,
+                                      sub: `${inv.productMaster?.modelName || ""}${inv.serialNumber ? ` · SN:${inv.serialNumber}` : ""} · 수량 ${inv.quantity}`,
+                                    }));
+                                  }}
+                                />
+                                {c.inventoryItemId && (
+                                  <div className="text-[10px] text-emerald-600 mt-0.5">
+                                    ✓ {c.inventoryNo}
+                                    {c.locationName && <span className="text-gray-500 ml-1">@ {c.locationName}</span>}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-2 py-1.5 text-center">
+                                <input type="number" value={c.quantity}
+                                  onChange={e => updateBundleComponent(idx, { quantity: Number(e.target.value) })}
+                                  className="w-14 border rounded px-1 py-0.5 text-xs text-center" />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* 시리얼 / 분류 */}
               <div className="grid grid-cols-2 gap-3">

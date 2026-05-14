@@ -4,7 +4,7 @@ import { requireRole } from "../middleware/auth.middleware.js";
 export async function storageLocationRoutes(fastify: FastifyInstance) {
   // 조회: 전체 허용
   fastify.get("/", async (request) => {
-    const { type, search, includeInactive, page, limit } = request.query as any;
+    const { type, search, includeInactive, page, limit, sortBy, sortOrder } = request.query as any;
     const params: any = {
       type: type || undefined,
       search: search || undefined,
@@ -12,6 +12,8 @@ export async function storageLocationRoutes(fastify: FastifyInstance) {
     };
     if (page) params.page = parseInt(page);
     if (limit) params.limit = parseInt(limit);
+    if (sortBy) params.sortBy = sortBy;
+    if (sortOrder === "asc" || sortOrder === "desc") params.sortOrder = sortOrder;
     return fastify.storageLocationService.list(params);
   });
 

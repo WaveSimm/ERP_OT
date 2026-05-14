@@ -3,8 +3,8 @@ import { PrismaClient, LocationType } from "@prisma/client";
 export class StorageLocationService {
   constructor(private prisma: PrismaClient) {}
 
-  async list(params: { type?: LocationType; search?: string; includeInactive?: boolean; page?: number; limit?: number } = {}) {
-    const { type, search, includeInactive, page = 1, limit = 50 } = params;
+  async list(params: { type?: LocationType; search?: string; includeInactive?: boolean; page?: number; limit?: number; sortBy?: string; sortOrder?: "asc" | "desc" } = {}) {
+    const { type, search, includeInactive, page = 1, limit = 50, sortBy, sortOrder = "asc" } = params;
     const where: any = {};
     if (!includeInactive) where.isActive = true;
     if (type) where.type = type;
@@ -15,10 +15,21 @@ export class StorageLocationService {
       ];
     }
 
+    // v1.6 (2026-05-13): 사용자 정렬 우선, 미지정 시 기본 정렬
+    const SORTABLE: Record<string, any> = {
+      name: { name: sortOrder },
+      type: { type: sortOrder },
+      isActive: { isActive: sortOrder },
+      sortOrder: { sortOrder: sortOrder },
+    };
+    const orderBy = sortBy && SORTABLE[sortBy]
+      ? SORTABLE[sortBy]
+      : [{ type: "asc" }, { sortOrder: "asc" }, { name: "asc" }];
+
     const [items, total] = await Promise.all([
       this.prisma.storageLocation.findMany({
         where,
-        orderBy: [{ type: "asc" }, { sortOrder: "asc" }, { name: "asc" }],
+        orderBy,
         skip: (page - 1) * limit,
         take: limit,
       }),

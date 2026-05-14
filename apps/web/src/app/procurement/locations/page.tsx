@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { inventoryApi } from "@/lib/api";
 import Pagination from "@/components/Pagination";
+import SortableHeader, { SortOrder } from "@/components/SortableHeader";
 
 const PAGE_SIZE = 50;
 
@@ -16,6 +17,9 @@ export default function LocationsPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [sortBy, setSortBy] = useState<string>("");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const handleSort = (k: string, o: SortOrder) => { setSortBy(k); setSortOrder(o); };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -25,13 +29,14 @@ export default function LocationsPage() {
         includeInactive: true,
         page,
         limit: PAGE_SIZE,
+        ...(sortBy && { sortBy, sortOrder }),
       });
       setLocations(res.items);
       setTotalPages(res.totalPages);
       setTotal(res.total);
     } catch { setLocations([]); }
     finally { setLoading(false); }
-  }, [search, page]);
+  }, [search, page, sortBy, sortOrder]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setPage(1); }, [search]);
@@ -126,9 +131,9 @@ export default function LocationsPage() {
           </colgroup>
           <thead className="bg-gray-50 border-b">
             <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">위치명</th>
+              <SortableHeader sortKey="name" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">위치명</SortableHeader>
               <th className="px-4 py-3 text-left font-medium text-gray-600">설명</th>
-              <th className="px-4 py-3 text-center font-medium text-gray-600">상태</th>
+              <SortableHeader sortKey="isActive" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 text-center font-medium text-gray-600">상태</SortableHeader>
               <th className="px-4 py-3 text-center font-medium text-gray-600">작업</th>
             </tr>
           </thead>

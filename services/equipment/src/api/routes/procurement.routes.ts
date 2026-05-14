@@ -39,15 +39,28 @@ export async function internalOrderRoutes(fastify: FastifyInstance) {
 
 export async function productMasterRoutes(fastify: FastifyInstance) {
   // 조회: 전체 허용
+  //   v1.6 B안 (2026-05-13): itemType 필터 추가. 발주 line 등 검색은 기본적으로 SIMPLE만.
+  //   includeBundle=true 또는 itemType=BUNDLE 로 명시적 호출 시 BUNDLE 노출
   fastify.get("/", async (request) => {
-    const { search, name, modelName, manufacturer, page, limit } = request.query as any;
+    const q = request.query as any;
+    let itemType: any;
+    if (q.itemType === "SIMPLE" || q.itemType === "BUNDLE") {
+      itemType = q.itemType;
+    } else if (q.includeBundle === "true") {
+      itemType = undefined; // 전체
+    } else {
+      itemType = "SIMPLE"; // 기본: 단일 품목만 (발주 등 보호)
+    }
     return fastify.productMasterService.list({
-      search: search || undefined,
-      name: name || undefined,
-      modelName: modelName || undefined,
-      manufacturer: manufacturer || undefined,
-      page: page ? Number(page) : 1,
-      limit: limit ? Number(limit) : 50,
+      search: q.search || undefined,
+      name: q.name || undefined,
+      modelName: q.modelName || undefined,
+      manufacturer: q.manufacturer || undefined,
+      itemType,
+      page: q.page ? Number(q.page) : 1,
+      limit: q.limit ? Number(q.limit) : 50,
+      ...(q.sortBy && { sortBy: q.sortBy }),
+      ...((q.sortOrder === "asc" || q.sortOrder === "desc") && { sortOrder: q.sortOrder }),
     });
   });
 
@@ -75,17 +88,42 @@ export async function productMasterRoutes(fastify: FastifyInstance) {
     await fastify.productMasterService.remove((request.params as any).id);
     return reply.status(204).send();
   });
+
+  // v1.6 B안 (2026-05-13): 번들 마스터의 구성품 (BomItem) 관리
+  fastify.get("/:id/bundle-items", async (request) => {
+    return fastify.productMasterService.listBundleItems((request.params as any).id);
+  });
+
+  fastify.put("/:id/bundle-items", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
+    const { id } = request.params as any;
+    const body = request.body as any;
+    return fastify.productMasterService.replaceBundleItems(id, body.items ?? []);
+  });
+
+  // v1.6 B안 (2026-05-13): 번들 사전 조립 액션
+  fastify.post("/:id/assemble", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request, reply) => {
+    const { id } = request.params as any;
+    const body = request.body as any;
+    const result = await fastify.productMasterService.assembleBundle(id, {
+      components: body.components ?? [],
+      output: body.output ?? {},
+      createdBy: request.userId,
+    });
+    return reply.status(201).send(result);
+  });
 }
 
 export async function contractRoutes(fastify: FastifyInstance) {
   // 조회: 전체 허용
   fastify.get("/", async (request) => {
-    const { search, status, page, limit } = request.query as any;
+    const { search, status, page, limit, sortBy, sortOrder } = request.query as any;
     return fastify.contractService.list({
       search: search || undefined,
       status: status || undefined,
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 50,
+      ...(sortBy && { sortBy }),
+      ...((sortOrder === "asc" || sortOrder === "desc") && { sortOrder }),
     });
   });
 
@@ -117,7 +155,7 @@ export async function contractRoutes(fastify: FastifyInstance) {
 export async function overseasOrderRoutes(fastify: FastifyInstance) {
   // 조회: 전체 허용
   fastify.get("/", async (request) => {
-    const { search, status, currency, orderType, contractId, page, limit } = request.query as any;
+    const { search, status, currency, orderType, contractId, page, limit, sortBy, sortOrder, hasPayment } = request.query as any;
     return fastify.overseasOrderService.list({
       search: search || undefined,
       status: status || undefined,
@@ -126,6 +164,9 @@ export async function overseasOrderRoutes(fastify: FastifyInstance) {
       contractId: contractId || undefined,
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 50,
+      ...(sortBy && { sortBy }),
+      ...((sortOrder === "asc" || sortOrder === "desc") && { sortOrder }),
+      ...(hasPayment === "true" && { hasPayment: true }),
     });
   });
 
@@ -157,6 +198,12 @@ export async function overseasOrderRoutes(fastify: FastifyInstance) {
     const { id } = request.params as any;
     const { status } = request.body as any;
     return fastify.overseasOrderService.transition(id, status, request.userId || "system");
+  });
+
+  // v1.6 (2026-05-14): 결재 상신 취소 — PENDING_APPROVAL → DRAFT
+  fastify.post("/:id/cancel-submission", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
+    const { id } = request.params as any;
+    return fastify.overseasOrderService.cancelSubmission(id, request.userId);
   });
 
   // 삭제: ADMIN만

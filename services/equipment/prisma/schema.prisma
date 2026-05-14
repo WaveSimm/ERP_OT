@@ -885,6 +885,9 @@ enum InventoryTransactionType {
   TRANSFER
   RELEASE
   RETURN
+  // v1.6 B안 (2026-05-13): 번들 사전 조립 — 구성품 RELEASE + 번들 PURCHASE 동시
+  ASSEMBLY
+  DISASSEMBLY
 
   @@schema("equipment")
 }
@@ -918,6 +921,15 @@ enum OrderCurrency {
   @@schema("equipment")
 }
 
+// v1.6 (2026-05-14): 발주 송금 라이프사이클
+enum OrderPaymentStatus {
+  REQUESTED   // 발주 담당자가 송금 요청
+  COMPLETED   // 재무팀이 실제 송금 후 완료 처리
+  REJECTED    // 재무팀이 반려
+
+  @@schema("equipment")
+}
+
 enum OrderStatus {
   DRAFT
   PENDING_APPROVAL
@@ -925,10 +937,12 @@ enum OrderStatus {
   REJECTED
   ORDERED
   IN_PRODUCTION
+  PURCHASING  // v1.6 (2026-05-14): 발주 진행 — PO 발송 단계
   SHIPPED
   CUSTOMS
   PARTIALLY_RECEIVED
   ARRIVED
+  SETTLEMENT  // v1.6 (2026-05-14): 회계정산 — Invoice/송금 입력
   CLOSED
 
   @@schema("equipment")
@@ -959,6 +973,14 @@ enum ContractStatus {
 
 // ─── P-1. ProductMaster (장비 마스터) ──────────
 
+// v1.6 신규 (2026-05-13): 카탈로그 유형 — 단일 품목 vs 번들
+enum ProductItemType {
+  SIMPLE
+  BUNDLE
+
+  @@schema("equipment")
+}
+
 model ProductMaster {
   id              String         @id @default(cuid())
   name            String
@@ -971,6 +993,9 @@ model ProductMaster {
   defaultCurrency OrderCurrency? @map("default_currency")
   referencePrice  Decimal?       @map("reference_price") @db.Decimal(12, 2)
   specs           Json?
+  // v1.6 신규 (2026-05-13, B안): 통합 카탈로그 — 단일 품목 + 번들 한 곳에서 관리
+  itemType        ProductItemType @default(SIMPLE) @map("item_type")
+  isActive        Boolean         @default(true) @map("is_active")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -979,10 +1004,13 @@ model ProductMaster {
   purchaseOrderItems PurchaseOrderItem[]   @relation("PMPurchaseItems")
   inventoryItems     InventoryItem[]
   variants           ProductVariant[]
-  bomItems           BomItem[]
+  bomItems           BomItem[]                                // 구성품으로 참조되는 행 (작은 부품 입장)
+  bundleItems        BomItem[]            @relation("BundleParent")  // 이 번들의 구성품 정의 (BUNDLE 마스터일 때)
   bundleShipmentItems BundleShipmentItem[]
+  bundleShipments    BundleShipment[]     @relation("BundleParentShipment")
 
   @@unique([manufacturer, modelName], name: "manufacturer_model")
+  @@index([itemType])
   @@map("product_masters")
   @@schema("equipment")
 }
@@ -1107,7 +1135,14 @@ model OverseasOrder {
 
   invoiceNo  String?   @map("invoice_no")
   dueDate    DateTime? @map("due_date") @db.Date
-  oaNumber   String?   @map("oa_number")
+  oaNumber   String?   @map("oa_number")           // Order Acknowledgement 번호 — 공급사의 PO 확정 문서 번호
+  paymentTerms String? @map("payment_terms")       // v1.6 (2026-05-14): 결제수단 (T/T, L/C, 무역금융 등). oa_number와 분리
+  customer   String?                                                 // v1.6 (2026-05-14): 발주별 고객사 (계약의 client 기본값, 사용자 덮어쓰기 가능)
+
+  // v1.6 (2026-05-14): 결재라인 — 발주 등록 시 선택. 상신 시 사용.
+  approverId        String? @map("approver_id")
+  secondApproverId  String? @map("second_approver_id")
+  thirdApproverId   String? @map("third_approver_id")
 
   totalAmount    Decimal  @map("total_amount") @db.Decimal(12, 2)
   totalAmountKRW Decimal? @map("total_amount_krw") @db.Decimal(14, 0)
@@ -1120,12 +1155,86 @@ model OverseasOrder {
   items           OverseasOrderItem[]
   progressLogs    OrderProgressLog[]
   costSettlements ImportCostSettlement[]
+  invoice         OrderInvoice?
+  payments        OrderPayment[]
 
   @@index([contractId])
   @@index([status])
   @@index([orderedBy])
   @@index([currency])
   @@map("overseas_orders")
+  @@schema("equipment")
+}
+
+// ─── P-4-A. OrderInvoice (회계정산: 1:1 invoice, v1.6 2026-05-14) ───────
+
+model OrderInvoice {
+  id              String        @id @default(cuid())
+  orderId         String        @unique @map("order_id")
+  invoiceNumber   String        @map("invoice_number")
+  invoiceDate     DateTime      @map("invoice_date") @db.Date
+  amount          Decimal       @db.Decimal(12, 2)                       // 현재 금액 (네고·추가비용 반영)
+  initialAmount   Decimal       @map("initial_amount") @db.Decimal(12, 2) // 최초 invoice 금액
+  currency        OrderCurrency
+  amountKRW       Decimal?      @map("amount_krw") @db.Decimal(15, 0)
+  dueDate         DateTime?     @map("due_date") @db.Date
+  paymentTerms    String?       @map("payment_terms")                    // T/T, L/C, 무역금융 등
+  notes           String?
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  order           OverseasOrder           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amendments      OrderInvoiceAmendment[]
+
+  @@map("order_invoices")
+  @@schema("equipment")
+}
+
+model OrderInvoiceAmendment {
+  id              String   @id @default(cuid())
+  invoiceId       String   @map("invoice_id")
+  previousAmount  Decimal  @map("previous_amount") @db.Decimal(12, 2)
+  newAmount       Decimal  @map("new_amount") @db.Decimal(12, 2)
+  reason          String                                                  // 네고 / 추가비용 / 기타
+  description     String?
+  amendedBy       String?  @map("amended_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  invoice         OrderInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("order_invoice_amendments")
+  @@schema("equipment")
+}
+
+model OrderPayment {
+  id              String              @id @default(cuid())
+  orderId         String              @map("order_id")
+  paymentDate     DateTime?           @map("payment_date") @db.Date    // REQUESTED 상태에선 null 허용
+  amount          Decimal             @db.Decimal(12, 2)
+  currency        OrderCurrency
+  amountKRW       Decimal?            @map("amount_krw") @db.Decimal(15, 0)
+  exchangeRate    Decimal?            @map("exchange_rate") @db.Decimal(10, 4)
+  paymentMethod   String?             @map("payment_method")           // T/T, L/C, 무역금융 등
+  bankReference   String?             @map("bank_reference")           // 송금 참조 번호
+  notes           String?
+  // v1.6 (2026-05-14): 송금 요청 워크플로우
+  status          OrderPaymentStatus  @default(COMPLETED)              // 기존 데이터 호환: COMPLETED 기본
+  rejectReason    String?             @map("reject_reason")
+  requestedBy     String?             @map("requested_by")
+  requestedAt     DateTime?           @map("requested_at")
+  completedBy     String?             @map("completed_by")
+  completedAt     DateTime?           @map("completed_at")
+  createdBy       String?             @map("created_by")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+
+  order           OverseasOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([paymentDate])
+  @@index([status])
+  @@map("order_payments")
   @@schema("equipment")
 }
 
@@ -1618,36 +1727,23 @@ enum BomSlotType {
   @@schema("equipment")
 }
 
-model BomDefinition {
-  id              String   @id @default(cuid())
-  code            String   @unique                          // 예: "KHOA-OCEAN-V1"
-  name            String
-  referencePrice  Decimal? @map("reference_price") @db.Decimal(14, 0)   // 사용자 직접 입력
-  isActive        Boolean  @default(true) @map("is_active")
-
-  items           BomItem[]
-  bundleShipments BundleShipment[]
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-
-  @@map("bom_definitions")
-  @@schema("equipment")
-}
+// v1.6 B안 (2026-05-13): BomDefinition 폐기 — ProductMaster (itemType=BUNDLE)가 BOM 역할 흡수
+//   대신 BomItem.parentMasterId가 ProductMaster를 참조
 
 model BomItem {
   id              String   @id @default(cuid())
-  bomDefinitionId String   @map("bom_definition_id")
-  productMasterId String   @map("product_master_id")
+  parentMasterId  String   @map("parent_master_id")   // BUNDLE ProductMaster 참조 (구 bomDefinitionId)
+  productMasterId String   @map("product_master_id")  // 구성품 ProductMaster (보통 SIMPLE)
   variantId       String?  @map("variant_id")
   quantity        Int
   slotType        BomSlotType @default(MAIN) @map("slot_type")
   notes           String?
 
-  bomDefinition   BomDefinition  @relation(fields: [bomDefinitionId], references: [id], onDelete: Cascade)
-  productMaster   ProductMaster  @relation(fields: [productMasterId], references: [id])
+  parentMaster    ProductMaster   @relation("BundleParent", fields: [parentMasterId], references: [id], onDelete: Cascade)
+  productMaster   ProductMaster   @relation(fields: [productMasterId], references: [id])
   variant         ProductVariant? @relation(fields: [variantId], references: [id])
 
-  @@index([bomDefinitionId])
+  @@index([parentMasterId])
   @@map("bom_items")
   @@schema("equipment")
 }
@@ -1655,7 +1751,7 @@ model BomItem {
 model BundleShipment {
   id              String   @id @default(cuid())
   code            String   @unique                          // BD-YYYY-NNNN
-  bomDefinitionId String?  @map("bom_definition_id")
+  parentMasterId  String?  @map("parent_master_id")         // v1.6 B안: BUNDLE ProductMaster 참조
   customerId      String   @map("customer_id")
   projectId       String?  @map("project_id")
   shippedAt       DateTime @map("shipped_at")
@@ -1664,7 +1760,7 @@ model BundleShipment {
   totalPrice      Decimal? @map("total_price") @db.Decimal(14, 0)  // 사용자 입력
   notes           String?
 
-  bomDefinition   BomDefinition? @relation(fields: [bomDefinitionId], references: [id])
+  parentMaster    ProductMaster? @relation("BundleParentShipment", fields: [parentMasterId], references: [id])
   customer        Customer       @relation(fields: [customerId], references: [id])
   items           BundleShipmentItem[]
   customerAssets  CustomerAsset[]
@@ -1672,6 +1768,7 @@ model BundleShipment {
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   @@index([customerId])
+  @@index([parentMasterId])
   @@map("bundle_shipments")
   @@schema("equipment")
 }

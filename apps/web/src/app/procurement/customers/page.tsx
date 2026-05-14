@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { repairApi } from "@/lib/api";
 import Pagination from "@/components/Pagination";
+import SortableHeader, { SortOrder } from "@/components/SortableHeader";
 
 export default function CustomersPage() {
   const router = useRouter();
@@ -13,6 +14,9 @@ export default function CustomersPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<string>("");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const handleSort = (k: string, o: SortOrder) => { setSortBy(k); setSortOrder(o); };
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -29,12 +33,12 @@ export default function CustomersPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await repairApi.getCustomers({ search: search || undefined, page, limit: 50 });
+      const res = await repairApi.getCustomers({ search: search || undefined, page, limit: 50, ...(sortBy && { sortBy, sortOrder }) });
       setCustomers(res.items || res);
       setTotal(res.total || (res.items || res).length);
     } catch (e: any) { console.error(e); }
     finally { setLoading(false); }
-  }, [search, page]);
+  }, [search, page, sortBy, sortOrder]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -150,9 +154,9 @@ export default function CustomersPage() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b">
             <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">고객사명</th>
+              <SortableHeader sortKey="name" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">고객사명</SortableHeader>
               <th className="px-4 py-3 text-left font-medium text-gray-600">사업자번호</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">전화</th>
+              <SortableHeader sortKey="phone" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">전화</SortableHeader>
               <th className="px-4 py-3 text-left font-medium text-gray-600">이메일</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">주소</th>
               <th className="px-4 py-3 text-center font-medium text-gray-600">보유자산</th>

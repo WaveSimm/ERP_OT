@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { taskApi, commentApi, resourceApi, deploymentApi, equipmentApi, sensorApi, listAssignableResources } from "@/lib/api";
 import clsx from "clsx";
-import DateInput from "./DateInput";
+import { DateInput } from "./ui/DateInput";
 import WorkLogTab from "./work-log/WorkLogTab";
 import { fmtDateTime24 } from "@/lib/datetime";
 
@@ -247,22 +247,24 @@ function SegmentCard({
         <div className="flex items-center gap-1.5">
           <DateInput
             value={startDate}
-            onChange={(v) => { setStartDate(v); latestDates.current.startDate = v; }}
+            onChange={(e) => { const v = e.target.value; setStartDate(v); latestDates.current.startDate = v; }}
             onBlur={() => {
               const { startDate: s, endDate: e } = latestDates.current;
               if (s !== seg.startDate || e !== seg.endDate) saveSegField({ startDate: s, endDate: e });
             }}
             disabled={isSaving}
+            className="text-xs px-1.5 py-0.5 border border-gray-200 rounded w-[120px]"
           />
           <span className="text-xs text-gray-400">~</span>
           <DateInput
             value={endDate}
-            onChange={(v) => { setEndDate(v); latestDates.current.endDate = v; }}
+            onChange={(e) => { const v = e.target.value; setEndDate(v); latestDates.current.endDate = v; }}
             onBlur={() => {
               const { startDate: s, endDate: e } = latestDates.current;
               if (s !== seg.startDate || e !== seg.endDate) saveSegField({ startDate: s, endDate: e });
             }}
             disabled={isSaving}
+            className="text-xs px-1.5 py-0.5 border border-gray-200 rounded w-[120px]"
           />
         </div>
       )}
@@ -1049,13 +1051,13 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
                   <div className="flex gap-2">
                     <DateInput
                       value={newSeg.startDate}
-                      onChange={(v) => setNewSeg({ ...newSeg, startDate: v })}
-                      className="flex-1"
+                      onChange={(e) => setNewSeg({ ...newSeg, startDate: e.target.value })}
+                      className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
                     />
                     <DateInput
                       value={newSeg.endDate}
-                      onChange={(v) => setNewSeg({ ...newSeg, endDate: v })}
-                      className="flex-1"
+                      onChange={(e) => setNewSeg({ ...newSeg, endDate: e.target.value })}
+                      className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
                     />
                   </div>
                   {/* 자원 배정 */}

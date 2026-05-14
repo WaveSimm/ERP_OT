@@ -266,6 +266,33 @@ async function buildApp() {
     }
   });
 
+  // v1.6 (2026-05-14): referenceType/referenceId로 진행중인 결재 문서들 일괄 withdraw
+  //   발주 상신 취소 등에서 사용. 진행중(DRAFT/SUBMITTED/STEP_*)인 모든 문서를 RETURNED 처리.
+  app.post("/internal/documents/withdraw-by-reference", async (request, reply) => {
+    if (!requireInternalToken(request, reply)) return;
+    const body = request.body as { referenceType?: string; referenceId?: string };
+    if (!body.referenceType || !body.referenceId) {
+      return reply.status(400).send({ error: "referenceType, referenceId required" });
+    }
+    try {
+      const inflight = await prisma.approvalDocument.findMany({
+        where: {
+          referenceType: body.referenceType,
+          referenceId: body.referenceId,
+          status: { in: ["DRAFT", "AGREEMENT_PENDING", "SUBMITTED", "STEP_1_PENDING", "STEP_2_PENDING", "STEP_3_PENDING"] as any },
+        },
+        select: { id: true },
+      });
+      const updated = await prisma.approvalDocument.updateMany({
+        where: { id: { in: inflight.map((d) => d.id) } },
+        data: { status: "RETURNED" },
+      });
+      return reply.send({ withdrawn: updated.count });
+    } catch (err: any) {
+      return reply.status(500).send({ error: err.message });
+    }
+  });
+
   return app;
 }
 

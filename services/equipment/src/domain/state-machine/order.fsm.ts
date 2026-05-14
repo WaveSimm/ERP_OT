@@ -3,15 +3,20 @@ import { OrderStatus } from "@prisma/client";
 /** Allowed transitions: current status → next statuses */
 const TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   DRAFT:              ["PENDING_APPROVAL"],
-  PENDING_APPROVAL:   ["APPROVED", "REJECTED"],
+  // v1.6 (2026-05-14): 상신 취소 (PENDING_APPROVAL → DRAFT) 허용
+  PENDING_APPROVAL:   ["APPROVED", "REJECTED", "DRAFT"],
   APPROVED:           ["ORDERED"],
   REJECTED:           ["DRAFT"],
-  ORDERED:            ["IN_PRODUCTION", "SHIPPED"],
-  IN_PRODUCTION:      ["SHIPPED"],
+  // v1.6 (2026-05-14): 제작중 단계 제거. ORDERED → PURCHASING → SHIPPED 강제 (직행 금지)
+  ORDERED:            ["PURCHASING"],
+  IN_PRODUCTION:      ["SHIPPED"],  // legacy 호환
+  PURCHASING:         ["SHIPPED"],
   SHIPPED:            ["CUSTOMS"],
   CUSTOMS:            ["PARTIALLY_RECEIVED", "ARRIVED"],
   PARTIALLY_RECEIVED: ["ARRIVED"],
+  // v1.6 (2026-05-14): SETTLEMENT 진입 차단 — 송금은 OrderPayment로 별도 관리, 상태 변경 없음
   ARRIVED:            ["CLOSED"],
+  SETTLEMENT:         ["CLOSED"],  // legacy 호환만, 새 전환 불가
   CLOSED:             [],
 };
 

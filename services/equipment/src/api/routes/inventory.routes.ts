@@ -10,8 +10,11 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
       status: q.status,
       location: q.location,
       search: q.search,
+      productMasterId: q.productMasterId,
       page: q.page ? parseInt(q.page) : 1,
       limit: q.limit ? parseInt(q.limit) : 50,
+      ...(q.sortBy && { sortBy: q.sortBy }),
+      ...((q.sortOrder === "asc" || q.sortOrder === "desc") && { sortOrder: q.sortOrder }),
     });
   });
 
@@ -68,6 +71,37 @@ export async function inventoryRoutes(fastify: FastifyInstance) {
   fastify.delete("/:id", { preHandler: [requireRole("ADMIN")] }, async (request, reply) => {
     await fastify.inventoryService.delete((request.params as any).id);
     return reply.status(204).send();
+  });
+
+  // v1.6 신규 (2026-05-13): 위치별 분산 조회
+  fastify.get("/:id/locations", async (request) => {
+    return fastify.inventoryService.listLocations((request.params as any).id);
+  });
+
+  // v1.6 신규: 출고 (RELEASE) — 특정 위치에서 차감
+  fastify.post("/:id/release", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
+    const body = request.body as any;
+    return fastify.inventoryService.release((request.params as any).id, {
+      locationId: body.locationId,
+      quantity: body.quantity,
+      projectName: body.projectName,
+      assigneeName: body.assigneeName,
+      deliveryTo: body.deliveryTo,
+      notes: body.notes,
+      createdBy: request.userId,
+    });
+  });
+
+  // v1.6 신규: 위치 간 이동 (TRANSFER) — inventoryNo 유지
+  fastify.post("/:id/transfer", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
+    const body = request.body as any;
+    return fastify.inventoryService.transfer((request.params as any).id, {
+      fromLocationId: body.fromLocationId,
+      toLocationId: body.toLocationId,
+      quantity: body.quantity,
+      notes: body.notes,
+      createdBy: request.userId,
+    });
   });
 }
 

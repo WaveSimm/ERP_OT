@@ -237,6 +237,7 @@ export default function InventoryDetailPage() {
               </InfoField>
               <InfoField label="보관위치" value={item.currentLocation || "-"} />
               <InfoField label="추적방식" value={item.trackingMode === "INDIVIDUAL" ? "개별추적" : "벌크"} />
+              <InfoField label="현재고 수량" value={`${item.quantity ?? 0}`} />
               <InfoField label="시리얼번호" value={item.serialNumber || "-"} />
               <InfoField label="단가" value={item.unitPrice ? `₩${Number(item.unitPrice).toLocaleString()}` : "-"} />
               <InfoField label="프로젝트" value={item.projectName || "-"} />
@@ -267,6 +268,20 @@ export default function InventoryDetailPage() {
                     </InfoField>
                   )}
                 </>
+              )}
+              {/* v1.6 (2026-05-13): 위치별 분산 (1 inventory = N location) */}
+              {item.locations && item.locations.length > 0 && (
+                <div className="col-span-2 sm:col-span-4 border-t pt-3 mt-1">
+                  <div className="text-xs text-gray-500 mb-1">위치별 분산 ({item.locations.length}개 위치, 합계 {item.locations.reduce((s: number, l: any) => s + (l.quantity || 0), 0)}개)</div>
+                  <div className="flex flex-wrap gap-2">
+                    {item.locations.map((l: any) => (
+                      <span key={l.id} className="text-xs px-2 py-1 rounded bg-slate-100">
+                        <span className="font-medium">{l.location?.name || l.locationId}</span>
+                        <span className="ml-1.5 font-mono text-slate-600">{l.quantity}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
               )}
               <div className="col-span-2 sm:col-span-4 border-t pt-3 mt-1">
                 <div className="text-xs text-gray-500 mb-0.5">비고</div>

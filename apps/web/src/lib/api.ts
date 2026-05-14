@@ -1004,11 +1004,13 @@ export const compatibilityApi = {
 
 export const repairApi = {
   // 고객
-  getCustomers: (params?: { search?: string; page?: number; limit?: number }) => {
+  getCustomers: (params?: { search?: string; page?: number; limit?: number; sortBy?: string; sortOrder?: "asc" | "desc" }) => {
     const q = new URLSearchParams();
     if (params?.search) q.set("search", params.search);
     if (params?.page) q.set("page", String(params.page));
     if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.sortBy) q.set("sortBy", params.sortBy);
+    if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
     const qs = q.toString();
     return request<any>(`/customers${qs ? `?${qs}` : ""}`);
   },
@@ -1178,11 +1180,13 @@ export const repairApi = {
 // ─── Supplier (제조사/공급사) API ────────────────────────────────────────────
 
 export const supplierApi = {
-  list: (params?: { search?: string; page?: number; limit?: number }) => {
+  list: (params?: { search?: string; page?: number; limit?: number; sortBy?: string; sortOrder?: "asc" | "desc" }) => {
     const q = new URLSearchParams();
     if (params?.search) q.set("search", params.search);
     if (params?.page) q.set("page", String(params.page));
     if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.sortBy) q.set("sortBy", params.sortBy);
+    if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
     const qs = q.toString();
     return request<any>(`/suppliers${qs ? `?${qs}` : ""}`);
   },
@@ -1206,14 +1210,31 @@ export const supplierApi = {
 
 export const procurementApi = {
   // 장비 마스터
-  getProducts: (params?: { search?: string; name?: string; modelName?: string; manufacturer?: string; page?: number; limit?: number }) => {
+  //   v1.6 B안 (2026-05-13): itemType 필터 (SIMPLE/BUNDLE) + includeBundle
+  //   기본은 SIMPLE만 (발주 등 검색에서 번들 차단)
+  getProducts: (params?: {
+    search?: string;
+    name?: string;
+    modelName?: string;
+    manufacturer?: string;
+    itemType?: "SIMPLE" | "BUNDLE";
+    includeBundle?: boolean;
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortOrder?: "asc" | "desc";
+  }) => {
     const q = new URLSearchParams();
     if (params?.search) q.set("search", params.search);
     if (params?.name) q.set("name", params.name);
     if (params?.modelName) q.set("modelName", params.modelName);
     if (params?.manufacturer) q.set("manufacturer", params.manufacturer);
+    if (params?.itemType) q.set("itemType", params.itemType);
+    if (params?.includeBundle) q.set("includeBundle", "true");
     if (params?.page) q.set("page", String(params.page));
     if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.sortBy) q.set("sortBy", params.sortBy);
+    if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
     const qs = q.toString();
     return request<any>(`/procurement/products${qs ? `?${qs}` : ""}`);
   },
@@ -1226,13 +1247,32 @@ export const procurementApi = {
     request<void>(`/procurement/products/${id}`, { method: "DELETE" }),
   getManufacturers: () => request<string[]>("/procurement/products/manufacturers"),
 
+  // v1.6 B안: 번들 구성품 (BomItem) 관리
+  getBundleItems: (parentMasterId: string) =>
+    request<any[]>(`/procurement/products/${parentMasterId}/bundle-items`),
+  replaceBundleItems: (parentMasterId: string, items: any[]) =>
+    request<any>(`/procurement/products/${parentMasterId}/bundle-items`, {
+      method: "PUT",
+      body: JSON.stringify({ items }),
+    }),
+  // v1.6 B안 (사전 조립): 구성품 차감 + 번들 입고 단일 트랜잭션
+  assembleBundle: (parentMasterId: string, data: {
+    components: Array<{ inventoryItemId: string; locationId?: string; quantity: number }>;
+    output: { quantity?: number; unitPrice?: number; locationId?: string; serialNumber?: string; notes?: string };
+  }) => request<any>(`/procurement/products/${parentMasterId}/assemble`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),
+
   // 계약
-  getContracts: (params?: { search?: string; status?: string; page?: number; limit?: number }) => {
+  getContracts: (params?: { search?: string; status?: string; page?: number; limit?: number; sortBy?: string; sortOrder?: "asc" | "desc" }) => {
     const q = new URLSearchParams();
     if (params?.search) q.set("search", params.search);
     if (params?.status) q.set("status", params.status);
     if (params?.page) q.set("page", String(params.page));
     if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.sortBy) q.set("sortBy", params.sortBy);
+    if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
     const qs = q.toString();
     return request<any>(`/procurement/contracts${qs ? `?${qs}` : ""}`);
   },
@@ -1245,7 +1285,7 @@ export const procurementApi = {
     request<void>(`/procurement/contracts/${id}`, { method: "DELETE" }),
 
   // 해외 발주
-  getOrders: (params?: { search?: string; status?: string; currency?: string; orderType?: string; contractId?: string; page?: number; limit?: number }) => {
+  getOrders: (params?: { search?: string; status?: string; currency?: string; orderType?: string; contractId?: string; page?: number; limit?: number; sortBy?: string; sortOrder?: "asc" | "desc"; hasPayment?: boolean }) => {
     const q = new URLSearchParams();
     if (params?.search) q.set("search", params.search);
     if (params?.status) q.set("status", params.status);
@@ -1254,6 +1294,9 @@ export const procurementApi = {
     if (params?.contractId) q.set("contractId", params.contractId);
     if (params?.page) q.set("page", String(params.page));
     if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.sortBy) q.set("sortBy", params.sortBy);
+    if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
+    if (params?.hasPayment) q.set("hasPayment", "true");
     const qs = q.toString();
     return request<any>(`/procurement/orders${qs ? `?${qs}` : ""}`);
   },
@@ -1266,6 +1309,9 @@ export const procurementApi = {
     request<void>(`/procurement/orders/${id}`, { method: "DELETE" }),
   transitionOrder: (id: string, status: string) =>
     request<any>(`/procurement/orders/${id}/transition`, { method: "POST", body: JSON.stringify({ status }) }),
+  // v1.6 (2026-05-14): 결재 상신 취소
+  cancelOrderSubmission: (id: string) =>
+    request<any>(`/procurement/orders/${id}/cancel-submission`, { method: "POST" }),
   getDashboard: () => request<any>("/procurement/orders/dashboard"),
 
   // 발주 품목
@@ -1286,6 +1332,33 @@ export const procurementApi = {
   unlinkInventory: (itemId: string, inventoryId: string) =>
     request<any>(`/procurement/orders/items/${itemId}/inventory/${inventoryId}`, { method: "DELETE" }),
 
+  // v1.6 회계정산 (2026-05-14)
+  getSettlement: (orderId: string) =>
+    request<any>(`/procurement/orders/${orderId}/settlement`),
+  getInvoice: (orderId: string) =>
+    request<any>(`/procurement/orders/${orderId}/invoice`),
+  createInvoice: (orderId: string, data: any) =>
+    request<any>(`/procurement/orders/${orderId}/invoice`, { method: "POST", body: JSON.stringify(data) }),
+  updateInvoice: (orderId: string, data: any) =>
+    request<any>(`/procurement/orders/${orderId}/invoice`, { method: "PATCH", body: JSON.stringify(data) }),
+  listPayments: (orderId: string) =>
+    request<any>(`/procurement/orders/${orderId}/payments`),
+  createPayment: (orderId: string, data: any) =>
+    request<any>(`/procurement/orders/${orderId}/payments`, { method: "POST", body: JSON.stringify(data) }),
+  updatePayment: (paymentId: string, data: any) =>
+    request<any>(`/procurement/payments/${paymentId}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deletePayment: (paymentId: string) =>
+    request<void>(`/procurement/payments/${paymentId}`, { method: "DELETE" }),
+  // v1.6 (2026-05-14): 송금 요청 워크플로우
+  requestPayment: (orderId: string, data: any) =>
+    request<any>(`/procurement/orders/${orderId}/payment-requests`, { method: "POST", body: JSON.stringify(data) }),
+  listPaymentRequests: (status?: "REQUESTED" | "COMPLETED" | "REJECTED") =>
+    request<any[]>(`/procurement/payment-requests${status ? `?status=${status}` : ""}`),
+  completePaymentRequest: (paymentId: string, data: any) =>
+    request<any>(`/procurement/payments/${paymentId}/complete`, { method: "PATCH", body: JSON.stringify(data) }),
+  rejectPaymentRequest: (paymentId: string, reason: string) =>
+    request<any>(`/procurement/payments/${paymentId}/reject`, { method: "PATCH", body: JSON.stringify({ reason }) }),
+
   // 진행 이력
   getProgress: (orderId: string) =>
     request<any>(`/procurement/orders/${orderId}/progress`),
@@ -1297,7 +1370,13 @@ export const procurementApi = {
 
 // ── Inventory Audit (재고 실사) ──────────────────────────────────────
 export const auditApi = {
-  list: () => request<any[]>("/inventory/audits"),
+  list: (params?: { sortBy?: string; sortOrder?: "asc" | "desc" }) => {
+    const q = new URLSearchParams();
+    if (params?.sortBy) q.set("sortBy", params.sortBy);
+    if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
+    const qs = q.toString();
+    return request<any[]>(`/inventory/audits${qs ? `?${qs}` : ""}`);
+  },
   getById: (id: string) => request<any>(`/inventory/audits/${id}`),
   create: (data: { name: string; plannedDate: string; notes?: string }) =>
     request<any>("/inventory/audits", { method: "POST", body: JSON.stringify(data) }),
@@ -1319,15 +1398,21 @@ export const auditApi = {
 
 // ── Expense Follow-up (지출결의 후속처리 — procurement) ──────────────────────────────
 export const expenseFollowupApi = {
-  list: (status?: string) => {
-    const q = status ? `?status=${status}` : "";
-    return request<any[]>(`/procurement/expenses${q}`);
+  list: (params?: { status?: string; sortBy?: string; sortOrder?: "asc" | "desc" } | string) => {
+    // 기존 호환성: 문자열 status 단일 인자도 받음
+    const p = typeof params === "string" ? { status: params } : (params ?? {});
+    const q = new URLSearchParams();
+    if (p.status) q.set("status", p.status);
+    if (p.sortBy) q.set("sortBy", p.sortBy);
+    if (p.sortOrder) q.set("sortOrder", p.sortOrder);
+    const qs = q.toString();
+    return request<any[]>(`/procurement/expenses${qs ? `?${qs}` : ""}`);
   },
   getById: (id: string) => request<any>(`/procurement/expenses/${id}`),
   decide: (id: string, data: { isInventoryTarget: boolean; note?: string; inventoryItems?: number[] }) =>
     request<any>(`/procurement/expenses/${id}/decide`, { method: "POST", body: JSON.stringify(data) }),
-  confirmArrival: (id: string, data: { arrivalDate: string; arrivalLocation?: string; arrivalNote?: string }) =>
-    request<any>(`/procurement/expenses/${id}/confirm-arrival`, { method: "POST", body: JSON.stringify(data) }),
+  // confirmArrival 폐기 (v1.6, 2026-05-13): 재고 판정 시 자동으로 InboundRequest 큐 생성 → /procurement/inbound에서 receive 처리.
+  // 기존 호출처는 모두 제거됨. 410 응답으로 안전망 유지.
   markPayment: (id: string, data: { paidAt: string; paidAmount?: number; paidNote?: string }) =>
     request<any>(`/procurement/expenses/${id}/payment`, { method: "POST", body: JSON.stringify(data) }),
   clearPayment: (id: string) =>
@@ -1336,7 +1421,13 @@ export const expenseFollowupApi = {
 
 // ── Import Cost Settlement (수입원가정산) ────────────────────────────
 export const settlementApi = {
-  list: () => request<any[]>("/procurement/settlements"),
+  list: (params?: { sortBy?: string; sortOrder?: "asc" | "desc" }) => {
+    const q = new URLSearchParams();
+    if (params?.sortBy) q.set("sortBy", params.sortBy);
+    if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
+    const qs = q.toString();
+    return request<any[]>(`/procurement/settlements${qs ? `?${qs}` : ""}`);
+  },
   getById: (id: string) => request<any>(`/procurement/settlements/${id}`),
   create: (data: any) =>
     request<any>("/procurement/settlements", { method: "POST", body: JSON.stringify(data) }),
@@ -1355,12 +1446,13 @@ export const settlementApi = {
 // ── Inventory (재고) ─────────────────────────────────────────────────────
 export const inventoryApi = {
   // 재고 목록
-  list: (params?: { category?: string; status?: string; location?: string; search?: string; page?: number; limit?: number }) => {
+  list: (params?: { category?: string; status?: string; location?: string; search?: string; productMasterId?: string; page?: number; limit?: number }) => {
     const q = new URLSearchParams();
     if (params?.category) q.set("category", params.category);
     if (params?.status) q.set("status", params.status);
     if (params?.location) q.set("location", params.location);
     if (params?.search) q.set("search", params.search);
+    if (params?.productMasterId) q.set("productMasterId", params.productMasterId);
     if (params?.page) q.set("page", String(params.page));
     if (params?.limit) q.set("limit", String(params.limit));
     return request<any>(`/inventory/items?${q.toString()}`);
@@ -1398,13 +1490,15 @@ export const inventoryApi = {
     request<void>(`/inventory/costs/${id}`, { method: "DELETE" }),
 
   // 보관위치
-  getLocations: (params?: { type?: string; search?: string; includeInactive?: boolean; page?: number; limit?: number }) => {
+  getLocations: (params?: { type?: string; search?: string; includeInactive?: boolean; page?: number; limit?: number; sortBy?: string; sortOrder?: "asc" | "desc" }) => {
     const q = new URLSearchParams();
     if (params?.type) q.set("type", params.type);
     if (params?.search) q.set("search", params.search);
     if (params?.includeInactive) q.set("includeInactive", "true");
     if (params?.page) q.set("page", String(params.page));
     if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.sortBy) q.set("sortBy", params.sortBy);
+    if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
     return request<{ items: any[]; total: number; page: number; limit: number; totalPages: number }>(`/inventory/locations?${q.toString()}`);
   },
   createLocation: (data: any) =>
@@ -1413,6 +1507,70 @@ export const inventoryApi = {
     request<any>(`/inventory/locations/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteLocation: (id: string) =>
     request<void>(`/inventory/locations/${id}`, { method: "DELETE" }),
+};
+
+// ── v1.6 신규 (2026-05-13): ProductVariant, InboundRequest, BomDefinition, BundleShipment ──
+
+export const productVariantApi = {
+  listByMaster: (productMasterId: string, includeInactive?: boolean) => {
+    const q = new URLSearchParams({ productMasterId });
+    if (includeInactive) q.set("includeInactive", "true");
+    return request<any[]>(`/product-variants?${q.toString()}`);
+  },
+  getById: (id: string) => request<any>(`/product-variants/${id}`),
+  create: (data: { productMasterId: string; skuCode?: string; variantSpecs?: any; isActive?: boolean }) =>
+    request<any>("/product-variants", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: any) =>
+    request<any>(`/product-variants/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  remove: (id: string) =>
+    request<void>(`/product-variants/${id}`, { method: "DELETE" }),
+  merge: (idA: string, idB: string) =>
+    request<any>(`/product-variants/${idA}/merge/${idB}`, { method: "POST" }),
+};
+
+export const inboundRequestApi = {
+  list: (params?: { status?: string; sourceType?: string; page?: number; limit?: number; sortBy?: string; sortOrder?: "asc" | "desc" }) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set("status", params.status);
+    if (params?.sourceType) q.set("sourceType", params.sourceType);
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.sortBy) q.set("sortBy", params.sortBy);
+    if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
+    return request<any>(`/inbound-requests?${q.toString()}`);
+  },
+  getById: (id: string) => request<any>(`/inbound-requests/${id}`),
+  create: (data: any) =>
+    request<any>("/inbound-requests", { method: "POST", body: JSON.stringify(data) }),
+  receive: (id: string, data: { receivedItems: any[] }) =>
+    request<any>(`/inbound-requests/${id}/receive`, { method: "POST", body: JSON.stringify(data) }),
+  cancel: (id: string, reason?: string) =>
+    request<any>(`/inbound-requests/${id}/cancel`, { method: "PATCH", body: JSON.stringify({ reason }) }),
+};
+
+// bomDefinitionApi 폐기 (v1.6 B안, 2026-05-13):
+//   BOM 정의는 ProductMaster(itemType=BUNDLE)로 통합.
+//   procurementApi.getBundleItems / replaceBundleItems 사용.
+
+export const bundleShipmentApi = {
+  list: (params?: { customerId?: string; from?: string; to?: string; page?: number; limit?: number; sortBy?: string; sortOrder?: "asc" | "desc" }) => {
+    const q = new URLSearchParams();
+    if (params?.customerId) q.set("customerId", params.customerId);
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.sortBy) q.set("sortBy", params.sortBy);
+    if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
+    return request<any>(`/bundle-shipments?${q.toString()}`);
+  },
+  getById: (id: string) => request<any>(`/bundle-shipments/${id}`),
+  getSiblingAssets: (id: string) =>
+    request<any>(`/bundle-shipments/${id}/sibling-assets`),
+  create: (data: any) =>
+    request<any>("/bundle-shipments", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: any) =>
+    request<any>(`/bundle-shipments/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
 };
 
 // ── Approval (결재) ──────────────────────────────────────────────────────

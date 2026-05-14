@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { supplierApi } from "@/lib/api";
 import Pagination from "@/components/Pagination";
+import SortableHeader, { SortOrder } from "@/components/SortableHeader";
 
 const PAGE_SIZE = 50;
 
@@ -18,6 +19,9 @@ export default function SuppliersPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(searchParams.get("search") || "");
+  const [sortBy, setSortBy] = useState<string>("");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const handleSort = (k: string, o: SortOrder) => { setSortBy(k); setSortOrder(o); };
   const [page, setPage] = useState(1);
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const [showForm, setShowForm] = useState(false);
@@ -28,12 +32,12 @@ export default function SuppliersPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await supplierApi.list({ search: search || undefined, page, limit: PAGE_SIZE });
+      const res = await supplierApi.list({ search: search || undefined, page, limit: PAGE_SIZE, ...(sortBy && { sortBy, sortOrder }) });
       setSuppliers(res.items || []);
       setTotal(res.total || 0);
     } catch (e: any) { console.error(e); }
     finally { setLoading(false); }
-  }, [search, page]);
+  }, [search, page, sortBy, sortOrder]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -78,9 +82,9 @@ export default function SuppliersPage() {
           </colgroup>
           <thead className="bg-gray-50 border-b">
             <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">제조사/공급사명</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">국가</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">담당자</th>
+              <SortableHeader sortKey="name" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">제조사/공급사명</SortableHeader>
+              <SortableHeader sortKey="country" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">국가</SortableHeader>
+              <SortableHeader sortKey="contactName" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">담당자</SortableHeader>
               <th className="px-4 py-3 text-left font-medium text-gray-600">전화</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">이메일</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">웹사이트</th>

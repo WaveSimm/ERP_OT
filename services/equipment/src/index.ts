@@ -37,9 +37,17 @@ import { PurchaseOrderService } from "./application/purchase-order.service.js";
 import { ShipmentService } from "./application/shipment.service.js";
 import { RepairStatsService } from "./application/repair-stats.service.js";
 import { ProductMasterService } from "./application/product-master.service.js";
+import { ProductVariantService } from "./application/product-variant.service.js";
+import { productVariantRoutes } from "./api/routes/product-variant.routes.js";
+import { InboundRequestService } from "./application/inbound-request.service.js";
+import { inboundRequestRoutes, inboundRequestInternalRoutes } from "./api/routes/inbound-request.routes.js";
+import { BundleShipmentService } from "./application/bundle-shipment.service.js";
+import { bundleShipmentRoutes } from "./api/routes/bundle-shipment.routes.js";
 import { ContractService } from "./application/contract.service.js";
 import { OverseasOrderService } from "./application/overseas-order.service.js";
 import { OrderProgressService } from "./application/order-progress.service.js";
+import { OrderSettlementService } from "./application/order-settlement.service.js";
+import { orderSettlementRoutes } from "./api/routes/order-settlement.routes.js";
 import { statsRoutes } from "./api/routes/stats.routes.js";
 import { templateRoutes } from "./api/routes/template.routes.js";
 import { customerRoutes } from "./api/routes/customer.routes.js";
@@ -114,17 +122,21 @@ const purchaseOrderService = new PurchaseOrderService(prisma);
 const shipmentService = new ShipmentService(prisma);
 const repairStatsService = new RepairStatsService(prisma);
 const productMasterService = new ProductMasterService(prisma);
+const productVariantService = new ProductVariantService(prisma);
 const contractService = new ContractService(prisma);
 const overseasOrderService = new OverseasOrderService(prisma);
 const orderProgressService = new OrderProgressService(prisma);
+const orderSettlementService = new OrderSettlementService(prisma);
 const inventoryService = new InventoryService(prisma);
 const inventoryTransactionService = new InventoryTransactionService(prisma);
 const assetCostService = new AssetCostService(prisma);
-const expenseFollowUpService = new ExpenseFollowUpService(prisma);
 const importCostService = new ImportCostService(prisma);
 const inventoryAuditService = new InventoryAuditService(prisma);
 const supplierService = new SupplierService(prisma);
 const storageLocationService = new StorageLocationService(prisma);
+const inboundRequestService = new InboundRequestService(prisma, inventoryService);
+const bundleShipmentService = new BundleShipmentService(prisma);
+const expenseFollowUpService = new ExpenseFollowUpService(prisma, inboundRequestService);
 
 // ─── Type declarations ─────────────────────────────────────────────────────
 declare module "fastify" {
@@ -149,9 +161,11 @@ declare module "fastify" {
     shipmentService: ShipmentService;
     repairStatsService: RepairStatsService;
     productMasterService: ProductMasterService;
+    productVariantService: ProductVariantService;
     contractService: ContractService;
     overseasOrderService: OverseasOrderService;
     orderProgressService: OrderProgressService;
+    orderSettlementService: OrderSettlementService;
     inventoryService: InventoryService;
     inventoryTransactionService: InventoryTransactionService;
     assetCostService: AssetCostService;
@@ -160,6 +174,8 @@ declare module "fastify" {
     inventoryAuditService: InventoryAuditService;
     supplierService: SupplierService;
     storageLocationService: StorageLocationService;
+    inboundRequestService: InboundRequestService;
+    bundleShipmentService: BundleShipmentService;
     prisma: PrismaClient;
   }
 }
@@ -196,9 +212,11 @@ async function buildApp() {
   app.decorate("shipmentService", shipmentService);
   app.decorate("repairStatsService", repairStatsService);
   app.decorate("productMasterService", productMasterService);
+  app.decorate("productVariantService", productVariantService);
   app.decorate("contractService", contractService);
   app.decorate("overseasOrderService", overseasOrderService);
   app.decorate("orderProgressService", orderProgressService);
+  app.decorate("orderSettlementService", orderSettlementService);
   app.decorate("inventoryService", inventoryService);
   app.decorate("inventoryTransactionService", inventoryTransactionService);
   app.decorate("assetCostService", assetCostService);
@@ -207,6 +225,8 @@ async function buildApp() {
   app.decorate("inventoryAuditService", inventoryAuditService);
   app.decorate("supplierService", supplierService);
   app.decorate("storageLocationService", storageLocationService);
+  app.decorate("inboundRequestService", inboundRequestService);
+  app.decorate("bundleShipmentService", bundleShipmentService);
   app.decorate("prisma", prisma);
 
   await app.register(authMiddleware);
@@ -255,10 +275,14 @@ async function buildApp() {
 
   // 구매 관리
   app.register(productMasterRoutes, { prefix: "/api/v1/procurement/products" });
+  app.register(productVariantRoutes, { prefix: "/api/v1/product-variants" });
   app.register(contractRoutes, { prefix: "/api/v1/procurement/contracts" });
   app.register(supplierRoutes, { prefix: "/api/v1/suppliers" });
   app.register(overseasOrderRoutes, { prefix: "/api/v1/procurement/orders" });
   app.register(internalOrderRoutes);
+
+  // v1.6 회계정산 (2026-05-14)
+  app.register(orderSettlementRoutes, { prefix: "/api/v1/procurement" });
 
   // 재고 관리
   app.register(inventoryRoutes, { prefix: "/api/v1/inventory/items" });
@@ -277,6 +301,13 @@ async function buildApp() {
 
   // 보관위치 관리
   app.register(storageLocationRoutes, { prefix: "/api/v1/inventory/locations" });
+
+  // v1.6 입고 대기 큐 (2026-05-13)
+  app.register(inboundRequestRoutes, { prefix: "/api/v1/inbound-requests" });
+  app.register(inboundRequestInternalRoutes);
+
+  // v1.6 Bundle (2026-05-13). B안 적용 후 BomDefinition은 ProductMaster(BUNDLE)로 통합됨
+  app.register(bundleShipmentRoutes, { prefix: "/api/v1/bundle-shipments" });
 
   return app;
 }

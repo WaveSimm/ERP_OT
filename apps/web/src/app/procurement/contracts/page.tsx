@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { procurementApi, repairApi, supplierApi } from "@/lib/api";
 import SearchableSelect from "@/components/SearchableSelect";
 import { DateInput } from "@/components/ui/DateInput";
+import SortableHeader, { SortOrder } from "@/components/SortableHeader";
 
 const STATUS_LABELS: Record<string, string> = { ACTIVE: "진행중", COMPLETED: "완료", CANCELLED: "취소" };
 const STATUS_COLORS: Record<string, string> = {
@@ -25,6 +26,9 @@ export default function ContractsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [sortBy, setSortBy] = useState<string>("");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const handleSort = (k: string, o: SortOrder) => { setSortBy(k); setSortOrder(o); };
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -41,12 +45,13 @@ export default function ContractsPage() {
         search: search || undefined,
         status: statusFilter || undefined,
         page,
+        ...(sortBy && { sortBy, sortOrder }),
       });
       setContracts(res.items);
       setTotal(res.total);
     } catch (e: any) { console.error(e); }
     finally { setLoading(false); }
-  }, [search, statusFilter, page]);
+  }, [search, statusFilter, page, sortBy, sortOrder]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -134,17 +139,17 @@ export default function ContractsPage() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b">
             <tr>
-              <th className="px-3 py-3 text-left font-medium text-gray-600 w-24">계약번호</th>
-              <th className="px-3 py-3 text-left font-medium text-gray-600">고객사</th>
-              <th className="px-3 py-3 text-left font-medium text-gray-600">담당</th>
-              <th className="px-3 py-3 text-left font-medium text-gray-600">제작사</th>
-              <th className="px-3 py-3 text-left font-medium text-gray-600">계약건명</th>
-              <th className="px-3 py-3 text-center font-medium text-gray-600 w-16">구분</th>
-              <th className="px-3 py-3 text-center font-medium text-gray-600 w-16">내/외자</th>
-              <th className="px-3 py-3 text-center font-medium text-gray-600 w-24">계약일</th>
-              <th className="px-3 py-3 text-center font-medium text-gray-600 w-24">납기</th>
-              <th className="px-3 py-3 text-left font-medium text-gray-600 w-20">담당자</th>
-              <th className="px-3 py-3 text-center font-medium text-gray-600 w-20">작업</th>
+              <SortableHeader sortKey="contractNumber" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-3 text-left font-medium text-gray-600 w-24 whitespace-nowrap">계약번호</SortableHeader>
+              <SortableHeader sortKey="client" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-3 text-left font-medium text-gray-600 whitespace-nowrap">고객사</SortableHeader>
+              <th className="px-3 py-3 text-left font-medium text-gray-600 whitespace-nowrap">담당</th>
+              <SortableHeader sortKey="manufacturer" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-3 text-left font-medium text-gray-600 whitespace-nowrap">제작사</SortableHeader>
+              <SortableHeader sortKey="name" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-3 text-left font-medium text-gray-600 whitespace-nowrap">계약건명</SortableHeader>
+              <th className="px-3 py-3 text-center font-medium text-gray-600 w-16 whitespace-nowrap">구분</th>
+              <th className="px-3 py-3 text-center font-medium text-gray-600 w-16 whitespace-nowrap">내/외자</th>
+              <SortableHeader sortKey="startDate" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-3 py-3 text-center font-medium text-gray-600 w-24 whitespace-nowrap">계약일</SortableHeader>
+              <SortableHeader sortKey="endDate" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-3 py-3 text-center font-medium text-gray-600 w-24 whitespace-nowrap">납기</SortableHeader>
+              <th className="px-3 py-3 text-left font-medium text-gray-600 w-20 whitespace-nowrap">담당자</th>
+              <th className="px-3 py-3 text-center font-medium text-gray-600 w-20 whitespace-nowrap">작업</th>
             </tr>
           </thead>
           <tbody className="divide-y">

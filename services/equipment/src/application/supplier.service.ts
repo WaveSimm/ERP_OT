@@ -3,8 +3,8 @@ import { PrismaClient } from "@prisma/client";
 export class SupplierService {
   constructor(private prisma: PrismaClient) {}
 
-  async list(params: { search?: string; page?: number; limit?: number } = {}) {
-    const { search, page = 1, limit = 100 } = params;
+  async list(params: { search?: string; page?: number; limit?: number; sortBy?: string; sortOrder?: "asc" | "desc" } = {}) {
+    const { search, page = 1, limit = 100, sortBy, sortOrder = "asc" } = params;
     const where: any = {};
     if (search) {
       where.OR = [
@@ -13,9 +13,18 @@ export class SupplierService {
         { contactName: { contains: search, mode: "insensitive" } },
       ];
     }
+    // v1.6 (2026-05-13)
+    const SORTABLE: Record<string, any> = {
+      name: { name: sortOrder },
+      country: { country: sortOrder },
+      contactName: { contactName: sortOrder },
+      createdAt: { createdAt: sortOrder },
+    };
+    const orderBy = sortBy && SORTABLE[sortBy] ? SORTABLE[sortBy] : { name: "asc" };
+
     const [items, total] = await Promise.all([
       this.prisma.supplier.findMany({
-        where, orderBy: { name: "asc" },
+        where, orderBy,
         skip: (page - 1) * limit, take: limit,
       }),
       this.prisma.supplier.count({ where }),

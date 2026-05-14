@@ -10,6 +10,8 @@ const TABS = [
   { key: "orders", label: "발주 관리", href: "/procurement" },
   { key: "products", label: "장비 마스터", href: "/procurement/products" },
   { key: "inventory", label: "재고 관리", href: "/procurement/inventory" },
+  { key: "inbound", label: "입고 큐", href: "/procurement/inbound" },
+  { key: "bundles", label: "번들 출고", href: "/procurement/bundles" },
   { key: "expenses", label: "재무 접수", href: "/procurement/expenses" },
   { key: "settlements", label: "수입원가정산", href: "/procurement/settlements" },
   { key: "audits", label: "재고실사", href: "/procurement/audits" },
@@ -22,6 +24,8 @@ function getActiveTab(pathname: string): string {
   if (pathname.startsWith("/procurement/suppliers")) return "suppliers";
   if (pathname.startsWith("/procurement/products")) return "products";
   if (pathname.startsWith("/procurement/inventory")) return "inventory";
+  if (pathname.startsWith("/procurement/inbound")) return "inbound";
+  if (pathname.startsWith("/procurement/bundles")) return "bundles";
   if (pathname.startsWith("/procurement/expenses")) return "expenses";
   if (pathname.startsWith("/procurement/settlements")) return "settlements";
   if (pathname.startsWith("/procurement/audits")) return "audits";
@@ -43,29 +47,32 @@ export default function ProcurementLayout({ children }: { children: React.ReactN
   return (
     <AppLayout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="flex items-center gap-2 mb-4">
-          {isDetailPage && (
-            <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-600">
-              &larr;
-            </button>
-          )}
-          <h1 className="text-2xl font-bold">구매/회계</h1>
-        </div>
+        {/* v1.6 (2026-05-14): 페이지 제목 + 서브 탭 sticky — 모든 서브 페이지 공통 */}
+        <div className="sticky top-0 z-30 bg-gray-50 pt-4 pb-0 -mx-4 sm:-mx-6 px-4 sm:px-6 mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            {isDetailPage && (
+              <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-600">
+                &larr;
+              </button>
+            )}
+            <h1 className="text-2xl font-bold">구매/회계</h1>
+          </div>
 
-        <div className="flex gap-1 border-b border-gray-200 mb-6">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => router.push(t.href)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === t.key
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+          <div className="flex gap-1 border-b border-gray-200">
+            {TABS.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => router.push(t.href)}
+                className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === t.key
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {children}

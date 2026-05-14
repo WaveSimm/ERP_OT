@@ -4,11 +4,13 @@ import { requireRole } from "../middleware/auth.middleware.js";
 export async function customerRoutes(fastify: FastifyInstance) {
   // 목록
   fastify.get("/", async (request) => {
-    const { search, page, limit } = request.query as any;
+    const { search, page, limit, sortBy, sortOrder } = request.query as any;
     return fastify.customerService.list({
       search: search || undefined,
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 50,
+      ...(sortBy && { sortBy }),
+      ...((sortOrder === "asc" || sortOrder === "desc") && { sortOrder }),
     });
   });
 

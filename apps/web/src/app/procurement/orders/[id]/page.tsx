@@ -2,13 +2,15 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { procurementApi, approvalApi, approvalLineApi, supplierApi } from "@/lib/api";
+import { procurementApi, approvalApi, approvalLineApi, supplierApi, userManagementApi } from "@/lib/api";
+import SettlementSection, { PaymentRequestModal } from "@/components/procurement/SettlementSection";
+import { DateInput } from "@/components/ui/DateInput";
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "초안", PENDING_APPROVAL: "승인대기", APPROVED: "승인",
-  REJECTED: "반려", ORDERED: "발주완료", IN_PRODUCTION: "제작중",
-  SHIPPED: "출하/선적", CUSTOMS: "통관중", PARTIALLY_RECEIVED: "부분입고",
-  ARRIVED: "입고완료", CLOSED: "마감",
+  REJECTED: "반려", ORDERED: "승인완료", PURCHASING: "발주완료",
+  SHIPPED: "선적", CUSTOMS: "통관중", PARTIALLY_RECEIVED: "부분입고",
+  ARRIVED: "입고완료", SETTLEMENT: "송금상태", CLOSED: "마감",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -17,11 +19,12 @@ const STATUS_COLORS: Record<string, string> = {
   APPROVED: "bg-green-100 text-green-700",
   REJECTED: "bg-red-100 text-red-700",
   ORDERED: "bg-blue-100 text-blue-700",
-  IN_PRODUCTION: "bg-indigo-100 text-indigo-700",
+  PURCHASING: "bg-sky-100 text-sky-700",
   SHIPPED: "bg-purple-100 text-purple-700",
   CUSTOMS: "bg-orange-100 text-orange-700",
   PARTIALLY_RECEIVED: "bg-amber-100 text-amber-700",
   ARRIVED: "bg-emerald-100 text-emerald-700",
+  SETTLEMENT: "bg-cyan-100 text-cyan-700",
   CLOSED: "bg-gray-200 text-gray-600",
 };
 
@@ -67,6 +70,16 @@ export default function OrderDetailPage() {
   const [approvalDoc, setApprovalDoc] = useState<any>(null);
   const [rejectComment, setRejectComment] = useState("");
   const [showRejectForm, setShowRejectForm] = useState(false);
+  // v1.6 (2026-05-14): 결재자 이름 lookup + 본인 기본 결재선
+  const [userMap, setUserMap] = useState<Record<string, string>>({});
+  const [myApprovalLine, setMyApprovalLine] = useState<any>(null);
+
+  // v1.6 (2026-05-14): 일정/물류 인라인 편집 (모든 상태에서 가능)
+  const [showLogisticsEdit, setShowLogisticsEdit] = useState(false);
+  // v1.6 (2026-05-14): 헤더의 [송금 요청] 버튼 — 회계정산 섹션과 데이터 공유
+  const [showHeaderRequestModal, setShowHeaderRequestModal] = useState(false);
+  const [settlementRefreshSignal, setSettlementRefreshSignal] = useState(0);
+  const [headerOutstanding, setHeaderOutstanding] = useState(0);
 
   // Receive form
   const [showReceive, setShowReceive] = useState(false);
@@ -95,6 +108,15 @@ export default function OrderDetailPage() {
   }, [id, router]);
 
   useEffect(() => { load(); }, [load]);
+  // v1.6 (2026-05-14): 사용자 이름 lookup용 맵 + 본인 결재선 (마운트 시 1회)
+  useEffect(() => {
+    userManagementApi.members(true).then((list: any) => {
+      const m: Record<string, string> = {};
+      (list as any[]).forEach((u: any) => { if (u.id && u.name) m[u.id] = u.name; });
+      setUserMap(m);
+    }).catch(() => {});
+    approvalLineApi.getMe().then(setMyApprovalLine).catch(() => setMyApprovalLine(null));
+  }, []);
 
   const handleTransition = async (status: string) => {
     if (!confirm(`상태를 "${STATUS_LABELS[status]}"(으)로 변경하시겠습니까?`)) return;
@@ -109,20 +131,91 @@ export default function OrderDetailPage() {
     }
   };
 
+  // v1.6 (2026-05-14): 결재 상신 취소
+  const handleCancelSubmission = async () => {
+    if (!confirm("결재 상신을 취소하시겠습니까?\n발주가 초안(DRAFT) 상태로 복귀됩니다.")) return;
+    setTransitioning(true);
+    try {
+      await procurementApi.cancelOrderSubmission(id);
+      await load();
+    } catch (e: any) {
+      alert(e.message || "상신 취소 실패");
+    } finally {
+      setTransitioning(false);
+    }
+  };
+
+  // v1.6 (2026-05-14): DRAFT 상태에서만 삭제 가능
+  const handleDelete = async () => {
+    if (!confirm("이 발주를 삭제하시겠습니까?\n품목과 진행 이력이 모두 함께 삭제됩니다.")) return;
+    setTransitioning(true);
+    try {
+      await procurementApi.deleteOrder(id);
+      router.push("/procurement");
+    } catch (e: any) {
+      alert(e.message || "삭제 실패");
+      setTransitioning(false);
+    }
+  };
+
   const handleSubmitApproval = async () => {
-    if (!confirm("결재를 상신하시겠습니까?")) return;
     setTransitioning(true);
     try {
       const templates = await approvalApi.getTemplates();
       const poTemplate = templates.find((t: any) => t.code === "PO");
       if (!poTemplate) throw new Error("구매 발주서 결재 템플릿을 찾을 수 없습니다.");
 
-      const line = await approvalLineApi.getMe();
-      if (!line) throw new Error("결재라인이 설정되지 않았습니다.");
+      // v1.6 (2026-05-14): 발주별 결재선 우선, 없으면 본인 기본 결재선으로 fallback
+      //   - 상신 직전 최신 order 재조회 (state stale 방지)
+      const latestOrder = await procurementApi.getOrder(id);
+      let approverId: string | null | undefined = latestOrder.approverId;
+      let secondApproverId: string | null | undefined = latestOrder.secondApproverId;
+      let thirdApproverId: string | null | undefined = latestOrder.thirdApproverId;
+      let approverName = "";
+      let secondApproverName = "";
+      let thirdApproverName = "";
 
-      const steps: any[] = [{ stepOrder: 1, roleName: "1차 결재", approverId: line.approverId, approverName: line.approverName || "" }];
-      if (line.secondApproverId && line.secondApproverId !== line.approverId) {
-        steps.push({ stepOrder: 2, roleName: "2차 결재", approverId: line.secondApproverId, approverName: line.secondApproverName || "" });
+      if (!approverId) {
+        // fallback: 본인 기본 결재선
+        const line = await approvalLineApi.getMe();
+        if (!line || !line.approverId) {
+          throw new Error("결재라인이 설정되지 않았습니다.\n발주 편집에서 결재라인을 지정하거나, [결재선 설정] 페이지에서 기본 결재선을 등록하십시오.");
+        }
+        approverId = line.approverId;
+        secondApproverId = line.secondApproverId;
+        thirdApproverId = line.thirdApproverId;
+        approverName = line.approverName || "";
+        secondApproverName = line.secondApproverName || "";
+        thirdApproverName = line.thirdApproverName || "";
+      }
+
+      const lookup = (uid: string | null | undefined) => uid ? (userMap[uid] || uid) : "";
+      // userMap 우선 (이름 검색이 더 신뢰성 있음)
+      if (!approverName) approverName = userMap[approverId!] || "";
+      if (secondApproverId && !secondApproverName) secondApproverName = userMap[secondApproverId] || "";
+      if (thirdApproverId && !thirdApproverName) thirdApproverName = userMap[thirdApproverId] || "";
+
+      const lines = [
+        `1차: ${lookup(approverId)}`,
+        secondApproverId ? `2차: ${lookup(secondApproverId)}` : null,
+        thirdApproverId ? `3차: ${lookup(thirdApproverId)}` : null,
+      ].filter(Boolean);
+      if (!confirm(`아래 결재라인으로 상신하시겠습니까?\n\n${lines.join("\n")}`)) {
+        setTransitioning(false);
+        return;
+      }
+
+      // v1.6 (2026-05-14): approvalLine 형식으로 전송 — 백엔드는 body.approvalLine을 읽음
+      //   (body.steps가 아니라 body.approvalLine. 잘못 보내면 백엔드가 fallback해서 본인 기본 결재선을 자동 로드)
+      //   동일 인물이 여러 단계에 지정되어도 그대로 송신 (사용자 명시 의도 존중)
+      const approvalLine: any[] = [
+        { stepOrder: 1, role: "APPROVER", userId: approverId, userName: approverName },
+      ];
+      if (secondApproverId) {
+        approvalLine.push({ stepOrder: 2, role: "APPROVER", userId: secondApproverId, userName: secondApproverName });
+      }
+      if (thirdApproverId) {
+        approvalLine.push({ stepOrder: 3, role: "APPROVER", userId: thirdApproverId, userName: thirdApproverName });
       }
 
       const itemsData = order.items?.map((i: any) => ({
@@ -134,7 +227,7 @@ export default function OrderDetailPage() {
         templateId: poTemplate.id,
         title: `구매발주서 - ${order.orderNumber} (${order.manufacturer})`,
         department: "영업팀",
-        approvalStepCount: steps.length,
+        approvalStepCount: approvalLine.length,
         referenceType: "ORDER",
         referenceId: id,
         itemsData,
@@ -147,7 +240,7 @@ export default function OrderDetailPage() {
           contractNumber: order.contract?.contractNumber,
         },
         notes: order.notes || undefined,
-        steps,
+        approvalLine,
       });
 
       await approvalApi.submitDocument(doc.id);
@@ -231,6 +324,58 @@ export default function OrderDetailPage() {
   // 현재 결재 단계에서 내가 결재자인지 확인
   const currentPendingStep = approvalDoc?.steps?.find((s: any) => s.status === "PENDING");
 
+  // v1.6 (2026-05-14): 결재라인 카드 — DRAFT면 상단, 그 외엔 상세 정보 아래에서 렌더
+  const approvalLineCard = (() => {
+    const orderHasLine = !!order.approverId;
+    const source = orderHasLine
+      ? { approverId: order.approverId, secondApproverId: order.secondApproverId, thirdApproverId: order.thirdApproverId }
+      : (myApprovalLine && myApprovalLine.approverId ? myApprovalLine : null);
+    return (
+      <div className="bg-white rounded-lg border p-6 mb-4">
+        <h3 className="font-medium mb-3">
+          결재라인
+          <span className={`ml-2 px-2 py-0.5 text-[10px] rounded ${
+            orderHasLine ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"
+          }`}>
+            {orderHasLine ? "발주별 지정" : "본인 기본 결재선 (fallback)"}
+          </span>
+        </h3>
+        {source ? (
+          <div className="flex items-center flex-wrap gap-3 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 text-[10px] rounded bg-blue-100 text-blue-700">1차</span>
+              <span className="font-medium">{userMap[source.approverId] || source.approverId}</span>
+            </div>
+            {source.secondApproverId && (
+              <>
+                <span className="text-gray-300">→</span>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 text-[10px] rounded bg-indigo-100 text-indigo-700">2차</span>
+                  <span className="font-medium">{userMap[source.secondApproverId] || source.secondApproverId}</span>
+                </div>
+              </>
+            )}
+            {source.thirdApproverId && (
+              <>
+                <span className="text-gray-300">→</span>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 text-[10px] rounded bg-purple-100 text-purple-700">3차</span>
+                  <span className="font-medium">{userMap[source.thirdApproverId] || source.thirdApproverId}</span>
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400">
+            결재라인이 지정되지 않았습니다.
+            {order.status === "DRAFT" ? " 편집에서 결재라인을 지정하거나, " : " "}
+            <a href="/approval-lines" className="text-blue-600 hover:underline">결재선 설정</a>에서 기본 결재선을 등록하십시오.
+          </p>
+        )}
+      </div>
+    );
+  })();
+
   return (
     <div>
       {/* Header */}
@@ -244,16 +389,73 @@ export default function OrderDetailPage() {
           {STATUS_LABELS[order.status]}
         </span>
         <div className="ml-auto flex gap-2">
-          {order.status === "DRAFT" && (
+          {/* v1.6 (2026-05-14): PO PDF — APPROVED 이상에서 노출 */}
+          {!["DRAFT", "PENDING_APPROVAL", "REJECTED"].includes(order.status) && (
             <button
-              onClick={handleSubmitApproval}
-              disabled={transitioning}
-              className="px-3 py-1.5 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
+              onClick={() => window.open(`/procurement/orders/${id}/po-print`, "_blank")}
+              className="px-3 py-1.5 text-sm border border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50"
+              title="발주서 PDF (새 탭에서 인쇄 → PDF 저장 → 이메일로 발송)"
             >
-              결재 상신
+              📄 발주서 PDF
             </button>
           )}
-          {order.status !== "DRAFT" && order.allowedTransitions?.filter((t: string) => !["PENDING_APPROVAL", "APPROVED", "REJECTED"].includes(t)).map((t: string) => (
+          {/* v1.6 (2026-05-14): 송금 요청 — APPROVED 이상에서 노출 (회계정산 노출 조건과 동일) */}
+          {!["DRAFT", "PENDING_APPROVAL", "REJECTED"].includes(order.status) && (
+            <button
+              onClick={async () => {
+                // 최신 잔여 조회 후 모달 오픈
+                try {
+                  const settlement = await procurementApi.getSettlement(id);
+                  const outstanding = Number(settlement?.summary?.outstanding ?? 0);
+                  setHeaderOutstanding(outstanding > 0 ? outstanding : 0);
+                } catch { setHeaderOutstanding(0); }
+                setShowHeaderRequestModal(true);
+              }}
+              className="px-3 py-1.5 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700"
+              title="재무 접수 > 발주송금 탭에서 처리됩니다"
+            >
+              💸 송금 요청
+            </button>
+          )}
+          {order.status === "DRAFT" && (
+            <>
+              {/* v1.6 (2026-05-14): DRAFT 상태에서 편집 가능 */}
+              <button
+                onClick={() => router.push(`/procurement/orders/${id}/edit`)}
+                disabled={transitioning}
+                className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                편집
+              </button>
+              <button
+                onClick={handleSubmitApproval}
+                disabled={transitioning}
+                className="px-3 py-1.5 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
+              >
+                결재 상신
+              </button>
+              {/* v1.6 (2026-05-14): DRAFT 상태에서만 삭제 가능 */}
+              <button
+                onClick={handleDelete}
+                disabled={transitioning}
+                className="px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50"
+              >
+                삭제
+              </button>
+            </>
+          )}
+          {/* v1.6 (2026-05-14): 결재 상신 취소 — PENDING_APPROVAL 상태에서만 */}
+          {order.status === "PENDING_APPROVAL" && (
+            <button
+              onClick={handleCancelSubmission}
+              disabled={transitioning}
+              className="px-3 py-1.5 text-sm text-amber-700 border border-amber-200 rounded-lg hover:bg-amber-50 disabled:opacity-50"
+            >
+              상신 취소
+            </button>
+          )}
+          {/* v1.6 (2026-05-14): PARTIALLY_RECEIVED·ARRIVED는 [입고 처리] 모달로만, SETTLEMENT는 송금 요청으로만 진입 */}
+          {order.status !== "DRAFT" && order.allowedTransitions?.filter((t: string) => !["PENDING_APPROVAL", "APPROVED", "REJECTED", "DRAFT", "PARTIALLY_RECEIVED", "ARRIVED", "SETTLEMENT"].includes(t)).map((t: string) => (
             <button
               key={t}
               onClick={() => handleTransition(t)}
@@ -274,8 +476,11 @@ export default function OrderDetailPage() {
         </div>
       </div>
 
-      {/* 결재 현황 — 상신 이후에만 표시 */}
-      {approvalDoc && (
+      {/* v1.6 (2026-05-14): DRAFT 상태에선 결재라인을 헤더 직후 상단에 표시 */}
+      {order.status === "DRAFT" && approvalLineCard}
+
+      {/* 결재 현황 — 상신 이후에만 표시. RETURNED(철회됨)는 숨김 */}
+      {approvalDoc && approvalDoc.status !== "RETURNED" && (
         <div className={`rounded-lg border p-4 mb-4 ${
           approvalDoc.status === "APPROVED" ? "bg-green-50 border-green-200" :
           approvalDoc.status === "REJECTED" ? "bg-red-50 border-red-200" :
@@ -377,18 +582,27 @@ export default function OrderDetailPage() {
         <div className="h-6 w-px bg-gray-200" />
         <div><span className="text-gray-400 text-xs">발주일</span><div>{fmtDate(order.orderDate)}</div></div>
         <div className="h-6 w-px bg-gray-200" />
-        <div><span className="text-gray-400 text-xs">예상 출하일</span><div>{fmtDate(order.estimatedShipDate)}</div></div>
+        <div><span className="text-gray-400 text-xs">예상 선적일</span><div>{fmtDate(order.estimatedShipDate)}</div></div>
         <div className="h-6 w-px bg-gray-200" />
         <div><span className="text-gray-400 text-xs">입고일</span><div>{fmtDate(order.arrivalDate)}</div></div>
       </div>
 
       {/* 상세 정보 */}
       <div className="bg-white rounded-lg border p-6 mb-4">
-        <h3 className="font-medium mb-4">상세 정보</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-medium">상세 정보</h3>
+          {/* v1.6 (2026-05-14): 일정·입고장소·통관담당은 전 상태에서 수정 가능 */}
+          <button
+            onClick={() => setShowLogisticsEdit(true)}
+            className="text-xs text-blue-600 hover:underline"
+          >
+            일정 편집 ✏
+          </button>
+        </div>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-4 text-sm">
           <div><span className="text-gray-500">계약번호:</span> {order.contract ? <a href={`/procurement/contracts/${order.contract.id}`} className="ml-2 text-blue-600 hover:underline">{order.contract.contractNumber}</a> : <span className="ml-2">-</span>}</div>
           <div><span className="text-gray-500">계약명:</span> <span className="ml-2">{order.contract?.name || "-"}</span></div>
-          <div><span className="text-gray-500">고객:</span> <span className="ml-2">{order.contract?.customer || "-"}</span></div>
+          <div><span className="text-gray-500">고객사:</span> <span className="ml-2">{order.customer || order.contract?.client || order.contract?.customer || "-"}</span></div>
           <div><span className="text-gray-500">제조사:</span> <button onClick={async () => {
             try {
               const s = await supplierApi.findByName(order.manufacturer);
@@ -397,12 +611,13 @@ export default function OrderDetailPage() {
           }} className="ml-2 text-blue-600 hover:underline">{order.manufacturer}</button></div>
           <div><span className="text-gray-500">통화:</span> <span className="ml-2">{order.currency}</span></div>
           <div><span className="text-gray-500">Invoice No:</span> <span className="ml-2">{order.invoiceNo || "-"}</span></div>
-          <div><span className="text-gray-500">OA번호:</span> <span className="ml-2">{order.oaNumber || "-"}</span></div>
+          <div><span className="text-gray-500">결제수단:</span> <span className="ml-2">{order.paymentTerms || "-"}</span></div>
+          <div><span className="text-gray-500">OA번호:</span> <span className="ml-2 font-mono">{order.oaNumber || "-"}</span></div>
           <div><span className="text-gray-500">결제기한:</span> <span className="ml-2">{fmtDate(order.dueDate)}</span></div>
           <div><span className="text-gray-500">입고장소:</span> <span className="ml-2">{order.arrivalLocation || "-"}</span></div>
           <div><span className="text-gray-500">통관담당:</span> <span className="ml-2">{order.customsHandler || "-"}</span></div>
           <div><span className="text-gray-500">예상생산완료:</span> <span className="ml-2">{fmtDate(order.estimatedProductionEnd)}</span></div>
-          <div><span className="text-gray-500">실제출하일:</span> <span className="ml-2">{fmtDate(order.actualShipDate)}</span></div>
+          <div><span className="text-gray-500">실제선적일:</span> <span className="ml-2">{fmtDate(order.actualShipDate)}</span></div>
           <div><span className="text-gray-500">통관일:</span> <span className="ml-2">{fmtDate(order.customsDate)}</span></div>
           <div><span className="text-gray-500">생성일:</span> <span className="ml-2">{fmtDateTime(order.createdAt)}</span></div>
         </div>
@@ -413,6 +628,18 @@ export default function OrderDetailPage() {
           </div>
         )}
       </div>
+
+      {/* v1.6 (2026-05-14): DRAFT가 아닐 땐 결재라인 카드를 표시하지 않음 — 결재 현황 카드와 중복 */}
+
+      {/* v1.6 회계정산 (2026-05-14) — 결재 승인 이후 언제든 입력 가능 */}
+      {!["DRAFT", "PENDING_APPROVAL", "REJECTED"].includes(order.status) && (
+        <SettlementSection
+          orderId={id}
+          orderCurrency={order.currency}
+          orderStatus={order.status}
+          refreshSignal={settlementRefreshSignal}
+        />
+      )}
 
       {/* 품목 */}
       <div className="bg-white rounded-lg border overflow-hidden">
@@ -498,6 +725,29 @@ export default function OrderDetailPage() {
         </table>
       </div>
 
+      {/* v1.6 (2026-05-14): 헤더의 [송금 요청] 모달 — 회계정산 섹션과 동일한 컴포넌트 재사용 */}
+      {showHeaderRequestModal && (
+        <PaymentRequestModal
+          orderId={id}
+          orderCurrency={order.currency}
+          defaultAmount={headerOutstanding}
+          onClose={() => setShowHeaderRequestModal(false)}
+          onSaved={() => {
+            setShowHeaderRequestModal(false);
+            setSettlementRefreshSignal((s) => s + 1);
+          }}
+        />
+      )}
+
+      {/* v1.6 (2026-05-14): 일정·물류 편집 모달 — 전 상태에서 가능 */}
+      {showLogisticsEdit && (
+        <LogisticsEditModal
+          order={order}
+          onClose={() => setShowLogisticsEdit(false)}
+          onSaved={async () => { setShowLogisticsEdit(false); await load(); }}
+        />
+      )}
+
       {/* Receive Modal */}
       {showReceive && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={() => setShowReceive(false)}>
@@ -531,6 +781,85 @@ export default function OrderDetailPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── 일정·물류 편집 모달 (v1.6, 2026-05-14) ───────────────────────────
+//   전 상태에서 예상 선적일/입고장소/통관담당 수정 가능
+function LogisticsEditModal({
+  order,
+  onClose,
+  onSaved,
+}: {
+  order: any;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    estimatedShipDate: order.estimatedShipDate ? order.estimatedShipDate.slice(0, 10) : "",
+    arrivalLocation: order.arrivalLocation || "",
+    customsHandler: order.customsHandler || "",
+  });
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const payload: any = {
+        estimatedShipDate: form.estimatedShipDate || null,
+        arrivalLocation: form.arrivalLocation || null,
+        customsHandler: form.customsHandler || null,
+      };
+      await procurementApi.updateOrder(order.id, payload);
+      onSaved();
+    } catch (e: any) {
+      alert(e.message || "수정 실패");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-lg font-bold mb-4">일정 / 물류 편집</h3>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">예상 선적일</label>
+            <DateInput
+              value={form.estimatedShipDate}
+              onChange={(e: any) => setForm({ ...form, estimatedShipDate: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">입고장소</label>
+            <input
+              type="text"
+              value={form.arrivalLocation}
+              onChange={(e) => setForm({ ...form, arrivalLocation: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">통관담당</label>
+            <input
+              type="text"
+              value={form.customsHandler}
+              onChange={(e) => setForm({ ...form, customsHandler: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2 text-sm"
+            />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 mt-6">
+          <button onClick={onClose} className="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50">취소</button>
+          <button onClick={handleSave} disabled={saving}
+            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+            {saving ? "저장 중..." : "저장"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

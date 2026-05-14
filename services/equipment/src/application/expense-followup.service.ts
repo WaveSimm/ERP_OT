@@ -1,13 +1,29 @@
 import { PrismaClient, ExpenseFollowUpStatus } from "@prisma/client";
+import { InboundRequestService } from "./inbound-request.service.js";
 
 export class ExpenseFollowUpService {
-  constructor(private prisma: PrismaClient) {}
+  constructor(
+    private prisma: PrismaClient,
+    private inboundRequestService: InboundRequestService,
+  ) {}
 
   /** 후속처리 목록 (결재문서 정보 포함) */
-  async list(params: { status?: ExpenseFollowUpStatus }) {
+  async list(params: { status?: ExpenseFollowUpStatus; sortBy?: string; sortOrder?: "asc" | "desc" }) {
+    const sortOrder = params.sortOrder ?? "desc";
+    // v1.6 (2026-05-13)
+    const SORTABLE: Record<string, any> = {
+      status: { status: sortOrder },
+      isInventoryTarget: { isInventoryTarget: sortOrder },
+      receivedAt: { receivedAt: sortOrder },
+      arrivalDate: { arrivalDate: sortOrder },
+      paymentCompletedAt: { paymentCompletedAt: sortOrder },
+      createdAt: { createdAt: sortOrder },
+    };
+    const orderBy = params.sortBy && SORTABLE[params.sortBy] ? SORTABLE[params.sortBy] : { createdAt: "desc" };
+
     const items = await this.prisma.expenseFollowUp.findMany({
       where: params.status ? { status: params.status } : {},
-      orderBy: { createdAt: "desc" },
+      orderBy,
     });
 
     // 결재문서 상세 일괄 조회
@@ -44,88 +60,111 @@ export class ExpenseFollowUpService {
     });
   }
 
-  /** 재고 판정 (개별 아이템별) */
+  /**
+   * 재고 판정 (개별 아이템별).
+   * 재고 대상이면 InboundRequest를 PENDING 상태로 자동 생성 (v1.6, 2026-05-13).
+   * 도착 처리 단계 폐기 — 자재 담당자가 /procurement/inbound 큐에서 receive하면
+   * 그 시점에 InventoryItem + ExpenseFollowUp.status=COMPLETED 자동 동기화.
+   */
   async decideInventory(id: string, data: {
     isInventoryTarget: boolean;
     inventoryDecisionBy: string;
     inventoryDecisionNote?: string;
     inventoryItems?: number[]; // 재고 대상 아이템 인덱스 배열
   }) {
-    return this.prisma.expenseFollowUp.update({
-      where: { id },
-      data: {
-        status: "INVENTORY_DECIDED",
-        isInventoryTarget: data.isInventoryTarget,
-        inventoryDecisionBy: data.inventoryDecisionBy,
-        inventoryDecisionAt: new Date(),
-        inventoryDecisionNote: data.inventoryDecisionNote ?? null,
-        // inventoryItems 인덱스를 notes에 JSON으로 저장
-        ...(data.inventoryItems && {
-          notes: JSON.stringify({ inventoryItemIndices: data.inventoryItems }),
-        }),
-      },
-    });
-  }
-
-  /** 입고 확인 + 재고 자동 생성 */
-  async confirmArrival(id: string, data: {
-    arrivalDate: string;
-    arrivalLocation?: string;
-    arrivalNote?: string;
-    confirmedBy: string;
-  }) {
     const followUp = await this.prisma.expenseFollowUp.findUnique({ where: { id } });
     if (!followUp) throw new Error("후속처리를 찾을 수 없습니다.");
 
     return this.prisma.$transaction(async (tx) => {
-      const updateData: any = {
-        status: followUp.isInventoryTarget ? "ARRIVED" as const : "COMPLETED" as const,
-        arrivalDate: new Date(data.arrivalDate),
-        arrivalLocation: data.arrivalLocation ?? null,
-        arrivalNote: data.arrivalNote ?? null,
-        confirmedBy: data.confirmedBy,
-      };
+      // 재고 비대상 → 곧바로 COMPLETED
+      // 재고 대상 → INVENTORY_DECIDED (InboundRequest receive 후 COMPLETED 전환)
+      const nextStatus: ExpenseFollowUpStatus = data.isInventoryTarget
+        ? "INVENTORY_DECIDED"
+        : "COMPLETED";
 
-      // 재고 대상이면 자동으로 재고 생성
-      if (followUp.isInventoryTarget) {
-        // 2026-05-13: 재고번호 룰 INV-{YYMM}-{NNNN} 통일
-        const now = new Date();
-        const yy = String(now.getFullYear()).slice(-2);
-        const mm = String(now.getMonth() + 1).padStart(2, "0");
-        const prefix = `INV-${yy}${mm}-`;
-        const last = await tx.inventoryItem.findFirst({
-          where: { inventoryNo: { startsWith: prefix } },
-          orderBy: { inventoryNo: "desc" },
-          select: { inventoryNo: true },
-        });
-        let seq = 1;
-        if (last) {
-          const m = last.inventoryNo.match(/^INV-\d{4}-(\d+)$/);
-          if (m && m[1]) seq = parseInt(m[1], 10) + 1;
-        }
-        const inventoryNo = `${prefix}${String(seq).padStart(4, "0")}`;
+      const updated = await tx.expenseFollowUp.update({
+        where: { id },
+        data: {
+          status: nextStatus,
+          isInventoryTarget: data.isInventoryTarget,
+          inventoryDecisionBy: data.inventoryDecisionBy,
+          inventoryDecisionAt: new Date(),
+          inventoryDecisionNote: data.inventoryDecisionNote ?? null,
+          ...(data.inventoryItems && {
+            notes: JSON.stringify({ inventoryItemIndices: data.inventoryItems }),
+          }),
+        },
+      });
 
-        const invItem = await tx.inventoryItem.create({
-          data: {
-            inventoryNo,
-            category: "PRODUCT",
-            currentLocation: data.arrivalLocation || "본사 창고",
-            currentStatus: "IN_STOCK",
-            sourceType: "EXPENSE_REQUEST",
-            sourceId: followUp.approvalDocumentId,
-            totalAdditionalCost: 0,
-            totalCostOfOwnership: 0,
-            createdBy: data.confirmedBy,
+      // 재고 대상일 때만 InboundRequest 생성
+      if (data.isInventoryTarget) {
+        // 기존 PENDING InboundRequest가 있으면 (재판정 시나리오) skip
+        const existing = await tx.inboundRequest.findFirst({
+          where: {
+            sourceType: "EXPENSE_FOLLOWUP",
+            sourceId: id,
+            status: "PENDING",
           },
         });
+        if (!existing) {
+          // 결재문서에서 expense items 매핑
+          const doc = (await this.fetchApprovalDocuments([followUp.approvalDocumentId]))[followUp.approvalDocumentId];
+          const allItems: any[] = Array.isArray(doc?.itemsData) ? doc.itemsData : [];
+          const selectedIndices = data.inventoryItems && data.inventoryItems.length > 0
+            ? data.inventoryItems
+            : allItems.map((_, i) => i); // 인덱스 미지정 시 전체
 
-        updateData.inventoryItemId = invItem.id;
-        updateData.status = "COMPLETED";
+          const items: Array<{ description?: string; quantity: number; unitPrice?: number; completenessFlag: "MANUAL_NEEDED" }> =
+            selectedIndices
+              .map((idx) => allItems[idx])
+              .filter((it): it is Record<string, any> => !!it)
+              .map((it) => {
+                const out: { description?: string; quantity: number; unitPrice?: number; completenessFlag: "MANUAL_NEEDED" } = {
+                  quantity: typeof it.quantity === "number" ? it.quantity : 1,
+                  completenessFlag: "MANUAL_NEEDED",
+                };
+                if (it.description) out.description = String(it.description);
+                if (it.unitPrice !== undefined && it.unitPrice !== null) out.unitPrice = Number(it.unitPrice);
+                return out;
+              })
+              .filter((it) => it.description || it.quantity);
+
+          // expense items 매핑 실패해도 placeholder 1건 생성 (자재 담당자가 수정)
+          const itemsForCreate: Array<{ description?: string; quantity: number; unitPrice?: number; completenessFlag: "MANUAL_NEEDED" }> =
+            items.length > 0
+              ? items
+              : [{
+                  description: data.inventoryDecisionNote || "재고 판정",
+                  quantity: 1,
+                  completenessFlag: "MANUAL_NEEDED",
+                }];
+
+          const docNumber = doc?.documentNo || doc?.title;
+          await this.inboundRequestService.create({
+            sourceType: "EXPENSE_FOLLOWUP",
+            sourceId: id,
+            requesterId: data.inventoryDecisionBy,
+            ...(docNumber && { sourceDocNumber: String(docNumber) }),
+            ...(data.inventoryDecisionNote && {
+              notes: `재고 판정 메모: ${data.inventoryDecisionNote}`,
+            }),
+            items: itemsForCreate.map((it) => ({
+              ...(it.description && { description: it.description }),
+              quantity: it.quantity,
+              ...(it.unitPrice !== undefined && { unitPrice: it.unitPrice }),
+              completenessFlag: it.completenessFlag,
+            })),
+          });
+        }
       }
 
-      return tx.expenseFollowUp.update({ where: { id }, data: updateData });
+      return updated;
     });
   }
+
+  // confirmArrival() 폐기 (v1.6, 2026-05-13):
+  //   재고 판정 시점에 InboundRequest 자동 생성 → 자재 담당자가 입고 큐에서 receive 처리.
+  //   receive 트랜잭션 안에서 expense_follow_ups.status=COMPLETED + inventoryItemId 동기화됨.
 
   /** 송금 처리 — 입고와 독립적으로 체크 가능 */
   async markPayment(id: string, data: {

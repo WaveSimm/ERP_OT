@@ -4,12 +4,13 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { procurementApi } from "@/lib/api";
 import Pagination from "@/components/Pagination";
+import SortableHeader, { SortOrder } from "@/components/SortableHeader";
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "초안", PENDING_APPROVAL: "승인대기", APPROVED: "승인",
-  REJECTED: "반려", ORDERED: "발주완료", IN_PRODUCTION: "제작중",
-  SHIPPED: "출하/선적", CUSTOMS: "통관중", PARTIALLY_RECEIVED: "부분입고",
-  ARRIVED: "입고완료", CLOSED: "마감",
+  REJECTED: "반려", ORDERED: "승인완료", PURCHASING: "발주완료",
+  SHIPPED: "선적", CUSTOMS: "통관중", PARTIALLY_RECEIVED: "부분입고",
+  ARRIVED: "입고완료", SETTLEMENT: "송금상태", CLOSED: "마감",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -18,11 +19,12 @@ const STATUS_COLORS: Record<string, string> = {
   APPROVED: "bg-green-100 text-green-700",
   REJECTED: "bg-red-100 text-red-700",
   ORDERED: "bg-blue-100 text-blue-700",
-  IN_PRODUCTION: "bg-indigo-100 text-indigo-700",
+  PURCHASING: "bg-sky-100 text-sky-700",
   SHIPPED: "bg-purple-100 text-purple-700",
   CUSTOMS: "bg-orange-100 text-orange-700",
   PARTIALLY_RECEIVED: "bg-amber-100 text-amber-700",
   ARRIVED: "bg-emerald-100 text-emerald-700",
+  SETTLEMENT: "bg-cyan-100 text-cyan-700",
   CLOSED: "bg-gray-200 text-gray-600",
 };
 
@@ -32,19 +34,22 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 
 const STATUS_ORDER = [
   "DRAFT", "PENDING_APPROVAL", "APPROVED", "REJECTED",
-  "ORDERED", "IN_PRODUCTION", "SHIPPED", "CUSTOMS",
-  "PARTIALLY_RECEIVED", "ARRIVED", "CLOSED",
+  "ORDERED", "PURCHASING", "SHIPPED", "CUSTOMS",
+  "PARTIALLY_RECEIVED", "ARRIVED", "SETTLEMENT", "CLOSED",
 ];
 
 const FILTER_STATUSES = [
   { key: "", label: "전체" },
   { key: "DRAFT", label: "초안" },
   { key: "PENDING_APPROVAL", label: "승인대기" },
-  { key: "ORDERED", label: "발주" },
-  { key: "IN_PRODUCTION", label: "제작중" },
-  { key: "SHIPPED", label: "출하/선적" },
+  { key: "ORDERED", label: "승인완료" },
+  { key: "PURCHASING", label: "발주완료" },
+  { key: "SHIPPED", label: "선적" },
   { key: "CUSTOMS", label: "통관중" },
-  { key: "ARRIVED", label: "입고완료" },
+  // v1.6 (2026-05-14): 부분입고 + 입고완료 통합 필터
+  { key: "PARTIALLY_RECEIVED,ARRIVED", label: "입고현황" },
+  // v1.6 (2026-05-14): 송금상태 = 송금 요청/완료 내역이 있는 발주 (상태 무관)
+  { key: "__HAS_PAYMENT__", label: "송금상태" },
   { key: "CLOSED", label: "마감" },
 ];
 
@@ -56,7 +61,7 @@ function fmtAmount(val: string | number, currency?: string) {
 
 function fmtDate(d: string | null) {
   if (!d) return "-";
-  return new Date(d).toLocaleDateString("ko-KR");
+  return new Date(d).toLocaleDateString("ko-KR", { year: "2-digit", month: "numeric", day: "numeric" });
 }
 
 export default function ProcurementPage() {
@@ -70,17 +75,24 @@ export default function ProcurementPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [dashboard, setDashboard] = useState<any>(null);
+  const [sortBy, setSortBy] = useState<string>("");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const handleSort = (k: string, o: SortOrder) => { setSortBy(k); setSortOrder(o); };
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      // v1.6 (2026-05-14): 회계정산 특수 키 → hasPayment param 으로 변환
+      const isHasPaymentFilter = statusFilter === "__HAS_PAYMENT__";
       const [ordersRes, dashRes] = await Promise.all([
         procurementApi.getOrders({
-          status: statusFilter || undefined,
+          status: isHasPaymentFilter ? undefined : (statusFilter || undefined),
           currency: currencyFilter || undefined,
           orderType: orderTypeFilter || undefined,
           search: search || undefined,
           page,
+          ...(sortBy && { sortBy, sortOrder }),
+          ...(isHasPaymentFilter && { hasPayment: true }),
         }),
         procurementApi.getDashboard(),
       ]);
@@ -92,7 +104,7 @@ export default function ProcurementPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, currencyFilter, orderTypeFilter, search, page]);
+  }, [statusFilter, currencyFilter, orderTypeFilter, search, page, sortBy, sortOrder]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -100,22 +112,36 @@ export default function ProcurementPage() {
 
   return (
     <div>
-      {/* Dashboard Summary */}
+      {/* v1.6 (2026-05-14): 상태 카운트 + 필터 행 sticky (layout sticky 영역 아래) */}
+      <div className="sticky top-[112px] z-20 bg-gray-50 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-2 pb-2 mb-2">
+      {/* Dashboard Summary — v1.6 (2026-05-14): 부분입고·입고완료 별도 셀 + 0건이어도 항상 표시 */}
       {dashboard && (
-        <div className="flex gap-2 mb-4 overflow-x-auto">
-          {dashboard.statusCounts
-            ?.slice()
-            .sort((a: any, b: any) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status))
-            .map((sc: any) => (
-            <button
-              key={sc.status}
-              onClick={() => { setStatusFilter(sc.status); setPage(1); }}
-              className={`flex-1 min-w-0 rounded-lg px-2 py-1.5 text-center cursor-pointer transition-shadow hover:shadow-md ${STATUS_COLORS[sc.status] || "bg-gray-50"}`}
-            >
-              <div className="text-lg font-bold">{sc._count}</div>
-              <div className="text-[11px]">{STATUS_LABELS[sc.status] || sc.status}</div>
-            </button>
-          ))}
+        <div className="flex gap-2 mb-3 overflow-x-auto">
+          {(() => {
+            // 항상 표시할 주요 상태 (0건이어도 셀 노출)
+            const ALWAYS_VISIBLE = new Set([
+              "DRAFT", "PENDING_APPROVAL", "ORDERED", "PURCHASING",
+              "SHIPPED", "CUSTOMS", "PARTIALLY_RECEIVED", "ARRIVED",
+              "CLOSED",
+              // SETTLEMENT 제거 — 더 이상 상태 전환 안 함 (송금 요청은 OrderPayment로 별도 관리)
+            ]);
+            const countMap: Record<string, number> = {};
+            for (const sc of dashboard.statusCounts || []) {
+              countMap[sc.status] = sc._count;
+            }
+            // STATUS_ORDER 기준 정렬, ALWAYS_VISIBLE + 데이터 있는 항목 모두 표시
+            const keys = STATUS_ORDER.filter((s) => ALWAYS_VISIBLE.has(s) || countMap[s] > 0);
+            return keys.map((s) => (
+              <button
+                key={s}
+                onClick={() => { setStatusFilter(s); setPage(1); }}
+                className={`flex-1 min-w-0 rounded-lg px-2 py-1.5 text-center cursor-pointer transition-shadow hover:shadow-md ${STATUS_COLORS[s] || "bg-gray-50"}`}
+              >
+                <div className="text-lg font-bold">{countMap[s] ?? 0}</div>
+                <div className="text-[11px]">{STATUS_LABELS[s] || s}</div>
+              </button>
+            ));
+          })()}
         </div>
       )}
 
@@ -186,28 +212,32 @@ export default function ProcurementPage() {
           </button>
         </div>
       </div>
+      </div>
+      {/* /sticky 영역 끝 */}
 
       {/* Orders Table */}
       <div className="bg-white rounded-lg border overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b">
             <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">발주번호</th>
-              <th className="px-4 py-3 text-center font-medium text-gray-600">유형</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">제조사</th>
+              <SortableHeader sortKey="orderNumber" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">발주번호</SortableHeader>
+              <th className="px-4 py-3 text-left font-medium text-gray-600">품목명</th>
+              <SortableHeader sortKey="manufacturer" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">제조사</SortableHeader>
               <th className="px-4 py-3 text-left font-medium text-gray-600">계약</th>
-              <th className="px-4 py-3 text-center font-medium text-gray-600">통화</th>
-              <th className="px-4 py-3 text-right font-medium text-gray-600">금액</th>
-              <th className="px-4 py-3 text-center font-medium text-gray-600">상태</th>
+              <SortableHeader sortKey="totalAmount" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="right" className="px-4 py-3 text-right font-medium text-gray-600">금액</SortableHeader>
+              <SortableHeader sortKey="status" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 text-center font-medium text-gray-600">발주현황</SortableHeader>
+              <th className="px-4 py-3 text-center font-medium text-gray-600 whitespace-nowrap">송금현황</th>
               <th className="px-4 py-3 text-center font-medium text-gray-600">품목수</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">발주일</th>
+              <SortableHeader sortKey="orderDate" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">발주일</SortableHeader>
+              <SortableHeader sortKey="estimatedShipDate" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">선적예정일</SortableHeader>
+              <SortableHeader sortKey="actualShipDate" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">실제선적일</SortableHeader>
             </tr>
           </thead>
           <tbody className="divide-y">
             {loading ? (
-              <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-400">로딩 중...</td></tr>
+              <tr><td colSpan={11} className="px-4 py-8 text-center text-gray-400">로딩 중...</td></tr>
             ) : orders.length === 0 ? (
-              <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-400">발주가 없습니다.</td></tr>
+              <tr><td colSpan={11} className="px-4 py-8 text-center text-gray-400">발주가 없습니다.</td></tr>
             ) : (
               orders.map((o) => (
                 <tr
@@ -215,25 +245,59 @@ export default function ProcurementPage() {
                   onClick={() => router.push(`/procurement/orders/${o.id}`)}
                   className="hover:bg-gray-50 cursor-pointer"
                 >
-                  <td className="px-4 py-3 font-mono text-blue-600">{o.orderNumber}</td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                      o.orderType === "DUTY_FREE" ? "bg-teal-100 text-teal-700" : "bg-blue-50 text-blue-600"
-                    }`}>
-                      {o.orderType === "DUTY_FREE" ? "무환" : "유환"}
-                    </span>
+                  <td className="px-4 py-3 font-mono text-blue-600 whitespace-nowrap min-w-[14ch]">{o.orderNumber}</td>
+                  <td className="px-4 py-3 text-gray-700">
+                    {o.firstItemName ? (
+                      <span className="truncate inline-block max-w-[16ch]" title={o.firstItemName}>
+                        {o.firstItemName}
+                        {(o._count?.items ?? 0) > 1 && <span className="text-gray-400 text-xs ml-1">외 {o._count.items - 1}건</span>}
+                      </span>
+                    ) : <span className="text-gray-300">-</span>}
                   </td>
-                  <td className="px-4 py-3">{o.manufacturer}</td>
-                  <td className="px-4 py-3 text-gray-500">{o.contract?.contractNumber || "-"}</td>
-                  <td className="px-4 py-3 text-center">{o.currency}</td>
+                  <td className="px-4 py-3">
+                    <span className="truncate inline-block max-w-[10ch]" title={o.manufacturer}>{o.manufacturer}</span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-500">
+                    {o.contract ? (
+                      <span className="inline-block truncate max-w-[20ch]" title={`${o.contract.contractNumber}${o.contract.name ? ` - ${o.contract.name}` : ""}`}>
+                        {o.contract.contractNumber}{o.contract.name ? ` - ${o.contract.name}` : ""}
+                      </span>
+                    ) : "-"}
+                  </td>
                   <td className="px-4 py-3 text-right font-mono">{fmtAmount(o.totalAmount, o.currency)}</td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-3 text-center whitespace-nowrap">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[o.status] || ""}`}>
                       {STATUS_LABELS[o.status] || o.status}
                     </span>
                   </td>
+                  {/* v1.6 (2026-05-14): 송금현황 — 송금요청 / N차송금 / 완료 / 반려 */}
+                  <td className="px-4 py-3 text-center whitespace-nowrap">
+                    {(() => {
+                      const ps = o.paymentSummary || { requested: 0, completed: 0, rejected: 0, total: 0 };
+                      if (ps.total === 0) return <span className="text-gray-300 text-xs">-</span>;
+                      // 요청중 + 완료 0 → "송금요청"
+                      if (ps.requested > 0 && ps.completed === 0) {
+                        return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">송금요청</span>;
+                      }
+                      // 요청중 + 완료 N → "N차송금" (현재까지 N번 완료, 추가 요청 대기)
+                      if (ps.requested > 0 && ps.completed > 0) {
+                        return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">{ps.completed}차송금</span>;
+                      }
+                      // 요청 없음 + 완료 N → "완료"
+                      if (ps.requested === 0 && ps.completed > 0) {
+                        return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">완료</span>;
+                      }
+                      // 요청 없음 + 완료 없음 + 반려만 → "반려"
+                      if (ps.rejected > 0) {
+                        return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">반려</span>;
+                      }
+                      return <span className="text-gray-300 text-xs">-</span>;
+                    })()}
+                  </td>
                   <td className="px-4 py-3 text-center text-gray-500">{o._count?.items ?? 0}</td>
                   <td className="px-4 py-3 text-gray-500">{fmtDate(o.orderDate)}</td>
+                  <td className="px-4 py-3 text-gray-500">{fmtDate(o.estimatedShipDate)}</td>
+                  <td className="px-4 py-3 text-gray-500">{fmtDate(o.actualShipDate)}</td>
                 </tr>
               ))
             )}

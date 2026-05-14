@@ -13,7 +13,7 @@ import AddTaskModal from "@/components/AddTaskModal";
 import TaskDrawer from "@/components/TaskDrawer";
 import CopyTaskModal from "@/components/CopyTaskModal";
 import { RowContextMenu } from "@/components/RowContextMenu";
-import DateInput from "@/components/DateInput";
+import { DateInput } from "@/components/ui/DateInput";
 import AppLayout from "@/components/AppLayout";
 import CommentPopover from "@/components/CommentPopover";
 import ResourcePickerPopover from "@/components/ResourcePickerPopover";
@@ -1352,9 +1352,11 @@ export default function ProjectDetailPage() {
                 ))}
                 <div className="h-3 w-px bg-gray-200 mx-0.5" />
                 <span className="text-[11px] text-gray-400">범위</span>
-                <DateInput value={viewStart} onChange={setViewStart} className="text-[11px]" />
+                <DateInput value={viewStart} onChange={(e) => setViewStart(e.target.value)}
+                  className="text-[11px] px-1.5 py-0.5 border border-gray-200 rounded w-[120px]" />
                 <span className="text-[11px] text-gray-300">~</span>
-                <DateInput value={viewEnd} onChange={setViewEnd} className="text-[11px]" />
+                <DateInput value={viewEnd} onChange={(e) => setViewEnd(e.target.value)}
+                  className="text-[11px] px-1.5 py-0.5 border border-gray-200 rounded w-[120px]" />
                 <button onClick={() => {
                   setViewStart(ganttData?.project?.effectiveStartDate || "");
                   setViewEnd(ganttData?.project?.effectiveEndDate || "");
@@ -1707,12 +1709,16 @@ export default function ProjectDetailPage() {
                             <span className="text-[11px] text-gray-500 shrink-0">기간 수정</span>
                             <div className="flex items-center gap-1.5">
                               <span className="text-[10px] text-gray-400">시작</span>
-                              <DateInput value={editVal.start} onChange={(v) => setEditVal((prev: any) => ({ ...prev, start: v }))} />
+                              <DateInput value={editVal.start}
+                                onChange={(e) => setEditVal((prev: any) => ({ ...prev, start: e.target.value }))}
+                                className="text-[11px] px-1.5 py-0.5 border border-gray-200 rounded w-[120px]" />
                             </div>
                             <span className="text-[10px] text-gray-300">~</span>
                             <div className="flex items-center gap-1.5">
                               <span className="text-[10px] text-gray-400">종료</span>
-                              <DateInput value={editVal.end} onChange={(v) => setEditVal((prev: any) => ({ ...prev, end: v }))} />
+                              <DateInput value={editVal.end}
+                                onChange={(e) => setEditVal((prev: any) => ({ ...prev, end: e.target.value }))}
+                                className="text-[11px] px-1.5 py-0.5 border border-gray-200 rounded w-[120px]" />
                             </div>
                             <button
                               onClick={() => saveDates(task, editVal.start, editVal.end)}

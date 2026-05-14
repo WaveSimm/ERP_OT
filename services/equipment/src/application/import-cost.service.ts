@@ -4,9 +4,20 @@ export class ImportCostService {
   constructor(private prisma: PrismaClient) {}
 
   /** 원가정산 목록 */
-  async list() {
+  async list(params: { sortBy?: string; sortOrder?: "asc" | "desc" } = {}) {
+    const sortOrder = params.sortOrder ?? "desc";
+    // v1.6 (2026-05-13)
+    const SORTABLE: Record<string, any> = {
+      declarationNo: { declarationNo: sortOrder },
+      supplier: { supplier: sortOrder },
+      declarationDate: { declarationDate: sortOrder },
+      totalAmount: { totalAmount: sortOrder },
+      createdAt: { createdAt: sortOrder },
+    };
+    const orderBy = params.sortBy && SORTABLE[params.sortBy] ? SORTABLE[params.sortBy] : { createdAt: "desc" };
+
     return this.prisma.importCostSettlement.findMany({
-      orderBy: { createdAt: "desc" },
+      orderBy,
       include: {
         order: { select: { orderNumber: true, currency: true } },
         contract: { select: { contractNumber: true, name: true, client: true } },

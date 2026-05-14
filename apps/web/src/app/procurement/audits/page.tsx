@@ -15,10 +15,13 @@ export default function AuditsPage() {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ name: "", plannedDate: new Date().toISOString().slice(0, 10), notes: "" });
   const [saving, setSaving] = useState(false);
+  const [sortBy, setSortBy] = useState<string>("plannedDate");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   useEffect(() => {
-    auditApi.list().then(setAudits).catch(() => setAudits([])).finally(() => setLoading(false));
-  }, []);
+    setLoading(true);
+    auditApi.list({ sortBy, sortOrder }).then(setAudits).catch(() => setAudits([])).finally(() => setLoading(false));
+  }, [sortBy, sortOrder]);
 
   const handleCreate = async () => {
     if (!form.name) return;
@@ -33,7 +36,18 @@ export default function AuditsPage() {
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <div />
+        <div className="flex items-center gap-2 text-xs text-gray-600">
+          <span>정렬:</span>
+          <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="border rounded px-2 py-1">
+            <option value="plannedDate">계획일</option>
+            <option value="name">이름</option>
+            <option value="status">상태</option>
+          </select>
+          <button onClick={() => setSortOrder(o => o === "asc" ? "desc" : "asc")}
+            className="border rounded px-2 py-1 hover:bg-gray-50">
+            {sortOrder === "asc" ? "오름차 ▲" : "내림차 ▼"}
+          </button>
+        </div>
         <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">
           + 실사 생성
         </button>

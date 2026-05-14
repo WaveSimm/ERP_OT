@@ -4,11 +4,13 @@ import { requireRole } from "../middleware/auth.middleware.js";
 export async function supplierRoutes(fastify: FastifyInstance) {
   // 조회: 전체 허용
   fastify.get("/", async (request) => {
-    const { search, page, limit } = request.query as any;
+    const { search, page, limit, sortBy, sortOrder } = request.query as any;
     return fastify.supplierService.list({
       search: search || undefined,
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 100,
+      ...(sortBy && { sortBy }),
+      ...((sortOrder === "asc" || sortOrder === "desc") && { sortOrder }),
     });
   });
 
@@ -24,17 +26,17 @@ export async function supplierRoutes(fastify: FastifyInstance) {
     return fastify.supplierService.getDetail((request.params as any).id);
   });
 
-  // 생성/수정: ADMIN, MANAGER
-  fastify.post("/", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request, reply) => {
+  // 생성/수정: ADMIN, MANAGER, OPERATOR (v1.6 2026-05-14)
+  fastify.post("/", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request, reply) => {
     const result = await fastify.supplierService.create(request.body as any);
     return reply.status(201).send(result);
   });
 
-  fastify.patch("/:id", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
+  fastify.patch("/:id", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
     return fastify.supplierService.update((request.params as any).id, request.body as any);
   });
 
-  // 삭제: ADMIN만
+  // 삭제: ADMIN만 (실수 방지)
   fastify.delete("/:id", { preHandler: [requireRole("ADMIN")] }, async (request, reply) => {
     await fastify.supplierService.remove((request.params as any).id);
     return reply.status(204).send();
@@ -42,13 +44,13 @@ export async function supplierRoutes(fastify: FastifyInstance) {
 
   // ─── Contacts ──────────────────────────────────────────────────────────────
 
-  fastify.post("/:id/contacts", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request, reply) => {
+  fastify.post("/:id/contacts", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request, reply) => {
     const { id } = request.params as any;
     const result = await fastify.supplierService.addContact(id, request.body as any);
     return reply.status(201).send(result);
   });
 
-  fastify.patch("/contacts/:contactId", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
+  fastify.patch("/contacts/:contactId", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
     const { contactId } = request.params as any;
     return fastify.supplierService.updateContact(contactId, request.body as any);
   });

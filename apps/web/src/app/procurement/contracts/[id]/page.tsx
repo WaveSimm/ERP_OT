@@ -7,17 +7,19 @@ import { DateInput } from "@/components/ui/DateInput";
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "초안", PENDING_APPROVAL: "승인대기", APPROVED: "승인",
-  REJECTED: "반려", ORDERED: "발주완료", IN_PRODUCTION: "제작중",
-  SHIPPED: "출하/선적", CUSTOMS: "통관중", PARTIALLY_RECEIVED: "부분입고",
-  ARRIVED: "입고완료", CLOSED: "마감",
+  REJECTED: "반려", ORDERED: "승인완료", PURCHASING: "발주완료",
+  SHIPPED: "선적", CUSTOMS: "통관중", PARTIALLY_RECEIVED: "부분입고",
+  ARRIVED: "입고완료", SETTLEMENT: "송금상태", CLOSED: "마감",
 };
 
 const STATUS_COLORS: Record<string, string> = {
   DRAFT: "bg-gray-100 text-gray-700", PENDING_APPROVAL: "bg-yellow-100 text-yellow-700",
   APPROVED: "bg-green-100 text-green-700", REJECTED: "bg-red-100 text-red-700",
-  ORDERED: "bg-blue-100 text-blue-700", IN_PRODUCTION: "bg-indigo-100 text-indigo-700",
+  ORDERED: "bg-blue-100 text-blue-700",
+  PURCHASING: "bg-sky-100 text-sky-700",
   SHIPPED: "bg-purple-100 text-purple-700", CUSTOMS: "bg-orange-100 text-orange-700",
   PARTIALLY_RECEIVED: "bg-amber-100 text-amber-700", ARRIVED: "bg-emerald-100 text-emerald-700",
+  SETTLEMENT: "bg-cyan-100 text-cyan-700",
   CLOSED: "bg-gray-200 text-gray-600",
 };
 

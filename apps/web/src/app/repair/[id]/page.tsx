@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { repairApi, getUser, attachmentApi } from "@/lib/api";
+import { repairApi, getUser, attachmentApi, bundleShipmentApi } from "@/lib/api";
 import { DateInput } from "@/components/ui/DateInput";
 import { fmtDateTime24 } from "@/lib/datetime";
 import { compressImage } from "@/lib/image-compress";
@@ -313,7 +313,11 @@ function InfoTab({ order, onReload }: { order: any; onReload: () => Promise<void
   const serialDisplay = order.customerAsset?.serialNumber || order.equipment?.serialNumber || order.sensor?.serialNumber || order.productSerial || "-";
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
+    <div className="space-y-4">
+      {order.customerAsset?.bundleShipmentId && (
+        <SiblingAssetsPanel bundleShipmentId={order.customerAsset.bundleShipmentId} currentAssetId={order.customerAsset.id} />
+      )}
+      <div className="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
       <div className="grid grid-cols-2 gap-4">
         {/* 접수 종류 */}
         <div>
@@ -431,6 +435,60 @@ function InfoTab({ order, onReload }: { order: any; onReload: () => Promise<void
           {saving ? "저장 중..." : "저장"}
         </button>
       </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── 형제 자산 패널 (v1.6 Bundle, 2026-05-13) ─────────────────────
+// AS 접수된 자산이 BundleShipment 일부면, 같은 번들의 다른 자산을 표시.
+// 형제 자산도 점검 / 예방 수리 후보로 참고.
+function SiblingAssetsPanel({ bundleShipmentId, currentAssetId }: { bundleShipmentId: string; currentAssetId: string }) {
+  const [data, setData] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    bundleShipmentApi.getSiblingAssets(bundleShipmentId)
+      .then(setData)
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, [bundleShipmentId]);
+
+  if (loading) return null;
+  if (!data) return null;
+
+  const siblings = (data.siblings || []).filter((a: any) => a.id !== currentAssetId);
+
+  return (
+    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <div className="text-sm font-semibold text-amber-800">
+            🔗 번들 출고 자산 ({data.bundleShipment?.code})
+          </div>
+          <div className="text-xs text-amber-700 mt-0.5">
+            {data.bundleShipment?.customer?.name} · 출고 {fmtDateTime24(data.bundleShipment?.shippedAt, { short: true })}
+          </div>
+        </div>
+        <div className="text-xs text-amber-700">
+          형제 자산 <span className="font-semibold">{siblings.length}</span>건
+        </div>
+      </div>
+      {siblings.length > 0 && (
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          {siblings.map((a: any) => (
+            <div key={a.id} className="bg-white border border-amber-200 rounded p-2 text-xs">
+              <div className="font-medium text-gray-800">{a.name}</div>
+              <div className="text-gray-500 text-[10px]">
+                SN: {a.serialNumber || "-"} · 역할: {a.bundleRole || "-"}
+              </div>
+              {a.productMaster?.name && (
+                <div className="text-gray-400 text-[10px]">{a.productMaster.name}</div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

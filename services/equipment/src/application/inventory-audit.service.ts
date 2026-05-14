@@ -4,9 +4,17 @@ export class InventoryAuditService {
   constructor(private prisma: PrismaClient) {}
 
   /** 실사 목록 */
-  async list() {
+  async list(params: { sortBy?: string; sortOrder?: "asc" | "desc" } = {}) {
+    const { sortBy, sortOrder = "desc" } = params;
+    // v1.6 (2026-05-13): 정렬 가능 필드
+    const SORTABLE: Record<string, any> = {
+      name: { name: sortOrder },
+      plannedDate: { plannedDate: sortOrder },
+      status: { status: sortOrder },
+    };
+    const orderBy = sortBy && SORTABLE[sortBy] ? SORTABLE[sortBy] : { plannedDate: "desc" };
     return this.prisma.inventoryAudit.findMany({
-      orderBy: { plannedDate: "desc" },
+      orderBy,
       include: { _count: { select: { items: true } } },
     });
   }
