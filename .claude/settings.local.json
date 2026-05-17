@@ -534,7 +534,10 @@
       "Bash(grep -nA 35 \"^model ExpenseTransaction \" E:/claude/ERP_OT/services/expense/prisma/schema.prisma)",
       "Bash(grep -nB 1 -A 4 \"<th\\\\|컬럼\\\\|columns\" E:/claude/ERP_OT/apps/web/src/app/expense/transactions/page.tsx)",
       "Bash(grep -nE \"return \\\\\\\\\\(|min-h-screen\" E:/claude/ERP_OT/apps/web/src/app/expense/transactions/page.tsx)",
-      "Bash(grep -nA 12 \"^model ExpenseSource \" E:/claude/ERP_OT/services/expense/prisma/schema.prisma)"
+      "Bash(grep -nA 12 \"^model ExpenseSource \" E:/claude/ERP_OT/services/expense/prisma/schema.prisma)",
+      "Bash(grep -E \"\\(~\\\\$|계약파일\\)\")",
+      "Bash(rm \"data/sources/~\\\\$2026년 계약파일리스트_금액포함전체.xlsx\")",
+      "Read(//e/claude/ERP_OT/data/sources/**)"
     ]
   }
 }

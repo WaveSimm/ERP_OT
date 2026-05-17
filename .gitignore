@@ -35,3 +35,6 @@ Thumbs.db
 
 # Docker
 docker-compose.override.yml
+
+# Office lock files (Excel/Word 잠금 파일)
+~$*
