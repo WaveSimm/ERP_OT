@@ -20,17 +20,68 @@
     "admin": { "port": 3010, "status": "pending" }
   },
   "pdca": {
-    "feature": null,
-    "note": "no active PDCA in ERP_OT. 개인경비정산은 spawned project로 분리됨"
+    "feature": "발주관리-v1.6",
+    "phase": "check",
+    "matchRate": 98,
+    "matchRateHistory": [
+      { "iteration": 0, "rate": 94, "phase": "check-v1", "checkedAt": "2026-05-15" },
+      { "iteration": 1, "rate": 98, "phase": "check-v2", "checkedAt": "2026-05-15", "trigger": "Design v1.1 정정 7개 + 코드 변경 3건 (M1/M2/M4)" }
+    ],
+    "intentMappingScore": "4/4 (100%)",
+    "method": "역추적 (사후 작성)",
+    "designFile": "docs/02-design/features/발주관리-v1.6.design.md",
+    "designVersion": "1.1",
+    "analysisFile": "docs/03-analysis/발주관리-v1.6.analysis.md",
+    "implementationCommit": "213a021",
+    "implementationDate": "2026-05-14",
+    "designedAt": "2026-05-15",
+    "checkedAt": "2026-05-15",
+    "highGaps": 0,
+    "mediumGaps": 0,
+    "lowGaps": 2,
+    "reportReady": true,
+    "resolvedGaps": ["H1 API prefix", "H2 po-print", "H3 expenses", "M1 approverName 컬럼", "M2 OPERATOR 권한", "M3 procurement 루트", "M4 overpaid 허용"],
+    "remainingLowGaps": ["L1 SETTLEMENT enum 코멘트", "L2 마이그 스크립트 명"],
+    "intentSource": "commit message + 사용자 의도 질의응답 4건",
+    "planFile": null,
+    "planNote": "commit message가 Plan 대용. 사용자 결정: Design만 정식 작성",
+    "userIntents": {
+      "approverIds3": "발주서마다 결재선을 다르게 (자유 3단)",
+      "paymentAutoSplit": "다회차 송금 케이스 (해외무역 관행)",
+      "financeSubTab": "재무팀 동일 부서 + 세부는 sub-tab 분리",
+      "poNumberYYMM": "자리수 효율화 + 월별 구분"
+    },
+    "previousFeature": {
+      "name": "경비정산-ERP통합",
+      "phase": "check",
+      "matchRate": 96,
+      "reportReady": true,
+      "movedAt": "2026-05-15",
+      "movedReason": "사용자 선택으로 발주관리 v1.6 역추적 우선. 경비정산 Report는 안정화 후 작성"
+    },
+    "recommendedNext": "/pdca analyze 발주관리-v1.6 (gap-detector로 design vs 구현 일치 확인)",
+    "note": "역추적 PDCA. Design v1.0 = commit 213a021 코드 + 사용자 의도",
+    "previousCheck96": true,
+    "expensePdcaPrevious": {
+      "matchRateHistory": [
+        { "iteration": 0, "rate": 88, "phase": "check-v1" },
+        { "iteration": 1, "rate": 96, "phase": "check-v2", "trigger": "Design v0.4 + dead code 정리" }
+      ],
+      "analysisFile": "docs/03-analysis/경비정산-ERP통합.analysis.md",
+      "highGaps": 0,
+      "backlog": ["/admin/settlements", "/internal/expense/settlement-summary"]
+    }
   },
   "spawnedProjects": [
     {
       "name": "개인경비정산",
       "location": "E:/claude/Expense/",
       "spawnedAt": "2026-05-06",
+      "removedAt": "2026-05-15",
       "method": "plan-plus",
-      "phase": "do",
-      "reason": "개인 데이터 물리적 격리 + 별도 git repo + 같은 스택으로 V2 이관 용이"
+      "phase": "absorbed-and-removed",
+      "absorbedInto": "경비정산-ERP통합 (services/expense/)",
+      "reason": "V2 ERP 통합 완료 후 V1 분리 프로젝트 완전 제거 (폴더 777MB + expense_db 8.9MB + expense_user role)"
     }
   ],
   "pdcaHistory": [

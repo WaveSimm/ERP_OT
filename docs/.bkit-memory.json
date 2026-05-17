@@ -1,12 +1,12 @@
 {
-  "sessionCount": 156,
+  "sessionCount": 159,
   "lastSession": {
-    "startedAt": "2026-05-14T02:29:50.757Z",
+    "startedAt": "2026-05-17T23:10:17.461Z",
     "platform": "claude",
     "level": "Enterprise"
   },
-  "currentFeature": "공용자산예약",
-  "currentPhase": "design",
-  "matchRate": null,
-  "lastUpdated": "2026-05-05T16:30:00.000Z"
+  "currentFeature": "발주관리-v1.6",
+  "currentPhase": "check",
+  "matchRate": 98,
+  "lastUpdated": "2026-05-18T00:00:00.000Z"
 }

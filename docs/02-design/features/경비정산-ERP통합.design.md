@@ -3,12 +3,13 @@
 > **Summary**: V1(`E:/claude/Expense/`) 도메인을 ERP `services/expense/`로 흡수하여 멀티 사용자 + 결재 통합 + 재무팀 처리 흐름을 한 시스템으로 구축
 >
 > **Project**: erp-ot-platform
-> **Version**: V2 (Design v0.1)
+> **Version**: V2 (Design **v0.4** — 구현 후속 결정 반영)
 > **Author**: 오션테크 + Claude
-> **Date**: 2026-05-08
-> **Status**: Draft
+> **Date**: 2026-05-15 (v0.4)
+> **Status**: 구현 완료 (commit fb8a184, 5/7~5/12) + Design 갱신 완료
 > **Planning Doc**: [경비정산-ERP통합.plan.md](../01-plan/features/경비정산-ERP통합.plan.md)
-> **V1 참조**: `E:/claude/Expense/docs/02-design/features/개인경비정산.design.md`
+> **Analysis**: [경비정산-ERP통합.analysis.md](../03-analysis/경비정산-ERP통합.analysis.md) (Match 88% → v0.4 갱신으로 95%+ 회복 예상)
+> **V1 참조**: ~~`E:/claude/Expense/docs/02-design/features/개인경비정산.design.md`~~ (2026-05-15 V1 폴더 완전 제거)
 
 ---
 
@@ -37,7 +38,9 @@
 ```
                         ┌─────────────────────────────────────────────────┐
                         │  apps/web (Next.js, port 3000)                  │
-                        │   /expense/* (8 pages, 신규)                    │
+                        │   /expense/* (7 pages: dashboard/transactions/  │
+                        │     receipts/settlements/sources/categories/    │
+                        │     finance, 신규)                              │
                         │   /me/dashboard (경비 카드 추가)                │
                         └────────────────┬────────────────────────────────┘
                                          │ HTTP /api/v1/expense/* (rewrite)
@@ -51,6 +54,7 @@
                 │        │  │  transaction / receipt /      │  │            │
                 │        │  │  match / category /           │  │            │
                 │        │  │  settlement / finance         │  │            │
+                │        │  │  internal (webhooks ★)        │  │            │
                 │        │  ├──────────────────────────────┤  │            │
                 │        │  │ application/services         │  │            │
                 │        │  ├──────────────────────────────┤  │            │
@@ -58,24 +62,23 @@
                 │        │  │  prisma repositories          │  │            │
                 │        │  │  card-parsers (3종)           │  │            │
                 │        │  │  ocr-client                   │  │            │
-                │        │  │  approval-client              │  │            │
+                │        │  │  approval-client (EXPENSE)    │  │            │
                 │        │  │  auth-client                  │  │            │
                 │        │  │  storage (LocalFsStorage)     │  │            │
                 │        │  └──────────────────────────────┘  │            │
-                │        └────┬─────────────┬─────────┬────────┘            │
-                │             │             │         │                    │
-                │      HTTP   │       HTTP  │   AMQP  │ subscribe          │
-                │             ▼             ▼         ▼                    │
-                │   ┌─────────────┐  ┌──────────┐  ┌──────────┐            │
-                │   │ ocr-service │  │ approval │  │ RabbitMQ │            │
-                │   │  (3007)     │  │  (3006)  │  │  (5672)  │            │
-                │   └─────────────┘  └────┬─────┘  └────┬─────┘            │
-                │                         │             │ publish          │
-                │                         ▼             │                  │
-                │                   ┌──────────┐        │                  │
-                │                   │ auth     │ ◀──────┘                  │
-                │                   │ (3001)   │  (FINANCE_FORWARD)         │
-                │                   └──────────┘                            │
+                │        └─▲──────┬───────┬─────────┬─────────┘            │
+                │          │      │       │         │                     │
+                │  HTTP ★  │ HTTP │ HTTP  │  HTTP   │ AMQP publish        │
+                │ webhook  │ (외부)│ (외부) │ (외부)  │ (활동 로그 전용)     │
+                │          │      ▼       ▼         ▼                     │
+                │  ┌───────┴──┐  ┌─────────────┐  ┌──────────┐  ┌────────┐ │
+                │  │ approval │  │ ocr-service │  │ auth     │  │RabbitMQ│ │
+                │  │  (3006)  │  │  (3007)     │  │ (3001)   │  │ (5672) │ │
+                │  └──────────┘  └─────────────┘  └──────────┘  └────────┘ │
+                │                                                          │
+                │  ★ v0.4: RabbitMQ subscriber 폐기 → HTTP webhook 전환:    │
+                │    approval → expense /internal/settlements/from-approval│
+                │    재무모듈 → expense /internal/settlements/from-payment │
                 └─────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -135,15 +138,16 @@
     → notification: 신청자에게 "💰 입금 완료"
 ```
 
-### 2.3 Dependencies
+### 2.3 Dependencies (v0.4)
 
 | 의존 | 방향 | 통신 | 목적 |
 |---|---|---|---|
 | expense → auth | HTTP | `/internal/users/*` | 사용자/부서 검증, 결재라인 조회 |
 | expense → ocr | HTTP | `/api/v1/ocr/scan` | 영수증 OCR |
-| expense → approval | HTTP | `POST /api/v1/approval/documents` | 결재 자동 상신 |
-| approval → expense | AMQP | `approval.document.{approved,rejected}` | 결재 결과 sync |
-| approval → expense | (없음) | - | 결재 본문에 settlementId만 참조, HTTP 호출 X (순환 방지) |
+| expense → approval | HTTP | `POST /internal/documents` | 결재 자동 상신 (EXPENSE 양식 + referenceType=EXPENSE_SETTLEMENT) |
+| **approval → expense** | **HTTP webhook** | `POST /internal/settlements/from-approval` | 결재 완료/반려 동기화 (v0.4 변경: AMQP → HTTP) |
+| **재무 송금 모듈 → expense** | **HTTP webhook** | `POST /internal/settlements/from-payment` `DELETE /internal/settlements/from-payment` | 송금 처리/해제 동기화 (2026-05-12 신규) |
+| expense → RabbitMQ | AMQP publish | activity-log queue | 활동 로그 전용 (subscriber 폐기) |
 
 ---
 
@@ -481,51 +485,58 @@ ExpenseSource ──→ ExpenseStatement ──→ ExpenseTransaction
 
 ## 4. State Machine — Settlement
 
-### 4.1 상태 전이도
+### 4.1 상태 전이도 (v0.4 — APPROVED→PAID 직접 전이 추가)
 
 ```
         ┌──────────┐
         │  DRAFT   │  ◀── createSettlement
         └────┬─────┘
              │ submit (POST /settlements/:id/submit)
-             │ → approval-service에 문서 생성, 결재 진행 시작
+             │ → approval-service에 문서 생성, 결재 진행 시작 (submitImmediately)
              ▼
         ┌──────────────┐
         │  SUBMITTED   │
         └──┬─────────┬─┘
            │         │
    approve │         │ reject
-   (AMQP)  │         │ (AMQP)
+   (HTTP)  │         │ (HTTP)
            ▼         ▼
    ┌────────────┐  ┌────────────┐
    │  APPROVED  │  │  REJECTED  │
-   └─────┬──────┘  └────────────┘
-         │ receive (재무팀 액션)
-         ▼
-   ┌────────────┐
-   │  RECEIVED  │
-   └─────┬──────┘
-         │ pay (재무팀 액션)
-         ▼
-   ┌────────────┐
-   │   PAID     │  ◀── 종착
-   └────────────┘
+   └──┬─────┬───┘  └────────────┘
+      │     │
+      │     │ receive (재무팀 수동 액션, 옵션)
+      │     ▼
+      │  ┌────────────┐
+      │  │  RECEIVED  │
+      │  └─────┬──────┘
+      │        │ pay (재무팀 수동 액션)
+      │        ▼
+      │  ┌────────────┐
+      └─→│   PAID     │  ◀── 종착
+   (from-payment       └────────────┘
+    webhook 직접 전이)        ▲
+                              │ DELETE /from-payment (송금 해제 회귀)
+                              │
+                        (PAID → APPROVED 복귀)
 ```
 
-### 4.2 전이 규칙
+### 4.2 전이 규칙 (v0.4)
 
 | from | to | 트리거 | 권한 | 부수효과 |
 |---|---|---|---|---|
 | (없음) | DRAFT | 사용자가 settlement 생성 | 신청자 | items 채워짐 |
-| DRAFT | SUBMITTED | 사용자 "결재 상신" 클릭 | 신청자(본인) | approval-service 호출, approvalDocumentId 저장, submittedAt 기록 |
+| DRAFT | SUBMITTED | 사용자 "결재 상신" 클릭 | 신청자(본인) | approval-service `/internal/documents` 호출 (submitImmediately:true), approvalDocumentId 저장, submittedAt 기록 |
 | DRAFT | (삭제) | 사용자 settlement 삭제 | 신청자(본인) | items 모두 분리 (transaction.status=CATEGORIZED 복원) |
-| SUBMITTED | APPROVED | RabbitMQ `approval.document.approved` | 시스템 | approvedAt 기록, 재무팀 큐 노출 |
-| SUBMITTED | REJECTED | RabbitMQ `approval.document.rejected` | 시스템 | rejectedAt + rejectReason 기록, 신청자 알림 |
-| APPROVED | RECEIVED | 재무팀 "접수" | 재무팀 | receivedAt/By 기록, 신청자 알림 |
-| RECEIVED | PAID | 재무팀 "지출 완료" | 재무팀 | paidAt/By/Amount 기록, 신청자 알림 |
+| SUBMITTED | APPROVED | **HTTP webhook** `POST /internal/settlements/from-approval` (status:APPROVED) | 시스템 (approval-service 호출) | approvedAt 기록, 재무팀 큐 노출 |
+| SUBMITTED | REJECTED | **HTTP webhook** `POST /internal/settlements/from-approval` (status:REJECTED) | 시스템 (approval-service 호출) | rejectedAt + rejectReason 기록, 신청자 알림 |
+| APPROVED | RECEIVED | 재무팀 "접수" (수동) | 재무팀 | receivedAt/By 기록, 신청자 알림 |
+| RECEIVED | PAID | 재무팀 "지출 완료" (수동) | 재무팀 | paidAt/By/Amount 기록, 신청자 알림 |
+| **APPROVED** | **PAID** | **HTTP webhook** `POST /internal/settlements/from-payment` (2026-05-12 재무 후속 통합) | 시스템 (재무 송금 모듈) | RECEIVED 단계 생략, paidAt/By/Amount/Note 기록, 신청자 알림 |
+| **PAID** | **APPROVED** | **HTTP webhook** `DELETE /internal/settlements/from-payment` | 시스템 (재무 송금 해제) | paid* 필드 초기화 — 송금 실수 취소용 |
 | REJECTED | DRAFT | 사용자가 재작성 결정 | 신청자 | (선택사항 — V3 후보) |
 
-**역방향 금지**: PAID/RECEIVED 상태에서 이전으로 되돌리는 액션 없음. 정정은 신규 settlement로.
+**역방향 정책**: PAID → APPROVED 만 시스템 webhook 으로 허용 (송금 해제). 그 외 역전이는 사용자 액션으로 불가. RECEIVED → APPROVED 도 불가 (정정은 신규 settlement로).
 
 ---
 
@@ -614,92 +625,151 @@ GET    /admin/settlements?userId=&status=
 GET    /internal/expense/settlement-summary   { userId } → 내대시보드 카드용 (다른 서비스 재사용)
 ```
 
-### 5.5 RabbitMQ Subscriber (expense-service 측)
+### 5.5 Internal Webhook Endpoints (expense-service 측) — v0.4
+
+v0.3 명세는 RabbitMQ Subscriber 였으나, **2026-05-12 결재 후속 통합 PDCA 결정으로 HTTP webhook 방식으로 변경**되었습니다. RabbitMQ는 활동 로그 전용으로만 사용.
 
 ```
-queue: expense.approval-result-listener
-  → approval.document.approved   { documentId, approverIds, approvedAt }
-  → approval.document.rejected   { documentId, rejectedBy, reason, rejectedAt }
+POST   /internal/settlements/from-approval     (결재 완료/반려 동기화)
+POST   /internal/settlements/from-payment      (재무 송금 처리 동기화)
+DELETE /internal/settlements/from-payment      (송금 해제 — PAID → APPROVED 회귀)
 ```
 
-처리: documentId로 settlement 조회 → 상태 전이 + 감사 로그 + 신청자 알림.
+모두 `x-internal-token` 인증.
+
+#### 5.5.1 `POST /internal/settlements/from-approval`
+
+approval-service가 결재 완료/반려 시 호출. `referenceType = "EXPENSE_SETTLEMENT"` 결재 문서만 대상.
+
+```typescript
+// Request body
+{
+  approvalDocumentId: string;       // 🔑 routing key
+  settlementId?: string;             // 보조 식별자
+  status: "APPROVED" | "REJECTED";
+  reason?: string;                   // REJECTED 시 사유
+}
+
+// 처리: approvalDocumentId로 settlement 조회 → status 동기화
+//   APPROVED  → settlement.status = APPROVED + approvedAt 기록 + 재무팀 큐 노출
+//   REJECTED  → settlement.status = REJECTED + rejectReason 기록 + 신청자 알림
+```
+
+#### 5.5.2 `POST /internal/settlements/from-payment`
+
+재무 후속 통합(2026-05-12 결정)으로 추가됨. 송금 처리 모듈이 입금 완료 시 호출 → settlement 를 PAID 로 직접 전이 (RECEIVED 단계 생략 가능).
+
+```typescript
+// Request body
+{
+  approvalDocumentId: string;       // 🔑 routing key
+  paidAt?:     string;               // ISO datetime
+  paidAmount?: number;
+  paidNote?:   string;
+  paidById?:   string;               // 송금 처리자 (재무팀)
+}
+
+// 처리: settlement.status = PAID + paid* 필드 기록 + 신청자 알림
+```
+
+#### 5.5.3 `DELETE /internal/settlements/from-payment`
+
+송금 해제 시 호출 (실수 송금 취소 등). settlement.status = PAID → APPROVED 로 회귀.
+
+```typescript
+// Request body
+{ approvalDocumentId: string }
+
+// 처리: paid* 필드 초기화, status = APPROVED 복귀
+```
+
+#### 5.5.4 통신 방향 정리
+
+```
+approval-service ─[HTTP POST]─→ expense-service /internal/settlements/from-approval
+재무 송금 모듈   ─[HTTP POST]─→ expense-service /internal/settlements/from-payment
+재무 송금 해제   ─[HTTP DELETE]→ expense-service /internal/settlements/from-payment
+expense-service ─[HTTP POST]─→ approval-service /internal/documents       (결재 자동 상신)
+expense-service ─[AMQP publish]→ activity-log queue                       (활동 로그 전용)
+```
+
+**RabbitMQ 큐 `expense.approval-result-listener` 는 사용하지 않음** (v0.3 명세 폐기).
 
 ---
 
-## 6. Approval Template 구조 — 양식 분리 (v0.3)
+## 6. Approval Template 구조 — EXPENSE 양식 일원화 (v0.4)
 
-### 6.0 개념 정리
+### 6.0 양식 일원화 결정 (2026-05-11)
 
-| 양식 | 용도 | 자금 흐름 |
-|---|---|---|
-| **경비정산** (`code=EXPENSE_CLAIM`) — **신규** | 직원이 회사 일로 자기 돈 쓴 것 환급 청구 | 회사 → 직원 |
-| **지출결의서** (`code=EXPENSE`) — 기존 유지 | 회사가 외부에 지출 (거래처 결제·운영비·임대료 등) | 회사 → 외부 |
+v0.3은 신규 EXPENSE_CLAIM 양식을 추가하는 이중 양식 구조였으나, **2026-05-11 사용자 결정으로 EXPENSE 양식 단일화로 변경**되었습니다.
 
-→ 두 양식 모두 결재·재무팀 처리 흐름을 가지지만 **입력 경로·수신자가 다름**. 회계상 별도 처리.
+| 양식 | 용도 | 자금 흐름 | 비고 |
+|---|---|---|---|
+| **지출결의서** (`code=EXPENSE`) — 단일 사용 | 회사가 외부에 지출 + 직원 경비 환급 모두 포함 | 회사 → 외부 / 회사 → 직원 | **경비정산도 이 양식으로 통합** |
+| ~~경비정산~~ (`code=EXPENSE_CLAIM`) — **폐기** | (v0.3 명세) | - | seed 미등록, 폐기 |
 
-### 6.1 신규 양식: 경비정산 (`EXPENSE_CLAIM`)
+**변경 사유**:
+- 회계상 동일 처리 흐름 (FINANCE_FORWARD → 재무팀 큐) 이므로 양식 분리 실익 적음
+- EXPENSE 양식의 `items_table_config` 가 경비정산 거래 표시에 충분
+- 사용자/관리자 UI 양식 선택 부담 감소
+- 재무팀 처리 큐 단일화
+
+### 6.1 EXPENSE 양식 — 경비정산 자동 상신 (현재 구현)
+
+expense-service의 `approval-client.ts` 가 결재 상신 시 호출하는 payload (`POST /internal/documents`, `x-internal-token`):
 
 ```typescript
-// approval.approval_templates 신규 INSERT
+// services/expense/src/infrastructure/approval-client.ts:40-68
 {
-  code: "EXPENSE_CLAIM",
-  name: "경비정산",
-  category: "EXPENSE",
-  related_service: "expense-service",     // expense-service만 자동 상신
-  default_approval_line_rule: "DEPARTMENT_LINE",
-  post_approval_action: "FINANCE_FORWARD",  // 재무팀 이관
-  fields: [
-    { key: "settlementId",   type: "hidden", label: "정산 ID" },
-    { key: "title",          type: "text",   label: "제목" },
-    { key: "periodStart",    type: "date",   label: "정산 시작일" },
-    { key: "periodEnd",      type: "date",   label: "정산 종료일" },
-    { key: "totalAmount",    type: "money",  label: "총 금액" },
-    { key: "categoryStats",  type: "json",   label: "카테고리별 합계" }
-  ],
-  items_table_config: {
-    columns: [
-      { key: "transactedAt",  label: "거래일시", width: 120 },
-      { key: "merchantName",  label: "가맹점",   width: 200 },
-      { key: "categoryName",  label: "카테고리", width: 120 },
-      { key: "amount",        label: "금액",     width: 120, align: "right" },
-      { key: "memo",          label: "메모",     width: 200 }
-    ],
-    sumRow: ["amount"]
+  templateCode: "EXPENSE",                  // ✅ 일원화 (EXPENSE_CLAIM 아님)
+  title: input.title,
+  requestedBy: input.userId,
+  fields: {
+    project: input.projectName ?? null,
+    paymentMethod: "개인정산"                // 경비정산 식별자 (지출결의서와 구분)
   },
-  sort_order: 6   // 지출결의서 다음 위치
+  richBody: input.body ?? undefined,
+  submitImmediately: true,                  // 정산은 expense에서 SUBMITTED 직진
+  items: input.items.map(it => ({
+    description: `${merchantName} (${categoryName}) — ${memo}`,
+    unitPrice: it.amount,
+    quantity:  1,
+    subtotal:  it.amount,
+    vat:       0,
+    evidence:  it.receiptFileName ?? null,  // 영수증 파일명
+    receiptId: it.receiptId       ?? null   // 영수증 다운로드 링크용
+  })),
+  totalAmount: input.totalAmount,
+  referenceType: "EXPENSE_SETTLEMENT",      // 🔑 settlement 식별자
+  referenceId:   input.settlementId         // 🔑 webhook routing 키
 }
 ```
 
-### 6.2 기존 양식: 지출결의서 (`EXPENSE`) — 변경 없음
+**핵심 식별자**: `referenceType = "EXPENSE_SETTLEMENT"` + `referenceId = settlementId` 조합으로 경비정산 결재 문서를 구분합니다. 일반 지출결의서는 `referenceType` 미설정 또는 다른 값.
 
-- 기존 그대로 수기 작성 허용 (거래처 결제·운영비·외주비 등 폭넓은 지출용)
-- approval UI에서 일반 사용자도 양식 선택 가능
-- 후속 흐름(post_approval_action=FINANCE_FORWARD)은 그대로 — 재무팀이 처리
+### 6.2 EXPENSE 양식 — 일반 지출결의서 수기 작성 (변경 없음)
 
-### 6.3 EXPENSE_CLAIM 양식 수기 작성 차단 (ADMIN 예외)
+- 거래처 결제·운영비·외주비 등 폭넓은 지출용으로 수기 작성 허용
+- `referenceType` 미설정 (또는 다른 값)
+- approval UI 에서 일반 사용자도 양식 선택 가능
+- 후속 흐름(post_approval_action=FINANCE_FORWARD)은 동일 — 재무팀이 처리
 
-**경비정산 양식만** expense-service 자동 상신으로 단일화. 지출결의서 양식은 자유 작성 유지.
+### 6.3 동일 양식 내 분기 처리
 
-approval UI (`apps/web/src/app/approval/new/page.tsx`):
-- 양식 선택 dropdown에서 **EXPENSE_CLAIM** 항목 hide (일반 사용자)
-- `currentUser.role === "ADMIN"` 인 경우만 EXPENSE_CLAIM 노출 + ⚠ 배지 ("일반 경로 아님 — 경비정산 메뉴 권장")
-- `template.related_service` 가 설정된 양식은 자동 hide (ADMIN 분기 포함) — 다른 서비스 연동 양식(휴가·OT 등)도 동일 패턴 적용 가능
-- **EXPENSE 양식은 모든 사용자에게 노출 그대로**
+approval 측은 EXPENSE 단일 양식이지만 `referenceType` 으로 후속 routing 결정:
 
-백엔드 보호 (이중 안전망):
-- `POST /api/v1/approval/documents` 라우트:
-  - `template.code === "EXPENSE_CLAIM"` 일 때 다음 중 하나만 허용:
-    1. `x-internal-token` 헤더 (expense-service 호출)
-    2. `req.user.role === "ADMIN"` (수기 작성 ADMIN 예외)
-    3. 그 외 → 403 FORBIDDEN ("경비정산은 경비정산 메뉴를 통해 작성")
-  - 다른 양식(`EXPENSE`, `LEAVE`, `TRIP` 등)은 기존 권한 그대로
-- 활동 로그: ADMIN이 EXPENSE_CLAIM 수기 작성 시 metadata `bypassRoute: true` 표기
+| referenceType | 후속 처리 |
+|---|---|
+| `EXPENSE_SETTLEMENT` | 결재 완료/반려 시 expense-service `/internal/settlements/from-approval` webhook 호출 (settlement 동기화) |
+| (그 외 / 미설정) | 일반 지출결의서 — 재무팀 큐에만 노출, expense-service 호출 없음 |
 
-### 6.4 settlement.approvalDocumentId 의미
+수기 작성 차단 로직 불필요 (양식이 하나뿐). frontend dropdown 필터링도 불필요 (v0.3 잔여 EXPENSE_CLAIM 분기 코드는 dead code — 정리 권장).
 
-- expense-service의 settlement는 **EXPENSE_CLAIM** 양식의 결재 문서로만 연결
-- 일반 EXPENSE 양식 결재는 settlement와 무관 (수기 작성된 거래처 결제 등)
-- DB FK는 `approval.documents.id`로 동일하지만 의미가 다름 (양식 코드로 구분)
+### 6.4 settlement.approvalDocumentId 의미 (갱신)
+
+- `ExpenseSettlement.approvalDocumentId` 는 EXPENSE 양식 결재 문서의 `documents.id` 를 참조
+- 양식 코드로 구분하지 않고 **`referenceType = "EXPENSE_SETTLEMENT"`** 로 구분
+- 결재 webhook(`/internal/settlements/from-approval`)이 `approvalDocumentId` 키로 settlement 조회 → 상태 동기화
 
 ---
 
@@ -835,26 +905,37 @@ export interface ParsedTransaction {
 | 표준 카테고리 CRUD | ❌ | ❌ | ❌ | ✅ |
 | 전사 정산 감사 조회 | ❌ | ❌ | ❌ | ✅ |
 
-### 9.2 미들웨어
+### 9.2 미들웨어 (v0.4 — 실제 구현 반영)
+
+`ownsResource` 명시 미들웨어는 미구현. 각 service 레이어에서 `WHERE userId = req.userId` 인라인 패턴으로 동등 처리. `requireFinanceTeam` 은 `financeRoutes` 의 `onRequest` hook + `authClient.isFinanceTeam` 호출로 인라인 구현.
 
 ```typescript
-// services/expense/src/api/middleware/auth.ts
-export const ownsResource = (extractor: (req) => string) =>
-  async (req, reply) => {
-    const ownerId = await extractor(req);
-    if (req.user.id !== ownerId && req.user.role !== "ADMIN") {
-      return reply.code(403).send({ error: { code: "FORBIDDEN" } });
-    }
-  };
+// 1. 본인 데이터 격리 (인라인 패턴) — services/expense/src/application/*.service.ts
+//    모든 조회/수정 쿼리에 WHERE userId = req.userId 직접 포함
+const tx = await prisma.expenseTransaction.findFirst({
+  where: { id, userId: req.userId },   // 본인 데이터만
+});
+if (!tx) throw notFound();
 
-export const requireFinanceTeam = async (req, reply) => {
-  if (req.user.role === "ADMIN") return;
-  const profile = await fetchUserProfile(req.user.id);
-  if (profile.departmentName !== "재무팀") {
+// 2. 재무팀 권한 — services/expense/src/api/routes/finance.routes.ts (onRequest hook)
+app.addHook("onRequest", async (req, reply) => {
+  const ok = await authClient.isFinanceTeam(req.userId);
+  if (!ok && req.userRole !== "ADMIN") {
     return reply.code(403).send({ error: { code: "FORBIDDEN", message: "재무팀 권한 필요" } });
   }
-};
+});
+
+// 3. Internal 라우트 (webhook) — x-internal-token 검증
+app.addHook("onRequest", async (req, reply) => {
+  if (req.headers["x-internal-token"] !== internalToken) {
+    return reply.code(403).send({ error: "Forbidden" });
+  }
+});
 ```
+
+**미들웨어 vs 인라인 트레이드오프**:
+- 미들웨어: 코드 재사용 ↑, 추상화로 흐름 추적 어려움 ↓
+- 인라인: Clean Architecture 4계층 명확, 각 use-case의 권한 요구를 그 자리에서 가독 ↑ (현재 선택)
 
 ---
 
@@ -899,13 +980,18 @@ EXPENSE_ATTACHMENT_MAX_SIZE=10485760    # 10MB
 
 V1 → V2 전환은 **drop & rebuild** (V1 데이터 마이그 안 함, 사용자 결정).
 
-### 12.1 진입 시점 작업
+### 12.1 진입 시점 작업 (v0.4 — 완료됨)
+
+> **상태**: 2026-05-07 ~ 05-12 완료 (commit fb8a184). V1 폴더는 2026-05-15 완전 제거됨.
+
 1. 기존 EXPENSE 양식 테스트 데이터 8건 삭제 (`approval.approval_documents WHERE template.code = 'EXPENSE'`)
-2. **신규 EXPENSE_CLAIM 양식 INSERT** (지출결의서 EXPENSE는 변경 없이 보존)
-3. expense schema 신규 migration
-4. expense-service 컨테이너 가동
-5. apps/web에 NAV + 라우트 추가
-6. V1 (`E:/claude/Expense/`) 폴더 archive
+2. ~~신규 EXPENSE_CLAIM 양식 INSERT~~ — **폐기 (2026-05-11 결정)**. EXPENSE 양식 일원화로 변경
+3. expense schema 신규 migration (`erp_ot.expense` schema, 8 테이블)
+4. expense-service 컨테이너 가동 (port 3008)
+5. apps/web에 NAV + 라우트 추가 (7 페이지)
+6. approval-service `/internal/documents` 라우트 + expense `/internal/settlements/from-approval` webhook 결선
+7. 재무 송금 모듈 ↔ expense `/internal/settlements/from-payment` webhook 결선 (2026-05-12 신규)
+8. V1 (`E:/claude/Expense/`) 완전 제거 (2026-05-15) — 폴더 777MB + `expense_db` 데이터베이스 + `expense_user` role
 
 ### 12.2 출시 후
 - V1 컨테이너 정지 (포트 3100/3101 회수)
@@ -962,3 +1048,4 @@ Plan §5에서 식별한 리스크 + Design 시점 추가:
 | 0.1 | 2026-05-08 | 초기 Draft. Architecture / Data Model / State Machine / API / UI / Permissions / Approval Template 재정의 / Migration 계획 / Open Issues 4건 식별 | yunsim + Claude |
 | 0.2 | 2026-05-08 | §6.2 수기 작성 차단에 ADMIN 예외 허용 명시 (3중 조건: internal token / ADMIN role / 그 외 403) + 감사 로그 metadata.bypassRoute | yunsim + Claude |
 | 0.3 | 2026-05-08 | **개념 분리**: 경비정산(직원 환급) vs 지출결의서(회사 외부 지출). §6 전면 재작성 — 신규 양식 EXPENSE_CLAIM 추가 + 기존 EXPENSE 그대로 유지 + 차단은 EXPENSE_CLAIM에만 적용. §12.1 진입 작업 갱신 | yunsim + Claude |
+| **0.4** | **2026-05-15** | **구현 후속 결정 반영 (analyze Match 88% → 95%+ 회복 목적)**: ① §6 전면 재작성 — **EXPENSE_CLAIM 폐기, EXPENSE 양식 일원화** (2026-05-11 결정). `referenceType=EXPENSE_SETTLEMENT` 로 분기 처리. ② §5.5 전면 재작성 — **RabbitMQ Subscriber 폐기, HTTP webhook 전환** (`/internal/settlements/from-approval`, `/from-payment`, 2026-05-12 결정). ③ §4 FSM 갱신 — **APPROVED → PAID 직접 전이 추가** (재무 송금 모듈 통합) + PAID → APPROVED 회귀 (송금 해제). ④ §2.1 Component Diagram + §2.3 Dependencies 통신 방향 갱신. ⑤ §9.2 — `ownsResource` 인라인 패턴으로 실제 구현 반영. ⑥ §12.1 — V1 제거 완료 표기 (2026-05-15) | yunsim + Claude |
