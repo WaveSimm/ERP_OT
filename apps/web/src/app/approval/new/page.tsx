@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { approvalApi, approvalLineApi, departmentApi, userManagementApi, projectApi, taskApi, myTasksApi, fileApi, getUser } from "@/lib/api";
+import { approvalApi, approvalLineApi, departmentApi, userManagementApi, projectApi, taskApi, myTasksApi, fileApi, expenseApi, getUser } from "@/lib/api";
 import { DateInput } from "@/components/ui/DateInput";
 import { TimeInput } from "@/components/ui/TimeInput";
 
@@ -12,6 +12,8 @@ export default function NewApprovalPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedTemplate = searchParams.get("template");
+  // v1.6.4 (2026-05-16): 정산 묶음 prefill (settlement → 결재)
+  const preselectedSettlementId = searchParams.get("settlementId");
 
   const [templates, setTemplates] = useState<any[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<any | null>(null);
@@ -35,6 +37,14 @@ export default function NewApprovalPage() {
   const [projects, setProjects] = useState<any[]>([]);
   const [projectSearch, setProjectSearch] = useState("");
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
+
+  // v1.6.4 (2026-05-16): 정산 묶음 연결 (선택)
+  const [settlementOptions, setSettlementOptions] = useState<any[]>([]);
+  const [selectedSettlementId, setSelectedSettlementId] = useState<string>("");
+
+  // v1.6.4 (2026-05-16): TRIP_REPORT — 관련 출장신청서 (선택)
+  const [tripApprovalOptions, setTripApprovalOptions] = useState<any[]>([]);
+  const [selectedTripDocId, setSelectedTripDocId] = useState<string>("");
 
   // 태스크 드롭다운 (project 선택 후 활성화)
   const [tasks, setTasks] = useState<any[]>([]);
@@ -122,23 +132,93 @@ export default function NewApprovalPage() {
       departmentApi.list(),
       userManagementApi.members(true),
       projectApi.list().then((r) => r.items || r).catch(() => []),
-    ]).then(([t, depts, members, projs]) => {
-      // 경비정산 통합 PDCA: EXPENSE_CLAIM은 expense-service 경유 자동 상신만 허용
-      // 일반 사용자에게 hide. ADMIN은 디버깅·예외 상황 위해 보임.
-      const u = getUser();
-      const isAdmin = u?.role === "ADMIN";
-      const filtered = t.filter((x: any) => isAdmin || x.code !== "EXPENSE_CLAIM");
-      setTemplates(filtered);
+      // v1.6.4: 본인의 DRAFT 정산 묶음 (결재 미연결만)
+      expenseApi.listSettlements({ status: "DRAFT", limit: 100 }).catch(() => ({ items: [] })),
+    ]).then(([t, depts, members, projs, stls]: any[]) => {
+      setTemplates(t);
       setDepartments(depts);
       setAllMembers(members);
       setProjects(Array.isArray(projs) ? projs : []);
+      const stlItems = (stls?.items ?? []).filter((s: any) => !s.approvalDocumentId);
+      setSettlementOptions(stlItems);
       if (preselectedTemplate) {
-        const found = filtered.find((x: any) => x.code === preselectedTemplate || x.id === preselectedTemplate);
+        const found = t.find((x: any) => x.code === preselectedTemplate || x.id === preselectedTemplate);
         if (found) selectTemplate(found);
+      }
+      if (preselectedSettlementId) {
+        setSelectedSettlementId(preselectedSettlementId);
       }
     });
     loadMyApprovalLine();
   }, []);
+
+  // v1.6.4 (2026-05-16): TRIP_REPORT 양식 선택 시 본인 출장신청서(TRIP) 결재 목록 fetch
+  useEffect(() => {
+    if (selectedTemplate?.code !== "TRIP_REPORT") return;
+    approvalApi.getSentDocuments(1, 100).then((res: any) => {
+      const items: any[] = res?.items ?? res?.documents ?? res ?? [];
+      const trips = items.filter((d: any) => d.template?.code === "TRIP" || d.templateCode === "TRIP");
+      setTripApprovalOptions(trips);
+    }).catch(() => setTripApprovalOptions([]));
+  }, [selectedTemplate?.code]);
+
+  // 출장신청서 선택 시 필드 자동 채움 (출장지/기간/목적/동행자)
+  useEffect(() => {
+    if (!selectedTripDocId || selectedTemplate?.code !== "TRIP_REPORT") return;
+    approvalApi.getDocument(selectedTripDocId).then((doc: any) => {
+      const f = (doc.content || doc.fields || {}) as Record<string, any>;
+      setFields((prev) => ({
+        ...prev,
+        tripApprovalDocId: selectedTripDocId,
+        ...(f.destination && !prev.destination && { destination: f.destination }),
+        ...(f.startDate && !prev.startDate && { startDate: f.startDate }),
+        ...(f.endDate && !prev.endDate && { endDate: f.endDate }),
+        ...(f.purpose && !prev.purpose && { purpose: f.purpose }),
+        ...(f.companions && !prev.companions && { companions: f.companions }),
+      }));
+      // 제목 비어있으면 자동 prefill
+      if (!title) setTitle(`출장보고서 — ${f.destination ?? doc.title ?? ""}`.trim());
+    }).catch(() => { /* ignore */ });
+  }, [selectedTripDocId, selectedTemplate?.code]);
+
+  // v1.6.4 (2026-05-16): 정산 묶음 선택 시 거래 명세 + 합계 + 영수증 첨부 자동 채움
+  useEffect(() => {
+    if (!selectedSettlementId) return;
+    if (!selectedTemplate || !selectedTemplate.itemsTableConfig) return;
+    expenseApi.getSettlement(selectedSettlementId).then((s: any) => {
+      if (!s || !Array.isArray(s.items)) return;
+      // 거래 → items_table row 매핑
+      const rows = s.items.map((it: any) => {
+        const t = it.transaction;
+        const contractLabel = t.contractNumber && t.contractName
+          ? `${t.contractNumber} - ${t.contractName}`
+          : (t.contractNumber || t.contractName || "");
+        const desc = [
+          contractLabel,
+          t.merchantName,
+          t.detail,
+          it.memoOverride ?? t.memo,
+        ].filter(Boolean).join(" / ");
+        const confirmed = (t.matches ?? []).find((m: any) => m.confirmedAt);
+        return {
+          description: desc,
+          unitPrice: Number(t.amount ?? 0),
+          quantity: 1,
+          subtotal: Number(t.amount ?? 0),
+          vat: 0,
+          // 영수증 ID는 첨부 metadata로
+          ...(confirmed?.receipt && {
+            evidence: confirmed.receipt.originalFileName,
+            receiptId: confirmed.receipt.id,
+          }),
+          attachments: [],
+        };
+      });
+      setItems(rows);
+      // 제목·본문 비어있으면 settlement 제목으로 prefill
+      if (!title) setTitle(s.title || "");
+    }).catch(() => { /* ignore */ });
+  }, [selectedSettlementId, selectedTemplate]);
 
   const selectTemplate = (tpl: any) => {
     setSelectedTemplate(tpl);
@@ -318,6 +398,11 @@ export default function NewApprovalPage() {
         approvalLine: approvalLine.map((a, i) => ({ ...a, stepOrder: i + 1 })),
         drafterId: user?.id,
         drafterName: user?.name,
+        // v1.6.4 (2026-05-16): 정산 묶음 연결 — expense-service webhook으로 link
+        ...(selectedSettlementId && {
+          referenceType: "EXPENSE_SETTLEMENT",
+          referenceId: selectedSettlementId,
+        }),
       });
 
       if (submit) {
@@ -373,6 +458,57 @@ export default function NewApprovalPage() {
         <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">{selectedTemplate.name}</span>
       </div>
 
+      {/* v1.6.4 (2026-05-16): TRIP_REPORT — 관련 출장신청서 연결 (선택) */}
+      {selectedTemplate.code === "TRIP_REPORT" && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <label className="block text-sm font-medium text-amber-900 mb-1">✈️ 관련 출장신청서 (선택)</label>
+          <select
+            value={selectedTripDocId}
+            onChange={(e) => setSelectedTripDocId(e.target.value)}
+            className="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white"
+          >
+            <option value="">— 연결 없음 (직접 작성) —</option>
+            {tripApprovalOptions.map((d: any) => {
+              const dest = (d.content || d.fields || {}).destination ?? "";
+              return (
+                <option key={d.id} value={d.id}>
+                  {d.documentNumber} {dest ? `· ${dest}` : ""} · {d.title}
+                </option>
+              );
+            })}
+          </select>
+          <p className="text-[11px] text-amber-700 mt-1">
+            연결하면 출장지·기간·목적이 자동 채워지고, 결재 상세에서 출장신청서로 바로 이동할 수 있습니다.
+          </p>
+        </div>
+      )}
+
+      {/* v1.6.4 (2026-05-16): 정산 묶음 연결 (선택). itemsTableConfig가 있는 양식에서만 노출 */}
+      {selectedTemplate.itemsTableConfig && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <label className="block text-sm font-medium text-blue-900 mb-1">📦 정산 묶음 연결 (선택)</label>
+          <select
+            value={selectedSettlementId}
+            onChange={(e) => setSelectedSettlementId(e.target.value)}
+            className="w-full border border-blue-300 rounded-lg px-3 py-2 text-sm bg-white"
+          >
+            <option value="">— 연결 없음 (직접 작성) —</option>
+            {settlementOptions.map((s: any) => (
+              <option key={s.id} value={s.id}>
+                {s.title} · {s.totalCount ?? 0}건 · {Number(s.totalAmount ?? 0).toLocaleString()}원
+              </option>
+            ))}
+            {/* prefill이 결재 미연결 외 settlement이면 추가로 노출 */}
+            {preselectedSettlementId && !settlementOptions.some((s: any) => s.id === preselectedSettlementId) && (
+              <option value={preselectedSettlementId}>(prefilled) {preselectedSettlementId}</option>
+            )}
+          </select>
+          <p className="text-[11px] text-blue-700 mt-1">
+            연결하면 거래 명세·합계가 자동 채워지고, 결재 작성·상신·완료 흐름에 따라 정산 묶음 상태가 동기화됩니다.
+          </p>
+        </div>
+      )}
+
       {/* 제목 — OT/LEAVE는 자동 생성(미리보기), 그 외엔 수동 입력 */}
       {(selectedTemplate.code === "OT" || selectedTemplate.code === "LEAVE") ? (
         <div className="mb-4">
@@ -420,7 +556,7 @@ export default function NewApprovalPage() {
         };
         return (
       <div className={gridClass}>
-        {(selectedTemplate.fields || []).map((f: any) => (
+        {(selectedTemplate.fields || []).filter((f: any) => f.type !== "approval-ref").map((f: any) => (
           <div key={f.key} className={getFieldClass(f)}>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               {f.label} {f.required && <span className="text-red-500">*</span>}

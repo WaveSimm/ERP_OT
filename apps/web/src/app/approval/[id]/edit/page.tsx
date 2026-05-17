@@ -287,9 +287,10 @@ export default function EditApprovalPage() {
   if (loading) return <div className="text-center py-12 text-gray-400">로딩 중...</div>;
   if (!doc) return <div className="text-center py-12 text-red-500">문서를 찾을 수 없습니다.</div>;
 
-  // EXPENSE_CLAIM은 정산서에서 자동 생성되는 문서. 결재 문서 자체 편집 불가.
-  if (doc.template?.code === "EXPENSE_CLAIM") {
-    const settlementId = doc.fields?.settlementId;
+  // 경비정산 결재 문서 (EXPENSE + referenceType=EXPENSE_SETTLEMENT)는
+  // 정산서에서 자동 생성. 결재 문서 자체 편집 불가.
+  if (doc.referenceType === "EXPENSE_SETTLEMENT") {
+    const settlementId = doc.referenceId;
     return (
       <div className="max-w-2xl mx-auto py-8">
         <div className="flex items-center gap-2 mb-4">

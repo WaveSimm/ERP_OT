@@ -70,10 +70,11 @@ export default function ApprovalDetailPage() {
       ]);
       setDoc(d);
       setFiles(f);
-      // EXPENSE_CLAIM은 expense-service에서 settlement 본문(거래·영수증) 추가 로드
-      if (d?.template?.code === "EXPENSE_CLAIM" && d?.fields?.settlementId) {
+      // 경비정산 결재 문서 (EXPENSE 양식 + referenceType=EXPENSE_SETTLEMENT)
+      // → expense-service에서 settlement 본문(거래·영수증) 추가 로드
+      if (d?.referenceType === "EXPENSE_SETTLEMENT" && d?.referenceId) {
         try {
-          const s = await expenseApi.getSettlement(d.fields.settlementId);
+          const s = await expenseApi.getSettlement(d.referenceId);
           setSettlement(s);
         } catch (err) {
           console.error("settlement load failed", err);
@@ -287,6 +288,19 @@ export default function ApprovalDetailPage() {
             <div className={gridClass}>
               {renderable.map(([key, val]) => {
                 const fieldDef = templateFields.find((f: any) => f.key === key);
+                // v1.6.4 (2026-05-16): approval-ref 필드 — 연결된 결재 문서로 link 렌더
+                if (fieldDef?.type === "approval-ref" && val) {
+                  return (
+                    <div key={key} className={getItemClass(key)}>
+                      <div className="text-xs text-gray-500">{fieldDef.label || key}</div>
+                      <div className="text-sm font-medium">
+                        <a href={`/approval/${val}`} className="text-blue-600 hover:underline inline-flex items-center gap-1">
+                          📄 결재 문서 보기 →
+                        </a>
+                      </div>
+                    </div>
+                  );
+                }
                 return (
                   <div key={key} className={getItemClass(key)}>
                     <div className="text-xs text-gray-500">{fieldDef?.label || key}</div>
@@ -308,7 +322,7 @@ export default function ApprovalDetailPage() {
       )}
 
       {/* 항목 테이블 */}
-      {doc.template?.code === "EXPENSE_CLAIM" ? (
+      {doc.referenceType === "EXPENSE_SETTLEMENT" ? (
         // settlement 우선 (drafter — 영수증 링크 포함), 실패 시 doc.items로 fallback (승인자)
         settlement ? (
           <div className="mb-6">
@@ -318,7 +332,7 @@ export default function ApprovalDetailPage() {
                 <tr className="text-xs text-gray-600">
                   <th className="text-left px-3 py-2">거래일시</th>
                   <th className="text-left px-3 py-2">가맹점</th>
-                  <th className="text-left px-3 py-2">카테고리</th>
+                  <th className="text-left px-3 py-2">사업(계약)</th>
                   <th className="text-right px-3 py-2">금액</th>
                   <th className="text-left px-3 py-2">상세 / 메모</th>
                   <th className="text-center px-3 py-2">영수증</th>
@@ -335,7 +349,7 @@ export default function ApprovalDetailPage() {
                         <span className={t.isCanceled ? "line-through text-gray-400" : ""}>{t.merchantName}</span>
                         {t.isCanceled && <span className="ml-1 px-1 py-0.5 text-[10px] bg-red-100 text-red-700 rounded">취소</span>}
                       </td>
-                      <td className="px-3 py-1.5 text-xs">{t.category?.name ?? "—"}</td>
+                      <td className="px-3 py-1.5 text-xs">{t.contractNumber && t.contractName ? `${t.contractNumber} - ${t.contractName}` : (t.contractNumber || t.contractName || "없음")}</td>
                       <td className="px-3 py-1.5 text-right tabular-nums font-medium">{Number(t.amount).toLocaleString()}</td>
                       <td className="px-3 py-1.5 text-xs text-gray-600 max-w-[220px] truncate" title={[t.detail, t.memo, it.memoOverride].filter(Boolean).join(" / ")}>
                         {[t.detail, it.memoOverride ?? t.memo].filter(Boolean).join(" / ") || "—"}
@@ -368,7 +382,7 @@ export default function ApprovalDetailPage() {
                 <tr className="text-xs text-gray-600">
                   <th className="text-left px-3 py-2">거래일시</th>
                   <th className="text-left px-3 py-2">가맹점</th>
-                  <th className="text-left px-3 py-2">카테고리</th>
+                  <th className="text-left px-3 py-2">사업(계약)</th>
                   <th className="text-right px-3 py-2">금액</th>
                   <th className="text-left px-3 py-2">메모</th>
                 </tr>

@@ -115,6 +115,30 @@ async function main() {
       ],
       sortOrder: 20,
     },
+    {
+      // v1.6.4 (2026-05-16): 출장보고서 — 출장 결과 보고 + 경비 정산 묶음 연결 가능
+      code: "TRIP_REPORT",
+      name: "출장보고서",
+      category: "GENERAL" as const,
+      description: "출장 결과 보고 — 활동 내역 + 경비 명세 (정산 묶음 연결 가능)",
+      fields: [
+        // approval-ref: 본인의 결재 문서 dropdown (templateCode 매칭)
+        { key: "tripApprovalDocId", label: "관련 출장신청서 (선택)", type: "approval-ref", required: false, meta: { templateCode: "TRIP" } },
+        { key: "destination", label: "출장지", type: "text", required: true },
+        { key: "startDate", label: "출장 시작일", type: "date", required: true },
+        { key: "endDate", label: "출장 종료일", type: "date", required: true },
+        { key: "companions", label: "동행자", type: "text", required: false },
+        { key: "purpose", label: "출장 목적", type: "textarea", required: true },
+        { key: "outcome", label: "활동 결과·성과", type: "textarea", required: true },
+      ],
+      itemsTableConfig: {
+        columns: ["description", "unitPrice", "quantity", "subtotal", "vat"],
+        labels: { description: "내역", unitPrice: "단가", quantity: "수량", subtotal: "소계", vat: "부가세" },
+      },
+      defaultBody: "",
+      postApprovalAction: "FINANCE_FORWARD" as const,
+      sortOrder: 6,
+    },
   ];
 
   // 기존 code → 새 code 매핑 (마이그레이션)

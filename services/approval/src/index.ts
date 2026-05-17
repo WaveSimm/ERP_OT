@@ -126,7 +126,7 @@ async function buildApp() {
     }
   });
 
-  // 다른 서비스가 자동 결재 상신할 때 사용 (expense-service의 EXPENSE_CLAIM 등)
+  // 다른 서비스가 자동 결재 상신할 때 사용 (expense-service의 경비정산 결재 등 — EXPENSE 양식 + referenceType)
   // body에 명시적 userId 필요 (사용자 JWT 우회)
   app.post("/internal/documents", async (request, reply) => {
     if (!requireInternalToken(request, reply)) return;

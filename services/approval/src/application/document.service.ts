@@ -35,7 +35,7 @@ export class DocumentService {
     const { steps, ...rest } = data;
     const docNumber = await this.generateDocNumber(data.templateId);
 
-    return this.prisma.approvalDocument.create({
+    const doc = await this.prisma.approvalDocument.create({
       data: {
         ...rest,
         documentNumber: docNumber,
@@ -44,6 +44,50 @@ export class DocumentService {
       } as any,
       include: { steps: true, template: { select: { code: true, name: true } } },
     });
+
+    // v1.6.4 (2026-05-16): 경비정산 결재 — settlement 연결 (fire-and-forget)
+    if (data.referenceType === "EXPENSE_SETTLEMENT" && data.referenceId) {
+      void this.linkExpenseSettlement(data.referenceId, doc.id);
+    }
+
+    return doc;
+  }
+
+  // v1.6.4: expense-service에 settlement link/unlink 알림 (fire-and-forget, 실패 시 로그만)
+  private async linkExpenseSettlement(settlementId: string, approvalDocumentId: string) {
+    const url = process.env.EXPENSE_SERVICE_URL || "http://expense-service:3008";
+    const token = process.env.INTERNAL_API_TOKEN || "";
+    try {
+      const res = await fetch(`${url}/internal/settlements/${settlementId}/link-approval`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Internal-Token": token },
+        body: JSON.stringify({ approvalDocumentId }),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        console.error(`[approval] link-approval failed ${res.status}: ${text.slice(0, 200)}`);
+      }
+    } catch (e: any) {
+      console.error(`[approval] link-approval error: ${e.message}`);
+    }
+  }
+
+  private async unlinkExpenseSettlement(approvalDocumentId: string) {
+    const url = process.env.EXPENSE_SERVICE_URL || "http://expense-service:3008";
+    const token = process.env.INTERNAL_API_TOKEN || "";
+    try {
+      const res = await fetch(`${url}/internal/settlements/unlink-approval`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Internal-Token": token },
+        body: JSON.stringify({ approvalDocumentId }),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        console.error(`[approval] unlink-approval failed ${res.status}: ${text.slice(0, 200)}`);
+      }
+    } catch (e: any) {
+      console.error(`[approval] unlink-approval error: ${e.message}`);
+    }
   }
 
   async getById(id: string) {
@@ -95,8 +139,16 @@ export class DocumentService {
   async remove(id: string) {
     const doc = await this.prisma.approvalDocument.findUnique({ where: { id } });
     if (!doc) throw new Error("결재 문서를 찾을 수 없습니다.");
-    if (doc.status !== "DRAFT") throw new Error("초안 상태에서만 삭제할 수 있습니다.");
-    return this.prisma.approvalDocument.delete({ where: { id } });
+    // v1.6.4 (2026-05-16): REJECTED 결재도 삭제 허용 — 반려 후 다른 양식으로 갈아탈 때 필요
+    if (!["DRAFT", "REJECTED"].includes(doc.status)) {
+      throw new Error("초안 또는 반려 상태에서만 삭제할 수 있습니다.");
+    }
+    const deleted = await this.prisma.approvalDocument.delete({ where: { id } });
+    // v1.6.4 (2026-05-16): EXPENSE_SETTLEMENT 결재 삭제 시 settlement 연결 해제
+    if (doc.referenceType === "EXPENSE_SETTLEMENT" && doc.referenceId) {
+      void this.unlinkExpenseSettlement(id);
+    }
+    return deleted;
   }
 
   // ─── Submit (상신) ──────────────────────────────────────────────────
@@ -200,7 +252,7 @@ export class DocumentService {
         if (postAction === "LEAVE_APPROVE" || postAction === "OT_APPROVE") {
           await this.executePostReject(postAction, doc, comment);
         }
-        // EXPENSE_CLAIM 양식의 referenceType=EXPENSE_SETTLEMENT 일 때 expense-service sync
+        // 경비정산 결재 문서 (referenceType=EXPENSE_SETTLEMENT) 일 때 expense-service sync
         if (postAction === "FINANCE_FORWARD" && doc.referenceType === "EXPENSE_SETTLEMENT") {
           try {
             const expenseUrl = process.env.EXPENSE_SERVICE_URL || "http://expense-service:3008";
