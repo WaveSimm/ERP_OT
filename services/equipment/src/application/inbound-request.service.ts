@@ -28,6 +28,7 @@ interface InboundItemInput {
   unitPrice?: number;
   supplierId?: string;
   completenessFlag?: CompletenessFlag;
+  orderItemId?: string;     // v1.6.1: OVERSEAS_ORDER 매칭
 }
 
 export class InboundRequestService {
@@ -85,6 +86,8 @@ export class InboundRequestService {
         include: {
           items: { include: { variant: { include: { productMaster: true } } } },
           _count: { select: { items: true, inventoryItems: true } },
+          // v1.6.1 (2026-05-15): 입고 완료 시 재고번호 목록 표시
+          inventoryItems: { select: { id: true, inventoryNo: true } },
         },
         orderBy,
         skip: (page - 1) * limit,
@@ -138,6 +141,7 @@ export class InboundRequestService {
             unitPrice: it.unitPrice ?? null,
             supplierId: it.supplierId ?? null,
             completenessFlag: it.completenessFlag ?? "MANUAL_NEEDED",
+            orderItemId: it.orderItemId ?? null,
           })),
         },
       },
@@ -277,7 +281,62 @@ export class InboundRequestService {
         });
       }
 
+      // v1.6.1 (2026-05-15): OVERSEAS_ORDER는 발주 [입고 처리] 시점에 이미
+      //   OrderItem.receivedQuantity가 갱신되어 도착 처리 완료된 상태.
+      //   입고 큐에서는 InventoryItem 생성만 처리. 발주 측 데이터는 건드리지 않음.
+
       return { ...updated, createdInventoryItems };
+    });
+  }
+
+  /**
+   * v1.6.1 (2026-05-15): 해외 발주 입고 요청 — 미입고 OrderItem을 큐로 보냄
+   *   - 이미 같은 발주로 PENDING 큐가 있으면 reuse
+   *   - 미입고 수량(quantity - receivedQuantity) > 0 만 항목 추가
+   */
+  async createFromOverseasOrder(orderId: string, requesterId: string) {
+    const order = await this.prisma.overseasOrder.findUnique({
+      where: { id: orderId },
+      include: { items: true, contract: { select: { name: true } } },
+    });
+    if (!order) throw new Error("발주를 찾을 수 없습니다.");
+
+    // 이미 PENDING 큐가 있으면 reuse
+    const existing = await this.prisma.inboundRequest.findFirst({
+      where: { sourceType: "OVERSEAS_ORDER", sourceId: orderId, status: "PENDING" },
+      include: { items: true },
+    });
+    if (existing) return existing;
+
+    // 미입고 수량 계산
+    const inboundItems: InboundItemInput[] = order.items
+      .map((it): InboundItemInput | null => {
+        const remaining = it.quantity - (it.receivedQuantity ?? 0);
+        if (remaining <= 0) return null;
+        return {
+          quantity: remaining,
+          itemNameRaw: it.name,
+          completenessFlag: (it.productMasterId ? "AUTO_MATCHED" : "PARTIAL") as CompletenessFlag,
+          orderItemId: it.id,
+          ...(it.productMasterId && { productMasterId: it.productMasterId }),
+          ...(it.variantId && { variantId: it.variantId }),
+          ...(it.spec && { description: it.spec }),
+          ...(it.unitPrice && { unitPrice: Number(it.unitPrice) }),
+        };
+      })
+      .filter((x: InboundItemInput | null): x is InboundItemInput => x !== null);
+
+    if (inboundItems.length === 0) {
+      throw new Error("미입고 품목이 없습니다.");
+    }
+
+    return this.create({
+      sourceType: "OVERSEAS_ORDER",
+      sourceId: orderId,
+      sourceDocNumber: order.orderNumber,
+      requesterId,
+      notes: order.contract?.name ? `발주 ${order.orderNumber} — ${order.contract.name}` : `발주 ${order.orderNumber}`,
+      items: inboundItems,
     });
   }
 

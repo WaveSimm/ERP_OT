@@ -48,6 +48,8 @@ import { OverseasOrderService } from "./application/overseas-order.service.js";
 import { OrderProgressService } from "./application/order-progress.service.js";
 import { OrderSettlementService } from "./application/order-settlement.service.js";
 import { orderSettlementRoutes } from "./api/routes/order-settlement.routes.js";
+import { CustomsTaxService } from "./application/customs-tax.service.js";
+import { customsTaxRoutes } from "./api/routes/customs-tax.routes.js";
 import { statsRoutes } from "./api/routes/stats.routes.js";
 import { templateRoutes } from "./api/routes/template.routes.js";
 import { customerRoutes } from "./api/routes/customer.routes.js";
@@ -127,6 +129,7 @@ const contractService = new ContractService(prisma);
 const overseasOrderService = new OverseasOrderService(prisma);
 const orderProgressService = new OrderProgressService(prisma);
 const orderSettlementService = new OrderSettlementService(prisma);
+const customsTaxService = new CustomsTaxService(prisma);
 const inventoryService = new InventoryService(prisma);
 const inventoryTransactionService = new InventoryTransactionService(prisma);
 const assetCostService = new AssetCostService(prisma);
@@ -166,6 +169,7 @@ declare module "fastify" {
     overseasOrderService: OverseasOrderService;
     orderProgressService: OrderProgressService;
     orderSettlementService: OrderSettlementService;
+    customsTaxService: CustomsTaxService;
     inventoryService: InventoryService;
     inventoryTransactionService: InventoryTransactionService;
     assetCostService: AssetCostService;
@@ -217,6 +221,7 @@ async function buildApp() {
   app.decorate("overseasOrderService", overseasOrderService);
   app.decorate("orderProgressService", orderProgressService);
   app.decorate("orderSettlementService", orderSettlementService);
+  app.decorate("customsTaxService", customsTaxService);
   app.decorate("inventoryService", inventoryService);
   app.decorate("inventoryTransactionService", inventoryTransactionService);
   app.decorate("assetCostService", assetCostService);
@@ -283,6 +288,7 @@ async function buildApp() {
 
   // v1.6 회계정산 (2026-05-14)
   app.register(orderSettlementRoutes, { prefix: "/api/v1/procurement" });
+  app.register(customsTaxRoutes, { prefix: "/api/v1/procurement" });
 
   // 재고 관리
   app.register(inventoryRoutes, { prefix: "/api/v1/inventory/items" });

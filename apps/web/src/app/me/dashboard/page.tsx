@@ -8,7 +8,6 @@ import TaskDrawer from "@/components/TaskDrawer";
 import AttendanceView from "@/components/AttendanceView";
 import TransactionsPage from "@/app/expense/transactions/page";
 import SettlementsPage from "@/app/expense/settlements/page";
-import CategoriesPage from "@/app/expense/categories/page";
 import SourcesPage from "@/app/expense/sources/page";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -1201,12 +1200,11 @@ interface ExpenseSummary {
   paid: number;
 }
 
-type ExpenseSubTab = "transactions" | "settlements" | "categories" | "sources";
+type ExpenseSubTab = "transactions" | "settlements" | "sources";
 
 const EXPENSE_QUICK_ACTIONS: { key: ExpenseSubTab; label: string; icon: string }[] = [
   { key: "transactions", label: "정산내역관리", icon: "📋" },
-  { key: "settlements",  label: "정산결재",      icon: "📦" },
-  { key: "categories",   label: "카테고리",      icon: "🏷" },
+  { key: "settlements",  label: "정산목록관리",  icon: "📦" },
   { key: "sources",      label: "카드 관리",     icon: "💳" },
 ];
 
@@ -1253,11 +1251,13 @@ function ExpenseView() {
     <div className="space-y-6">
       {/* 요약 카드 5종 — 거래 진행 단계별 카운트 */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <ExpenseSummaryCard label="미내역분류" count={summary?.unclassified ?? 0} color="red"   onClick={() => openTxWithStatus("PENDING")} />
-        <ExpenseSummaryCard label="미정산분류" count={summary?.unsettled ?? 0}   color="amber" onClick={() => openTxWithStatus("UNSETTLED")} />
-        <ExpenseSummaryCard label="미결재"     count={summary?.unapproved ?? 0}  color="blue"  onClick={() => openTxWithStatus("UNAPPROVED")} />
+        {/* v1.6.4 (2026-05-16): 거래 페이지 탭 단순화에 따라 모두 TARGET/SETTLED로 통합 매핑.
+            처리 단계 세분화는 후속 작업. */}
+        <ExpenseSummaryCard label="미내역분류" count={summary?.unclassified ?? 0} color="red"   onClick={() => openTxWithStatus("TARGET")} />
+        <ExpenseSummaryCard label="미정산분류" count={summary?.unsettled ?? 0}   color="amber" onClick={() => openTxWithStatus("TARGET")} />
+        <ExpenseSummaryCard label="미결재"     count={summary?.unapproved ?? 0}  color="blue"  onClick={() => openTxWithStatus("TARGET")} />
         <ExpenseSummaryCard label="정산됨"     count={summary?.settled ?? 0}    color="teal"  onClick={() => openTxWithStatus("SETTLED")} />
-        <ExpenseSummaryCard label="입금완료"   count={summary?.paid ?? 0}       color="green" onClick={() => openTxWithStatus("PAID")} />
+        <ExpenseSummaryCard label="입금완료"   count={summary?.paid ?? 0}       color="green" onClick={() => openTxWithStatus("SETTLED")} />
       </div>
 
       {/* 빠른 작업 sub-tab 버튼 그룹 (라벨 없이) */}
@@ -1322,7 +1322,6 @@ function ExpenseView() {
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           {subTab === "transactions"  && <TransactionsPage initialStatus={txInitialStatus} onChange={refreshSummary} />}
           {subTab === "settlements"   && <SettlementsPage />}
-          {subTab === "categories"    && <CategoriesPage />}
           {subTab === "sources"       && <SourcesPage />}
         </div>
       )}

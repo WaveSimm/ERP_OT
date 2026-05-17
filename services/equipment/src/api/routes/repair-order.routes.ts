@@ -4,12 +4,13 @@ import { requireRole } from "../middleware/auth.middleware.js";
 export async function repairOrderRoutes(fastify: FastifyInstance) {
   // 목록
   fastify.get("/", async (request) => {
-    const { status, statusGroup, customerId, search, page, limit, sortBy, sortOrder } = request.query as any;
+    const { status, statusGroup, customerId, search, otInventoryNo, page, limit, sortBy, sortOrder } = request.query as any;
     const listParams: any = {
       status: status || undefined,
       statusGroup: statusGroup || undefined,
       customerId: customerId || undefined,
       search: search || undefined,
+      otInventoryNo: otInventoryNo || undefined,
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 50,
       sortBy: sortBy || undefined,

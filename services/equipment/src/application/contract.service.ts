@@ -78,15 +78,72 @@ export class ContractService {
     createdBy?: string;
   }) {
     const { contractDate, deadline, ...rest } = data;
-    const contractNumber = rest.contractNumber || await this.generateNextNumber();
+    // v1.6.1 (2026-05-15): status에 따라 번호 자동 선택
+    //   PROSPECTIVE  → TEMP-YYMM-NNN  (임시)
+    //   ACTIVE/그 외 → #YY-NN          (정식)
+    const status = rest.status ?? "PROSPECTIVE";
+    let contractNumber = rest.contractNumber;
+    if (!contractNumber) {
+      contractNumber = status === "PROSPECTIVE"
+        ? await this.generateTempNumber()
+        : await this.generateNextNumber();
+    }
     return this.prisma.contract.create({
       data: {
         ...rest,
+        status,
         contractNumber,
         ...(contractDate && { contractDate: new Date(contractDate) }),
         ...(deadline && { deadline: new Date(deadline) }),
       },
     });
+  }
+
+  /**
+   * v1.6.1 (2026-05-15): 계약 확정 — PROSPECTIVE → ACTIVE
+   *   정식 contractNumber 입력 받음. 검증: TEMP- 아닌 형식.
+   */
+  async finalize(id: string, data: { contractNumber: string; contractDate?: string }) {
+    const contract = await this.prisma.contract.findUnique({ where: { id } });
+    if (!contract) throw new Error("계약을 찾을 수 없습니다.");
+    if (contract.status !== "PROSPECTIVE") {
+      throw new Error(`계약 예정 상태에서만 확정할 수 있습니다. (현재: ${contract.status})`);
+    }
+    if (!data.contractNumber || data.contractNumber.startsWith("TEMP-")) {
+      throw new Error("정식 계약번호를 입력해주세요.");
+    }
+    // unique 확인
+    const dup = await this.prisma.contract.findUnique({ where: { contractNumber: data.contractNumber } });
+    if (dup && dup.id !== id) {
+      throw new Error(`이미 사용 중인 계약번호: ${data.contractNumber}`);
+    }
+    return this.prisma.contract.update({
+      where: { id },
+      data: {
+        status: "ACTIVE",
+        contractNumber: data.contractNumber,
+        ...(data.contractDate && { contractDate: new Date(data.contractDate) }),
+      },
+    });
+  }
+
+  /** TEMP-YYMM-NNN 형식의 임시 계약번호 생성 (PROSPECTIVE 전용) */
+  async generateTempNumber(): Promise<string> {
+    const now = new Date();
+    const yy = String(now.getFullYear()).slice(-2);
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const prefix = `TEMP-${yy}${mm}-`;
+
+    const last = await this.prisma.contract.findFirst({
+      where: { contractNumber: { startsWith: prefix } },
+      orderBy: { contractNumber: "desc" },
+    });
+    let seq = 1;
+    if (last) {
+      const m = last.contractNumber.match(/^TEMP-\d{4}-(\d+)$/);
+      if (m && m[1]) seq = parseInt(m[1], 10) + 1;
+    }
+    return `${prefix}${String(seq).padStart(3, "0")}`;
   }
 
   async update(id: string, data: {

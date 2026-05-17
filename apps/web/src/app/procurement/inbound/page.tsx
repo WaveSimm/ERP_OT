@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { inboundRequestApi, supplierApi, procurementApi, inventoryApi, productVariantApi } from "@/lib/api";
 import { fmtDateTime24 } from "@/lib/datetime";
 import SearchableSelect from "@/components/SearchableSelect";
@@ -50,6 +51,7 @@ export default function InboundRequestPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("PENDING");
   const [sortBy, setSortBy] = useState<string>("requestedAt");
+  const router = useRouter();
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const handleSort = (k: string, o: SortOrder) => { setSortBy(k); setSortOrder(o); };
   const [detail, setDetail] = useState<any | null>(null);
@@ -216,10 +218,6 @@ export default function InboundRequestPage() {
               {s ? STATUS_LABELS[s] : "전체"}
             </button>
           ))}
-          <button onClick={() => setShowManualForm(true)}
-            className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-            + 수동 입고
-          </button>
         </div>
       </div>
 
@@ -232,15 +230,16 @@ export default function InboundRequestPage() {
               <SortableHeader sortKey="sourceType" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-2 text-left font-medium text-gray-600">출처</SortableHeader>
               <SortableHeader sortKey="sourceDocNumber" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-2 text-left font-medium text-gray-600">출처 문서</SortableHeader>
               <th className="px-3 py-2 text-center font-medium text-gray-600">품목수</th>
+              <th className="px-3 py-2 text-left font-medium text-gray-600">재고번호</th>
               <SortableHeader sortKey="requestedAt" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-2 text-left font-medium text-gray-600">요청 시각</SortableHeader>
               <th className="px-3 py-2 text-left font-medium text-gray-600">메모</th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {loading ? (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">로딩중...</td></tr>
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">로딩중...</td></tr>
             ) : list.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">데이터 없음</td></tr>
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">데이터 없음</td></tr>
             ) : list.map((r: any) => (
               <tr key={r.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => openDetail(r.id)}>
                 <td className="px-3 py-2 font-mono text-xs">{r.code}</td>
@@ -252,6 +251,17 @@ export default function InboundRequestPage() {
                 <td className="px-3 py-2 text-xs text-gray-500">{SOURCE_LABELS[r.sourceType] || r.sourceType}</td>
                 <td className="px-3 py-2 text-xs truncate max-w-[200px]" title={r.sourceDocNumber}>{r.sourceDocNumber || "-"}</td>
                 <td className="px-3 py-2 text-center text-xs">{r._count?.items ?? r.items?.length ?? 0}</td>
+                <td className="px-3 py-2 text-xs">
+                  {Array.isArray(r.inventoryItems) && r.inventoryItems.length > 0
+                    ? r.inventoryItems.map((inv: any) => (
+                        <a key={inv.id} href={`/procurement/inventory/${inv.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-block mr-1 mb-0.5 px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded font-mono text-[10px] hover:bg-blue-100">
+                          {inv.inventoryNo}
+                        </a>
+                      ))
+                    : <span className="text-gray-300">-</span>}
+                </td>
                 <td className="px-3 py-2 text-xs text-gray-500">{fmtDateTime24(r.requestedAt, { short: true })}</td>
                 <td className="px-3 py-2 text-xs text-gray-500 truncate max-w-[300px]" title={r.notes}>{r.notes || "-"}</td>
               </tr>
@@ -306,7 +316,7 @@ export default function InboundRequestPage() {
                         {/* 매칭 정보 */}
                         <div className="grid grid-cols-3 gap-2 mb-2">
                           <div>
-                            <label className="block text-[10px] text-gray-500 mb-0.5">장비 마스터</label>
+                            <label className="block text-[10px] text-gray-500 mb-0.5">품목</label>
                             <SearchableSelect
                               value={r.productMasterName || ""}
                               onChange={(v) => updateReceiveRow(idx, { productMasterName: v })}
@@ -314,7 +324,7 @@ export default function InboundRequestPage() {
                               placeholder="마스터 검색..."
                               loadOptions={async (q) => {
                                 const res = await procurementApi.getProducts({ search: q, limit: 20 });
-                                return (res.items || []).map((p: any) => ({ id: p.id, name: p.name, sub: p.modelName }));
+                                return (res.items || []).map((p: any) => ({ id: p.id, name: p.name, sub: p.manufacturer }));
                               }}
                             />
                           </div>

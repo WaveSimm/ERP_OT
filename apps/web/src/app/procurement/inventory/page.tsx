@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { inventoryApi, procurementApi, supplierApi } from "@/lib/api";
 import LocationSelect from "@/components/LocationSelect";
 import SearchableSelect from "@/components/SearchableSelect";
@@ -98,6 +98,16 @@ export default function InventoryPage() {
   // 필터 변경 시 첫 페이지로
   useEffect(() => { setPage(1); }, [search, category, status, locationFilter]);
 
+  // v1.6.1 (2026-05-15): URL ?create=1 시 자동 모달 오픈 (입고 큐 [+재고번호 생성] 진입)
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("create") === "1") {
+      setShowCreateModal(true);
+      // URL 파라미터 정리 (재진입 시 다시 안 열리도록)
+      router.replace("/procurement/inventory");
+    }
+  }, [searchParams, router]);
+
   useEffect(() => { load(); }, [load]);
   useEffect(() => { inventoryApi.getStats().then(setStats).catch(() => {}); }, []);
   useEffect(() => { inventoryApi.getFilterOptions().then(setFilterOptions).catch(() => {}); }, []);
@@ -135,7 +145,6 @@ export default function InventoryPage() {
           bomItemId: b.id,
           productMasterId: b.productMasterId,
           productMasterName: b.productMaster?.name,
-          productMasterModel: b.productMaster?.modelName,
           slotType: b.slotType,
           requiredQty: b.quantity,
           inventoryItemId: "",
@@ -180,7 +189,7 @@ export default function InventoryPage() {
   const handleCreate = async () => {
     setSaving(true);
     try {
-      if (!form.productMasterId) { alert("장비마스터를 선택해주세요."); setSaving(false); return; }
+      if (!form.productMasterId) { alert("품목을 선택해주세요."); setSaving(false); return; }
 
       // v1.6 B안 (2026-05-13): BUNDLE은 조립 API 호출 (구성품 차감 + 번들 InventoryItem 생성)
       if (form.itemType === "BUNDLE") {
@@ -288,7 +297,7 @@ export default function InventoryPage() {
         <div className="flex-1" />
         <button onClick={() => setShowCreateModal(true)}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
-          + 재고 등록
+          + 재고번호 생성
         </button>
       </div>
 
@@ -346,11 +355,11 @@ export default function InventoryPage() {
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={resetCreateForm}>
           <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold mb-4">재고 수동 등록</h3>
+            <h3 className="text-lg font-semibold mb-4">재고번호 생성</h3>
             <div className="space-y-3">
-              {/* 장비마스터 검색 (필수) */}
+              {/* 품목 검색 (필수) */}
               <div className="relative">
-                <label className="text-sm text-gray-600 mb-1 block">장비마스터 <span className="text-red-500">*</span></label>
+                <label className="text-sm text-gray-600 mb-1 block">품목 <span className="text-red-500">*</span></label>
                 <div className="flex gap-2">
                   <input value={pmSearch} onChange={(e) => searchProductMaster(e.target.value)}
                     onFocus={() => pmResults.length > 0 && setShowPmDropdown(true)}
@@ -373,7 +382,7 @@ export default function InventoryPage() {
                           )}
                         </div>
                         <div className="text-[10px] text-gray-500 mt-0.5">
-                          {[pm.modelName, pm.manufacturer].filter(Boolean).join(" · ")}
+                          {pm.manufacturer || ""}
                           {pm.stockSummary && (
                             <span className={`ml-2 ${pm.stockSummary.items > 0 ? "text-emerald-600" : "text-gray-400"}`}>
                               {pm.stockSummary.items > 0
@@ -403,7 +412,7 @@ export default function InventoryPage() {
                   <div className="text-sm font-medium text-amber-800 mb-2">📦 번들 조립 — 구성품 재고 지정</div>
                   {bundleComponents.length === 0 ? (
                     <div className="text-xs text-gray-400 py-3 text-center">
-                      구성품이 정의되지 않았습니다. <a href="/procurement/products?itemType=BUNDLE" className="text-amber-700 underline">[장비 마스터]</a>의 [구성품] 버튼으로 먼저 등록하십시오.
+                      구성품이 정의되지 않았습니다. <a href="/procurement/products?itemType=BUNDLE" className="text-amber-700 underline">[품목 관리]</a>의 [구성품] 버튼으로 먼저 등록하십시오.
                     </div>
                   ) : (
                     <div className="border rounded bg-white overflow-hidden">
@@ -429,7 +438,6 @@ export default function InventoryPage() {
                                 </div>
                               </td>
                               <td className="px-2 py-1.5 text-center text-gray-500">{c.requiredQty}</td>
-                              <td className="px-2 py-1.5 font-mono text-[11px] text-gray-700">{c.productMasterModel || "-"}</td>
                               <td className="px-2 py-1.5">
                                 <SearchableSelect
                                   value={c.inventoryNo || ""}
@@ -462,7 +470,7 @@ export default function InventoryPage() {
                                     return (res.items || []).map((inv: any) => ({
                                       id: inv.id,
                                       name: inv.inventoryNo,
-                                      sub: `${inv.productMaster?.modelName || ""}${inv.serialNumber ? ` · SN:${inv.serialNumber}` : ""} · 수량 ${inv.quantity}`,
+                                      sub: `${inv.productMaster?.name || ""}${inv.serialNumber ? ` · SN:${inv.serialNumber}` : ""} · 수량 ${inv.quantity}`,
                                     }));
                                   }}
                                 />

@@ -32,10 +32,8 @@ export default function NewOrderPage() {
     estimatedShipDate: "",
     arrivalLocation: "",
     customsHandler: "",
-    invoiceNo: "",
-    dueDate: "",
-    oaNumber: "",
-    paymentTerms: "",
+    invoiceNo: "",        // 견적번호 (Quote No)
+    paymentTerms: "",     // 결제수단
     totalAmount: 0,
     totalAmountKRW: "",
     notes: "",
@@ -99,11 +97,11 @@ export default function NewOrderPage() {
       const newItems = [...prev];
       const cur = newItems[idx]!;
       // v1.6 (2026-05-14): 마스터 선택 시 SKU 코드는 항상 새 마스터 기준으로 갱신
-      // 우선순위: 첫 활성 variant skuCode > masterCode > modelName
+      // 우선순위: 첫 활성 variant skuCode > masterCode > name (v1.6.1: modelName 폐기)
       const firstVariantSku = (master.variants && master.variants.length > 0)
         ? (master.variants.find((v: any) => v.skuCode)?.skuCode || "")
         : "";
-      const spec = firstVariantSku || master.masterCode || master.modelName || "";
+      const spec = firstVariantSku || master.masterCode || "";
       // 단가는 사용자 입력 보존 (변경 안 함)
       const unitPrice = cur.unitPrice || (master.referencePrice ? Number(master.referencePrice) : 0);
       newItems[idx] = {
@@ -176,18 +174,17 @@ export default function NewOrderPage() {
         orderDate: form.orderDate || undefined,
         estimatedProductionEnd: form.estimatedProductionEnd || undefined,
         estimatedShipDate: form.estimatedShipDate || undefined,
-        dueDate: form.dueDate || undefined,
         arrivalLocation: form.arrivalLocation || undefined,
         customsHandler: form.customsHandler || undefined,
         invoiceNo: form.invoiceNo || undefined,
-        oaNumber: form.oaNumber || undefined,
         paymentTerms: form.paymentTerms || undefined,
         customer: form.customer || undefined,
         notes: form.notes || undefined,
         // v1.6 (2026-05-14): 발주별 결재라인 (이 발주에만 적용 — approval_lines 영향 없음)
-        ...(form.approverId && { approverId: form.approverId }),
-        ...(form.secondApproverId && { secondApproverId: form.secondApproverId }),
-        ...(form.thirdApproverId && { thirdApproverId: form.thirdApproverId }),
+        // approverName: 사용자 삭제 후에도 결재 히스토리 보존 (2026-05-15)
+        ...(form.approverId && { approverId: form.approverId, approverName: form.approverName || undefined }),
+        ...(form.secondApproverId && { secondApproverId: form.secondApproverId, secondApproverName: form.secondApproverName || undefined }),
+        ...(form.thirdApproverId && { thirdApproverId: form.thirdApproverId, thirdApproverName: form.thirdApproverName || undefined }),
         items: items.map((i) => ({
           ...(i.productMasterId && { productMasterId: i.productMasterId }),
           name: i.name,
@@ -375,7 +372,7 @@ export default function NewOrderPage() {
         </div>
       </div>
 
-      {/* 견적 정보 (v1.6 2026-05-14) */}
+      {/* 견적 정보 (v1.6 2026-05-14, v1.6.1 2026-05-15 정리: 결제기한·OA번호 제거) */}
       <div className="bg-white rounded-lg border p-6 mb-4">
         <h3 className="font-medium mb-4">견적 정보</h3>
         <div className="grid grid-cols-3 gap-4">
@@ -388,29 +385,15 @@ export default function NewOrderPage() {
           </div>
           <div>
             <label className="block text-sm text-gray-600 mb-1">금액</label>
-            <input type="text" readOnly value={form.totalAmount.toLocaleString()}
+            <input type="text" readOnly
+              value={`${({ EUR: "€", GBP: "£", USD: "$", KRW: "₩" } as Record<string, string>)[form.currency] || form.currency} ${Number(form.totalAmount || 0).toLocaleString()}`}
               className="w-full border rounded-lg px-3 py-2 text-sm text-right font-mono bg-gray-50" />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">결제기한</label>
-            <DateInput value={form.dueDate}
-              onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
-              className="w-full border rounded-lg px-3 py-2 text-sm" />
           </div>
           <div>
             <label className="block text-sm text-gray-600 mb-1">결제수단</label>
             <input type="text" value={form.paymentTerms}
               onChange={(e) => setForm({ ...form, paymentTerms: e.target.value })}
               placeholder="L/C, T/T, 무역금융 등"
-              className="w-full border rounded-lg px-3 py-2 text-sm" />
-          </div>
-          <div className="col-span-2">
-            <label className="block text-sm text-gray-600 mb-1">
-              OA번호 <span className="text-gray-400 text-xs">(공급사 PO 확정문서 번호 — 발주 후 입력)</span>
-            </label>
-            <input type="text" value={form.oaNumber}
-              onChange={(e) => setForm({ ...form, oaNumber: e.target.value })}
-              placeholder="공급사 Order Acknowledgement 번호"
               className="w-full border rounded-lg px-3 py-2 text-sm" />
           </div>
         </div>
@@ -437,8 +420,8 @@ export default function NewOrderPage() {
               <th className="pb-2 text-left font-medium text-gray-600">품목명 *</th>
               <th className="pb-2 text-left font-medium text-gray-600">SKU 코드</th>
               <th className="pb-2 text-center font-medium text-gray-600">수량</th>
-              <th className="pb-2 text-center font-medium text-gray-600">단가</th>
-              <th className="pb-2 text-right font-medium text-gray-600">금액</th>
+              <th className="pb-2 text-center font-medium text-gray-600">단가 ({form.currency})</th>
+              <th className="pb-2 text-right font-medium text-gray-600">금액 ({form.currency})</th>
               <th className="pb-2 text-center font-medium text-gray-600">비고</th>
               <th className="pb-2"></th>
             </tr>
@@ -462,7 +445,7 @@ export default function NewOrderPage() {
                             onSelectMaster(idx, { id: m.id, name: m.name });
                           }
                         }}
-                        placeholder="장비 마스터 검색..."
+                        placeholder="품목 검색..."
                         allowCustom
                         // 매칭되면 border 색으로 표시 (행 높이 변화 없음)
                         className={`w-full border rounded px-2 py-1.5 text-sm ${item.productMasterId ? "border-emerald-400 bg-emerald-50/30" : ""}`}
@@ -474,7 +457,7 @@ export default function NewOrderPage() {
                             const extra = variants.length > 1 ? ` (외 ${variants.length - 1}개)` : "";
                             const qty = Number(p.stockSummary?.quantity ?? 0);
                             const stockText = qty > 0 ? `재고 ${qty.toLocaleString()}개` : "재고 없음";
-                            const parts = [p.modelName, p.manufacturer, firstSku ? `${firstSku}${extra}` : null, stockText].filter(Boolean);
+                            const parts = [p.manufacturer, firstSku ? `${firstSku}${extra}` : null, stockText].filter(Boolean);
                             return { id: p.id, name: p.name, sub: parts.join(" · ") };
                           });
                         }}
@@ -483,7 +466,7 @@ export default function NewOrderPage() {
                     <button
                       type="button"
                       onClick={() => setCreatingMasterIdx(idx)}
-                      title="신규 장비 마스터 등록"
+                      title="신규 품목 등록"
                       className="px-2 py-1 text-xs border border-blue-300 text-blue-600 rounded hover:bg-blue-50 whitespace-nowrap"
                     >+ 신규</button>
                   </div>
@@ -501,7 +484,7 @@ export default function NewOrderPage() {
                   <input type="number" min={0} step={0.01} value={item.unitPrice} onChange={(e) => updateItem(idx, "unitPrice", Number(e.target.value))}
                     className="w-full border rounded px-2 py-1.5 text-sm text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                 </td>
-                <td className="py-2 pr-2 text-right font-mono">{item.amount.toLocaleString()}</td>
+                <td className="py-2 pr-2 text-right font-mono">{({ EUR: "€", GBP: "£", USD: "$", KRW: "₩" } as Record<string, string>)[form.currency] || form.currency} {item.amount.toLocaleString()}</td>
                 <td className="py-2 pr-2">
                   <input type="text" value={item.notes} onChange={(e) => updateItem(idx, "notes", e.target.value)}
                     className="w-full border rounded px-2 py-1.5 text-sm" />
@@ -517,7 +500,7 @@ export default function NewOrderPage() {
           <tfoot>
             <tr className="border-t">
               <td colSpan={4} className="py-2 text-right font-medium">합계:</td>
-              <td className="py-2 text-right font-mono font-bold">{form.totalAmount.toLocaleString()}</td>
+              <td className="py-2 text-right font-mono font-bold">{({ EUR: "€", GBP: "£", USD: "$", KRW: "₩" } as Record<string, string>)[form.currency] || form.currency} {form.totalAmount.toLocaleString()}</td>
               <td colSpan={2}></td>
             </tr>
           </tfoot>
@@ -563,7 +546,6 @@ function QuickMasterCreateModal({
 }) {
   const [form, setForm] = useState({
     name: "",
-    modelName: "",
     manufacturer: defaultManufacturer || "",
     masterCode: "",
     referencePrice: "",
@@ -571,15 +553,14 @@ function QuickMasterCreateModal({
   const [saving, setSaving] = useState(false);
 
   const handleCreate = async () => {
-    if (!form.name || !form.modelName || !form.manufacturer) {
-      alert("품명, 모델명, 제조사는 필수입니다.");
+    if (!form.name || !form.manufacturer) {
+      alert("품명, 제조사는 필수입니다.");
       return;
     }
     setSaving(true);
     try {
       const data: any = {
         name: form.name,
-        modelName: form.modelName,
         manufacturer: form.manufacturer,
         itemType: "SIMPLE",
         ...(form.masterCode && { masterCode: form.masterCode }),
@@ -597,7 +578,7 @@ function QuickMasterCreateModal({
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
-        <h3 className="text-lg font-bold mb-4">신규 장비 마스터 등록</h3>
+        <h3 className="text-lg font-bold mb-4">신규 품목 등록</h3>
         <div className="space-y-3">
           <div>
             <label className="block text-sm text-gray-600 mb-1">품명 *</label>
@@ -605,19 +586,11 @@ function QuickMasterCreateModal({
               onChange={e => setForm({ ...form, name: e.target.value })}
               className="w-full border rounded-lg px-3 py-2 text-sm" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">모델명 *</label>
-              <input type="text" value={form.modelName}
-                onChange={e => setForm({ ...form, modelName: e.target.value })}
-                className="w-full border rounded-lg px-3 py-2 text-sm" />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">제조사 *</label>
-              <input type="text" value={form.manufacturer}
-                onChange={e => setForm({ ...form, manufacturer: e.target.value })}
-                className="w-full border rounded-lg px-3 py-2 text-sm" />
-            </div>
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">제조사 *</label>
+            <input type="text" value={form.manufacturer}
+              onChange={e => setForm({ ...form, manufacturer: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2 text-sm" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

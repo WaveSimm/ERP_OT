@@ -59,7 +59,7 @@ export class ProductVariantService {
    *
    *   prefix 결정:
    *     - master.masterCode 있으면 그 값 사용
-   *     - 없으면 master.modelName 또는 name에서 영문/숫자만 추출 후 대문자 3~6자 fallback
+   *     - 없으면 master.name에서 영문/숫자만 추출 후 대문자 3~6자 fallback (v1.6.1: modelName 통합)
    *
    *   key 결정:
    *     - master.keyAttributes 있으면 그 순서대로 variantSpecs 값 사용
@@ -71,10 +71,10 @@ export class ProductVariantService {
     const master = await this.prisma.productMaster.findUnique({ where: { id: productMasterId } });
     if (!master) return null;
 
-    // prefix: masterCode 우선, 없으면 modelName/name fallback
+    // prefix: masterCode 우선, 없으면 name fallback (v1.6.1: modelName 폐기, name 통합)
     let prefix = master.masterCode?.trim();
     if (!prefix) {
-      const candidate = (master.modelName || master.name || "").toString();
+      const candidate = (master.name || "").toString();
       const cleaned = candidate.replace(/[^a-zA-Z0-9가-힣]/g, "").slice(0, 6).toUpperCase();
       prefix = cleaned || "VAR";
     }

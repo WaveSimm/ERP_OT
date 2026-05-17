@@ -89,7 +89,6 @@ export class InventoryService {
           { serialNumber: { contains: search, mode: "insensitive" } },
           { itemName: { contains: search, mode: "insensitive" } },
           { productMaster: { name: { contains: search, mode: "insensitive" } } },
-          { productMaster: { modelName: { contains: search, mode: "insensitive" } } },
         ],
       });
     }
@@ -111,7 +110,7 @@ export class InventoryService {
     const [items, total] = await Promise.all([
       this.prisma.inventoryItem.findMany({
         where,
-        include: { productMaster: { select: { name: true, modelName: true, manufacturer: true } } },
+        include: { productMaster: { select: { name: true, manufacturer: true } } },
         orderBy,
         skip: (page - 1) * limit,
         take: limit,

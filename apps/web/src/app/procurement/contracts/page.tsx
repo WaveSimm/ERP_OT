@@ -7,8 +7,9 @@ import SearchableSelect from "@/components/SearchableSelect";
 import { DateInput } from "@/components/ui/DateInput";
 import SortableHeader, { SortOrder } from "@/components/SortableHeader";
 
-const STATUS_LABELS: Record<string, string> = { ACTIVE: "진행중", COMPLETED: "완료", CANCELLED: "취소" };
+const STATUS_LABELS: Record<string, string> = { PROSPECTIVE: "예정", ACTIVE: "진행중", COMPLETED: "완료", CANCELLED: "취소" };
 const STATUS_COLORS: Record<string, string> = {
+  PROSPECTIVE: "bg-amber-100 text-amber-700",
   ACTIVE: "bg-green-100 text-green-700",
   COMPLETED: "bg-gray-100 text-gray-600",
   CANCELLED: "bg-red-100 text-red-700",
@@ -32,6 +33,9 @@ export default function ContractsPage() {
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
+  // v1.6.1 (2026-05-15): 계약 확정 모달
+  const [finalizing, setFinalizing] = useState<any>(null);
+  const [finalizeForm, setFinalizeForm] = useState({ contractNumber: "", contractDate: "" });
   const [form, setForm] = useState({
     contractNumber: "", name: "", client: "", clientContact: "",
     manufacturer: "", category: "물품", contractType: "내자",
@@ -159,7 +163,10 @@ export default function ContractsPage() {
               <tr><td colSpan={11} className="px-4 py-8 text-center text-gray-400">계약이 없습니다.</td></tr>
             ) : contracts.map((c) => (
               <tr key={c.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/procurement/contracts/${c.id}`)}>
-                <td className="px-3 py-2.5 font-mono text-blue-600">{c.contractNumber}</td>
+                <td className="px-3 py-2.5 font-mono text-blue-600">
+                  {c.status === "PROSPECTIVE" && <span className="mr-1 px-1.5 py-0.5 rounded text-[10px] bg-amber-100 text-amber-700">예정</span>}
+                  {c.contractNumber}
+                </td>
                 <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                   {c.client ? (
                     <button onClick={async () => {
@@ -196,6 +203,9 @@ export default function ContractsPage() {
                 <td className="px-3 py-2.5 text-center text-gray-500 text-xs">{fmtDate(c.deadline)}</td>
                 <td className="px-3 py-2.5 text-gray-600">{c.manager || "-"}</td>
                 <td className="px-3 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                  {c.status === "PROSPECTIVE" && (
+                    <button onClick={() => setFinalizing(c)} className="text-emerald-600 hover:underline text-xs mr-2">확정</button>
+                  )}
                   <button onClick={() => handleEdit(c)} className="text-blue-600 hover:underline text-xs mr-2">수정</button>
                   <button onClick={() => handleDelete(c.id)} className="text-red-500 hover:underline text-xs">삭제</button>
                 </td>
@@ -204,6 +214,52 @@ export default function ContractsPage() {
           </tbody>
         </table>
       </div>
+
+      {/* v1.6.1 (2026-05-15): 계약 확정 모달 — PROSPECTIVE → ACTIVE */}
+      {finalizing && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={() => setFinalizing(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold mb-1">계약 확정</h2>
+            <p className="text-xs text-gray-500 mb-4">
+              <span className="font-mono">{finalizing.contractNumber}</span> · {finalizing.name}
+              <br/>임시 번호를 정식 계약번호로 변경합니다.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">정식 계약번호 *</label>
+                <input type="text" value={finalizeForm.contractNumber}
+                  onChange={(e) => setFinalizeForm({ ...finalizeForm, contractNumber: e.target.value })}
+                  placeholder="예: #26-15"
+                  className="w-full border rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">계약일</label>
+                <DateInput value={finalizeForm.contractDate}
+                  onChange={(e: any) => setFinalizeForm({ ...finalizeForm, contractDate: e.target.value })}
+                  className="w-full border rounded-lg px-3 py-2 text-sm" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button onClick={() => setFinalizing(null)} className="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50">취소</button>
+              <button
+                onClick={async () => {
+                  if (!finalizeForm.contractNumber.trim()) { alert("정식 계약번호를 입력해주세요."); return; }
+                  try {
+                    await procurementApi.finalizeContract(finalizing.id, {
+                      contractNumber: finalizeForm.contractNumber.trim(),
+                      ...(finalizeForm.contractDate && { contractDate: finalizeForm.contractDate }),
+                    });
+                    setFinalizing(null);
+                    setFinalizeForm({ contractNumber: "", contractDate: "" });
+                    await load();
+                  } catch (e: any) { alert(e.message || "확정 실패"); }
+                }}
+                className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+              >확정</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Form Modal */}
       {showForm && (

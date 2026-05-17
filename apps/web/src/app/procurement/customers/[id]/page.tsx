@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter, usePathname } from "next/navigation";
-import { repairApi, supplierApi } from "@/lib/api";
+import { repairApi, supplierApi, inventoryApi } from "@/lib/api";
 import SearchableSelect from "@/components/SearchableSelect";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -552,8 +552,40 @@ function AssetForm({ customerId, asset, onClose, onSaved }: {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">OT재고NO</label>
-              <input type="text" value={form.otInventoryNo} onChange={(e) => setForm((f) => ({ ...f, otInventoryNo: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+              {/* v1.6.1 (2026-05-15): 재고 검색 → 선택 시 제품명·제조사·모델·시리얼 자동 prefill */}
+              <SearchableSelect
+                value={form.otInventoryNo}
+                onChange={(v) => setForm((f) => ({ ...f, otInventoryNo: v }))}
+                onSelect={(opt) => {
+                  if (!opt) return;
+                  const inv = (opt as any).inv || {};
+                  setForm((f) => ({
+                    ...f,
+                    otInventoryNo: inv.inventoryNo || opt.id,
+                    name: f.name || inv.itemName || inv.productMaster?.name || "",
+                    manufacturer: f.manufacturer || inv.productMaster?.manufacturer || "",
+                    model: f.model || "",
+                    serialNumber: f.serialNumber || inv.serialNumber || "",
+                  }));
+                }}
+                placeholder="재고번호 검색..."
+                allowCustom
+                loadOptions={async (q) => {
+                  const res = await inventoryApi.list({ search: q, limit: 20 });
+                  return (res.items || []).map((inv: any) => {
+                    const parts = [
+                      inv.productMaster?.manufacturer,
+                      inv.serialNumber ? `S/N ${inv.serialNumber}` : null,
+                    ].filter(Boolean);
+                    return {
+                      id: inv.inventoryNo,
+                      name: inv.inventoryNo,
+                      sub: parts.join(" · ") || inv.itemName || undefined,
+                      inv,
+                    } as any;
+                  });
+                }}
+              />
             </div>
           </div>
           <div className="flex gap-3 pt-2">

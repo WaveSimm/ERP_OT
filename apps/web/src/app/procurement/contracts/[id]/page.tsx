@@ -8,7 +8,7 @@ import { DateInput } from "@/components/ui/DateInput";
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "초안", PENDING_APPROVAL: "승인대기", APPROVED: "승인",
   REJECTED: "반려", ORDERED: "승인완료", PURCHASING: "발주완료",
-  SHIPPED: "선적", CUSTOMS: "통관중", PARTIALLY_RECEIVED: "부분입고",
+  SHIPPED: "선적 완료", CUSTOMS: "통관중", PARTIALLY_RECEIVED: "부분입고",
   ARRIVED: "입고완료", SETTLEMENT: "송금상태", CLOSED: "마감",
 };
 

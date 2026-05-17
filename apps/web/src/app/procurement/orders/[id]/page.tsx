@@ -2,15 +2,24 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { procurementApi, approvalApi, approvalLineApi, supplierApi, userManagementApi } from "@/lib/api";
+import { procurementApi, approvalApi, approvalLineApi, supplierApi, userManagementApi, inboundRequestApi } from "@/lib/api";
 import SettlementSection, { PaymentRequestModal } from "@/components/procurement/SettlementSection";
 import { DateInput } from "@/components/ui/DateInput";
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "초안", PENDING_APPROVAL: "승인대기", APPROVED: "승인",
   REJECTED: "반려", ORDERED: "승인완료", PURCHASING: "발주완료",
-  SHIPPED: "선적", CUSTOMS: "통관중", PARTIALLY_RECEIVED: "부분입고",
+  SHIPPED: "선적 완료", CUSTOMS: "통관중", PARTIALLY_RECEIVED: "부분입고",
   ARRIVED: "입고완료", SETTLEMENT: "송금상태", CLOSED: "마감",
+};
+
+// v1.6.1 (2026-05-15): 전이 버튼 라벨 — 상태 라벨과 다른 케이스
+//   - CUSTOMS 전이 = "통관 시작" (관부가세 처리 대기)
+//   - ARRIVED 전이 = "통관 완료" (관부가세 PAID 후 입고완료)
+const TRANSITION_LABELS: Record<string, string> = {
+  ...STATUS_LABELS,
+  CUSTOMS: "통관 시작",
+  ARRIVED: "통관 완료",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -65,6 +74,8 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [transitioning, setTransitioning] = useState(false);
+  // v1.6.1 (2026-05-15): 상태 전이 날짜 모달 (PURCHASING/SHIPPED/CUSTOMS)
+  const [pendingTransition, setPendingTransition] = useState<string | null>(null);
 
   // Approval
   const [approvalDoc, setApprovalDoc] = useState<any>(null);
@@ -118,11 +129,31 @@ export default function OrderDetailPage() {
     approvalLineApi.getMe().then(setMyApprovalLine).catch(() => setMyApprovalLine(null));
   }, []);
 
+  const handTransitionLabel = (status: string) => TRANSITION_LABELS[status] || status;
   const handleTransition = async (status: string) => {
-    if (!confirm(`상태를 "${STATUS_LABELS[status]}"(으)로 변경하시겠습니까?`)) return;
+    // v1.6.1 (2026-05-15): 날짜 기록 필요한 전이 — 모달 표시
+    if (["PURCHASING", "SHIPPED", "CUSTOMS"].includes(status)) {
+      setPendingTransition(status);
+      return;
+    }
+    if (!confirm(`상태를 "${handTransitionLabel(status)}"(으)로 변경하시겠습니까?`)) return;
     setTransitioning(true);
     try {
       await procurementApi.transitionOrder(id, status);
+      await load();
+    } catch (e: any) {
+      alert(e.message || "상태 전환 실패");
+    } finally {
+      setTransitioning(false);
+    }
+  };
+
+  // v1.6.1 (2026-05-15): 날짜 모달에서 확인
+  const handleTransitionWithDate = async (status: string, transitionDate: string) => {
+    setTransitioning(true);
+    try {
+      await procurementApi.transitionOrder(id, status, transitionDate);
+      setPendingTransition(null);
       await load();
     } catch (e: any) {
       alert(e.message || "상태 전환 실패");
@@ -454,17 +485,24 @@ export default function OrderDetailPage() {
               상신 취소
             </button>
           )}
-          {/* v1.6 (2026-05-14): PARTIALLY_RECEIVED·ARRIVED는 [입고 처리] 모달로만, SETTLEMENT는 송금 요청으로만 진입 */}
-          {order.status !== "DRAFT" && order.allowedTransitions?.filter((t: string) => !["PENDING_APPROVAL", "APPROVED", "REJECTED", "DRAFT", "PARTIALLY_RECEIVED", "ARRIVED", "SETTLEMENT"].includes(t)).map((t: string) => (
-            <button
-              key={t}
-              onClick={() => handleTransition(t)}
-              disabled={transitioning}
-              className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-            >
-              {STATUS_LABELS[t]}
-            </button>
-          ))}
+          {/* v1.6 (2026-05-14): PARTIALLY_RECEIVED는 [입고 처리] 모달로만, SETTLEMENT는 송금 요청으로만 진입 */}
+          {/* v1.6.1 (2026-05-15): CUSTOMS 상태에서 ARRIVED 전이("통관 완료") 노출 — 관부가세 PAID 시에만 활성 */}
+          {order.status !== "DRAFT" && order.allowedTransitions?.filter((t: string) => !["PENDING_APPROVAL", "APPROVED", "REJECTED", "DRAFT", "PARTIALLY_RECEIVED", "SETTLEMENT"].includes(t)).map((t: string) => {
+            const isArrived = t === "ARRIVED";
+            const customsPaid = order.customsTax?.status === "PAID";
+            const disabledByCustomsTax = isArrived && order.status === "CUSTOMS" && !customsPaid;
+            return (
+              <button
+                key={t}
+                onClick={() => handleTransition(t)}
+                disabled={transitioning || disabledByCustomsTax}
+                title={disabledByCustomsTax ? "관부가세 납부가 완료되어야 통관 완료할 수 있습니다." : ""}
+                className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {TRANSITION_LABELS[t]}
+              </button>
+            );
+          })}
           {canReceive && (
             <button
               onClick={() => setShowReceive(true)}
@@ -574,15 +612,21 @@ export default function OrderDetailPage() {
       {/* Summary */}
       <div className="flex items-center gap-6 bg-white rounded-lg border px-4 py-2.5 mb-4 text-sm">
         <div>
-          <span className="text-gray-400 text-xs">금액</span>
+          <span className="text-gray-400 text-xs">견적금액</span>
           <div className="font-bold font-mono">{fmtAmount(order.totalAmount, order.currency)}
             {order.totalAmountKRW && <span className="text-xs text-gray-400 font-normal ml-1">({fmtAmount(order.totalAmountKRW, "KRW")})</span>}
           </div>
         </div>
         <div className="h-6 w-px bg-gray-200" />
+        <div><span className="text-gray-400 text-xs">승인일</span><div>{fmtDate(order.approvedAt)}</div></div>
+        <div className="h-6 w-px bg-gray-200" />
         <div><span className="text-gray-400 text-xs">발주일</span><div>{fmtDate(order.orderDate)}</div></div>
         <div className="h-6 w-px bg-gray-200" />
         <div><span className="text-gray-400 text-xs">예상 선적일</span><div>{fmtDate(order.estimatedShipDate)}</div></div>
+        <div className="h-6 w-px bg-gray-200" />
+        <div><span className="text-gray-400 text-xs">실제 선적일</span><div>{fmtDate(order.actualShipDate)}</div></div>
+        <div className="h-6 w-px bg-gray-200" />
+        <div><span className="text-gray-400 text-xs">통관일</span><div>{fmtDate(order.customsDate)}</div></div>
         <div className="h-6 w-px bg-gray-200" />
         <div><span className="text-gray-400 text-xs">입고일</span><div>{fmtDate(order.arrivalDate)}</div></div>
       </div>
@@ -599,10 +643,13 @@ export default function OrderDetailPage() {
             일정 편집 ✏
           </button>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-4 text-sm">
+        <div className="grid grid-cols-3 gap-x-12 gap-y-4 text-sm">
+          {/* 1줄: 계약번호 / 계약명 / 고객사 */}
           <div><span className="text-gray-500">계약번호:</span> {order.contract ? <a href={`/procurement/contracts/${order.contract.id}`} className="ml-2 text-blue-600 hover:underline">{order.contract.contractNumber}</a> : <span className="ml-2">-</span>}</div>
           <div><span className="text-gray-500">계약명:</span> <span className="ml-2">{order.contract?.name || "-"}</span></div>
           <div><span className="text-gray-500">고객사:</span> <span className="ml-2">{order.customer || order.contract?.client || order.contract?.customer || "-"}</span></div>
+
+          {/* 2줄: 제조사 / 통화 / 금액 */}
           <div><span className="text-gray-500">제조사:</span> <button onClick={async () => {
             try {
               const s = await supplierApi.findByName(order.manufacturer);
@@ -610,16 +657,21 @@ export default function OrderDetailPage() {
             } catch { router.push(`/procurement/suppliers?search=${encodeURIComponent(order.manufacturer)}`); }
           }} className="ml-2 text-blue-600 hover:underline">{order.manufacturer}</button></div>
           <div><span className="text-gray-500">통화:</span> <span className="ml-2">{order.currency}</span></div>
-          <div><span className="text-gray-500">Invoice No:</span> <span className="ml-2">{order.invoiceNo || "-"}</span></div>
+          <div><span className="text-gray-500">견적금액:</span> <span className="ml-2 font-mono">{fmtAmount(order.totalAmount, order.currency)}</span></div>
+
+          {/* 3줄: Quote No / 결제수단 / 통관담당 */}
+          <div><span className="text-gray-500">Quote No:</span> <span className="ml-2">{order.invoiceNo || "-"}</span></div>
           <div><span className="text-gray-500">결제수단:</span> <span className="ml-2">{order.paymentTerms || "-"}</span></div>
-          <div><span className="text-gray-500">OA번호:</span> <span className="ml-2 font-mono">{order.oaNumber || "-"}</span></div>
-          <div><span className="text-gray-500">결제기한:</span> <span className="ml-2">{fmtDate(order.dueDate)}</span></div>
-          <div><span className="text-gray-500">입고장소:</span> <span className="ml-2">{order.arrivalLocation || "-"}</span></div>
           <div><span className="text-gray-500">통관담당:</span> <span className="ml-2">{order.customsHandler || "-"}</span></div>
-          <div><span className="text-gray-500">예상생산완료:</span> <span className="ml-2">{fmtDate(order.estimatedProductionEnd)}</span></div>
-          <div><span className="text-gray-500">실제선적일:</span> <span className="ml-2">{fmtDate(order.actualShipDate)}</span></div>
+
+          {/* 4줄: 예상 선적일 / 실제 선적일 / 통관일 */}
+          <div><span className="text-gray-500">예상 선적일:</span> <span className="ml-2">{fmtDate(order.estimatedShipDate)}</span></div>
+          <div><span className="text-gray-500">실제 선적일:</span> <span className="ml-2">{fmtDate(order.actualShipDate)}</span></div>
           <div><span className="text-gray-500">통관일:</span> <span className="ml-2">{fmtDate(order.customsDate)}</span></div>
-          <div><span className="text-gray-500">생성일:</span> <span className="ml-2">{fmtDateTime(order.createdAt)}</span></div>
+
+          {/* 5줄: 승인일 / 발주일 */}
+          <div><span className="text-gray-500">승인일:</span> <span className="ml-2">{fmtDate(order.approvedAt)}</span></div>
+          <div><span className="text-gray-500">발주일:</span> <span className="ml-2">{fmtDate(order.orderDate)}</span></div>
         </div>
         {order.notes && (
           <div className="mt-4 pt-4 border-t">
@@ -639,6 +691,46 @@ export default function OrderDetailPage() {
           orderStatus={order.status}
           refreshSignal={settlementRefreshSignal}
         />
+      )}
+
+      {/* v1.6.1 (2026-05-15) 관부가세 카드 — CUSTOMS 진입 이후 표시 */}
+      {order.customsTax && (
+        <div className="bg-white rounded-lg border p-6 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-medium">관부가세</h3>
+            <span className={`text-xs px-2 py-0.5 rounded-full ${
+              order.customsTax.status === "PAID" ? "bg-green-100 text-green-700" :
+              order.customsTax.status === "REJECTED" ? "bg-red-100 text-red-700" :
+              "bg-amber-100 text-amber-700"
+            }`}>
+              {order.customsTax.status === "PAID" ? "납부 완료" : order.customsTax.status === "REJECTED" ? "반려" : "재무팀 처리 대기"}
+            </span>
+          </div>
+          <div className="grid grid-cols-4 gap-3 text-sm">
+            <div>
+              <div className="text-gray-500 text-xs">관세</div>
+              <div className="font-mono">{order.customsTax.customsDuty != null ? `₩${Number(order.customsTax.customsDuty).toLocaleString()}` : "-"}</div>
+            </div>
+            <div>
+              <div className="text-gray-500 text-xs">부가세</div>
+              <div className="font-mono">{order.customsTax.vat != null ? `₩${Number(order.customsTax.vat).toLocaleString()}` : "-"}</div>
+            </div>
+            <div>
+              <div className="text-gray-500 text-xs">합계</div>
+              <div className="font-mono font-medium">{order.customsTax.totalAmount != null ? `₩${Number(order.customsTax.totalAmount).toLocaleString()}` : "-"}</div>
+            </div>
+            <div>
+              <div className="text-gray-500 text-xs">납부일</div>
+              <div>{order.customsTax.paidAt ? fmtDate(order.customsTax.paidAt) : "-"}</div>
+            </div>
+            {order.customsTax.rejectReason && (
+              <div className="col-span-4 text-xs text-red-600">반려 사유: {order.customsTax.rejectReason}</div>
+            )}
+            {order.customsTax.notes && (
+              <div className="col-span-4 text-xs text-gray-600">메모: {order.customsTax.notes}</div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* 품목 */}
@@ -664,9 +756,6 @@ export default function OrderDetailPage() {
               <tr key={item.id}>
                 <td className="px-4 py-3">
                   {item.name}
-                  {item.productMaster && (
-                    <span className="text-xs text-gray-400 ml-1">({item.productMaster.modelName})</span>
-                  )}
                 </td>
                 <td className="px-4 py-3 text-gray-500">{item.spec || "-"}</td>
                 <td className="px-4 py-3 text-center">{item.quantity}</td>
@@ -724,6 +813,16 @@ export default function OrderDetailPage() {
           </tbody>
         </table>
       </div>
+
+      {/* v1.6.1 (2026-05-15): 상태 전이 날짜 모달 (PURCHASING/SHIPPED/CUSTOMS) */}
+      {pendingTransition && (
+        <TransitionDateModal
+          status={pendingTransition}
+          statusLabel={TRANSITION_LABELS[pendingTransition]}
+          onClose={() => setPendingTransition(null)}
+          onConfirm={(date) => handleTransitionWithDate(pendingTransition, date)}
+        />
+      )}
 
       {/* v1.6 (2026-05-14): 헤더의 [송금 요청] 모달 — 회계정산 섹션과 동일한 컴포넌트 재사용 */}
       {showHeaderRequestModal && (
@@ -857,6 +956,61 @@ function LogisticsEditModal({
           <button onClick={handleSave} disabled={saving}
             className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
             {saving ? "저장 중..." : "저장"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// v1.6.1 (2026-05-15) — 상태 전이 시 날짜 입력 모달
+// PURCHASING(발주완료)/SHIPPED(선적완료)/CUSTOMS(통관) 전이에 사용
+function TransitionDateModal({
+  status,
+  statusLabel,
+  onClose,
+  onConfirm,
+}: {
+  status: string;
+  statusLabel: string;
+  onClose: () => void;
+  onConfirm: (date: string) => void | Promise<void>;
+}) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [date, setDate] = useState(today);
+  const [saving, setSaving] = useState(false);
+
+  const fieldLabel =
+    status === "PURCHASING" ? "발주일" :
+    status === "SHIPPED"    ? "선적일" :
+    status === "CUSTOMS"    ? "통관 시작일" : "날짜";
+
+  const handleSubmit = async () => {
+    if (!date) { alert(`${fieldLabel}을(를) 입력해주세요.`); return; }
+    setSaving(true);
+    try { await onConfirm(date); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-lg font-bold mb-1">"{statusLabel}" 으로 변경</h3>
+        <p className="text-xs text-gray-500 mb-4">{fieldLabel}을(를) 확인하거나 변경해주세요.</p>
+        <div className="mb-6">
+          <label className="block text-sm text-gray-600 mb-1">{fieldLabel} *</label>
+          <DateInput
+            value={date}
+            onChange={(e: any) => setDate(e.target.value)}
+            className="w-full border rounded-lg px-3 py-2 text-sm"
+          />
+        </div>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} disabled={saving}
+            className="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50">취소</button>
+          <button onClick={handleSubmit} disabled={saving || !date}
+            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+            {saving ? "처리 중..." : "확인"}
           </button>
         </div>
       </div>

@@ -15,9 +15,15 @@ export async function internalOrderRoutes(fastify: FastifyInstance) {
     if (!order) return reply.status(404).send({ error: "발주를 찾을 수 없습니다." });
 
     // PENDING_APPROVAL → ORDERED (결재 승인으로 바로 발주확정)
+    // v1.6.1 (2026-05-15): 승인일·발주일 자동 기록 (APPROVED 단계 생략하지만 결재 완료 시점 = 승인일)
+    const now = new Date();
     const result = await fastify.prisma.overseasOrder.update({
       where: { id },
-      data: { status: "ORDERED" },
+      data: {
+        status: "ORDERED",
+        ...(!order.approvedAt && { approvedAt: now }),
+        ...(!order.orderDate && { orderDate: now }),
+      },
     });
     return result;
   });
@@ -54,7 +60,6 @@ export async function productMasterRoutes(fastify: FastifyInstance) {
     return fastify.productMasterService.list({
       search: q.search || undefined,
       name: q.name || undefined,
-      modelName: q.modelName || undefined,
       manufacturer: q.manufacturer || undefined,
       itemType,
       page: q.page ? Number(q.page) : 1,
@@ -73,12 +78,12 @@ export async function productMasterRoutes(fastify: FastifyInstance) {
   });
 
   // 생성/수정: ADMIN, MANAGER
-  fastify.post("/", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request, reply) => {
+  fastify.post("/", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request, reply) => {
     const result = await fastify.productMasterService.create(request.body as any);
     return reply.status(201).send(result);
   });
 
-  fastify.patch("/:id", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
+  fastify.patch("/:id", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
     const { id } = request.params as any;
     return fastify.productMasterService.update(id, request.body as any);
   });
@@ -94,14 +99,14 @@ export async function productMasterRoutes(fastify: FastifyInstance) {
     return fastify.productMasterService.listBundleItems((request.params as any).id);
   });
 
-  fastify.put("/:id/bundle-items", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
+  fastify.put("/:id/bundle-items", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
     const { id } = request.params as any;
     const body = request.body as any;
     return fastify.productMasterService.replaceBundleItems(id, body.items ?? []);
   });
 
   // v1.6 B안 (2026-05-13): 번들 사전 조립 액션
-  fastify.post("/:id/assemble", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request, reply) => {
+  fastify.post("/:id/assemble", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request, reply) => {
     const { id } = request.params as any;
     const body = request.body as any;
     const result = await fastify.productMasterService.assembleBundle(id, {
@@ -132,7 +137,7 @@ export async function contractRoutes(fastify: FastifyInstance) {
   });
 
   // 생성/수정: ADMIN, MANAGER
-  fastify.post("/", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request, reply) => {
+  fastify.post("/", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request, reply) => {
     const result = await fastify.contractService.create({
       ...(request.body as any),
       createdBy: request.userId || "system",
@@ -140,7 +145,7 @@ export async function contractRoutes(fastify: FastifyInstance) {
     return reply.status(201).send(result);
   });
 
-  fastify.patch("/:id", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
+  fastify.patch("/:id", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
     const { id } = request.params as any;
     return fastify.contractService.update(id, request.body as any);
   });
@@ -149,6 +154,13 @@ export async function contractRoutes(fastify: FastifyInstance) {
   fastify.delete("/:id", { preHandler: [requireRole("ADMIN")] }, async (request, reply) => {
     await fastify.contractService.remove((request.params as any).id);
     return reply.status(204).send();
+  });
+
+  // v1.6.1 (2026-05-15): 계약 확정 — PROSPECTIVE → ACTIVE
+  fastify.post("/:id/finalize", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
+    const { id } = request.params as any;
+    const body = request.body as { contractNumber: string; contractDate?: string };
+    return fastify.contractService.finalize(id, body);
   });
 }
 
@@ -188,16 +200,16 @@ export async function overseasOrderRoutes(fastify: FastifyInstance) {
   });
 
   // 수정: ADMIN, MANAGER
-  fastify.patch("/:id", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
+  fastify.patch("/:id", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
     const { id } = request.params as any;
     return fastify.overseasOrderService.update(id, request.body as any);
   });
 
-  // 상태 전환: ADMIN, MANAGER
-  fastify.post("/:id/transition", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
+  // 상태 전환: ADMIN, MANAGER, OPERATOR
+  fastify.post("/:id/transition", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
     const { id } = request.params as any;
-    const { status } = request.body as any;
-    return fastify.overseasOrderService.transition(id, status, request.userId || "system");
+    const { status, transitionDate } = request.body as any;
+    return fastify.overseasOrderService.transition(id, status, request.userId || "system", transitionDate);
   });
 
   // v1.6 (2026-05-14): 결재 상신 취소 — PENDING_APPROVAL → DRAFT
@@ -214,13 +226,13 @@ export async function overseasOrderRoutes(fastify: FastifyInstance) {
 
   // ─── Items (ADMIN, MANAGER) ────────────────────────────────────────────
 
-  fastify.post("/:id/items", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request, reply) => {
+  fastify.post("/:id/items", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request, reply) => {
     const { id } = request.params as any;
     const result = await fastify.overseasOrderService.addItem(id, request.body as any);
     return reply.status(201).send(result);
   });
 
-  fastify.patch("/items/:itemId", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
+  fastify.patch("/items/:itemId", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
     const { itemId } = request.params as any;
     return fastify.overseasOrderService.updateItem(itemId, request.body as any);
   });
@@ -232,21 +244,31 @@ export async function overseasOrderRoutes(fastify: FastifyInstance) {
 
   // ─── Partial Receipt (ADMIN, MANAGER) ──────────────────────────────────
 
-  fastify.post("/:id/receive", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
+  fastify.post("/:id/receive", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
     const { id } = request.params as any;
     const { receipts } = request.body as any;
-    return fastify.overseasOrderService.receiveItems(id, receipts, request.userId || "system");
+    const updated = await fastify.overseasOrderService.receiveItems(id, receipts, request.userId || "system");
+
+    // v1.6.1 (2026-05-15): 도착 처리 후 자동으로 InboundRequest(PENDING) 생성/업데이트
+    // 큐가 이미 PENDING으로 있으면 reuse — createFromOverseasOrder 가 idempotent
+    try {
+      await fastify.inboundRequestService.createFromOverseasOrder(id, request.userId || "system");
+    } catch (e: any) {
+      // 미입고 품목 없을 때 등 — 무시
+      request.log.warn(`createFromOverseasOrder skipped: ${e.message}`);
+    }
+    return updated;
   });
 
   // ─── Inventory Link (ADMIN, MANAGER) ────────────────────────────────
 
-  fastify.post("/items/:itemId/link-inventory", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request) => {
+  fastify.post("/items/:itemId/link-inventory", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
     const { itemId } = request.params as any;
     const { inventoryNo } = request.body as any;
     return fastify.overseasOrderService.linkInventory(itemId, inventoryNo);
   });
 
-  fastify.delete("/items/:itemId/inventory/:inventoryId", { preHandler: [requireRole("ADMIN", "MANAGER")] }, async (request, reply) => {
+  fastify.delete("/items/:itemId/inventory/:inventoryId", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request, reply) => {
     await fastify.overseasOrderService.unlinkInventory((request.params as any).inventoryId);
     return reply.status(204).send();
   });

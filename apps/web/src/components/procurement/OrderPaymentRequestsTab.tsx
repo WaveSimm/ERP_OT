@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { procurementApi } from "@/lib/api";
 import { DateInput } from "@/components/ui/DateInput";
+import { fmtDate, fmtDateTime24 } from "@/lib/datetime";
 
 const CURRENCY_SYMBOLS: Record<string, string> = { EUR: "€", GBP: "£", USD: "$", KRW: "₩" };
 const fmtAmount = (v: any, c?: string) => {
@@ -11,7 +12,7 @@ const fmtAmount = (v: any, c?: string) => {
   const sym = c ? (CURRENCY_SYMBOLS[c] || c) : "";
   return `${sym}${n.toLocaleString("ko-KR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 };
-const fmtDateTime = (d: any) => d ? new Date(d).toLocaleString("ko-KR") : "-";
+const fmtDateTime = (d: any) => fmtDateTime24(d) || "-";
 
 type StatusTab = "REQUESTED" | "COMPLETED" | "REJECTED";
 

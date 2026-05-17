@@ -104,14 +104,8 @@ export default function POPrintPage() {
             <td>{order.invoiceNo || "-"}</td>
           </tr>
           <tr>
-            <th>결제기한 (Due)</th>
-            <td>{fmtDate(order.dueDate)}</td>
             <th>결제방식 (Terms)</th>
-            <td>{order.paymentTerms || "-"}</td>
-          </tr>
-          <tr>
-            <th>OA번호 (Order Ack.)</th>
-            <td colSpan={3}>{order.oaNumber || "-"}</td>
+            <td colSpan={3}>{order.paymentTerms || "-"}</td>
           </tr>
         </tbody>
       </table>

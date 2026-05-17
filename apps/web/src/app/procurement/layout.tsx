@@ -8,7 +8,7 @@ const TABS = [
   { key: "customers", label: "고객사", href: "/procurement/customers" },
   { key: "suppliers", label: "제조사/공급사", href: "/procurement/suppliers" },
   { key: "orders", label: "발주 관리", href: "/procurement" },
-  { key: "products", label: "장비 마스터", href: "/procurement/products" },
+  { key: "products", label: "품목 관리", href: "/procurement/products" },
   { key: "inventory", label: "재고 관리", href: "/procurement/inventory" },
   { key: "inbound", label: "입고 큐", href: "/procurement/inbound" },
   { key: "bundles", label: "번들 출고", href: "/procurement/bundles" },

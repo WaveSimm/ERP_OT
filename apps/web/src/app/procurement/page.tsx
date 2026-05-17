@@ -9,7 +9,7 @@ import SortableHeader, { SortOrder } from "@/components/SortableHeader";
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "초안", PENDING_APPROVAL: "승인대기", APPROVED: "승인",
   REJECTED: "반려", ORDERED: "승인완료", PURCHASING: "발주완료",
-  SHIPPED: "선적", CUSTOMS: "통관중", PARTIALLY_RECEIVED: "부분입고",
+  SHIPPED: "선적 완료", CUSTOMS: "통관중", PARTIALLY_RECEIVED: "부분입고",
   ARRIVED: "입고완료", SETTLEMENT: "송금상태", CLOSED: "마감",
 };
 
@@ -44,7 +44,7 @@ const FILTER_STATUSES = [
   { key: "PENDING_APPROVAL", label: "승인대기" },
   { key: "ORDERED", label: "승인완료" },
   { key: "PURCHASING", label: "발주완료" },
-  { key: "SHIPPED", label: "선적" },
+  { key: "SHIPPED", label: "선적 완료" },
   { key: "CUSTOMS", label: "통관중" },
   // v1.6 (2026-05-14): 부분입고 + 입고완료 통합 필터
   { key: "PARTIALLY_RECEIVED,ARRIVED", label: "입고현황" },
@@ -196,7 +196,7 @@ export default function ProcurementPage() {
             onClick={() => router.push("/procurement/products")}
             className="px-4 py-1.5 text-sm border rounded-lg hover:bg-gray-50"
           >
-            장비 마스터
+            품목 관리
           </button>
           <button
             onClick={() => router.push("/procurement/contracts")}
@@ -266,9 +266,25 @@ export default function ProcurementPage() {
                   </td>
                   <td className="px-4 py-3 text-right font-mono">{fmtAmount(o.totalAmount, o.currency)}</td>
                   <td className="px-4 py-3 text-center whitespace-nowrap">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[o.status] || ""}`}>
-                      {STATUS_LABELS[o.status] || o.status}
-                    </span>
+                    {/* v1.6.1 (2026-05-15): CUSTOMS는 customsTax.status로 세금납부대기/완료 sub-status 표시 */}
+                    {(() => {
+                      if (o.status === "CUSTOMS") {
+                        const taxPaid = o.customsTax?.status === "PAID";
+                        const taxRejected = o.customsTax?.status === "REJECTED";
+                        const label = taxPaid ? "세금납부완료" : taxRejected ? "세금납부반려" : "세금납부대기";
+                        const cls = taxPaid ? "bg-emerald-100 text-emerald-700"
+                          : taxRejected ? "bg-red-100 text-red-700"
+                          : "bg-amber-100 text-amber-700";
+                        return (
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>{label}</span>
+                        );
+                      }
+                      return (
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[o.status] || ""}`}>
+                          {STATUS_LABELS[o.status] || o.status}
+                        </span>
+                      );
+                    })()}
                   </td>
                   {/* v1.6 (2026-05-14): 송금현황 — 송금요청 / N차송금 / 완료 / 반려 */}
                   <td className="px-4 py-3 text-center whitespace-nowrap">

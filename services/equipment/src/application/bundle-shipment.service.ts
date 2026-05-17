@@ -73,7 +73,7 @@ export class BundleShipmentService {
         where,
         include: {
           customer: { select: { id: true, name: true } },
-          parentMaster: { select: { id: true, masterCode: true, name: true, modelName: true } },
+          parentMaster: { select: { id: true, masterCode: true, name: true } },
           _count: { select: { items: true, customerAssets: true } },
         },
         orderBy,
@@ -278,7 +278,7 @@ export class BundleShipmentService {
             name: data.customerAssetName ?? inv.productMaster?.name ?? "",
             serialNumber: inv.serialNumber ?? null,
             manufacturer: inv.productMaster?.manufacturer ?? null,
-            model: inv.productMaster?.modelName ?? null,
+            model: null,
             soldAt: data.shippedAt,
             warrantyExpiry: data.warrantyUntil ?? null,
             otInventoryNo: inv.inventoryNo,

@@ -62,6 +62,13 @@ export async function inboundRequestRoutes(fastify: FastifyInstance) {
     const body = request.body as { reason?: string };
     return fastify.inboundRequestService.cancel((request.params as any).id, body.reason);
   });
+
+  // v1.6.1 (2026-05-15): 해외 발주에서 입고 큐로 요청 — ADMIN, MANAGER, OPERATOR
+  fastify.post("/from-overseas-order/:orderId", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request, reply) => {
+    const { orderId } = request.params as any;
+    const result = await fastify.inboundRequestService.createFromOverseasOrder(orderId, request.userId);
+    return reply.status(201).send(result);
+  });
 }
 
 /**

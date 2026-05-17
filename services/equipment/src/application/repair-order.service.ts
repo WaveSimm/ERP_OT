@@ -38,13 +38,21 @@ export class RepairOrderService {
     statusGroup?: string;
     customerId?: string;
     search?: string;
+    otInventoryNo?: string;        // v1.6.1 (2026-05-15): 재고 상세에서 AS 이력 조회용
     page?: number;
     limit?: number;
     sortBy?: string;
     sortOrder?: "asc" | "desc";
   } = {}) {
-    const { status, statusGroup, customerId, search, page = 1, limit = 50, sortBy, sortOrder } = params;
+    const { status, statusGroup, customerId, search, otInventoryNo, page = 1, limit = 50, sortBy, sortOrder } = params;
     const where: any = {};
+    // v1.6.1 (2026-05-15): RepairOrder.otInventoryNo 또는 customerAsset.otInventoryNo 둘 다 매칭
+    if (otInventoryNo) {
+      where.OR = [
+        { otInventoryNo },
+        { customerAsset: { otInventoryNo } },
+      ];
+    }
 
     if (status) {
       where.status = status;
@@ -149,10 +157,21 @@ export class RepairOrderService {
     const orderNumber = await this.generateOrderNumber();
     const { receivedAt, ...rest } = data;
 
+    // v1.6.1 (2026-05-15): customerAsset 연결 시 otInventoryNo 자동 복사 (사용자 입력 없으면)
+    let otInventoryNoToSave = rest.otInventoryNo;
+    if (!otInventoryNoToSave && rest.customerAssetId) {
+      const asset = await this.prisma.customerAsset.findUnique({
+        where: { id: rest.customerAssetId },
+        select: { otInventoryNo: true },
+      });
+      if (asset?.otInventoryNo) otInventoryNoToSave = asset.otInventoryNo;
+    }
+
     const order = await this.prisma.repairOrder.create({
       data: {
         orderNumber,
         ...rest,
+        ...(otInventoryNoToSave && { otInventoryNo: otInventoryNoToSave }),
         receivedAt: receivedAt ? new Date(receivedAt) : new Date(),
       } as any,
       include: {

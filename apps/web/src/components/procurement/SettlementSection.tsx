@@ -78,7 +78,7 @@ export default function SettlementSection({ orderId, orderCurrency, orderStatus,
           )}
         </div>
         {invoice ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+          <div className="grid grid-cols-5 gap-3 text-sm">
             <div>
               <div className="text-gray-500 text-xs">Invoice No.</div>
               <div className="font-mono">{invoice.invoiceNumber}</div>
@@ -99,8 +99,12 @@ export default function SettlementSection({ orderId, orderCurrency, orderStatus,
               </div>
             </div>
             <div>
-              <div className="text-gray-500 text-xs">결제기한 / 방식</div>
-              <div>{fmtDate(invoice.dueDate)} {invoice.paymentTerms && `· ${invoice.paymentTerms}`}</div>
+              <div className="text-gray-500 text-xs">결제기한</div>
+              <div>{fmtDate(invoice.dueDate)}</div>
+            </div>
+            <div>
+              <div className="text-gray-500 text-xs">결제방식</div>
+              <div>{invoice.paymentTerms || "-"}</div>
             </div>
             {invoice.notes && (
               <div className="col-span-full">
@@ -387,7 +391,7 @@ function InvoiceModal({
     amount: invoice?.amount ? String(invoice.amount) : "",
     currency: invoice?.currency || orderCurrency,
     amountKRW: invoice?.amountKRW ? String(invoice.amountKRW) : "",
-    dueDate: invoice?.dueDate ? invoice.dueDate.slice(0, 10) : "",
+    dueDate: invoice?.dueDate ? invoice.dueDate.slice(0, 10) : "",  // v1.6.1 (2026-05-15): Invoice 결제기한
     paymentTerms: invoice?.paymentTerms || "",
     notes: invoice?.notes || "",
     amendReason: "",

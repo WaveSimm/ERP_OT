@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { expenseFollowupApi } from "@/lib/api";
 import SortableHeader, { SortOrder } from "@/components/SortableHeader";
 import OrderPaymentRequestsTab from "@/components/procurement/OrderPaymentRequestsTab";
+import OrderCustomsTaxesTab from "@/components/procurement/OrderCustomsTaxesTab";
 
 const STATUS_LABELS: Record<string, string> = {
   FINANCE_RECEIVED: "재무 접수",
@@ -24,7 +25,8 @@ function fmtMoney(v: number | string | null | undefined) {
 }
 
 // v1.6 (2026-05-14): 재무 접수 sub-tab — 결재송금 / 발주송금
-type SubTab = "approval" | "order";
+// v1.6.1 (2026-05-15): 관부가세 탭 추가
+type SubTab = "approval" | "order" | "customsTax";
 
 export default function ExpensesPage() {
   const [subTab, setSubTab] = useState<SubTab>("approval");
@@ -43,8 +45,16 @@ export default function ExpensesPage() {
             subTab === "order" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"
           }`}
         >발주송금</button>
+        <button
+          onClick={() => setSubTab("customsTax")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            subTab === "customsTax" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >관부가세</button>
       </div>
-      {subTab === "approval" ? <ExpenseApprovalTab /> : <OrderPaymentRequestsTab />}
+      {subTab === "approval" ? <ExpenseApprovalTab /> :
+       subTab === "order" ? <OrderPaymentRequestsTab /> :
+       <OrderCustomsTaxesTab />}
     </div>
   );
 }

@@ -249,7 +249,7 @@ function ShipmentCreate({ onClose, onSaved }: { onClose: () => void; onSaved: ()
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
         <h3 className="text-lg font-bold mb-1">번들 출고 생성</h3>
-        <p className="text-xs text-gray-500 mb-4">사전 조립된 번들 재고(INV-...) 1건을 차감합니다. 조립이 안 된 번들은 [장비 마스터] → [조립]에서 먼저 만드십시오.</p>
+        <p className="text-xs text-gray-500 mb-4">사전 조립된 번들 재고(INV-...) 1건을 차감합니다. 조립이 안 된 번들은 [품목 관리] → [조립]에서 먼저 만드십시오.</p>
 
         <div className="border rounded-lg p-3 bg-emerald-50/30 mb-4">
           <label className="block text-xs text-gray-500 mb-1">번들 재고번호 *</label>
@@ -259,7 +259,7 @@ function ShipmentCreate({ onClose, onSaved }: { onClose: () => void; onSaved: ()
             className="w-full border rounded px-3 py-2 text-sm font-mono" />
           {inv && (
             <div className="mt-2 text-xs text-emerald-700">
-              ✓ {inv.productMaster?.name} ({inv.productMaster?.modelName}) · 재고 {inv.quantity}건
+              ✓ {inv.productMaster?.name} · 재고 {inv.quantity}건
               {inv.serialNumber && <span> · SN: <span className="font-mono">{inv.serialNumber}</span></span>}
             </div>
           )}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { inventoryApi } from "@/lib/api";
+import { inventoryApi, repairApi } from "@/lib/api";
 import LocationSelect from "@/components/LocationSelect";
 import { DateInput } from "@/components/ui/DateInput";
 import { usePermission } from "@/hooks/usePermission";
@@ -60,10 +60,20 @@ export default function InventoryDetailPage() {
 
   const [saving, setSaving] = useState(false);
 
+  // v1.6.1 (2026-05-15): AS 이력 (이 재고번호로 접수된 수리 목록)
+  const [repairOrders, setRepairOrders] = useState<any[]>([]);
+
   const load = useCallback(async () => {
     try {
       const data = await inventoryApi.getById(id);
       setItem(data);
+      // AS 이력 fetch (재고번호 기준)
+      if (data?.inventoryNo) {
+        try {
+          const r = await repairApi.getRepairOrders({ otInventoryNo: data.inventoryNo, limit: 50 });
+          setRepairOrders(Array.isArray(r?.items) ? r.items : Array.isArray(r) ? r : []);
+        } catch { setRepairOrders([]); }
+      }
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, [id]);
@@ -331,7 +341,70 @@ export default function InventoryDetailPage() {
         </div>
       </section>
 
-      {/* ── 3. 입출고 이력 ────────────────────────── */}
+      {/* ── 3. AS 이력 (v1.6.1, 2026-05-15) ───────────── */}
+      <section className="bg-white rounded-lg border">
+        <div className="flex items-center justify-between px-5 py-3 border-b bg-gray-50 rounded-t-lg">
+          <h3 className="font-semibold text-sm">
+            AS 이력
+            {repairOrders.length > 0 && (
+              <span className="ml-2 text-xs text-gray-400 font-normal">{repairOrders.length}건</span>
+            )}
+          </h3>
+        </div>
+        <div className="p-5">
+          {repairOrders.length === 0 ? (
+            <div className="text-center py-6 text-gray-400 text-sm">AS 이력이 없습니다.</div>
+          ) : (
+            <div className="space-y-2">
+              {repairOrders.map((r: any) => {
+                const statusColors: Record<string, string> = {
+                  RECEIVED: "bg-blue-100 text-blue-700",
+                  INSPECTING_1ST: "bg-amber-100 text-amber-700",
+                  INSPECTING_2ND: "bg-amber-100 text-amber-700",
+                  QUOTED: "bg-purple-100 text-purple-700",
+                  APPROVED: "bg-purple-100 text-purple-700",
+                  REPAIRING: "bg-orange-100 text-orange-700",
+                  SHIPPED_TO_MFG: "bg-cyan-100 text-cyan-700",
+                  RECEIVED_FROM_MFG: "bg-cyan-100 text-cyan-700",
+                  COMPLETED: "bg-emerald-100 text-emerald-700",
+                  NO_FAULT: "bg-gray-100 text-gray-700",
+                  NO_REPAIR: "bg-gray-100 text-gray-700",
+                  CLOSED: "bg-gray-200 text-gray-600",
+                };
+                const statusLabels: Record<string, string> = {
+                  RECEIVED: "접수", INSPECTING_1ST: "1차검사", INSPECTING_2ND: "2차검사",
+                  QUOTED: "견적", APPROVED: "승인", REPAIRING: "수리중",
+                  SHIPPED_TO_MFG: "제조사발송", RECEIVED_FROM_MFG: "제조사회수",
+                  COMPLETED: "완료", NO_FAULT: "정상", NO_REPAIR: "수리안함", CLOSED: "마감",
+                };
+                return (
+                  <a
+                    key={r.id}
+                    href={`/repair/${r.id}`}
+                    className="block border rounded-lg p-3 hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`w-20 text-center text-xs font-medium px-2 py-1 rounded ${statusColors[r.status] || "bg-gray-100 text-gray-600"}`}>
+                        {statusLabels[r.status] || r.status}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium font-mono">{r.orderNumber}</div>
+                        {r.symptom && <div className="text-xs text-gray-500 truncate">증상: {r.symptom}</div>}
+                        {r.customer?.name && <div className="text-xs text-gray-400">{r.customer.name}</div>}
+                      </div>
+                      <div className="text-right shrink-0 text-xs text-gray-400">
+                        {r.receivedAt ? new Date(r.receivedAt).toLocaleDateString("ko-KR") : ""}
+                      </div>
+                    </div>
+                  </a>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ── 4. 입출고 이력 ────────────────────────── */}
       <section className="bg-white rounded-lg border">
         <div className="flex items-center justify-between px-5 py-3 border-b bg-gray-50 rounded-t-lg">
           <h3 className="font-semibold text-sm">

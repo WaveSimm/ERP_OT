@@ -55,6 +55,8 @@ export class OverseasOrderService {
           payments: { select: { status: true, amount: true } },
           // v1.6 (2026-05-14): 첫 품목명 표시용 — 등록 순서대로 첫 번째 1건만
           items: { select: { name: true }, orderBy: { createdAt: "asc" }, take: 1 },
+          // v1.6.1 (2026-05-15): 발주상태 컬럼에 세금납부대기/완료 표시용
+          customsTax: { select: { status: true } },
         },
         orderBy,
         skip: (page - 1) * limit,
@@ -89,12 +91,13 @@ export class OverseasOrderService {
         contract: { select: { id: true, contractNumber: true, name: true, client: true } },
         items: {
           include: {
-            productMaster: { select: { id: true, name: true, modelName: true } },
+            productMaster: { select: { id: true, name: true } },
             inventoryItems: { select: { id: true, inventoryNo: true, itemName: true, currentStatus: true }, orderBy: { inventoryNo: "asc" } },
           },
           orderBy: { createdAt: "asc" },
         },
         progressLogs: { orderBy: { createdAt: "desc" }, take: 20 },
+        customsTax: true,  // v1.6.1 (2026-05-15): 관부가세 정보 포함
       },
     });
     if (!order) throw new Error("발주를 찾을 수 없습니다.");
@@ -130,18 +133,20 @@ export class OverseasOrderService {
     estimatedShipDate?: string;
     arrivalLocation?: string;
     customsHandler?: string;
-    invoiceNo?: string;
-    dueDate?: string;
-    oaNumber?: string;
-    paymentTerms?: string;   // v1.6 (2026-05-14): 결제수단
+    invoiceNo?: string;                          // 견적번호 (Quote No)
+    paymentTerms?: string;                       // 결제수단 (T/T, L/C, 무역금융 등)
     customer?: string;
     totalAmount: number;
     totalAmountKRW?: number;
     notes?: string;
     // v1.6 (2026-05-14): 결재라인
+    // approverName: 사용자 삭제 후에도 결재 히스토리 보존 (2026-05-15)
     approverId?: string;
+    approverName?: string;
     secondApproverId?: string;
+    secondApproverName?: string;
     thirdApproverId?: string;
+    thirdApproverName?: string;
     items?: Array<{
       productMasterId?: string;
       name: string;
@@ -152,7 +157,7 @@ export class OverseasOrderService {
       notes?: string;
     }>;
   }) {
-    const { items, orderDate, estimatedProductionEnd, estimatedShipDate, dueDate, ...rest } = data;
+    const { items, orderDate, estimatedProductionEnd, estimatedShipDate, ...rest } = data;
     const orderNumber = await this.generateOrderNumber();
 
     return this.prisma.overseasOrder.create({
@@ -163,7 +168,6 @@ export class OverseasOrderService {
         orderDate: orderDate ? new Date(orderDate) : undefined,
         estimatedProductionEnd: estimatedProductionEnd ? new Date(estimatedProductionEnd) : undefined,
         estimatedShipDate: estimatedShipDate ? new Date(estimatedShipDate) : undefined,
-        dueDate: dueDate ? new Date(dueDate) : undefined,
         items: items?.length ? { create: items } : undefined,
       } as any,
       include: {
@@ -185,27 +189,29 @@ export class OverseasOrderService {
     arrivalDate?: string;
     arrivalLocation?: string;
     customsHandler?: string;
-    invoiceNo?: string;
-    dueDate?: string;
-    oaNumber?: string;
-    paymentTerms?: string | null;   // v1.6 (2026-05-14): 결제수단
+    invoiceNo?: string;                              // 견적번호 (Quote No)
+    paymentTerms?: string | null;                    // 결제수단 (T/T, L/C, 무역금융 등)
     customer?: string | null;
     totalAmount?: number;
     totalAmountKRW?: number;
     notes?: string;
     // v1.6 (2026-05-14): 결재라인
+    // approverName: 사용자 삭제 후에도 결재 히스토리 보존 (2026-05-15)
     approverId?: string | null;
+    approverName?: string | null;
     secondApproverId?: string | null;
+    secondApproverName?: string | null;
     thirdApproverId?: string | null;
+    thirdApproverName?: string | null;
   }) {
     const order = await this.prisma.overseasOrder.findUnique({ where: { id } });
     if (!order) throw new Error("발주를 찾을 수 없습니다.");
-    // v1.6 (2026-05-14): CLOSED 발주도 일정·입고장소·통관담당·OA번호·결제수단은 수정 허용
+    // CLOSED 발주도 일정·입고장소·통관담당·결제수단은 수정 허용
     if (order.status === "CLOSED") {
-      const LOGISTICS_ONLY = new Set(["estimatedShipDate", "arrivalLocation", "customsHandler", "oaNumber", "paymentTerms"]);
+      const LOGISTICS_ONLY = new Set(["estimatedShipDate", "arrivalLocation", "customsHandler", "paymentTerms"]);
       const nonLogistics = Object.keys(data).filter((k) => !LOGISTICS_ONLY.has(k) && (data as any)[k] !== undefined);
       if (nonLogistics.length > 0) {
-        throw new Error(`마감된 발주는 일정/입고장소/통관담당/OA번호/결제수단만 수정할 수 있습니다. 시도된 필드: ${nonLogistics.join(", ")}`);
+        throw new Error(`마감된 발주는 일정/입고장소/통관담당/결제수단만 수정할 수 있습니다. 시도된 필드: ${nonLogistics.join(", ")}`);
       }
     }
 
@@ -224,16 +230,54 @@ export class OverseasOrderService {
     return this.prisma.overseasOrder.update({ where: { id }, data: updateData });
   }
 
-  async transition(id: string, toStatus: OrderStatus, userId: string) {
+  async transition(id: string, toStatus: OrderStatus, userId: string, transitionDate?: string) {
     const order = await this.prisma.overseasOrder.findUnique({ where: { id } });
     if (!order) throw new Error("발주를 찾을 수 없습니다.");
 
     assertTransition(order.status, toStatus);
 
-    return this.prisma.overseasOrder.update({
+    // v1.6.1 (2026-05-15): CUSTOMS → ARRIVED 전이 시 관부가세 PAID 검증
+    if (toStatus === "ARRIVED" && order.status === "CUSTOMS") {
+      const tax = await this.prisma.orderCustomsTax.findUnique({ where: { orderId: id } });
+      if (!tax || tax.status !== "PAID") {
+        throw new Error("관부가세 납부가 완료되지 않아 통관 완료할 수 없습니다. (재무팀 처리 대기 중)");
+      }
+    }
+
+    // v1.6.1 (2026-05-15): 전이별 날짜 컬럼 매핑. transitionDate 있으면 사용, 없으면 today
+    //   PURCHASING(발주완료) → orderDate
+    //   SHIPPED(선적완료)    → actualShipDate
+    //   CUSTOMS(통관)        → customsDate
+    const dateValue = transitionDate ? new Date(transitionDate) : new Date();
+    const dateUpdates: Record<string, Date | undefined> = {};
+    if (toStatus === "PURCHASING") dateUpdates.orderDate = dateValue;
+    if (toStatus === "SHIPPED")    dateUpdates.actualShipDate = dateValue;
+    if (toStatus === "CUSTOMS")    dateUpdates.customsDate = dateValue;
+
+    const updated = await this.prisma.overseasOrder.update({
       where: { id },
-      data: { status: toStatus },
+      data: {
+        status: toStatus,
+        // APPROVED 전이 시 승인일 자동 기록 (최초 1회만)
+        ...(toStatus === "APPROVED" && !order.approvedAt && { approvedAt: new Date() }),
+        // ORDERED 전이 시 발주일 자동 기록 (사용자 명시 입력 없으면)
+        ...(toStatus === "ORDERED" && !order.orderDate && { orderDate: new Date() }),
+        // 전이별 사용자 입력 날짜 (PURCHASING/SHIPPED/CUSTOMS)
+        ...dateUpdates,
+      },
     });
+
+    // v1.6.1 (2026-05-15): CUSTOMS 진입 시 OrderCustomsTax 자동 생성 (재무팀 큐로)
+    if (toStatus === "CUSTOMS") {
+      const exists = await this.prisma.orderCustomsTax.findUnique({ where: { orderId: id } });
+      if (!exists) {
+        await this.prisma.orderCustomsTax.create({
+          data: { orderId: id, status: "PENDING", ...(userId && { startedBy: userId }) },
+        });
+      }
+    }
+
+    return updated;
   }
 
   async remove(id: string) {

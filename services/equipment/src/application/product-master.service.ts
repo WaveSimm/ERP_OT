@@ -14,7 +14,6 @@ export class ProductMasterService {
   async list(params: {
     search?: string;
     name?: string;
-    modelName?: string;
     manufacturer?: string;
     itemType?: ProductItemType;
     page?: number;
@@ -22,21 +21,17 @@ export class ProductMasterService {
     sortBy?: string;
     sortOrder?: "asc" | "desc";
   } = {}) {
-    const { search, name, modelName, manufacturer, itemType, page = 1, limit = 50, sortBy, sortOrder = "asc" } = params;
+    const { search, name, manufacturer, itemType, page = 1, limit = 50, sortBy, sortOrder = "asc" } = params;
     const where: any = {};
 
     if (search) {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
-        { modelName: { contains: search, mode: "insensitive" } },
         { manufacturer: { contains: search, mode: "insensitive" } },
       ];
     }
     if (name) {
       where.name = { contains: name, mode: "insensitive" };
-    }
-    if (modelName) {
-      where.modelName = { contains: modelName, mode: "insensitive" };
     }
     if (manufacturer) {
       where.manufacturer = { contains: manufacturer, mode: "insensitive" };
@@ -48,7 +43,6 @@ export class ProductMasterService {
     // v1.6 (2026-05-13): 사용자 정렬 지원
     const SORTABLE: Record<string, any> = {
       name: { name: sortOrder },
-      modelName: { modelName: sortOrder },
       manufacturer: { manufacturer: sortOrder },
       defaultCurrency: { defaultCurrency: sortOrder },
       referencePrice: { referencePrice: sortOrder },
@@ -126,7 +120,6 @@ export class ProductMasterService {
 
   async create(data: {
     name: string;
-    modelName: string;
     manufacturer: string;
     defaultCurrency?: string;
     referencePrice?: number;
@@ -142,7 +135,6 @@ export class ProductMasterService {
 
   async update(id: string, data: {
     name?: string;
-    modelName?: string;
     manufacturer?: string;
     defaultCurrency?: string;
     referencePrice?: number;
@@ -186,7 +178,7 @@ export class ProductMasterService {
       include: {
         bundleItems: {
           include: {
-            productMaster: { select: { id: true, name: true, modelName: true, manufacturer: true } },
+            productMaster: { select: { id: true, name: true, manufacturer: true } },
             variant: true,
           },
         },

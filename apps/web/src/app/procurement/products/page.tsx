@@ -21,7 +21,7 @@ export default function ProductMasterPage() {
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
-  const [form, setForm] = useState({ name: "", modelName: "", manufacturer: "", masterCode: "", defaultCurrency: "", referencePrice: "", itemType: "SIMPLE" as "SIMPLE" | "BUNDLE" });
+  const [form, setForm] = useState({ name: "", manufacturer: "", masterCode: "", defaultCurrency: "", referencePrice: "", itemType: "SIMPLE" as "SIMPLE" | "BUNDLE" });
   const [variantOf, setVariantOf] = useState<any | null>(null);
   const [bundleOf, setBundleOf] = useState<any | null>(null);
   // v1.6 (2026-05-13): 조립은 /procurement/inventory의 수동 등록 모달에서 처리. 마스터는 정의까지만.
@@ -68,7 +68,7 @@ export default function ProductMasterPage() {
   useEffect(() => { load(); }, [load]);
 
   const resetForm = () => {
-    setForm({ name: "", modelName: "", manufacturer: "", masterCode: "", defaultCurrency: "", referencePrice: "", itemType: "SIMPLE" });
+    setForm({ name: "", manufacturer: "", masterCode: "", defaultCurrency: "", referencePrice: "", itemType: "SIMPLE" });
     setEditing(null);
     setShowForm(false);
   };
@@ -77,7 +77,6 @@ export default function ProductMasterPage() {
     try {
       const data: any = {
         name: form.name,
-        modelName: form.modelName,
         manufacturer: form.manufacturer,
         itemType: form.itemType,
         ...(form.masterCode && { masterCode: form.masterCode }),
@@ -99,7 +98,6 @@ export default function ProductMasterPage() {
   const handleEdit = (p: any) => {
     setForm({
       name: p.name,
-      modelName: p.modelName,
       manufacturer: p.manufacturer,
       masterCode: p.masterCode || "",
       defaultCurrency: p.defaultCurrency || "",
@@ -121,7 +119,7 @@ export default function ProductMasterPage() {
   return (
     <div>
       <div className="flex items-center gap-3 mb-4">
-        <h2 className="text-lg font-bold">장비 마스터</h2>
+        <h2 className="text-lg font-bold">품목 관리</h2>
         <span className="text-sm text-gray-400">{total}건</span>
         <button onClick={() => { resetForm(); setShowForm(true); }}
           className="ml-auto px-4 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
@@ -133,7 +131,7 @@ export default function ProductMasterPage() {
       <div className="flex flex-wrap gap-3 mb-4">
         <input
           value={search} onChange={(e) => setSearch(e.target.value)}
-          placeholder="품명, 모델명, 제조사 검색..."
+          placeholder="품명, 제조사 검색..."
           className="border rounded-lg px-3 py-2 text-sm w-72"
         />
         <select value={itemTypeFilter} onChange={(e) => setItemTypeFilter(e.target.value as any)}
@@ -168,7 +166,6 @@ export default function ProductMasterPage() {
           <thead className="bg-gray-50 border-b">
             <tr>
               <SortableHeader sortKey="name" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">품명</SortableHeader>
-              <SortableHeader sortKey="modelName" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">모델명</SortableHeader>
               <SortableHeader sortKey="masterCode" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">SKU 코드</SortableHeader>
               <SortableHeader sortKey="manufacturer" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">제조사</SortableHeader>
               <SortableHeader sortKey="itemType" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 text-center font-medium text-gray-600">유형</SortableHeader>
@@ -180,9 +177,9 @@ export default function ProductMasterPage() {
           </thead>
           <tbody className="divide-y">
             {loading ? (
-              <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-400">로딩 중...</td></tr>
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">로딩 중...</td></tr>
             ) : products.length === 0 ? (
-              <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-400">등록된 장비 마스터가 없습니다.</td></tr>
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">등록된 품목이 없습니다.</td></tr>
             ) : products.flatMap((p) => {
               const isBundle = p.itemType === "BUNDLE";
               const isExpanded = isBundle && expandedBundle === p.id;
@@ -202,7 +199,7 @@ export default function ProductMasterPage() {
               if (isExpanded) {
                 rows.push(
                   <tr key={p.id + "-expand"} className="bg-amber-50/50">
-                    <td colSpan={9} className="px-6 py-3">
+                    <td colSpan={8} className="px-6 py-3">
                       {!cachedItems ? (
                         <div className="text-xs text-gray-400">구성품 로딩중...</div>
                       ) : cachedItems.length === 0 ? (
@@ -216,7 +213,6 @@ export default function ProductMasterPage() {
                             <thead className="bg-gray-50 border-b">
                               <tr>
                                 <th className="px-2 py-1.5 text-left">구성품</th>
-                                <th className="px-2 py-1.5 text-left">모델명</th>
                                 <th className="px-2 py-1.5 text-center">수량</th>
                                 <th className="px-2 py-1.5 text-center">슬롯</th>
                                 <th className="px-2 py-1.5 text-left">메모</th>
@@ -226,7 +222,6 @@ export default function ProductMasterPage() {
                               {cachedItems.map((it: any) => (
                                 <tr key={it.id}>
                                   <td className="px-2 py-1.5">{it.productMaster?.name || "-"}</td>
-                                  <td className="px-2 py-1.5 font-mono text-[10px] text-gray-500">{it.productMaster?.modelName || "-"}</td>
                                   <td className="px-2 py-1.5 text-center">{it.quantity}</td>
                                   <td className="px-2 py-1.5 text-center">
                                     <span className={`px-1.5 py-0.5 rounded text-[10px] ${it.slotType === "MAIN" ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-600"}`}>
@@ -266,7 +261,7 @@ export default function ProductMasterPage() {
       {showForm && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={resetForm}>
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold mb-4">{editing ? "장비 마스터 수정" : "장비 마스터 등록"}</h2>
+            <h2 className="text-lg font-bold mb-4">{editing ? "품목 수정" : "품목 등록"}</h2>
             <div className="space-y-3">
               <div>
                 <label className="block text-sm text-gray-600 mb-1">유형 *</label>
@@ -293,12 +288,7 @@ export default function ProductMasterPage() {
                 <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
                   className="w-full border rounded-lg px-3 py-2 text-sm" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm text-gray-600 mb-1">모델명 *</label>
-                  <input type="text" value={form.modelName} onChange={(e) => setForm({ ...form, modelName: e.target.value })}
-                    className="w-full border rounded-lg px-3 py-2 text-sm" />
-                </div>
+              <div>
                 <div>
                   <label className="block text-sm text-gray-600 mb-1">제조사 *</label>
                   <SearchableSelect
@@ -452,7 +442,7 @@ function VariantModal({ master, onClose, onSaved }: { master: any; onClose: () =
         <div className="flex items-center justify-between mb-3">
           <div>
             <h3 className="text-lg font-bold">{master.name} — SKU 옵션</h3>
-            <div className="text-xs text-gray-500 mt-1">{master.modelName} · {master.manufacturer}</div>
+            <div className="text-xs text-gray-500 mt-1">{master.manufacturer}</div>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-2xl leading-none">×</button>
         </div>
@@ -465,7 +455,7 @@ function VariantModal({ master, onClose, onSaved }: { master: any; onClose: () =
               type="text"
               value={prefix}
               onChange={(e) => { setPrefix(e.target.value); setPrefixDirty(true); }}
-              placeholder="3~6자 (예: STR). 비워두면 모델명 fallback"
+              placeholder="3~6자 (예: STR). 비워두면 품명 fallback"
               maxLength={10}
               className="flex-1 border rounded px-2 py-1 text-sm font-mono uppercase"
             />
@@ -478,7 +468,7 @@ function VariantModal({ master, onClose, onSaved }: { master: any; onClose: () =
             </button>
           </div>
           <div className="text-[10px] text-purple-700 mt-1">
-            모든 Variant SKU 자동 생성 시 이 prefix가 앞에 붙습니다 (예: <span className="font-mono">{prefix.trim() || master.modelName || "VAR"}-10M-FE</span>)
+            모든 Variant SKU 자동 생성 시 이 prefix가 앞에 붙습니다 (예: <span className="font-mono">{prefix.trim() || "VAR"}-10M-FE</span>)
           </div>
         </div>
 
@@ -576,7 +566,6 @@ function BundleItemsModal({ master, onClose }: { master: any; onClose: () => voi
       setItems((data || []).map((it: any) => ({
         productMasterId: it.productMasterId,
         productMasterName: it.productMaster?.name,
-        productMasterModel: it.productMaster?.modelName,
         variantId: it.variantId,
         variantSku: it.variant?.skuCode,
         quantity: it.quantity,
@@ -631,7 +620,7 @@ function BundleItemsModal({ master, onClose }: { master: any; onClose: () => voi
         <div className="flex items-center justify-between mb-3">
           <div>
             <h3 className="text-lg font-bold">📦 {master.name} — 번들 구성품</h3>
-            <div className="text-xs text-gray-500 mt-1">{master.modelName} · {master.manufacturer}</div>
+            <div className="text-xs text-gray-500 mt-1">{master.manufacturer}</div>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-2xl leading-none">×</button>
         </div>
@@ -649,7 +638,6 @@ function BundleItemsModal({ master, onClose }: { master: any; onClose: () => voi
                 id: p.id,
                 name: p.name,
                 sub: [
-                  p.modelName,
                   p.manufacturer,
                   p.stockSummary?.items > 0
                     ? `재고 ${p.stockSummary.items}건·${p.stockSummary.quantity}개`
@@ -746,7 +734,6 @@ function ProductRow({
 }) {
   const isBundle = product.itemType === "BUNDLE";
   const [name, setName] = useState(product.name);
-  const [modelName, setModelName] = useState(product.modelName);
   const [manufacturer, setManufacturer] = useState(product.manufacturer);
   const [masterCode, setMasterCode] = useState(product.masterCode || "");
   const [defaultCurrency, setDefaultCurrency] = useState(product.defaultCurrency || "");
@@ -757,21 +744,19 @@ function ProductRow({
   // product prop이 외부에서 갱신되면 (load 후) 동기화
   useEffect(() => {
     setName(product.name);
-    setModelName(product.modelName);
     setManufacturer(product.manufacturer);
     setMasterCode(product.masterCode || "");
     setDefaultCurrency(product.defaultCurrency || "");
     setReferencePrice(product.referencePrice ? String(product.referencePrice) : "");
     setDirty(false);
-  }, [product.id, product.name, product.modelName, product.manufacturer, product.masterCode, product.defaultCurrency, product.referencePrice]);
+  }, [product.id, product.name, product.manufacturer, product.masterCode, product.defaultCurrency, product.referencePrice]);
 
   // 변경된 필드만 PATCH
   const saveField = async (field: string, value: any, originalValue: any) => {
     // 필수 필드 빈 값 차단
-    if (["name", "modelName", "manufacturer"].includes(field) && !String(value).trim()) {
-      alert(`${field === "name" ? "품명" : field === "modelName" ? "모델명" : "제조사"}은(는) 필수입니다.`);
+    if (["name", "manufacturer"].includes(field) && !String(value).trim()) {
+      alert(`${field === "name" ? "품명" : "제조사"}은(는) 필수입니다.`);
       if (field === "name") setName(originalValue);
-      else if (field === "modelName") setModelName(originalValue);
       else setManufacturer(originalValue);
       return;
     }
@@ -790,7 +775,6 @@ function ProductRow({
       alert(e.message || "저장 실패");
       // 원래 값 복원
       if (field === "name") setName(originalValue);
-      else if (field === "modelName") setModelName(originalValue);
       else if (field === "manufacturer") setManufacturer(originalValue);
       else if (field === "masterCode") setMasterCode(originalValue || "");
       else if (field === "defaultCurrency") setDefaultCurrency(originalValue || "");
@@ -823,16 +807,6 @@ function ProductRow({
             className={inputBase + " flex-1"}
           />
         </div>
-      </td>
-      {/* 모델명 */}
-      <td className={cellClass}>
-        <input
-          type="text"
-          value={modelName}
-          onChange={e => { setModelName(e.target.value); setDirty(true); }}
-          onBlur={() => saveField("modelName", modelName, product.modelName)}
-          className={inputBase + " font-mono text-xs"}
-        />
       </td>
       {/* SKU 코드 — v1.6 (2026-05-14): variant SKU 목록만 표시. prefix·variant 관리는 [SKU] 모달에서 */}
       <td className={cellClass}>

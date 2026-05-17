@@ -1050,12 +1050,13 @@ export const repairApi = {
     request<void>(`/customer-assets/${id}`, { method: "DELETE" }),
 
   // 수리 접수
-  getRepairOrders: (params?: { status?: string; statusGroup?: string; customerId?: string; search?: string; page?: number; limit?: number; sortBy?: string; sortOrder?: "asc" | "desc" }) => {
+  getRepairOrders: (params?: { status?: string; statusGroup?: string; customerId?: string; search?: string; otInventoryNo?: string; page?: number; limit?: number; sortBy?: string; sortOrder?: "asc" | "desc" }) => {
     const q = new URLSearchParams();
     if (params?.status) q.set("status", params.status);
     if (params?.statusGroup) q.set("statusGroup", params.statusGroup);
     if (params?.customerId) q.set("customerId", params.customerId);
     if (params?.search) q.set("search", params.search);
+    if (params?.otInventoryNo) q.set("otInventoryNo", params.otInventoryNo);
     if (params?.page) q.set("page", String(params.page));
     if (params?.limit) q.set("limit", String(params.limit));
     if (params?.sortBy) q.set("sortBy", params.sortBy);
@@ -1215,7 +1216,6 @@ export const procurementApi = {
   getProducts: (params?: {
     search?: string;
     name?: string;
-    modelName?: string;
     manufacturer?: string;
     itemType?: "SIMPLE" | "BUNDLE";
     includeBundle?: boolean;
@@ -1227,7 +1227,6 @@ export const procurementApi = {
     const q = new URLSearchParams();
     if (params?.search) q.set("search", params.search);
     if (params?.name) q.set("name", params.name);
-    if (params?.modelName) q.set("modelName", params.modelName);
     if (params?.manufacturer) q.set("manufacturer", params.manufacturer);
     if (params?.itemType) q.set("itemType", params.itemType);
     if (params?.includeBundle) q.set("includeBundle", "true");
@@ -1283,6 +1282,9 @@ export const procurementApi = {
     request<any>(`/procurement/contracts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteContract: (id: string) =>
     request<void>(`/procurement/contracts/${id}`, { method: "DELETE" }),
+  // v1.6.1 (2026-05-15): 계약 확정 — PROSPECTIVE → ACTIVE
+  finalizeContract: (id: string, data: { contractNumber: string; contractDate?: string }) =>
+    request<any>(`/procurement/contracts/${id}/finalize`, { method: "POST", body: JSON.stringify(data) }),
 
   // 해외 발주
   getOrders: (params?: { search?: string; status?: string; currency?: string; orderType?: string; contractId?: string; page?: number; limit?: number; sortBy?: string; sortOrder?: "asc" | "desc"; hasPayment?: boolean }) => {
@@ -1307,8 +1309,11 @@ export const procurementApi = {
     request<any>(`/procurement/orders/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteOrder: (id: string) =>
     request<void>(`/procurement/orders/${id}`, { method: "DELETE" }),
-  transitionOrder: (id: string, status: string) =>
-    request<any>(`/procurement/orders/${id}/transition`, { method: "POST", body: JSON.stringify({ status }) }),
+  transitionOrder: (id: string, status: string, transitionDate?: string) =>
+    request<any>(`/procurement/orders/${id}/transition`, {
+      method: "POST",
+      body: JSON.stringify(transitionDate ? { status, transitionDate } : { status }),
+    }),
   // v1.6 (2026-05-14): 결재 상신 취소
   cancelOrderSubmission: (id: string) =>
     request<any>(`/procurement/orders/${id}/cancel-submission`, { method: "POST" }),
@@ -1366,6 +1371,16 @@ export const procurementApi = {
     request<any>(`/procurement/orders/${orderId}/progress`, { method: "POST", body: JSON.stringify(data) }),
   deleteProgress: (logId: string) =>
     request<void>(`/procurement/orders/progress/${logId}`, { method: "DELETE" }),
+
+  // v1.6.1 (2026-05-15): 관부가세 처리
+  getCustomsTax: (orderId: string) =>
+    request<any>(`/procurement/orders/${orderId}/customs-tax`),
+  listCustomsTaxes: (status?: "PENDING" | "PAID" | "REJECTED") =>
+    request<any[]>(`/procurement/customs-taxes${status ? `?status=${status}` : ""}`),
+  payCustomsTax: (id: string, data: { customsDuty?: number; vat?: number; totalAmount?: number; paidAt?: string; notes?: string }) =>
+    request<any>(`/procurement/customs-taxes/${id}/pay`, { method: "PATCH", body: JSON.stringify(data) }),
+  rejectCustomsTax: (id: string, reason: string) =>
+    request<any>(`/procurement/customs-taxes/${id}/reject`, { method: "PATCH", body: JSON.stringify({ reason }) }),
 };
 
 // ── Inventory Audit (재고 실사) ──────────────────────────────────────
@@ -1546,6 +1561,9 @@ export const inboundRequestApi = {
     request<any>(`/inbound-requests/${id}/receive`, { method: "POST", body: JSON.stringify(data) }),
   cancel: (id: string, reason?: string) =>
     request<any>(`/inbound-requests/${id}/cancel`, { method: "PATCH", body: JSON.stringify({ reason }) }),
+  // v1.6.1 (2026-05-15): 해외 발주에서 입고 큐 생성
+  createFromOverseasOrder: (orderId: string) =>
+    request<any>(`/inbound-requests/from-overseas-order/${orderId}`, { method: "POST" }),
 };
 
 // bomDefinitionApi 폐기 (v1.6 B안, 2026-05-13):
@@ -1933,23 +1951,15 @@ export const expenseApi = {
   // Sources (카드 관리)
   listSources: (includeInactive = false) =>
     request<any[]>(`/expense/sources${includeInactive ? "?includeInactive=true" : ""}`),
-  createSource: (data: { name: string; displayName?: string; type: string; cardNumber?: string }) =>
+  createSource: (data: { name: string; displayName?: string; type: string; cardNumber?: string; ownership?: "PERSONAL" | "CORPORATE" }) =>
     request<any>("/expense/sources", { method: "POST", body: JSON.stringify(data) }),
-  updateSource: (id: string, data: { name?: string; displayName?: string | null; type?: string; cardNumber?: string | null; active?: boolean }) =>
+  updateSource: (id: string, data: { name?: string; displayName?: string | null; type?: string; cardNumber?: string | null; ownership?: "PERSONAL" | "CORPORATE"; active?: boolean }) =>
     request<any>(`/expense/sources/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteSource: (id: string) => request<void>(`/expense/sources/${id}`, { method: "DELETE" }),
 
-  // Categories (전사 표준 + 본인 개인)
-  listCategories: () => request<any[]>("/expense/categories"),
-  createPersonalCategory: (data: { code: string; name: string; sheetName?: string; displayOrder?: number }) =>
-    request<any>("/expense/categories", { method: "POST", body: JSON.stringify(data) }),
-  updatePersonalCategory: (id: string, data: any) =>
-    request<any>(`/expense/categories/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-  deletePersonalCategory: (id: string) =>
-    request<void>(`/expense/categories/${id}`, { method: "DELETE" }),
-
   // Transactions (data: detail/memo 등 임의 필드)
-  listTransactions: (params: { status?: string; categoryId?: string; sourceId?: string; from?: string; to?: string; page?: number; limit?: number } = {}) => {
+  // v1.6.2 (2026-05-15): categoryId → contractId (사업(계약) 연계)
+  listTransactions: (params: { status?: string; contractId?: string; sourceId?: string; from?: string; to?: string; page?: number; limit?: number } = {}) => {
     const q = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => v != null && q.set(k, String(v)));
     return request<{ items: any[]; total: number; page: number; limit: number }>(
@@ -2074,19 +2084,10 @@ export const expenseApi = {
     }),
   deleteSettlement: (id: string) =>
     request<void>(`/expense/settlements/${id}`, { method: "DELETE" }),
-  submitSettlement: (id: string, payload?: {
-    projectName?: string | null;
-    body?: string | null;
-    approvers?: Array<{ stepOrder?: number; roleName?: string; approverId: string; approverName?: string }>;
-  }) =>
-    request<any>(`/expense/settlements/${id}/submit`, {
-      method: "POST",
-      body: JSON.stringify(payload ?? {}),
-    }),
+  // v1.6.4 (2026-05-16): 결재 분리 — submitSettlement/cancelSettlement 폐기.
+  // 결재 작성·취소는 /approval/new 또는 결재 상세에서 수행. expense-service는 webhook으로 연결됨.
   updateSettlementTitle: (id: string, title: string) =>
     request<any>(`/expense/settlements/${id}/title`, { method: "PATCH", body: JSON.stringify({ title }) }),
-  cancelSettlement: (id: string) =>
-    request<any>(`/expense/settlements/${id}/cancel`, { method: "POST", body: "{}" }),
   excelDownloadUrl: (id: string) => `${API_PREFIX}/expense/settlements/${id}/excel`,
   meSummary: () => request<{ unmatched: number; pendingApproval: number; awaitingPayment: number }>(
     "/expense/settlements/me/summary",
