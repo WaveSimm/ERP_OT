@@ -29,12 +29,15 @@ adapter = requests.adapters.HTTPAdapter(pool_connections=20, pool_maxsize=20, ma
 SESSION.mount("http://", adapter)
 
 def login():
+    # v1.6.4 (2026-05-16): cookie 기반 인증으로 전환. accessToken 대신 cookie가 SESSION에 자동 보관.
     r = SESSION.post(AUTH_URL, json={"email": EMAIL, "password": PASSWORD}, timeout=10)
     r.raise_for_status()
-    return r.json()["accessToken"]
+    # 토큰 반환 의미 없지만 호환성 위해 더미값
+    return "cookie-auth"
 
 def H(token):
-    return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    # cookie 기반 — Authorization 헤더 불필요. Content-Type만.
+    return {"Content-Type": "application/json"}
 
 def post(path, token, body):
     r = SESSION.post(f"{API}{path}", headers=H(token), json=body, timeout=15)
@@ -60,14 +63,26 @@ def get(path, token, params=None):
         raise RuntimeError(f"GET {path} {r.status_code} {r.text[:200]}")
     return r.json()
 
-# ─── Resource (사용자) 조회 ──────────────────────────────────────────────────
+# ─── 사용자(auth_user) 조회 ─────────────────────────────────────────────────
+# v1.6.4 (2026-05-16): 자원-모델-분리(사람=auth_users 단일) 적용
+# 기존 /resources 폐기 → /users 사용. resource.userId(email) 매핑 제거.
 
-_resource_cache = None
+_auth_users_cache = None
+def all_auth_users(token):
+    global _auth_users_cache
+    if _auth_users_cache is None:
+        r = SESSION.get("http://localhost:3001/api/v1/users",
+                        headers=H(token), timeout=15)
+        if r.ok:
+            d = r.json()
+            _auth_users_cache = d.get("items", d if isinstance(d, list) else [])
+        else:
+            _auth_users_cache = []
+    return _auth_users_cache
+
+# 호환성 alias — 기존 코드의 all_resources 호출을 그대로 살림
 def all_resources(token):
-    global _resource_cache
-    if _resource_cache is None:
-        _resource_cache = get("/resources", token, {"isActive": "true"})
-    return _resource_cache
+    return all_auth_users(token)
 
 def reverse_name(planner_name: str) -> str:
     """'재엽 김' → '김재엽'. 한 단어면 그대로."""
@@ -78,41 +93,14 @@ def reverse_name(planner_name: str) -> str:
 
 def resolve_resource_id(planner_name: str, token) -> str | None:
     target = reverse_name(planner_name)
-    for r in all_resources(token):
-        if r.get("name") == target:
-            return r["id"]
+    for u in all_auth_users(token):
+        if u.get("name") == target:
+            return u["id"]
     return None
 
-# Auth User 캐시 — Project.ownerId 매핑용 (resource ID와 다름)
-_auth_users_cache = None
-def all_auth_users(token):
-    global _auth_users_cache
-    if _auth_users_cache is None:
-        # auth-service의 사용자 리스트 — /api/v1/users (port 3001)
-        r = SESSION.get("http://localhost:3001/api/v1/users",
-                        headers=H(token), timeout=15)
-        if r.ok:
-            d = r.json()
-            _auth_users_cache = d.get("items", d if isinstance(d, list) else [])
-        else:
-            _auth_users_cache = []
-    return _auth_users_cache
-
 def resolve_owner_id(planner_name: str, token) -> str | None:
-    """Planner 이름 → auth_user.id (Project.ownerId 용).
-    매핑 흐름: planner_name → resource.name → resource.userId(email) → auth_users.email → auth_users.id
-    """
-    target_name = reverse_name(planner_name)
-    # 1) resource에서 name → email 찾기
-    resource = next((r for r in all_resources(token) if r.get("name") == target_name), None)
-    email = resource.get("userId") if resource else None
-    # 2) email로 auth_user 찾기
-    if email:
-        au = next((u for u in all_auth_users(token) if u.get("email") == email), None)
-        if au: return au["id"]
-    # 3) fallback — auth_user에서 name으로 직접 매칭 (동명이인 위험 있음)
-    au = next((u for u in all_auth_users(token) if u.get("name") == target_name), None)
-    return au["id"] if au else None
+    """Planner 이름 → auth_user.id. resource_id와 동일."""
+    return resolve_resource_id(planner_name, token)
 
 # ─── Excel 파싱 ──────────────────────────────────────────────────────────────
 
