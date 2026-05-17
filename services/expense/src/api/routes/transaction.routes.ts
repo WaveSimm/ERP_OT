@@ -12,14 +12,18 @@ const createSchema = z.object({
   currency: z.string().max(8).optional(),
   paymentType: z.string().max(50).optional(),
   approvalNo: z.string().max(50).optional(),
-  categoryId: z.string().optional(),
+  contractId: z.string().nullable().optional(),
+  contractNumber: z.string().max(50).nullable().optional(),
+  contractName: z.string().max(200).nullable().optional(),
   detail: z.string().max(500).optional(),
   memo: z.string().max(500).optional(),
   isCanceled: z.boolean().optional(),
 });
 
 const updateSchema = z.object({
-  categoryId: z.string().nullable().optional(),
+  contractId: z.string().nullable().optional(),
+  contractNumber: z.string().max(50).nullable().optional(),
+  contractName: z.string().max(200).nullable().optional(),
   detail: z.string().max(500).nullable().optional(),
   memo: z.string().max(500).nullable().optional(),
   status: z.enum(STATUSES).optional(),
@@ -34,7 +38,7 @@ export async function transactionRoutes(app: FastifyInstance, opts: { service: T
     const q = req.query as Record<string, string | undefined>;
     return service.list(req.userId, {
       ...(q.status && { status: q.status as any }),
-      ...(q.categoryId && { categoryId: q.categoryId }),
+      ...(q.contractId && { contractId: q.contractId }),
       ...(q.sourceId && { sourceId: q.sourceId }),
       ...(q.from && { from: new Date(q.from) }),
       ...(q.to && { to: new Date(q.to) }),
@@ -59,7 +63,9 @@ export async function transactionRoutes(app: FastifyInstance, opts: { service: T
       ...(body.currency && { currency: body.currency }),
       ...(body.paymentType && { paymentType: body.paymentType }),
       ...(body.approvalNo && { approvalNo: body.approvalNo }),
-      ...(body.categoryId && { categoryId: body.categoryId }),
+      ...(body.contractId !== undefined && { contractId: body.contractId }),
+      ...(body.contractNumber !== undefined && { contractNumber: body.contractNumber }),
+      ...(body.contractName !== undefined && { contractName: body.contractName }),
       ...(body.detail && { detail: body.detail }),
       ...(body.memo && { memo: body.memo }),
       ...(body.isCanceled !== undefined && { isCanceled: body.isCanceled }),

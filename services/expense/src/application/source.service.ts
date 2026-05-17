@@ -1,4 +1,4 @@
-import type { PrismaClient, SourceType } from "@prisma/client";
+import type { PrismaClient, SourceType, SourceOwnership } from "@prisma/client";
 
 export interface CreateSourceInput {
   userId: string;
@@ -6,6 +6,7 @@ export interface CreateSourceInput {
   displayName?: string | undefined;
   type: SourceType;
   cardNumber?: string | undefined;
+  ownership?: SourceOwnership | undefined;     // v1.6.1 (2026-05-15)
 }
 
 export class SourceService {
@@ -37,6 +38,7 @@ export class SourceService {
         displayName: input.displayName ?? null,
         type: input.type,
         cardNumber: input.cardNumber ?? null,
+        ...(input.ownership && { ownership: input.ownership }),
       },
     });
   }
@@ -49,6 +51,7 @@ export class SourceService {
       displayName?: string | null | undefined;
       type?: SourceType | undefined;
       cardNumber?: string | null | undefined;
+      ownership?: SourceOwnership | undefined;
       active?: boolean | undefined;
     },
   ) {
@@ -60,6 +63,7 @@ export class SourceService {
         ...(data.displayName !== undefined && { displayName: data.displayName }),
         ...(data.type !== undefined && { type: data.type }),
         ...(data.cardNumber !== undefined && { cardNumber: data.cardNumber }),
+        ...(data.ownership !== undefined && { ownership: data.ownership }),
         ...(data.active !== undefined && { active: data.active }),
       },
     });

@@ -12,13 +12,19 @@ const TYPE_LABEL: Record<string, string> = {
   CASH: "현금",
 };
 
+// v1.6.1 (2026-05-15): 정산 구분 (개인/법인)
+const OWNERSHIP_LABEL: Record<string, string> = {
+  PERSONAL: "개인",
+  CORPORATE: "법인",
+};
+
 export default function SourcesPage() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [includeInactive, setIncludeInactive] = useState(false);
 
-  type SortKey = "name" | "displayName" | "type" | "cardNumber" | "active";
+  type SortKey = "name" | "displayName" | "type" | "cardNumber" | "ownership" | "active";
   const sort = useTableSort<any, SortKey>(items, {
     initialKey: "name",
     initialDir: "asc",
@@ -28,6 +34,7 @@ export default function SourcesPage() {
         case "displayName": return s.displayName ?? "";
         case "type": return TYPE_LABEL[s.type] ?? s.type;
         case "cardNumber": return s.cardNumber ?? "";
+        case "ownership": return OWNERSHIP_LABEL[s.ownership] ?? s.ownership ?? "";
         case "active": return s.active ? 1 : 0;
       }
     },
@@ -36,7 +43,9 @@ export default function SourcesPage() {
 
   const load = async () => {
     setLoading(true);
-    setItems(await expenseApi.listSources(includeInactive));
+    // v1.6.1 (2026-05-15): 현금(CASH)은 카드 관리 목록에서 숨김 (내부 사용은 그대로)
+    const all = await expenseApi.listSources(includeInactive);
+    setItems(all.filter((s: any) => s.type !== "CASH"));
     setLoading(false);
   };
 
@@ -59,15 +68,16 @@ export default function SourcesPage() {
               <th onClick={() => sort.handleSort("name")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">명세표이름{sort.sortIndicator("name")}</th>
               <th onClick={() => sort.handleSort("displayName")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">대표이름{sort.sortIndicator("displayName")}</th>
               <th onClick={() => sort.handleSort("cardNumber")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">카드번호{sort.sortIndicator("cardNumber")}</th>
+              <th onClick={() => sort.handleSort("ownership")} className="px-3 py-2 text-center cursor-pointer hover:bg-gray-100 select-none">정산구분{sort.sortIndicator("ownership")}</th>
               <th onClick={() => sort.handleSort("active")} className="px-3 py-2 text-center cursor-pointer hover:bg-gray-100 select-none">상태{sort.sortIndicator("active")}</th>
               <th className="px-3 py-2 w-24"></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} className="py-12 text-center text-gray-400">불러오는 중...</td></tr>
+              <tr><td colSpan={6} className="py-12 text-center text-gray-400">불러오는 중...</td></tr>
             ) : sortedItems.length === 0 ? (
-              <tr><td colSpan={5} className="py-12 text-center text-gray-400">등록된 결제수단이 없습니다.</td></tr>
+              <tr><td colSpan={6} className="py-12 text-center text-gray-400">등록된 결제수단이 없습니다.</td></tr>
             ) : sortedItems.map((s) => (
               <SourceRow key={s.id} source={s} onSaved={load} />
             ))}
@@ -119,6 +129,17 @@ function SourceRow({ source, onSaved }: { source: any; onSaved: () => void }) {
           className="text-xs w-full px-2 py-1 border border-transparent rounded hover:border-gray-300 focus:border-blue-500 focus:outline-none font-mono" />
       </td>
       <td className="px-3 py-2 text-center">
+        <select value={source.ownership || "PERSONAL"}
+          onChange={async (e) => {
+            try { await expenseApi.updateSource(source.id, { ownership: e.target.value as "PERSONAL" | "CORPORATE" }); onSaved(); }
+            catch (err: any) { alert(`저장 실패: ${err.message}`); }
+          }}
+          className="text-xs px-1 py-0.5 border rounded focus:border-blue-500 focus:outline-none">
+          <option value="PERSONAL">개인</option>
+          <option value="CORPORATE">법인</option>
+        </select>
+      </td>
+      <td className="px-3 py-2 text-center">
         <span className={`text-xs ${source.active ? "text-green-600" : "text-gray-400"}`}>
           {source.active ? "활성" : "비활성"}
         </span>
@@ -141,17 +162,17 @@ function SourceRow({ source, onSaved }: { source: any; onSaved: () => void }) {
 }
 
 function SourceForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({ displayName: "", cardNumber: "", name: "" });
+  const [form, setForm] = useState({ displayName: "", cardNumber: "", name: "", ownership: "PERSONAL" as "PERSONAL" | "CORPORATE" });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   // displayName/cardNumber에서 카드사 자동 감지 (parser 디스패치용)
+  // v1.6.1 (2026-05-15): 카드 관리 목록에서는 현금 등록 안 함 — CASH 매칭 제거
   const detectType = (displayName: string): string => {
     const s = displayName.toLowerCase();
     if (s.includes("신한") || s.includes("shinhan")) return "CARD_SHINHAN";
     if (s.includes("현대") || s.includes("hyundai")) return "CARD_HYUNDAI";
     if (s.includes("국민") || s.includes("kb") || s.includes("쿠팡")) return "CARD_KB";
-    if (s.includes("현금") || s.includes("cash")) return "CASH";
     return "CARD_OTHER";
   };
 
@@ -166,6 +187,7 @@ function SourceForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
         name: nameToSave,
         displayName: form.displayName,
         type: detectType(form.displayName),
+        ownership: form.ownership,
         ...(form.cardNumber && { cardNumber: form.cardNumber }),
       });
       onSaved();
@@ -189,6 +211,14 @@ function SourceForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
             <input type="text" value={form.cardNumber} onChange={(e) => setForm({ ...form, cardNumber: e.target.value })}
               placeholder="예: 1234-5678-9012-3456"
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">정산구분</label>
+            <select value={form.ownership} onChange={(e) => setForm({ ...form, ownership: e.target.value as "PERSONAL" | "CORPORATE" })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+              <option value="PERSONAL">개인 (본인 부담 → 환급)</option>
+              <option value="CORPORATE">법인 (회사 결제 → 환급 없음)</option>
+            </select>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">명세표이름 <span className="text-gray-400 font-normal">(선택)</span></label>

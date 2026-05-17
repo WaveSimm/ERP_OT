@@ -68,22 +68,45 @@ export default function SettlementsPage({ statusFilter }: { statusFilter?: strin
               </tr>
             </thead>
             <tbody>
-              {sortedItems.map((s) => (
-                <tr key={s.id} onClick={() => setSelectedId(s.id)}
-                  className="border-t border-gray-100 hover:bg-blue-50/40 cursor-pointer">
-                  <td colSpan={5} className="p-0">
-                    <div className="grid grid-cols-[3fr_2fr_1fr_1fr_1fr] gap-2 px-3 py-2 items-center">
-                      <span className="font-medium text-gray-900 truncate">{s.title}</span>
-                      <span className="text-xs text-gray-500">
-                        {s.periodStart ? `${fmtDate(s.periodStart)} ~ ${fmtDate(s.periodEnd)}` : "기간 미설정"}
-                      </span>
-                      <span className="text-right tabular-nums text-xs">{s.totalCount ?? 0}</span>
-                      <span className="text-right tabular-nums font-medium">{Number(s.totalAmount ?? 0).toLocaleString()}원</span>
-                      <span className="text-center"><SettlementStatusBadge status={s.status} /></span>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {sortedItems.map((s) => {
+                // v1.6.4 (2026-05-16): 결재 미연결 DRAFT 정산묶음에만 「결재 작성」 액션
+                const canCreateApproval = ["DRAFT", "REJECTED"].includes(s.status) && !s.approvalDocumentId && (s.totalCount ?? 0) > 0;
+                return (
+                  <tr key={s.id} onClick={() => setSelectedId(s.id)}
+                    className="border-t border-gray-100 hover:bg-blue-50/40 cursor-pointer">
+                    <td colSpan={5} className="p-0">
+                      <div className="grid grid-cols-[3fr_2fr_1fr_1fr_1fr_auto] gap-2 px-3 py-2 items-center">
+                        <span className="font-medium text-gray-900 truncate">{s.title}</span>
+                        <span className="text-xs text-gray-500">
+                          {s.periodStart ? `${fmtDate(s.periodStart)} ~ ${fmtDate(s.periodEnd)}` : "기간 미설정"}
+                        </span>
+                        <span className="text-right tabular-nums text-xs">{s.totalCount ?? 0}</span>
+                        <span className="text-right tabular-nums font-medium">{Number(s.totalAmount ?? 0).toLocaleString()}원</span>
+                        <span className="text-center"><SettlementStatusBadge status={s.status} /></span>
+                        <span className="text-right whitespace-nowrap">
+                          {canCreateApproval ? (
+                            <a
+                              href={`/approval/new?settlementId=${s.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-xs px-2 py-0.5 border border-blue-300 text-blue-700 rounded hover:bg-blue-50"
+                            >
+                              결재 작성
+                            </a>
+                          ) : s.approvalDocumentId ? (
+                            <a
+                              href={`/approval/${s.approvalDocumentId}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-xs px-2 py-0.5 border border-gray-300 text-gray-600 rounded hover:bg-gray-50"
+                            >
+                              결재 →
+                            </a>
+                          ) : null}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

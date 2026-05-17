@@ -22,7 +22,6 @@ import {
 } from "@erp-ot/shared";
 
 import { SourceService } from "./application/source.service";
-import { CategoryService } from "./application/category.service";
 import { TransactionService } from "./application/transaction.service";
 import { StatementService } from "./application/statement.service";
 import { ReceiptService } from "./application/receipt.service";
@@ -30,7 +29,6 @@ import { MatchService } from "./application/match.service";
 import { SettlementService } from "./application/settlement.service";
 
 import { sourceRoutes } from "./api/routes/source.routes";
-import { categoryRoutes, adminCategoryRoutes } from "./api/routes/category.routes";
 import { transactionRoutes } from "./api/routes/transaction.routes";
 import { statementRoutes } from "./api/routes/statement.routes";
 import { receiptRoutes } from "./api/routes/receipt.routes";
@@ -113,7 +111,6 @@ app.register(requireAuth, { skipPaths: ["/health", "/internal/"] });
 const prisma = new PrismaClient();
 
 const sourceService = new SourceService(prisma);
-const categoryService = new CategoryService(prisma);
 const transactionService = new TransactionService(prisma);
 const statementService = new StatementService(prisma, env.EXPENSE_ATTACHMENT_DIR);
 
@@ -128,7 +125,7 @@ const receiptService = new ReceiptService(
 );
 const approvalClient = new ApprovalClient(env.APPROVAL_SERVICE_URL, env.INTERNAL_API_TOKEN);
 const authClient = new AuthClient(env.AUTH_SERVICE_URL, env.INTERNAL_API_TOKEN);
-const settlementService = new SettlementService(prisma, approvalClient, storage);
+const settlementService = new SettlementService(prisma, approvalClient);
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 app.get("/health", async () => ({
@@ -140,7 +137,6 @@ app.get("/health", async () => ({
 
 app.register(async (instance) => {
   await instance.register(sourceRoutes, { service: sourceService, prefix: "/sources" });
-  await instance.register(categoryRoutes, { service: categoryService, prefix: "/categories" });
   await instance.register(transactionRoutes, { service: transactionService, prefix: "/transactions" });
   await instance.register(statementRoutes, { service: statementService, prefix: "/statements" });
   await instance.register(receiptRoutes, {
@@ -156,7 +152,6 @@ app.register(async (instance) => {
     isFinanceTeam: (userId) => authClient.isFinanceTeam(userId),
     prefix: "/finance",
   });
-  await instance.register(adminCategoryRoutes, { service: categoryService, prefix: "/admin/categories" });
 }, { prefix: "/api/v1/expense" });
 
 // Internal API (서비스 간 통신, 인증 미들웨어 우회)

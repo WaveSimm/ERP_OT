@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { expenseApi, projectApi, departmentApi, userManagementApi, approvalLineApi } from "@/lib/api";
+import { expenseApi } from "@/lib/api";
 import { fmtDate, fmtDateTime24 } from "@/lib/datetime";
 import { SettlementStatusBadge } from "../../page";
 
@@ -15,31 +15,9 @@ export function SettlementDetail({ id, onBack }: { id: string; onBack?: () => vo
   const router = useRouter();
   const [s, setS] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [canceling, setCanceling] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [titleSaving, setTitleSaving] = useState(false);
-
-  // 결재 상신 시 함께 보낼 옵션 — 지출결의서 편집 단계 생략용
-  const [projectName, setProjectName] = useState("");
-  const [body, setBody] = useState("");
-  const [projects, setProjects] = useState<any[]>([]);
-  const [projectSearch, setProjectSearch] = useState("");
-  const [showProjectDropdown, setShowProjectDropdown] = useState(false);
-  const [departments, setDepartments] = useState<any[]>([]);
-  const [allMembers, setAllMembers] = useState<any[]>([]);
-  const [approvalLine, setApprovalLine] = useState<{ userId: string; userName: string; role: string }[]>([]);
-  const [selectedDeptId, setSelectedDeptId] = useState("");
-  const [selectedUserId, setSelectedUserId] = useState("");
-  const [selectedRole, setSelectedRole] = useState("APPROVER");
-
-  const filteredProjects = projectSearch
-    ? projects.filter((p: any) => (p.name || "").toLowerCase().includes(projectSearch.toLowerCase()))
-    : projects;
-  const filteredMembers = selectedDeptId
-    ? allMembers.filter((m: any) => m.departmentId === selectedDeptId)
-    : allMembers;
 
   const load = async () => {
     setLoading(true);
@@ -51,91 +29,11 @@ export function SettlementDetail({ id, onBack }: { id: string; onBack?: () => vo
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
 
-  // DRAFT/REJECTED 일 때만 결재 상신 입력용 데이터 로드
-  useEffect(() => {
-    if (!s) return;
-    if (!["DRAFT", "REJECTED"].includes(s.status)) return;
-    Promise.all([
-      projectApi.list().then((r: any) => r.items || r).catch(() => []),
-      departmentApi.list().catch(() => []),
-      userManagementApi.members(true).catch(() => []),
-    ]).then(([projs, depts, members]) => {
-      setProjects(Array.isArray(projs) ? projs : []);
-      setDepartments(Array.isArray(depts) ? depts : []);
-      setAllMembers(Array.isArray(members) ? members : []);
-    });
-  }, [s?.status]);
-
-  const addApprover = () => {
-    if (!selectedUserId) return;
-    const m = allMembers.find((x: any) => x.id === selectedUserId);
-    if (!m) return;
-    if (approvalLine.some((a) => a.userId === selectedUserId)) return;
-    setApprovalLine((prev) => [...prev, { userId: m.id, userName: m.name, role: selectedRole }]);
-    setSelectedUserId("");
-  };
-  const removeApprover = (idx: number) => setApprovalLine((p) => p.filter((_, i) => i !== idx));
-
-  const loadMyApprovalLine = async () => {
-    try {
-      const info = await approvalLineApi.getMe();
-      if (!info) return;
-      const line: { userId: string; userName: string; role: string }[] = [];
-      if (info.approverId && info.approverName) {
-        line.push({ userId: info.approverId, userName: info.approverName + (info.isDelegated ? " (위임)" : ""), role: "APPROVER" });
-      }
-      if (info.secondApproverId && info.secondApproverName) {
-        line.push({ userId: info.secondApproverId, userName: info.secondApproverName, role: "APPROVER" });
-      }
-      if (info.thirdApproverId && info.thirdApproverName) {
-        line.push({ userId: info.thirdApproverId, userName: info.thirdApproverName, role: "APPROVER" });
-      }
-      if (line.length > 0) setApprovalLine(line);
-    } catch { /* ignore */ }
-  };
-
-  const submit = async () => {
-    if (!confirm("결재를 상신하시겠습니까?\n상신 후에는 정산 내용을 수정할 수 없습니다.")) return;
-    setSubmitting(true);
-    try {
-      await expenseApi.submitSettlement(id, {
-        projectName: projectName.trim() || null,
-        body: body.trim() || null,
-        approvers: approvalLine.length > 0
-          ? approvalLine.map((a, i) => ({
-              stepOrder: i + 1,
-              roleName: a.role === "AGREEER" ? "합의" : "결재",
-              approverId: a.userId,
-              approverName: a.userName,
-            }))
-          : undefined,
-      });
-      await load();
-    } catch (e: any) {
-      alert(e.message);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const remove = async () => {
-    if (!confirm("정산결재를 삭제하시겠습니까?")) return;
+    if (!confirm("정산묶음을 삭제하시겠습니까?")) return;
     await expenseApi.deleteSettlement(id);
     if (onBack) onBack();
     else router.push("/expense/settlements");
-  };
-
-  const cancel = async () => {
-    if (!confirm("결재 상신을 취소하시겠습니까?\n취소하면 정산이 DRAFT 상태로 되돌아가며,\n결재 문서도 함께 회수됩니다.")) return;
-    setCanceling(true);
-    try {
-      await expenseApi.cancelSettlement(id);
-      await load();
-    } catch (e: any) {
-      alert(e.message);
-    } finally {
-      setCanceling(false);
-    }
   };
 
   if (loading || !s) {
@@ -201,29 +99,64 @@ export function SettlementDetail({ id, onBack }: { id: string; onBack?: () => vo
       </div>
 
       {/* 요약 카드 */}
-      <div className="bg-white border border-gray-200 rounded-lg p-4 grid grid-cols-3 gap-4">
-        <Stat label="기간" value={`${fmtDate(s.periodStart)} ~ ${fmtDate(s.periodEnd)}`} />
-        <Stat label="거래 건수" value={s.totalCount ?? 0} />
-        <Stat label="총 금액" value={`${Number(s.totalAmount ?? 0).toLocaleString()}원`} />
-      </div>
+      {(() => {
+        // v1.6.1 (2026-05-15): 개인/법인 분리 합계 (source.ownership 기반)
+        let personalAmt = 0, corporateAmt = 0;
+        let personalCnt = 0, corporateCnt = 0;
+        (s.items || []).forEach((it: any) => {
+          const own = it.transaction?.source?.ownership;
+          const amt = Number(it.transaction?.amount || 0);
+          if (own === "CORPORATE") { corporateAmt += amt; corporateCnt++; }
+          else { personalAmt += amt; personalCnt++; }
+        });
+        return (
+          <div className="bg-white border border-gray-200 rounded-lg p-4 grid grid-cols-2 md:grid-cols-5 gap-4">
+            <Stat label="기간" value={`${fmtDate(s.periodStart)} ~ ${fmtDate(s.periodEnd)}`} />
+            <Stat label="거래 건수" value={s.totalCount ?? 0} />
+            <Stat label="총 금액" value={`${Number(s.totalAmount ?? 0).toLocaleString()}원`} />
+            <div>
+              <div className="text-xs text-gray-500 mb-0.5">개인 (환급 대상)</div>
+              <div className="text-sm font-semibold text-blue-700">{personalAmt.toLocaleString()}원</div>
+              <div className="text-[10px] text-gray-400">{personalCnt}건</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 mb-0.5">법인 (회사처리)</div>
+              <div className="text-sm font-semibold text-gray-600">{corporateAmt.toLocaleString()}원</div>
+              <div className="text-[10px] text-gray-400">{corporateCnt}건</div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 진행 추적 */}
       <ProgressTimeline s={s} />
 
-      {/* 카테고리별 합계 */}
-      {s.categoryStats && Object.keys(s.categoryStats).length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <h2 className="text-sm font-bold text-gray-700 mb-2">카테고리별 합계</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-            {Object.entries(s.categoryStats).map(([code, stat]: [string, any]) => (
-              <div key={code} className="border border-gray-100 rounded p-2 text-xs">
-                <div className="text-gray-500">{stat.name}</div>
-                <div className="tabular-nums font-medium">{stat.amount.toLocaleString()}원 <span className="text-gray-400">({stat.count}건)</span></div>
-              </div>
-            ))}
+      {/* 사업(계약)별 합계 — items에서 계약 snapshot으로 직접 집계 */}
+      {(() => {
+        const byContract = new Map<string, { name: string; count: number; amount: number }>();
+        (s.items || []).forEach((it: any) => {
+          const t = it.transaction;
+          const key = t.contractNumber && t.contractName ? `${t.contractNumber} - ${t.contractName}` : (t.contractNumber || t.contractName || "없음");
+          const bucket = byContract.get(key) ?? { name: key, count: 0, amount: 0 };
+          bucket.count++;
+          bucket.amount += Number(t.amount || 0);
+          byContract.set(key, bucket);
+        });
+        if (byContract.size === 0) return null;
+        return (
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <h2 className="text-sm font-bold text-gray-700 mb-2">사업(계약)별 합계</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+              {Array.from(byContract.entries()).map(([key, stat]) => (
+                <div key={key} className="border border-gray-100 rounded p-2 text-xs">
+                  <div className="text-gray-500 truncate" title={stat.name}>{stat.name}</div>
+                  <div className="tabular-nums font-medium">{stat.amount.toLocaleString()}원 <span className="text-gray-400">({stat.count}건)</span></div>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* 거래 라인 */}
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
@@ -233,7 +166,7 @@ export function SettlementDetail({ id, onBack }: { id: string; onBack?: () => vo
             <tr>
               <th className="px-3 py-1.5 text-left">거래일시</th>
               <th className="px-3 py-1.5 text-left">가맹점</th>
-              <th className="px-3 py-1.5 text-left">카테고리</th>
+              <th className="px-3 py-1.5 text-left">사업(계약)</th>
               <th className="px-3 py-1.5 text-left">상세 내역</th>
               <th className="px-3 py-1.5 text-left">결제수단</th>
               <th className="px-3 py-1.5 text-right">금액</th>
@@ -254,7 +187,9 @@ export function SettlementDetail({ id, onBack }: { id: string; onBack?: () => vo
                       <span className="ml-2 px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-700 rounded">취소</span>
                     )}
                   </td>
-                  <td className="px-3 py-1.5 text-xs">{t.category?.name ?? "기타"}</td>
+                  <td className="px-3 py-1.5 text-xs">
+                    {t.contractNumber && t.contractName ? `${t.contractNumber} - ${t.contractName}` : (t.contractNumber || t.contractName || "없음")}
+                  </td>
                   <td className="px-3 py-1.5 text-xs text-gray-700 max-w-[200px] truncate" title={t.detail ?? ""}>{t.detail ?? ""}</td>
                   <td className="px-3 py-1.5 text-xs text-gray-500">{t.source?.displayName ?? t.source?.name ?? "-"}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums">{Number(t.amount).toLocaleString()}</td>
@@ -271,98 +206,13 @@ export function SettlementDetail({ id, onBack }: { id: string; onBack?: () => vo
         </table>
       </div>
 
-      {/* 결재 상신 입력 (DRAFT/REJECTED 만) — 지출결의서 편집 단계 생략용 */}
-      {(isDraft || isRejected) && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
-          <h2 className="text-sm font-bold text-gray-700">결재 상신 정보</h2>
-          <p className="text-xs text-gray-500">아래 항목은 상신할 결재 문서에 함께 들어갑니다. 비워두면 기본값 사용.</p>
-
-          {/* 프로젝트 (옵션) */}
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">프로젝트 (옵션)</label>
-            <div className="relative">
-              <input
-                type="text"
-                value={projectName}
-                onChange={(e) => { setProjectName(e.target.value); setProjectSearch(e.target.value); setShowProjectDropdown(true); }}
-                onFocus={() => setShowProjectDropdown(true)}
-                onBlur={() => setTimeout(() => setShowProjectDropdown(false), 150)}
-                placeholder="프로젝트명 검색 또는 직접 입력"
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-              />
-              {showProjectDropdown && filteredProjects.length > 0 && (
-                <ul className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg max-h-48 overflow-y-auto shadow-lg">
-                  {filteredProjects.slice(0, 20).map((p: any) => (
-                    <li key={p.id}
-                      onMouseDown={() => { setProjectName(p.name); setShowProjectDropdown(false); }}
-                      className="px-3 py-1.5 text-sm hover:bg-blue-50 cursor-pointer">
-                      {p.name}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-
-          {/* 본문 (옵션) */}
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">본문 (옵션)</label>
-            <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={3}
-              placeholder="결재 문서 본문 — 비워두면 기본값"
-              className="w-full border rounded-lg px-3 py-2 text-sm" />
-          </div>
-
-          {/* 결재선 */}
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <label className="text-xs text-gray-600">결재선 (비우면 부서 기본선 자동 적용)</label>
-              <button onClick={loadMyApprovalLine} className="text-xs text-blue-500 hover:underline">부서 기본선 불러오기</button>
-            </div>
-            {approvalLine.length > 0 && (
-              <div className="flex gap-2 flex-wrap mb-2">
-                {approvalLine.map((a, i) => (
-                  <div key={i} className="flex items-center gap-1 bg-blue-50 rounded-full px-3 py-1 text-sm">
-                    <span className="text-xs text-blue-500">{i + 1}차</span>
-                    <span>{a.userName}</span>
-                    <span className="text-xs text-gray-400">({a.role === "APPROVER" ? "결재" : "합의"})</span>
-                    <button onClick={() => removeApprover(i)} className="text-gray-400 hover:text-red-500 ml-1">✕</button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="flex gap-2 items-end flex-wrap">
-              <div>
-                <label className="block text-xs text-gray-500 mb-0.5">부서</label>
-                <select value={selectedDeptId} onChange={(e) => { setSelectedDeptId(e.target.value); setSelectedUserId(""); }}
-                  className="border rounded px-2 py-1 text-sm w-36">
-                  <option value="">전체 부서</option>
-                  {departments.map((d: any) => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-0.5">이름</label>
-                <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)}
-                  className="border rounded px-2 py-1 text-sm w-40">
-                  <option value="">선택하세요</option>
-                  {filteredMembers.map((m: any) => (
-                    <option key={m.id} value={m.id}>{m.name}{m.position ? ` (${m.position})` : ""}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-0.5">역할</label>
-                <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)}
-                  className="border rounded px-2 py-1 text-sm">
-                  <option value="APPROVER">결재</option>
-                  <option value="AGREEER">합의</option>
-                </select>
-              </div>
-              <button onClick={addApprover} disabled={!selectedUserId}
-                className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm disabled:opacity-40">추가</button>
-            </div>
-          </div>
+      {/* v1.6.4 (2026-05-16): 결재 분리 — 정산서 상세에서는 결재 작성 진입만 제공 */}
+      {(isDraft || isRejected) && !s.approvalDocumentId && (
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <p className="text-sm text-gray-600">
+            이 정산묶음으로 결재를 작성하려면 아래 「결재 작성」 버튼을 누르세요.
+            양식과 결재선·내용은 결재 페이지에서 자유롭게 선택할 수 있습니다.
+          </p>
         </div>
       )}
 
@@ -372,28 +222,22 @@ export function SettlementDetail({ id, onBack }: { id: string; onBack?: () => vo
           className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
           📥 Excel 다운로드
         </a>
-        {isDraft && (
-          <button onClick={submit} disabled={submitting || (s.totalCount ?? 0) === 0}
-            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50">
-            {submitting ? "상신 중..." : "📤 결재 상신"}
-          </button>
+        {(isDraft || isRejected) && !s.approvalDocumentId && (s.totalCount ?? 0) > 0 && (
+          <a href={`/approval/new?settlementId=${id}`}
+            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">
+            📤 결재 작성
+          </a>
         )}
-        {(isDraft || isRejected) && (
+        {(isDraft || isRejected) && !s.approvalDocumentId && (
           <button onClick={remove}
             className="px-3 py-1.5 text-sm border border-red-300 text-red-600 rounded-md hover:bg-red-50">
             삭제
           </button>
         )}
-        {s.status === "SUBMITTED" && (
-          <button onClick={cancel} disabled={canceling}
-            className="px-3 py-1.5 text-sm border border-amber-300 text-amber-700 rounded-md hover:bg-amber-50 disabled:opacity-50">
-            {canceling ? "취소 중..." : "↩ 결재 취소"}
-          </button>
-        )}
         {s.approvalDocumentId && (
           <a href={`/approval/${s.approvalDocumentId}`}
             className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
-            📄 결재 문서 보기
+            📄 결재 문서 보기 →
           </a>
         )}
       </div>

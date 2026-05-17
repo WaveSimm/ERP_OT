@@ -42,8 +42,7 @@ export default function ExpenseDashboardPage() {
         <div className="flex flex-wrap gap-2">
           <Link href="/expense/transactions" className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50">📋 거래 입력·관리</Link>
           <Link href="/expense/receipts" className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50">🧾 영수증 업로드</Link>
-          <Link href="/expense/settlements" className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50">📦 정산결재</Link>
-          <Link href="/expense/categories" className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50">🏷 카테고리</Link>
+          <Link href="/expense/settlements" className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50">📦 정산목록관리</Link>
           <Link href="/expense/sources" className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50">💳 카드 관리</Link>
         </div>
       </div>

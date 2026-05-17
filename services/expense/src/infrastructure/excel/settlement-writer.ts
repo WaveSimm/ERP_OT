@@ -1,6 +1,5 @@
-// 정산서 Excel 출력 (V2 P4 — 기본형)
-// 카테고리별 sheet + 거래 라인 + 합계.
-// 영수증 이미지 embed는 V3 후보.
+// 정산서 Excel 출력 — 계약별 sheet + 거래 라인 + 합계.
+// v1.6.2 (2026-05-15): ExpenseCategory 폐기, 계약 snapshot(contractNumber/contractName) 기반 그룹
 
 import ExcelJS from "exceljs";
 import type { Prisma } from "@prisma/client";
@@ -11,7 +10,6 @@ type SettlementWithItems = Prisma.ExpenseSettlementGetPayload<{
       include: {
         transaction: {
           include: {
-            category: true;
             source: true;
             matches: { include: { receipt: true } };
           };
@@ -42,20 +40,23 @@ export async function buildSettlementWorkbook(s: SettlementWithItems): Promise<B
   summary.addRow({ label: "상태", value: STATUS_LABEL[s.status] ?? s.status });
   summary.getRow(1).font = { bold: true };
 
-  // ── 카테고리별 sheet ───────────────────────────────
-  const byCategory = new Map<string, typeof s.items>();
+  // ── 계약별 sheet ───────────────────────────────
+  const byContract = new Map<string, typeof s.items>();
   for (const it of s.items) {
-    const key = it.transaction.category?.sheetName ?? "기타";
-    if (!byCategory.has(key)) byCategory.set(key, []);
-    byCategory.get(key)!.push(it);
+    const t = it.transaction;
+    const key = t.contractNumber && t.contractName
+      ? `${t.contractNumber} - ${t.contractName}`
+      : t.contractNumber || t.contractName || "없음";
+    if (!byContract.has(key)) byContract.set(key, []);
+    byContract.get(key)!.push(it);
   }
 
-  for (const [sheetName, items] of byCategory) {
+  for (const [sheetName, items] of byContract) {
     const sh = wb.addWorksheet(sheetName.slice(0, 31));
     sh.columns = [
       { header: "거래일시", key: "transactedAt", width: 20 },
       { header: "가맹점", key: "merchantName", width: 30 },
-      { header: "카테고리", key: "categoryName", width: 16 },
+      { header: "사업(계약)", key: "contractLabel", width: 30 },
       { header: "상세 내역", key: "detail", width: 30 },
       { header: "결제수단", key: "sourceName", width: 18 },
       { header: "금액", key: "amount", width: 14 },
@@ -76,10 +77,13 @@ export async function buildSettlementWorkbook(s: SettlementWithItems): Promise<B
               : ""
           }`.trim()
         : "";
+      const contractLabel = t.contractNumber && t.contractName
+        ? `${t.contractNumber} - ${t.contractName}`
+        : t.contractNumber || t.contractName || "없음";
       sh.addRow({
         transactedAt: formatDateTime(t.transactedAt),
         merchantName: t.merchantName,
-        categoryName: t.category?.name ?? "기타",
+        contractLabel,
         detail: t.detail ?? "",
         sourceName: t.source.displayName ?? t.source.name,
         amount: Number(t.amount),
@@ -93,7 +97,7 @@ export async function buildSettlementWorkbook(s: SettlementWithItems): Promise<B
     const totalRow = sh.addRow({
       transactedAt: "",
       merchantName: "합계",
-      categoryName: "",
+      contractLabel: "",
       sourceName: "",
       amount: subtotal,
       memo: "",

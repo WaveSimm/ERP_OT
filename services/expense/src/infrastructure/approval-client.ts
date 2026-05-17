@@ -1,5 +1,5 @@
-// approval-service 자동 상신 — EXPENSE_CLAIM 양식
-// referenceType="EXPENSE_SETTLEMENT", referenceId=settlement.id 로 연결
+// approval-service 자동 상신 — EXPENSE 양식 (2026-05-11 EXPENSE_CLAIM 폐기 후 일원화)
+// referenceType="EXPENSE_SETTLEMENT", referenceId=settlement.id 로 경비정산 결재 식별
 
 export interface ExpenseClaimItem {
   transactedAt: Date;

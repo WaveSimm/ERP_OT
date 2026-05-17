@@ -9,7 +9,9 @@ export interface CreateTransactionInput {
   currency?: string;
   paymentType?: string;
   approvalNo?: string;
-  categoryId?: string;
+  contractId?: string | null;
+  contractNumber?: string | null;
+  contractName?: string | null;
   detail?: string;
   memo?: string;
   isCanceled?: boolean;
@@ -17,7 +19,7 @@ export interface CreateTransactionInput {
 
 export interface ListTransactionParams {
   status?: TransactionStatus;
-  categoryId?: string;
+  contractId?: string;
   sourceId?: string;
   from?: Date;
   to?: Date;
@@ -29,10 +31,10 @@ export class TransactionService {
   constructor(private readonly prisma: PrismaClient) {}
 
   async list(userId: string, params: ListTransactionParams = {}) {
-    const { status, categoryId, sourceId, from, to, page = 1, limit = 100 } = params;
+    const { status, contractId, sourceId, from, to, page = 1, limit = 100 } = params;
     const where: any = { userId };
     if (status) where.status = status;
-    if (categoryId) where.categoryId = categoryId;
+    if (contractId) where.contractId = contractId;
     if (sourceId) where.sourceId = sourceId;
     if (from || to) {
       where.transactedAt = {};
@@ -44,8 +46,7 @@ export class TransactionService {
       this.prisma.expenseTransaction.findMany({
         where,
         include: {
-          source: { select: { id: true, name: true, displayName: true, type: true } },
-          category: { select: { id: true, code: true, name: true } },
+          source: { select: { id: true, name: true, displayName: true, type: true, ownership: true } },
           matches: {
             select: { id: true, receiptId: true, confirmedAt: true, confidence: true },
           },
@@ -67,7 +68,6 @@ export class TransactionService {
       where: { id, userId },
       include: {
         source: true,
-        category: true,
         matches: { include: { receipt: true } },
       },
     });
@@ -75,19 +75,13 @@ export class TransactionService {
     return tx;
   }
 
-  // PERSONAL 카테고리 자동 EXCLUDED 처리 — code 조회
-  private async resolveStatusForCategory(categoryId: string | null): Promise<TransactionStatus> {
-    if (!categoryId) return "PENDING";
-    const cat = await this.prisma.expenseCategory.findUnique({
-      where: { id: categoryId },
-      select: { code: true },
-    });
-    if (cat?.code === "PERSONAL") return "EXCLUDED";
-    return "CATEGORIZED";
+  // v1.6.2 (2026-05-15): 계약 연결 시 CATEGORIZED, 미연결이면 PENDING
+  private resolveStatus(contractId: string | null | undefined): TransactionStatus {
+    return contractId ? "CATEGORIZED" : "PENDING";
   }
 
   async createManual(input: CreateTransactionInput) {
-    const status = await this.resolveStatusForCategory(input.categoryId ?? null);
+    const status = this.resolveStatus(input.contractId);
     return this.prisma.expenseTransaction.create({
       data: {
         userId: input.userId,
@@ -102,7 +96,9 @@ export class TransactionService {
         paymentType: input.paymentType ?? null,
         installmentMonths: null,
         approvalNo: input.approvalNo ?? null,
-        categoryId: input.categoryId ?? null,
+        contractId: input.contractId ?? null,
+        contractNumber: input.contractNumber ?? null,
+        contractName: input.contractName ?? null,
         detail: input.detail ?? null,
         memo: input.memo ?? null,
         status,
@@ -115,7 +111,9 @@ export class TransactionService {
     userId: string,
     id: string,
     data: {
-      categoryId?: string | null | undefined;
+      contractId?: string | null | undefined;
+      contractNumber?: string | null | undefined;
+      contractName?: string | null | undefined;
       detail?: string | null | undefined;
       memo?: string | null | undefined;
       status?: TransactionStatus | undefined;
@@ -125,11 +123,12 @@ export class TransactionService {
   ) {
     await this.get(userId, id);
     const updateData: any = {};
-    if (data.categoryId !== undefined) {
-      updateData.categoryId = data.categoryId;
+    if (data.contractId !== undefined) {
+      updateData.contractId = data.contractId;
+      updateData.contractNumber = data.contractNumber ?? null;
+      updateData.contractName = data.contractName ?? null;
       if (data.status === undefined) {
-        // PERSONAL 카테고리면 EXCLUDED, 그 외 카테고리는 CATEGORIZED, 카테고리 없으면 PENDING
-        updateData.status = await this.resolveStatusForCategory(data.categoryId);
+        updateData.status = this.resolveStatus(data.contractId);
       }
     }
     if (data.detail !== undefined) updateData.detail = data.detail;

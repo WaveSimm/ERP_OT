@@ -7,6 +7,7 @@ const createSchema = z.object({
   displayName: z.string().max(100).optional(),
   type: z.enum(["CARD_SHINHAN", "CARD_HYUNDAI", "CARD_KB", "CARD_OTHER", "CASH"]),
   cardNumber: z.string().max(50).optional(),
+  ownership: z.enum(["PERSONAL", "CORPORATE"]).optional(),
 });
 
 const updateSchema = z.object({
@@ -14,6 +15,7 @@ const updateSchema = z.object({
   displayName: z.string().max(100).nullable().optional(),
   type: z.enum(["CARD_SHINHAN", "CARD_HYUNDAI", "CARD_KB", "CARD_OTHER", "CASH"]).optional(),
   cardNumber: z.string().max(50).nullable().optional(),
+  ownership: z.enum(["PERSONAL", "CORPORATE"]).optional(),
   active: z.boolean().optional(),
 });
 

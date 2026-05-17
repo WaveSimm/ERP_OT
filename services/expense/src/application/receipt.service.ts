@@ -60,7 +60,7 @@ export class ReceiptService {
         matches: {
           include: {
             transaction: {
-              include: { source: true, category: true },
+              include: { source: true },
             },
           },
         },

@@ -5,12 +5,6 @@ import { buildSettlementWorkbook } from "../../infrastructure/excel/settlement-w
 
 const STATUSES = ["DRAFT", "SUBMITTED", "APPROVED", "RECEIVED", "PAID", "REJECTED"] as const;
 
-const createSchema = z.object({
-  periodStart: z.string().min(8),
-  periodEnd: z.string().min(8),
-  title: z.string().max(200).optional(),
-});
-
 const createEmptySchema = z.object({
   title: z.string().min(1).max(200),
 });
@@ -42,17 +36,6 @@ export async function settlementRoutes(app: FastifyInstance, opts: { service: Se
     return service.get(req.userId, id);
   });
 
-  // 정산서 작성·갱신 — 카테고리별로 N개 자동 생성·갱신 (legacy, 사용 안 함)
-  app.post("/", async (req, reply) => {
-    const body = createSchema.parse(req.body);
-    const result = await service.createForPeriodByCategory({
-      userId: req.userId,
-      periodStart: new Date(body.periodStart),
-      periodEnd: new Date(body.periodEnd),
-    });
-    return reply.code(201).send(result);
-  });
-
   // 빈 정산 묶음 생성 (수동 정산 워크플로우)
   app.post("/empty", async (req, reply) => {
     const body = createEmptySchema.parse(req.body);
@@ -80,31 +63,9 @@ export async function settlementRoutes(app: FastifyInstance, opts: { service: Se
     return service.updateTitle(req.userId, id, body.title);
   });
 
-  // 결재 상신 — DRAFT → SUBMITTED + approval 자동 생성
-  // body 옵션: projectName, body(richBody), approvers[] — 지출결의서 편집 단계 생략용
-  app.post("/:id/submit", async (req) => {
-    const { id } = req.params as { id: string };
-    const body = (req.body ?? {}) as {
-      projectName?: string | null;
-      body?: string | null;
-      approvers?: Array<{ stepOrder?: number; roleName?: string; approverId: string; approverName?: string }>;
-    };
-    const options: {
-      projectName?: string | null;
-      body?: string | null;
-      approvers?: Array<{ stepOrder?: number; roleName?: string; approverId: string; approverName?: string }>;
-    } = {};
-    if (body.projectName !== undefined) options.projectName = body.projectName;
-    if (body.body !== undefined) options.body = body.body;
-    if (body.approvers !== undefined) options.approvers = body.approvers;
-    return service.submit(req.userId, id, options);
-  });
-
-  // 결재 상신 취소 — SUBMITTED → DRAFT + approval 문서 withdraw
-  app.post("/:id/cancel", async (req) => {
-    const { id } = req.params as { id: string };
-    return service.cancelSubmission(req.userId, id);
-  });
+  // v1.6.4 (2026-05-16): 결재 분리 — settlement에서 직접 상신/취소 라우트 제거.
+  // 결재 작성·취소는 /approval/new 또는 결재 상세 페이지에서 수행.
+  // expense-service는 internal /settlements/:id/link-approval webhook으로 연결됨.
 
   // Excel 다운로드
   app.get("/:id/excel", async (req, reply) => {
@@ -168,6 +129,31 @@ export async function settlementInternalRoutes(app: FastifyInstance, opts: { ser
   app.addHook("onRequest", async (req, reply) => {
     const token = req.headers["x-internal-token"];
     if (token !== internalToken) return reply.code(403).send({ error: "Forbidden" });
+  });
+
+  // v1.6.4 (2026-05-16): 결재 생성 시 settlement 연결 (approval-service → expense-service)
+  app.post("/settlements/:id/link-approval", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = req.body as { approvalDocumentId: string };
+    if (!body?.approvalDocumentId) {
+      return reply.code(400).send({ error: "approvalDocumentId required" });
+    }
+    try {
+      const updated = await service.linkApproval(id, body.approvalDocumentId);
+      return updated;
+    } catch (e: any) {
+      return reply.code(400).send({ error: e.message ?? "link failed" });
+    }
+  });
+
+  // 결재 삭제 시 settlement 연결 해제 (approval-service → expense-service)
+  app.post("/settlements/unlink-approval", async (req, reply) => {
+    const body = req.body as { approvalDocumentId: string };
+    if (!body?.approvalDocumentId) {
+      return reply.code(400).send({ error: "approvalDocumentId required" });
+    }
+    const updated = await service.unlinkApproval(body.approvalDocumentId);
+    return updated ?? { ok: true };
   });
 
   // approval document FINANCE_FORWARD 후속 호출

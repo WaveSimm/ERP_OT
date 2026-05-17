@@ -1,11 +1,16 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { expenseApi } from "@/lib/api";
+import { createPortal } from "react-dom";
+import { expenseApi, procurementApi } from "@/lib/api";
 import { fmtDateTime24 } from "@/lib/datetime";
 import { useTableSort } from "@/lib/hooks/useTableSort";
 import { useBulkSelect } from "@/lib/hooks/useBulkSelect";
 import ReceiptDetailModal from "@/components/expense/ReceiptDetailModal";
+import SearchableSelect from "@/components/SearchableSelect";
+
+// v1.6.2 (2026-05-15): 사업(계약) 연계 — equipment.Contract
+type Contract = { id: string; contractNumber: string; name: string; client?: string; status?: string };
 
 // 브라우저 로컬 시간대 기준 YYYY-MM-DD (한국 사용자 = KST). toISOString은 UTC라 사용 금지.
 function fmtLocalYmd(d: Date): string {
@@ -28,11 +33,37 @@ const STATUS_COLORS: Record<string, string> = {
   SETTLED: "bg-emerald-100 text-emerald-700",
 };
 
-export default function TransactionsPage({ initialStatus = "", onChange }: { initialStatus?: string; onChange?: () => void } = {}) {
+// v1.6.1 (2026-05-15): 구분 옵션 — 회계 분류용. 자유 입력도 허용.
+const DETAIL_OPTIONS = [
+  "교통비", "식비", "음료", "접대", "숙박", "주차", "통신", "사무용품", "도서", "회의비", "기타",
+];
+
+// v1.6.3 (2026-05-16): 구분별 상세내역 안내 placeholder
+const DETAIL_PLACEHOLDER: Record<string, string> = {
+  "교통비": "출발지 → 목적지 (예: 회사 → 본사)",
+  "식비": "참석자 / 메뉴 (예: 김철수·이영희 외 2명, 한식)",
+  "음료": "용도 / 대상자 (예: 회의 4인분, 거래처 미팅)",
+  "접대": "대상자 / 소속 (예: 해양수산부 김부장 외 2명)",
+  "숙박": "출장지 / 숙소명 (예: 부산 출장, ○○호텔)",
+  "주차": "장소 (예: 본사 주차장, 부산항)",
+  "통신": "용도 (예: 업무폰 요금, 인터넷 회선)",
+  "사무용품": "품목 (예: A4용지, 토너, 마우스)",
+  "도서": "도서명 / 사유",
+  "회의비": "참석자 / 안건",
+  "기타": "상세 내용",
+};
+
+function getDetailPlaceholder(detail?: string | null): string {
+  const key = (detail ?? "").trim();
+  return DETAIL_PLACEHOLDER[key] ?? "상세내역...";
+}
+
+export default function TransactionsPage({ initialStatus = "TARGET", onChange }: { initialStatus?: string; onChange?: () => void } = {}) {
   const [items, setItems] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState(initialStatus);
+  // v1.6.4 (2026-05-16): default = TARGET (정산대상). 가상 상태: TARGET/SETTLED/EXCLUDED/""
+  const [statusFilter, setStatusFilter] = useState(initialStatus || "TARGET");
 
   // 부모 컴포넌트(ExpenseView)가 카드 클릭으로 initialStatus를 바꾸면 동기화
   useEffect(() => {
@@ -44,13 +75,17 @@ export default function TransactionsPage({ initialStatus = "", onChange }: { ini
   const [importMsg, setImportMsg] = useState<string | null>(null);
 
   const [sources, setSources] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [settlements, setSettlements] = useState<any[]>([]);
+  const [contracts, setContracts] = useState<Contract[]>([]);
+  const [settlements, setSettlements] = useState<any[]>([]); // DRAFT만 (dropdown 추가용)
+  const [allSettlements, setAllSettlements] = useState<any[]>([]); // 모든 status (헤더 popover 필터용)
+  const [settlementFilter, setSettlementFilter] = useState<string | null>(null); // 선택된 settlementId
+  const [settlementFilterOpen, setSettlementFilterOpen] = useState(false);
 
-  const [bulkCategoryId, setBulkCategoryId] = useState("");
+  const [bulkContract, setBulkContract] = useState<{ id: string; number: string; name: string } | null>(null);
   const [bulkDetail, setBulkDetail] = useState("");
   const [bulkMemo, setBulkMemo] = useState("");
-  const [bulkSettlementId, setBulkSettlementId] = useState(""); // "" | settlementId | "__new__" | "__clear__"
+  const [bulkSettlementId, setBulkSettlementId] = useState(""); // "" | settlementId | "__new__" | "__clear__" | "__exclude__"
+  const [bulkNewSettlementTitle, setBulkNewSettlementTitle] = useState(""); // __new__ 선택 시 prompt로 받은 제목
   const [bulkApplying, setBulkApplying] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [receiptModalId, setReceiptModalId] = useState<string | null>(null);
@@ -59,28 +94,28 @@ export default function TransactionsPage({ initialStatus = "", onChange }: { ini
   const singleReceiptInputRef = useRef<HTMLInputElement>(null);
   const [singleUploadTxId, setSingleUploadTxId] = useState<string | null>(null);
 
-  // 가상 상태 client-side 필터 적용
+  // v1.6.4 (2026-05-16): 탭 단순화 — 정산대상/정산완료/제외/전체 + 정산분류 필터 (헤더 popover)
   const filteredItems = items.filter((t: any) => {
-    if (statusFilter === "UNSETTLED") {
-      // CATEGORIZED + 정산묶음 없음
-      return t.status === "CATEGORIZED" && (!t.settlementItems || t.settlementItems.length === 0);
+    // 특정 settlement 선택 시: status 탭 무시 (해당 묶음의 모든 거래 표시)
+    if (settlementFilter && settlementFilter !== "__unclassified__") {
+      return (t.settlementItems ?? []).some((si: any) => si.settlementId === settlementFilter);
     }
-    if (statusFilter === "UNAPPROVED") {
-      // 정산묶음에 들어갔지만 결재 상신 전 (settlement.status === DRAFT)
-      return (t.settlementItems ?? []).some((si: any) => si.settlement?.status === "DRAFT");
+    // status 탭 필터 (미분류 + 전체에서 적용)
+    if (statusFilter === "TARGET") {
+      if (!(["PENDING", "CATEGORIZED"].includes(t.status) && !t.isCanceled)) return false;
+    } else if (statusFilter === "SETTLED") {
+      if (t.status !== "SETTLED") return false;
+    } else if (statusFilter === "EXCLUDED") {
+      if (t.status !== "EXCLUDED") return false;
     }
-    if (statusFilter === "SETTLED") {
-      // 정산됨 = SETTLED (정산묶음 결재 진행 ~ 정산완료까지 모두 포함, 4단계 진행 표시용)
-      return t.status === "SETTLED";
-    }
-    if (statusFilter === "PAID") {
-      // 입금완료 = SETTLED + 정산묶음 PAID (subset of 정산됨)
-      return t.status === "SETTLED" && (t.settlementItems ?? []).some((si: any) => si.settlement?.status === "PAID");
+    // 미분류 필터 (정산 묶음에 안 들어간 거래)
+    if (settlementFilter === "__unclassified__") {
+      return !t.settlementItems || t.settlementItems.length === 0;
     }
     return true;
   });
 
-  type SortKey = "transactedAt" | "merchant" | "source" | "amount" | "category" | "detail" | "memo" | "receipt" | "status";
+  type SortKey = "transactedAt" | "merchant" | "source" | "amount" | "contract" | "detail" | "memo" | "receipt" | "status";
   const sort = useTableSort<any, SortKey>(filteredItems, {
     initialKey: "transactedAt",
     initialDir: "desc",
@@ -90,7 +125,7 @@ export default function TransactionsPage({ initialStatus = "", onChange }: { ini
         case "merchant": return t.merchantName ?? "";
         case "source": return t.source?.displayName ?? t.source?.name ?? "";
         case "amount": return Number(t.amount);
-        case "category": return t.category?.name ?? "";
+        case "contract": return t.contractNumber ?? "";
         case "detail": return t.detail ?? "";
         case "memo": return t.memo ?? "";
         case "receipt": {
@@ -114,34 +149,25 @@ export default function TransactionsPage({ initialStatus = "", onChange }: { ini
   const load = async () => {
     setLoading(true);
     try {
-      // 가상 상태 → 백엔드 status 매핑
-      const apiStatus =
-        statusFilter === "UNSETTLED" || statusFilter === "UNAPPROVED"
-          ? "CATEGORIZED"
-          : statusFilter === "PAID"
-            ? "SETTLED"
-            : statusFilter;
-      const [tx, srcs, cats, stls] = await Promise.all([
+      // v1.6.4 (2026-05-16): 가상 status → API status 매핑
+      // 특정 settlement 활성 시: 모든 status fetch (어떤 status여도 표시)
+      // 미분류 활성 또는 미선택 시: status 탭 그대로
+      const apiStatus = (settlementFilter && settlementFilter !== "__unclassified__") ? undefined
+        : statusFilter === "SETTLED" ? "SETTLED"
+        : statusFilter === "EXCLUDED" ? "EXCLUDED"
+        : undefined;
+      const [tx, srcs, ctrs, stls, allStls] = await Promise.all([
         expenseApi.listTransactions({ ...(apiStatus && { status: apiStatus }), limit: 200 }),
         expenseApi.listSources(),
-        expenseApi.listCategories(),
+        procurementApi.getContracts({ limit: 500 }).catch(() => ({ items: [] as any[] })),
         expenseApi.listSettlements({ status: "DRAFT", limit: 100 }).catch(() => ({ items: [] as any[] })),
+        expenseApi.listSettlements({ limit: 500 }).catch(() => ({ items: [] as any[] })),
       ]);
       setSettlements((stls as any).items ?? []);
-      // 현금(CASH) 소스 없으면 자동 생성 (수동 입력 dropdown 가장 상단 노출용)
-      let allSources = srcs;
-      if (!srcs.some((s) => s.type === "CASH" && s.active)) {
-        try {
-          const cashSrc = await expenseApi.createSource({
-            name: "현금",
-            displayName: "현금",
-            type: "CASH",
-          });
-          allSources = [cashSrc, ...srcs];
-        } catch { /* 이미 있거나 실패 — 무시 */ }
-      }
-      // CASH 우선, 그 외는 대표이름 순
-      allSources = [...allSources].sort((a, b) => {
+      setAllSettlements((allStls as any).items ?? []);
+      // v1.6.3 (2026-05-16): CASH 자동 생성 로직 제거 — race condition으로 중복 누적되던 문제 해결.
+      // CASH 소스가 필요하면 카드 관리에서 명시적으로 등록.
+      const allSources = [...srcs].sort((a, b) => {
         if (a.type === "CASH" && b.type !== "CASH") return -1;
         if (a.type !== "CASH" && b.type === "CASH") return 1;
         const an = a.displayName ?? a.name ?? "";
@@ -151,14 +177,14 @@ export default function TransactionsPage({ initialStatus = "", onChange }: { ini
       setItems(tx.items);
       setTotal(tx.total);
       setSources(allSources);
-      setCategories(cats);
+      setContracts(((ctrs as any).items ?? []) as Contract[]);
     } finally {
       setLoading(false);
       onChange?.();
     }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [statusFilter]);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [statusFilter, settlementFilter]);
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -177,9 +203,35 @@ export default function TransactionsPage({ initialStatus = "", onChange }: { ini
     }
   };
 
-  const updateCategory = async (id: string, categoryId: string) => {
-    await expenseApi.updateTransaction(id, { categoryId: categoryId || null });
+  // v1.6.2: contractId/Number/Name 한 번에 세팅 (snapshot 보관). contract=null이면 "— 없음 —"으로 해제.
+  const updateContract = async (id: string, contract: { id: string; contractNumber: string; name: string } | null) => {
+    await expenseApi.updateTransaction(id, {
+      contractId: contract?.id ?? null,
+      contractNumber: contract?.contractNumber ?? null,
+      contractName: contract?.name ?? null,
+    });
     await load();
+  };
+
+  // SearchableSelect용 옵션 로더 (계약 목록을 로컬에서 필터). 최상단에 "미설정" 옵션.
+  const loadContractOptions = (q: string) => {
+    const ql = q.trim().toLowerCase();
+    const filtered = ql
+      ? contracts.filter((c) =>
+          (c.contractNumber ?? "").toLowerCase().includes(ql) ||
+          (c.name ?? "").toLowerCase().includes(ql) ||
+          (c.client ?? "").toLowerCase().includes(ql),
+        )
+      : contracts;
+    const contractOpts = filtered.slice(0, 50).map((c) => ({
+      id: c.id,
+      name: `${c.contractNumber} - ${c.name}`,
+      ...(c.client && { sub: c.client }),
+    }));
+    // v1.6.4 (2026-05-16): "없음" 옵션 prepend (검색어 없을 때만, placeholder와 동일 라벨)
+    return Promise.resolve(
+      ql ? contractOpts : [{ id: "__none__", name: "— 없음 —" }, ...contractOpts],
+    );
   };
 
   const updateMemo = async (id: string, memo: string) => {
@@ -275,21 +327,32 @@ export default function TransactionsPage({ initialStatus = "", onChange }: { ini
   };
 
   /**
-   * 거래의 정산분류 변경. settlementId가 "__new__"면 거래의 카테고리-detail로 새 정산 묶음 생성.
-   * "__clear__"는 정산 해제.
+   * 거래의 정산분류 변경.
+   * - "__new__": 거래의 계약-detail로 새 정산 묶음 생성
+   * - "__exclude__": 정산 제외 (status=EXCLUDED + settlement 해제)
+   * - "__clear__" / "": 정산 해제 (status는 contractId 유무로 자동 결정)
+   * v1.6.3 (2026-05-16): __exclude__ 추가 (이전 PERSONAL 카테고리 자동 EXCLUDED 대체)
    */
   const updateSettlement = async (tx: any, settlementId: string) => {
     try {
       if (settlementId === "__new__") {
-        const cat = tx.category?.name ?? "";
-        const detail = (tx.detail ?? "").trim();
-        const ymd = fmtLocalYmd(new Date(tx.transactedAt));
-        const tail = (cat && detail) ? `${cat}-${detail}` : (cat || detail || tx.merchantName);
-        const title = `${ymd} ${tail}`;
-        const created = await expenseApi.createEmptySettlement({ title });
+        // v1.6.3 (2026-05-16): 자동 제목 생성 폐기. 사용자가 직접 입력.
+        const input = window.prompt("새 정산 묶음 제목을 입력하세요:", "");
+        if (!input || !input.trim()) {
+          await load(); // dropdown 원복
+          return;
+        }
+        const created = await expenseApi.createEmptySettlement({ title: input.trim() });
         await expenseApi.setTransactionSettlement(tx.id, created.id);
+      } else if (settlementId === "__exclude__") {
+        await expenseApi.setTransactionSettlement(tx.id, null);
+        await expenseApi.updateTransaction(tx.id, { status: "EXCLUDED" });
       } else if (settlementId === "__clear__" || settlementId === "") {
         await expenseApi.setTransactionSettlement(tx.id, null);
+        // EXCLUDED 였다면 contractId 유무로 status 재계산 (백엔드는 contractId 변경 시에만 자동 재계산해서, 명시 호출)
+        if (tx.status === "EXCLUDED") {
+          await expenseApi.updateTransaction(tx.id, { status: tx.contractId ? "CATEGORIZED" : "PENDING" });
+        }
       } else {
         await expenseApi.setTransactionSettlement(tx.id, settlementId);
       }
@@ -318,21 +381,23 @@ export default function TransactionsPage({ initialStatus = "", onChange }: { ini
 
   const applyBulk = async () => {
     if (sel.count === 0) return;
-    if (!bulkCategoryId && !bulkDetail && !bulkMemo && !bulkSettlementId) {
-      alert("카테고리·상세 내역·메모·정산분류 중 하나는 선택해야 합니다.");
+    if (!bulkContract && !bulkDetail && !bulkMemo && !bulkSettlementId) {
+      alert("사업(계약)·구분·상세내역·정산분류 중 하나는 선택해야 합니다.");
       return;
     }
     const settlementLabel = bulkSettlementId === "__new__"
-      ? "정산분류: + 새 정산 (선택한 첫 거래의 상세내역으로 생성)"
-      : bulkSettlementId === "__clear__"
-        ? "정산분류: 미설정"
-        : bulkSettlementId
-          ? `정산분류: ${settlements.find((s) => s.id === bulkSettlementId)?.title ?? bulkSettlementId}`
-          : "";
+      ? `정산분류: + 새 정산 「${bulkNewSettlementTitle}」`
+      : bulkSettlementId === "__exclude__"
+        ? "정산분류: 제외 (정산 대상에서 제외)"
+        : bulkSettlementId === "__clear__"
+          ? "정산분류: 미설정"
+          : bulkSettlementId
+            ? `정산분류: ${settlements.find((s) => s.id === bulkSettlementId)?.title ?? bulkSettlementId}`
+            : "";
     const lines = [
-      bulkCategoryId && `카테고리: ${categories.find((c) => c.id === bulkCategoryId)?.name}`,
-      bulkDetail && `상세 내역: ${bulkDetail}`,
-      bulkMemo && `메모: ${bulkMemo}`,
+      bulkContract && `사업(계약): ${bulkContract.number} - ${bulkContract.name}`,
+      bulkDetail && `구분: ${bulkDetail}`,
+      bulkMemo && `상세내역: ${bulkMemo}`,
       settlementLabel,
     ].filter(Boolean).join("\n");
     if (!confirm(`${sel.count}건의 거래에 적용하시겠습니까?\n${lines}`)) return;
@@ -340,7 +405,11 @@ export default function TransactionsPage({ initialStatus = "", onChange }: { ini
     setBulkApplying(true);
     try {
       const updateData: any = {};
-      if (bulkCategoryId) updateData.categoryId = bulkCategoryId;
+      if (bulkContract) {
+        updateData.contractId = bulkContract.id;
+        updateData.contractNumber = bulkContract.number;
+        updateData.contractName = bulkContract.name;
+      }
       if (bulkDetail) updateData.detail = bulkDetail;
       if (bulkMemo) updateData.memo = bulkMemo;
 
@@ -355,34 +424,34 @@ export default function TransactionsPage({ initialStatus = "", onChange }: { ini
 
       // 2단계: 정산분류 일괄 적용
       if (bulkSettlementId) {
+        // __exclude__: settlement 해제 + status=EXCLUDED
+        if (bulkSettlementId === "__exclude__") {
+          const results = await Promise.allSettled(
+            sel.ids.map(async (id) => {
+              await expenseApi.setTransactionSettlement(id, null);
+              await expenseApi.updateTransaction(id, { status: "EXCLUDED" });
+            }),
+          );
+          const failed = results.filter((r) => r.status === "rejected").length;
+          if (failed > 0) alert(`제외 처리 ${failed}건 실패`);
+          sel.clear();
+          setBulkContract(null);
+          setBulkDetail("");
+          setBulkMemo("");
+          setBulkSettlementId("");
+          setBulkNewSettlementTitle("");
+          await load();
+          return;
+        }
         let targetSettlementId: string | null;
         if (bulkSettlementId === "__new__") {
-          // 새 정산 묶음 생성: 'YYYY-MM-DD 카테고리-상세내역' 조합을 중복 제거하여 '/'로 join
-          const selectedTxs = sortedItems.filter((t) => sel.isSelected(t.id));
-          // 거래일 가장 늦은(최근) 거래의 날짜를 제목 앞에 붙임 (브라우저 로컬 시간대 = KST)
-          const latestDate = selectedTxs.length > 0
-            ? fmtLocalYmd(new Date(Math.max(...selectedTxs.map((t) => new Date(t.transactedAt).getTime()))))
-            : fmtLocalYmd(new Date());
-          let tail: string;
-          if (bulkCategoryId || bulkDetail.trim()) {
-            const cat = bulkCategoryId ? categories.find((c) => c.id === bulkCategoryId)?.name ?? "" : "";
-            const det = bulkDetail.trim();
-            tail = (cat && det) ? `${cat}-${det}` : (cat || det);
-          } else {
-            const pairs = Array.from(new Set(
-              selectedTxs.map((t) => {
-                const cat = t.category?.name ?? "";
-                const detail = (t.detail ?? "").trim();
-                if (cat && detail) return `${cat}-${detail}`;
-                if (cat) return cat;
-                if (detail) return detail;
-                return null;
-              }).filter(Boolean) as string[],
-            ));
-            tail = pairs.length > 0 ? pairs.join(" / ") : (selectedTxs[0]?.merchantName ?? "정산");
+          // v1.6.3 (2026-05-16): 자동 제목 생성 폐기. dropdown 선택 시점에 prompt로 받은 제목 사용.
+          if (!bulkNewSettlementTitle.trim()) {
+            alert("새 정산 묶음 제목이 비어있습니다. 정산분류 dropdown에서 다시 선택해주세요.");
+            setBulkApplying(false);
+            return;
           }
-          const title = `${latestDate} ${tail}`;
-          const created = await expenseApi.createEmptySettlement({ title });
+          const created = await expenseApi.createEmptySettlement({ title: bulkNewSettlementTitle.trim() });
           targetSettlementId = created.id;
         } else if (bulkSettlementId === "__clear__") {
           targetSettlementId = null;
@@ -397,10 +466,11 @@ export default function TransactionsPage({ initialStatus = "", onChange }: { ini
       }
 
       sel.clear();
-      setBulkCategoryId("");
+      setBulkContract(null);
       setBulkDetail("");
       setBulkMemo("");
       setBulkSettlementId("");
+      setBulkNewSettlementTitle("");
       await load();
     } finally {
       setBulkApplying(false);
@@ -409,22 +479,24 @@ export default function TransactionsPage({ initialStatus = "", onChange }: { ini
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-6 space-y-4">
+      {/* v1.6.1 (2026-05-15): 구분 dropdown 옵션 (자유 입력 + 추천) */}
+      <datalist id="detail-options">
+        {DETAIL_OPTIONS.map((o) => <option key={o} value={o} />)}
+      </datalist>
       {importMsg && (
         <div className={`p-3 rounded-md text-sm ${importMsg.startsWith("✅") ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
           {importMsg}
         </div>
       )}
 
-      {/* 상태 필터 + 액션 버튼 */}
+      {/* 상태 필터 + 액션 버튼 — v1.6.4 (2026-05-16): 4탭 단순화 */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs text-gray-500">상태:</span>
         {[
-          { v: "", l: "전체" },
-          { v: "PENDING", l: "미내역분류" },
-          { v: "UNSETTLED", l: "미정산분류" },
-          { v: "UNAPPROVED", l: "미결재" },
-          { v: "SETTLED", l: "정산됨" },
+          { v: "TARGET", l: "정산대상" },
+          { v: "SETTLED", l: "정산완료" },
           { v: "EXCLUDED", l: "제외" },
+          { v: "", l: "전체" },
         ].map((s) => (
           <button key={s.v} onClick={() => setStatusFilter(s.v)}
             className={`px-2.5 py-1 text-xs rounded-md ${statusFilter === s.v ? "bg-blue-600 text-white" : "border border-gray-300 text-gray-600 hover:bg-gray-50"}`}>
@@ -432,9 +504,7 @@ export default function TransactionsPage({ initialStatus = "", onChange }: { ini
           </button>
         ))}
         <span className="text-xs text-gray-500">
-          {["UNSETTLED", "UNAPPROVED", "SETTLED", "PAID"].includes(statusFilter)
-            ? `${filteredItems.length}건`
-            : `총 ${total}건`}
+          {statusFilter === "" ? `총 ${total}건` : `${filteredItems.length}건`}
         </span>
         <div className="ml-auto flex items-center gap-2">
           <input ref={fileInputRef} type="file" accept=".xls,.xlsx,.html"
@@ -467,31 +537,53 @@ export default function TransactionsPage({ initialStatus = "", onChange }: { ini
           {sel.count > 0 ? `선택 ${sel.count}건` : "선택된 항목 없음"}
         </span>
         <span className="text-xs text-gray-600 mr-2">일괄 적용:</span>
-        <select value={bulkCategoryId} onChange={(e) => setBulkCategoryId(e.target.value)}
-          disabled={sel.count === 0}
-          className="text-sm border border-gray-300 rounded px-2 py-1 disabled:bg-gray-100 disabled:text-gray-400">
-          <option value="">카테고리 (변경 안 함)</option>
-          {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <input type="text" value={bulkDetail} onChange={(e) => setBulkDetail(e.target.value)}
-          disabled={sel.count === 0}
-          placeholder="상세 내역 (변경 안 함)"
-          className="text-sm border border-gray-300 rounded px-2 py-1 flex-1 min-w-[160px] disabled:bg-gray-100" />
-        <input type="text" value={bulkMemo} onChange={(e) => setBulkMemo(e.target.value)}
-          disabled={sel.count === 0}
-          placeholder="메모 (변경 안 함)"
-          className="text-sm border border-gray-300 rounded px-2 py-1 flex-1 min-w-[160px] disabled:bg-gray-100" />
-        <select value={bulkSettlementId} onChange={(e) => setBulkSettlementId(e.target.value)}
+        <select value={bulkSettlementId} onChange={(e) => {
+            const v = e.target.value;
+            if (v === "__new__") {
+              const input = window.prompt("새 정산 묶음 제목을 입력하세요:", "");
+              if (!input || !input.trim()) {
+                // 취소 — dropdown 원복
+                setBulkSettlementId("");
+                setBulkNewSettlementTitle("");
+                return;
+              }
+              setBulkSettlementId("__new__");
+              setBulkNewSettlementTitle(input.trim());
+            } else {
+              setBulkSettlementId(v);
+              setBulkNewSettlementTitle("");
+            }
+          }}
           disabled={sel.count === 0}
           className="text-sm border border-gray-300 rounded px-2 py-1 disabled:bg-gray-100 disabled:text-gray-400">
           <option value="">정산분류 (변경 안 함)</option>
           <option value="__clear__">— 미설정 —</option>
-          <option value="__new__">+ 새 정산 (상세내역으로 제목)</option>
+          <option value="__exclude__">— 제외 —</option>
+          <option value="__new__">{bulkNewSettlementTitle ? `+ 새 정산: ${bulkNewSettlementTitle}` : "+ 새 정산 (제목 입력)"}</option>
           {settlements.length > 0 && <option disabled>──────────</option>}
           {settlements.map((s) => <option key={s.id} value={s.id}>{s.title}</option>)}
         </select>
+        <div className="min-w-[200px]">
+          <ContractCellSelect
+            value={bulkContract}
+            onChange={setBulkContract}
+            loadOptions={loadContractOptions}
+            disabled={sel.count === 0}
+            placeholder="사업(계약) (변경 안 함)"
+            allowClear
+          />
+        </div>
+        <input type="text" list="detail-options" value={bulkDetail} onChange={(e) => setBulkDetail(e.target.value)}
+          disabled={sel.count === 0}
+          placeholder="구분 (변경 안 함)"
+          className="text-sm border border-gray-300 rounded px-2 py-1 flex-1 min-w-[160px] disabled:bg-gray-100" />
+        <input type="text" value={bulkMemo} onChange={(e) => setBulkMemo(e.target.value)}
+          disabled={sel.count === 0}
+          placeholder={bulkDetail.trim() ? getDetailPlaceholder(bulkDetail) : "상세내역 (변경 안 함)"}
+          title={bulkDetail.trim() ? getDetailPlaceholder(bulkDetail) : ""}
+          className="text-sm border border-gray-300 rounded px-2 py-1 flex-1 min-w-[160px] disabled:bg-gray-100" />
         <button onClick={applyBulk}
-          disabled={bulkApplying || sel.count === 0 || (!bulkCategoryId && !bulkDetail && !bulkMemo && !bulkSettlementId)}
+          disabled={bulkApplying || sel.count === 0 || (!bulkContract && !bulkDetail && !bulkMemo && !bulkSettlementId)}
           className="px-3 py-1 text-sm rounded transition-colors enabled:bg-blue-600 enabled:text-white enabled:hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed">
           {bulkApplying ? "적용 중..." : "일괄 적용"}
         </button>
@@ -504,7 +596,7 @@ export default function TransactionsPage({ initialStatus = "", onChange }: { ini
           <button onClick={sel.clear} className="text-xs text-gray-600 hover:text-gray-800">선택 해제</button>
         )}
         {/* 정산 진행 단계 범례 — 정산됨/입금완료 view 한정 */}
-        {(statusFilter === "SETTLED" || statusFilter === "PAID") && (
+        {(statusFilter === "SETTLED") && (
           <div className="ml-auto flex items-center gap-1.5 text-[11px] text-gray-500">
             <span className="mr-1">진행 단계:</span>
             <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-700">결재중</span>
@@ -516,7 +608,7 @@ export default function TransactionsPage({ initialStatus = "", onChange }: { ini
             <span className="ml-1">💡 Shift+클릭으로 범위 선택</span>
           </div>
         )}
-        {statusFilter !== "SETTLED" && statusFilter !== "PAID" && (
+        {statusFilter !== "SETTLED" && (
           <span className="ml-auto text-[11px] text-gray-500">💡 Shift+클릭으로 범위 선택</span>
         )}
       </div>
@@ -533,12 +625,24 @@ export default function TransactionsPage({ initialStatus = "", onChange }: { ini
               <th onClick={() => sort.handleSort("merchant")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">가맹점{sort.sortIndicator("merchant")}</th>
               <th onClick={() => sort.handleSort("source")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">결제수단{sort.sortIndicator("source")}</th>
               <th onClick={() => sort.handleSort("amount")} className="px-3 py-2 text-right cursor-pointer hover:bg-gray-100 select-none">금액{sort.sortIndicator("amount")}</th>
-              <th onClick={() => sort.handleSort("category")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">카테고리{sort.sortIndicator("category")}</th>
-              <th onClick={() => sort.handleSort("detail")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">상세 내역{sort.sortIndicator("detail")}</th>
-              <th onClick={() => sort.handleSort("memo")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">메모{sort.sortIndicator("memo")}</th>
+              <th className="px-3 py-2 text-left">
+                <SettlementHeaderFilter
+                  settlements={allSettlements}
+                  value={settlementFilter}
+                  onChange={(id) => {
+                    setSettlementFilter(id);
+                    // 특정 settlement 선택 시만 status 탭 무력화 (미분류는 status 탭과 조합 가능)
+                    if (id && id !== "__unclassified__") setStatusFilter("");
+                  }}
+                  open={settlementFilterOpen}
+                  setOpen={setSettlementFilterOpen}
+                />
+              </th>
+              <th onClick={() => sort.handleSort("contract")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">사업(계약){sort.sortIndicator("contract")}</th>
+              <th onClick={() => sort.handleSort("detail")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">구분{sort.sortIndicator("detail")}</th>
+              <th onClick={() => sort.handleSort("memo")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">상세내역{sort.sortIndicator("memo")}</th>
               <th onClick={() => sort.handleSort("receipt")} className="px-3 py-2 text-center cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap">영수증{sort.sortIndicator("receipt")}</th>
               <th onClick={() => sort.handleSort("status")} className="px-3 py-2 text-center cursor-pointer hover:bg-gray-100 select-none">상태{sort.sortIndicator("status")}</th>
-              <th className="px-3 py-2 text-left">정산분류</th>
             </tr>
           </thead>
           <tbody>
@@ -569,25 +673,59 @@ export default function TransactionsPage({ initialStatus = "", onChange }: { ini
                     {Number(t.amount).toLocaleString()}
                   </td>
                   <td className="px-3 py-2">
-                    <select value={t.categoryId ?? ""} onChange={(e) => updateCategory(t.id, e.target.value)}
-                      className="text-xs border border-gray-300 rounded px-1.5 py-0.5 max-w-[120px]">
-                      <option value="">선택</option>
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
+                    {(() => {
+                      const currentItem = (t.settlementItems ?? [])[0];
+                      const currentSettlementId = currentItem?.settlementId ?? "";
+                      const currentStatus = currentItem?.settlement?.status;
+                      const locked = currentStatus && currentStatus !== "DRAFT";
+                      // v1.6.3: EXCLUDED 거래는 dropdown value를 __exclude__로 표시
+                      const dropdownValue = t.status === "EXCLUDED" ? "__exclude__" : currentSettlementId;
+                      return (
+                        <select
+                          value={dropdownValue}
+                          onChange={(e) => updateSettlement(t, e.target.value)}
+                          disabled={!!locked}
+                          className={`text-xs border border-gray-300 rounded px-1.5 py-0.5 max-w-[160px] disabled:bg-gray-100 disabled:text-gray-500 ${t.status === "EXCLUDED" ? "text-gray-500" : ""}`}
+                          title={locked ? `${currentStatus} 상태로 변경 불가` : ""}
+                        >
+                          <option value="">— 미설정 —</option>
+                          <option value="__exclude__">— 제외 —</option>
+                          <option value="__new__">+ 새 정산 (제목 입력)</option>
+                          {settlements.length > 0 && <option disabled>──────────</option>}
+                          {settlements.map((s) => (
+                            <option key={s.id} value={s.id}>{s.title}</option>
+                          ))}
+                          {/* 현재 묶음이 DRAFT가 아닌 경우 옵션에 강제로 추가 (표시용) */}
+                          {locked && currentItem?.settlement && (
+                            <option value={currentSettlementId}>{currentItem.settlement.title} ({currentStatus})</option>
+                          )}
+                        </select>
+                      );
+                    })()}
                   </td>
                   <td className="px-3 py-2">
-                    <input type="text" defaultValue={t.detail ?? ""}
+                    <div className="min-w-[200px] max-w-[260px]">
+                      <ContractCellSelect
+                        value={t.contractId ? { id: t.contractId, number: t.contractNumber ?? "", name: t.contractName ?? "" } : null}
+                        onChange={(c) => updateContract(t.id, c ? { id: c.id, contractNumber: c.number, name: c.name } : null)}
+                        loadOptions={loadContractOptions}
+                        placeholder="— 없음 —"
+                        allowClear
+                      />
+                    </div>
+                  </td>
+                  <td className="px-3 py-2">
+                    <input type="text" list="detail-options" defaultValue={t.detail ?? ""}
                       onBlur={(e) => e.target.value !== (t.detail ?? "") && updateDetail(t.id, e.target.value)}
                       className="text-xs border border-gray-200 rounded px-2 py-0.5 w-full max-w-[200px]"
-                      placeholder="상세 내역..." />
+                      placeholder="구분 선택..." />
                   </td>
                   <td className="px-3 py-2">
                     <input type="text" defaultValue={t.memo ?? ""}
                       onBlur={(e) => e.target.value !== (t.memo ?? "") && updateMemo(t.id, e.target.value)}
-                      className="text-xs border border-gray-200 rounded px-2 py-0.5 w-full max-w-[200px]"
-                      placeholder="메모..." />
+                      className="text-xs border border-gray-200 rounded px-2 py-0.5 w-full max-w-[260px]"
+                      placeholder={getDetailPlaceholder(t.detail)}
+                      title={getDetailPlaceholder(t.detail)} />
                   </td>
                   <td className="px-3 py-2 text-center">
                     {(() => {
@@ -621,7 +759,7 @@ export default function TransactionsPage({ initialStatus = "", onChange }: { ini
                     {(() => {
                       // 정산됨/입금완료 필터일 때는 정산 진행 단계 표시 (3-stage: 결재중/결재완료/정산완료)
                       // RECEIVED는 legacy(현재 워크플로우에선 미사용) — 결재완료로 표시
-                      if (statusFilter === "SETTLED" || statusFilter === "PAID") {
+                      if (statusFilter === "SETTLED") {
                         const s = (t.settlementItems ?? [])[0]?.settlement;
                         if (s) {
                           const stage = s.status === "SUBMITTED" ? { label: "결재중", color: "bg-blue-100 text-blue-700" }
@@ -643,34 +781,6 @@ export default function TransactionsPage({ initialStatus = "", onChange }: { ini
                       );
                     })()}
                   </td>
-                  <td className="px-3 py-2">
-                    {(() => {
-                      const currentItem = (t.settlementItems ?? [])[0];
-                      const currentSettlementId = currentItem?.settlementId ?? "";
-                      const currentStatus = currentItem?.settlement?.status;
-                      const locked = currentStatus && currentStatus !== "DRAFT";
-                      return (
-                        <select
-                          value={currentSettlementId}
-                          onChange={(e) => updateSettlement(t, e.target.value)}
-                          disabled={!!locked}
-                          className="text-xs border border-gray-300 rounded px-1.5 py-0.5 max-w-[160px] disabled:bg-gray-100 disabled:text-gray-500"
-                          title={locked ? `${currentStatus} 상태로 변경 불가` : ""}
-                        >
-                          <option value="">— 미설정 —</option>
-                          <option value="__new__">+ 새 정산</option>
-                          {settlements.length > 0 && <option disabled>──────────</option>}
-                          {settlements.map((s) => (
-                            <option key={s.id} value={s.id}>{s.title}</option>
-                          ))}
-                          {/* 현재 묶음이 DRAFT가 아닌 경우 옵션에 강제로 추가 (표시용) */}
-                          {locked && currentItem?.settlement && (
-                            <option value={currentSettlementId}>{currentItem.settlement.title} ({currentStatus})</option>
-                          )}
-                        </select>
-                      );
-                    })()}
-                  </td>
                 </tr>
               );
             })}
@@ -681,7 +791,7 @@ export default function TransactionsPage({ initialStatus = "", onChange }: { ini
       {showManual && (
         <ManualTransactionModal
           sources={sources}
-          categories={categories}
+          loadContractOptions={loadContractOptions}
           onClose={() => setShowManual(false)}
           onSaved={() => { setShowManual(false); load(); }}
         />
@@ -703,15 +813,62 @@ export default function TransactionsPage({ initialStatus = "", onChange }: { ini
   );
 }
 
-function ManualTransactionModal({ sources, categories, onClose, onSaved }: {
-  sources: any[]; categories: any[]; onClose: () => void; onSaved: () => void;
+// 거래 셀·일괄 적용 바·수동 입력 모달에서 공통으로 쓰는 계약 SearchableSelect wrapper.
+// value: { id, number, name } | null. "— 없음 —" 클리어 버튼 제공.
+function ContractCellSelect({
+  value, onChange, loadOptions, disabled, placeholder, allowClear,
+}: {
+  value: { id: string; number: string; name: string } | null;
+  onChange: (v: { id: string; number: string; name: string } | null) => void;
+  loadOptions: (q: string) => Promise<{ id: string; name: string; sub?: string }[]>;
+  disabled?: boolean;
+  placeholder?: string;
+  allowClear?: boolean;
+}) {
+  const displayValue = value ? `${value.number} - ${value.name}` : "";
+  return (
+    <div className="flex items-center gap-1">
+      <div className={`flex-1 ${disabled ? "opacity-50 pointer-events-none" : ""}`}>
+        <SearchableSelect
+          value={displayValue}
+          onChange={() => { /* 직접 입력 무시 — onSelect만 사용 */ }}
+          onSelect={(opt) => {
+            // v1.6.4 (2026-05-16): __none__ sentinel = 미설정 처리
+            if (!opt || opt.id === "__none__") { onChange(null); return; }
+            // opt.name 형식: "{number} - {name}". 첫 ' - '만 split.
+            const dashIdx = opt.name.indexOf(" - ");
+            const number = dashIdx > 0 ? opt.name.slice(0, dashIdx) : opt.name;
+            const name = dashIdx > 0 ? opt.name.slice(dashIdx + 3) : "";
+            onChange({ id: opt.id, number, name });
+          }}
+          loadOptions={loadOptions}
+          {...(placeholder !== undefined && { placeholder })}
+          className="w-full text-xs border border-gray-200 rounded px-2 py-1"
+        />
+      </div>
+      {allowClear && value && !disabled && (
+        <button
+          type="button"
+          onClick={() => onChange(null)}
+          title="없음으로 변경"
+          className="text-xs text-gray-400 hover:text-red-600 px-1"
+        >
+          ✕
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ManualTransactionModal({ sources, loadContractOptions, onClose, onSaved }: {
+  sources: any[]; loadContractOptions: (q: string) => Promise<{ id: string; name: string; sub?: string }[]>; onClose: () => void; onSaved: () => void;
 }) {
   const [form, setForm] = useState({
     sourceId: sources[0]?.id ?? "", // 정렬돼서 CASH가 첫 번째로 들어와 있음
     transactedAt: new Date().toISOString().slice(0, 16),
     merchantName: "",
     amount: 0,
-    categoryId: "",
+    contract: null as { id: string; number: string; name: string } | null,
     detail: "",
     memo: "",
   });
@@ -730,7 +887,11 @@ function ManualTransactionModal({ sources, categories, onClose, onSaved }: {
         transactedAt: new Date(form.transactedAt).toISOString(),
         merchantName: form.merchantName,
         amount: form.amount,
-        categoryId: form.categoryId || undefined,
+        ...(form.contract && {
+          contractId: form.contract.id,
+          contractNumber: form.contract.number,
+          contractName: form.contract.name,
+        }),
         detail: form.detail || undefined,
         memo: form.memo || undefined,
       });
@@ -770,21 +931,28 @@ function ManualTransactionModal({ sources, categories, onClose, onSaved }: {
               onChange={(e) => setForm({ ...form, amount: parseInt(e.target.value || "0", 10) })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm tabular-nums" />
           </Field>
-          <Field label="카테고리">
-            <select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
-              <option value="">선택 (나중에 분류 가능)</option>
-              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+          <Field label="사업(계약)">
+            <ContractCellSelect
+              value={form.contract}
+              onChange={(c) => setForm({ ...form, contract: c })}
+              loadOptions={loadContractOptions}
+              placeholder="— 없음 — (나중에 분류 가능)"
+              allowClear
+            />
           </Field>
-          <Field label="상세 내역">
-            <input type="text" value={form.detail} onChange={(e) => setForm({ ...form, detail: e.target.value })}
-              placeholder="예: 점심 식사 4명, 노트북 어댑터 등"
+          <Field label="구분">
+            <input type="text" list="detail-options" value={form.detail}
+              onChange={(e) => setForm({ ...form, detail: e.target.value })}
+              placeholder="구분 선택 (교통비/식비/음료/접대 등)"
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
           </Field>
-          <Field label="메모">
+          <Field label="상세내역">
             <input type="text" value={form.memo} onChange={(e) => setForm({ ...form, memo: e.target.value })}
+              placeholder={form.detail.trim() ? getDetailPlaceholder(form.detail) : "예: 점심 식사 4명, 노트북 어댑터 등"}
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
+            {form.detail.trim() && DETAIL_PLACEHOLDER[form.detail.trim()] && (
+              <p className="text-[10px] text-gray-500 mt-1">💡 {DETAIL_PLACEHOLDER[form.detail.trim()]}</p>
+            )}
           </Field>
           {err && <p className="text-sm text-red-600">{err}</p>}
           <div className="flex gap-2 pt-2">
@@ -807,5 +975,137 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
       {children}
     </div>
+  );
+}
+
+// v1.6.4 (2026-05-16): 정산분류 헤더 클릭 popover 필터
+// 정산 제목 리스트 + 검색. 선택 시 해당 settlement에 속한 거래만 표시.
+const SETTLEMENT_STATUS_LABEL: Record<string, { l: string; c: string }> = {
+  DRAFT:     { l: "작성중",  c: "bg-gray-100 text-gray-600" },
+  SUBMITTED: { l: "결재중",  c: "bg-blue-100 text-blue-700" },
+  APPROVED:  { l: "결재완료", c: "bg-indigo-100 text-indigo-700" },
+  RECEIVED:  { l: "접수",    c: "bg-indigo-100 text-indigo-700" },
+  PAID:      { l: "입금완료", c: "bg-emerald-100 text-emerald-700" },
+  REJECTED:  { l: "반려",    c: "bg-red-100 text-red-700" },
+};
+
+function SettlementHeaderFilter({
+  settlements, value, onChange, open, setOpen,
+}: {
+  settlements: any[];
+  value: string | null;
+  onChange: (id: string | null) => void;
+  open: boolean;
+  setOpen: (v: boolean) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  const isUnclassified = value === "__unclassified__";
+  const selected = (value && !isUnclassified) ? settlements.find((s) => s.id === value) : null;
+
+  useEffect(() => {
+    if (!open) return;
+    if (triggerRef.current) {
+      const r = triggerRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 4, left: r.left });
+    }
+    const onClick = (e: MouseEvent) => {
+      if (popoverRef.current?.contains(e.target as Node)) return;
+      if (triggerRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    };
+    window.addEventListener("mousedown", onClick);
+    return () => window.removeEventListener("mousedown", onClick);
+  }, [open, setOpen]);
+
+  const ql = query.trim().toLowerCase();
+  const filtered = ql
+    ? settlements.filter((s) => (s.title ?? "").toLowerCase().includes(ql))
+    : settlements;
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={`inline-flex items-center gap-1 px-1 py-0.5 text-xs hover:bg-gray-100 rounded ${value ? "text-blue-700 font-medium" : "text-gray-500"}`}
+      >
+        <span>정산분류</span>
+        {selected ? (
+          <span className="ml-1 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] max-w-[160px] truncate" title={selected.title}>
+            {selected.title}
+          </span>
+        ) : isUnclassified ? (
+          <span className="ml-1 px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px]">미분류</span>
+        ) : null}
+        <span className="text-[10px]">▾</span>
+        {value && (
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={(e) => { e.stopPropagation(); onChange(null); }}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onChange(null); } }}
+            className="ml-0.5 text-gray-400 hover:text-red-600 cursor-pointer"
+            title="필터 해제"
+          >
+            ✕
+          </span>
+        )}
+      </button>
+      {open && pos && typeof window !== "undefined" && createPortal(
+        <div
+          ref={popoverRef}
+          className="bg-white border border-gray-300 rounded-lg shadow-lg p-2 w-[320px] max-h-[420px] overflow-y-auto"
+          style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999 }}
+        >
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="정산 제목 검색..."
+            autoFocus
+            className="w-full text-sm border border-gray-300 rounded px-2 py-1 mb-2"
+          />
+          <button
+            type="button"
+            onClick={() => { onChange(null); setOpen(false); }}
+            className={`w-full text-left px-2 py-1.5 text-xs rounded ${!value ? "bg-blue-50 text-blue-700" : "text-gray-500 hover:bg-gray-50"}`}
+          >
+            모두 보기
+          </button>
+          <button
+            type="button"
+            onClick={() => { onChange("__unclassified__"); setOpen(false); }}
+            className={`w-full text-left px-2 py-1.5 text-xs rounded ${value === "__unclassified__" ? "bg-blue-50 text-blue-700" : "text-gray-700 hover:bg-gray-50"}`}
+          >
+            미분류 <span className="text-[10px] text-gray-400 ml-1">(정산 묶음 없음)</span>
+          </button>
+          <div className="border-t border-gray-100 my-1"></div>
+          {filtered.length === 0 ? (
+            <div className="px-2 py-3 text-xs text-gray-400 text-center">정산이 없습니다.</div>
+          ) : filtered.map((s) => {
+            const meta = SETTLEMENT_STATUS_LABEL[s.status] ?? { l: s.status, c: "bg-gray-100 text-gray-600" };
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => { onChange(s.id); setOpen(false); }}
+                className={`w-full text-left px-2 py-1.5 text-xs rounded flex items-center gap-2 ${value === s.id ? "bg-blue-50 text-blue-700" : "hover:bg-gray-50"}`}
+                title={s.title}
+              >
+                <span className="flex-1 truncate">{s.title}</span>
+                <span className={`px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap ${meta.c}`}>{meta.l}</span>
+                <span className="text-[10px] text-gray-400 tabular-nums whitespace-nowrap">{s.totalCount ?? 0}건</span>
+              </button>
+            );
+          })}
+        </div>,
+        document.body,
+      )}
+    </>
   );
 }

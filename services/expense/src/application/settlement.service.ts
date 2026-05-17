@@ -3,17 +3,8 @@
 //                    └→ REJECTED
 
 import type { PrismaClient, SettlementStatus } from "@prisma/client";
-import { promises as fs } from "fs";
 import type { ApprovalClient } from "../infrastructure/approval-client";
-import type { LocalFsStorage } from "../infrastructure/storage";
 import { publishActivity } from "../infrastructure/event-publisher";
-
-export interface CreateSettlementInput {
-  userId: string;
-  periodStart: Date;
-  periodEnd: Date;
-  title?: string;
-}
 
 export interface ListSettlementParams {
   status?: SettlementStatus;
@@ -42,7 +33,6 @@ export class SettlementService {
   constructor(
     private readonly prisma: PrismaClient,
     private readonly approvalClient: ApprovalClient,
-    private readonly storage: LocalFsStorage,
   ) {}
 
   async list(userId: string, params: ListSettlementParams = {}) {
@@ -70,8 +60,7 @@ export class SettlementService {
           include: {
             transaction: {
               include: {
-                category: true,
-                source: { select: { id: true, name: true, displayName: true, type: true } },
+                source: { select: { id: true, name: true, displayName: true, type: true, ownership: true } },
                 matches: { where: { confirmedAt: { not: null } }, include: { receipt: true } },
               },
             },
@@ -82,11 +71,6 @@ export class SettlementService {
     });
     if (!s) throw new Error("정산서를 찾을 수 없습니다.");
     return s;
-  }
-
-  /** @deprecated 카테고리별 자동 생성 — 수동 정산 모드로 전환되어 사용 안 함 */
-  async createForPeriodByCategory(_input: CreateSettlementInput) {
-    throw new Error("자동 정산은 더 이상 지원되지 않습니다. 거래 페이지에서 수동으로 정산분류를 설정해주세요.");
   }
 
   /** 정산묶음 제목 수정 (PAID/APPROVED/RECEIVED 제외) */
@@ -257,112 +241,96 @@ export class SettlementService {
   }
 
   /**
-   * 결재 상신 — DRAFT → SUBMITTED.
-   * approval-service의 EXPENSE_CLAIM 양식으로 문서 생성 + approvalDocumentId 저장.
+   * v1.6.4 (2026-05-16): 결재 분리 — settlement에서 직접 상신하지 않음.
+   * approval-service가 결재 문서 생성 후 이 메서드 호출하여 연결.
+   * userId 검증 없음 — internal endpoint에서 호출 (approval webhook).
    */
-  async submit(userId: string, id: string, options?: {
-    projectName?: string | null;
-    body?: string | null;
-    approvers?: Array<{ stepOrder?: number; roleName?: string; approverId: string; approverName?: string }>;
-  }) {
-    const s = await this.get(userId, id);
-    assertTransition(s.status, "SUBMITTED");
+  async linkApproval(settlementId: string, approvalDocumentId: string) {
+    const s = await this.prisma.expenseSettlement.findUnique({ where: { id: settlementId } });
+    if (!s) throw new Error(`정산 묶음을 찾을 수 없습니다: ${settlementId}`);
+    if (s.status !== "DRAFT" && s.status !== "REJECTED") {
+      throw new Error(`현재 ${s.status} 상태인 정산 묶음은 결재에 연결할 수 없습니다. 기존 결재를 먼저 해제하세요.`);
+    }
     if (s.totalCount === 0) throw new Error("정산할 거래가 없습니다.");
 
-    // 영수증 매칭(증빙) 없는 거래가 있으면 상신 차단
-    const unmatched = s.items.filter((it) => !(it.transaction.matches ?? []).length);
-    if (unmatched.length > 0) {
-      const sample = unmatched.slice(0, 3).map((it) => it.transaction.merchantName).join(", ");
-      const more = unmatched.length > 3 ? ` 외 ${unmatched.length - 3}건` : "";
-      throw new Error(`영수증이 매칭되지 않은 거래가 ${unmatched.length}건 있습니다 (${sample}${more}). 영수증 매칭 후 상신해주세요.`);
-    }
-
-    // approval-service 호출 — period가 null이면 거래 transactedAt에서 추정
-    const txDates = s.items.map((it) => it.transaction.transactedAt.getTime());
-    const periodStart = s.periodStart ?? (txDates.length > 0 ? new Date(Math.min(...txDates)) : new Date());
-    const periodEnd = s.periodEnd ?? (txDates.length > 0 ? new Date(Math.max(...txDates)) : new Date());
-    const createInput: any = {
-      userId,
-      settlementId: s.id,
-      title: s.title,
-      periodStart,
-      periodEnd,
-      totalAmount: Number(s.totalAmount ?? 0),
-      categoryStats: (s.categoryStats as any) ?? {},
-      items: s.items.map((it) => {
-        const confirmed = it.transaction.matches?.find((m: any) => m.confirmedAt);
-        return {
-          transactedAt: it.transaction.transactedAt,
-          merchantName: it.transaction.merchantName,
-          categoryName: it.transaction.category?.name ?? "기타",
-          amount: Number(it.transaction.amount),
-          memo: it.memoOverride ?? it.transaction.memo ?? "",
-          receiptFileName: confirmed?.receipt?.originalFileName ?? null,
-          receiptId: confirmed?.receipt?.id ?? null,
-        };
-      }),
-    };
-    if (options?.projectName) createInput.projectName = options.projectName;
-    if (options?.body) createInput.body = options.body;
-    if (options?.approvers && options.approvers.length > 0) createInput.approvers = options.approvers;
-    const docId = await this.approvalClient.createExpenseClaimDocument(createInput);
+    const items = await this.prisma.expenseSettlementItem.findMany({
+      where: { settlementId },
+      select: { transactionId: true },
+    });
 
     const [updated] = await this.prisma.$transaction([
       this.prisma.expenseSettlement.update({
-        where: { id },
+        where: { id: settlementId },
         data: {
           status: "SUBMITTED",
           submittedAt: new Date(),
-          approvalDocumentId: docId,
+          approvalDocumentId,
+          // 반려에서 새 결재로 가는 경우 reject 정보 초기화
+          rejectedAt: null,
+          rejectReason: null,
         },
       }),
       this.prisma.expenseTransaction.updateMany({
-        where: { id: { in: s.items.map((it) => it.transactionId) } },
+        where: { id: { in: items.map((it) => it.transactionId) } },
         data: { status: "SETTLED" },
       }),
     ]);
 
-    // 영수증 파일을 결재 문서 첨부로 업로드 (matched + confirmed 만)
-    void this.attachReceiptsToDocument(s, docId, userId);
-
     void publishActivity({
-      action: "expense.settlement.submitted",
-      userId,
+      action: "expense.settlement.linked",
+      userId: s.userId,
       entityType: "expense_settlement",
-      entityId: id,
-      description: `경비정산 결재 상신 — ${s.title}`,
-      metadata: { approvalDocumentId: docId, totalAmount: Number(s.totalAmount ?? 0) },
+      entityId: settlementId,
+      description: `경비정산 결재 연결 — ${s.title}`,
+      metadata: { approvalDocumentId, totalAmount: Number(s.totalAmount ?? 0) },
     });
 
     return updated;
   }
 
   /**
-   * 결재 상신 후 비동기로 영수증 파일을 결재 첨부로 복사 업로드.
-   * fire-and-forget — 첨부 실패해도 상신은 성공 (로그만 남김).
+   * v1.6.4 (2026-05-16): 결재 문서 삭제 시 settlement 연결 해제.
+   * approval-service의 결재 삭제 webhook에서 호출.
+   * 거래 status는 CATEGORIZED로 복귀 (정산 묶음에는 그대로 유지).
    */
-  private async attachReceiptsToDocument(
-    s: Awaited<ReturnType<SettlementService["get"]>>,
-    documentId: string,
-    userId: string,
-  ) {
-    for (const it of s.items) {
-      const confirmed = it.transaction.matches?.find((m: any) => m.confirmedAt);
-      if (!confirmed?.receipt) continue;
-      try {
-        const diskPath = this.storage.resolveDiskPath(confirmed.receipt.storageKey);
-        const buf = await fs.readFile(diskPath);
-        await this.approvalClient.attachReceipt({
-          documentId,
-          uploadedBy: userId,
-          fileName: confirmed.receipt.originalFileName,
-          fileBuffer: buf,
-          mimeType: confirmed.receipt.fileType,
-        });
-      } catch (err: any) {
-        console.error(`[settlement] attach receipt ${confirmed.receipt.id} failed: ${err.message}`);
-      }
-    }
+  async unlinkApproval(approvalDocumentId: string) {
+    const s = await this.prisma.expenseSettlement.findFirst({
+      where: { approvalDocumentId },
+    });
+    if (!s) return null;
+
+    const items = await this.prisma.expenseSettlementItem.findMany({
+      where: { settlementId: s.id },
+      select: { transactionId: true },
+    });
+
+    const [updated] = await this.prisma.$transaction([
+      this.prisma.expenseSettlement.update({
+        where: { id: s.id },
+        data: {
+          status: "DRAFT",
+          submittedAt: null,
+          approvalDocumentId: null,
+          rejectedAt: null,
+          rejectReason: null,
+        },
+      }),
+      this.prisma.expenseTransaction.updateMany({
+        where: { id: { in: items.map((it) => it.transactionId) }, status: "SETTLED" },
+        data: { status: "CATEGORIZED" },
+      }),
+    ]);
+
+    void publishActivity({
+      action: "expense.settlement.unlinked",
+      userId: s.userId,
+      entityType: "expense_settlement",
+      entityId: s.id,
+      description: `경비정산 결재 해제 — ${s.title}`,
+      metadata: { approvalDocumentId },
+    });
+
+    return updated;
   }
 
   /**

@@ -64,26 +64,29 @@ enum SettlementStatus {
   @@schema("expense")
 }
 
-enum CategoryScope {
-  STANDARD
-  PERSONAL
-
-  @@schema("expense")
-}
 
 // ─────────────────────────────────────────────────────
 // Models
 // ─────────────────────────────────────────────────────
 
+// v1.6.1 (2026-05-15): 카드/현금 소유 구분 (정산 구분)
+enum SourceOwnership {
+  PERSONAL    // 개인 부담 — 환급 대상
+  CORPORATE   // 법인카드 — 회사 결제, 환급 없음
+
+  @@schema("expense")
+}
+
 model ExpenseSource {
-  id          String     @id @default(cuid())
+  id          String          @id @default(cuid())
   userId      String
-  name        String     // 명세표이름 (import 자동 생성, read-only)
-  displayName String?    // 대표이름 (사용자 자유입력 별칭)
+  name        String          // 명세표이름 (import 자동 생성, read-only)
+  displayName String?         // 대표이름 (사용자 자유입력 별칭)
   type        SourceType
   cardNumber  String?
-  active      Boolean    @default(true)
-  createdAt   DateTime   @default(now())
+  ownership   SourceOwnership @default(PERSONAL)  // v1.6.1 (2026-05-15): 정산 구분 (개인/법인)
+  active      Boolean         @default(true)
+  createdAt   DateTime        @default(now())
 
   statements   ExpenseStatement[]
   transactions ExpenseTransaction[]
@@ -138,8 +141,10 @@ model ExpenseTransaction {
   installmentMonths Int?
   approvalNo        String?
 
-  categoryId        String?
-  category          ExpenseCategory? @relation(fields: [categoryId], references: [id])
+  // v1.6.2 (2026-05-15): 사업(계약) 연결 — equipment.Contract cross-service 참조 (FK 없음)
+  contractId        String?
+  contractNumber    String?   // snapshot: 계약번호 (예: 26-12)
+  contractName      String?   // snapshot: 계약명
   detail            String?   // 상세 내역 (구매 항목·서비스 내용 등)
   memo              String?
 
@@ -154,7 +159,7 @@ model ExpenseTransaction {
 
   @@unique([sourceId, approvalNo])
   @@index([userId, transactedAt])
-  @@index([userId, categoryId])
+  @@index([userId, contractId])
   @@index([userId, status])
   @@map("transactions")
   @@schema("expense")
@@ -214,26 +219,6 @@ model TransactionReceiptMatch {
   @@schema("expense")
 }
 
-model ExpenseCategory {
-  id           String        @id @default(cuid())
-  scope        CategoryScope @default(STANDARD)
-  ownerUserId  String?
-  code         String        @unique
-  name         String
-  description  String?
-  displayOrder Int           @default(0)
-  active       Boolean       @default(true)
-  sheetName    String
-
-  transactions    ExpenseTransaction[]
-  settlementItems ExpenseSettlementItem[]
-
-  @@index([scope, active])
-  @@index([ownerUserId])
-  @@map("categories")
-  @@schema("expense")
-}
-
 model ExpenseSettlement {
   id                 String           @id @default(cuid())
   userId             String
@@ -289,8 +274,6 @@ model ExpenseSettlementItem {
   transactionId      String
   transaction        ExpenseTransaction @relation(fields: [transactionId], references: [id])
 
-  categoryOverrideId String?
-  categoryOverride   ExpenseCategory? @relation(fields: [categoryOverrideId], references: [id])
   memoOverride       String?
 
   sortOrder          Int       @default(0)
