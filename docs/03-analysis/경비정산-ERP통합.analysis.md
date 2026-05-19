@@ -165,7 +165,8 @@ Step 4. /pdca report 경비정산-ERP통합 (>=95%)
 | Version | Date | Changes |
 |---|---|---|
 | 1.0 | 2026-05-15 | gap-detector Agent 1차 분석. Match Rate 88%. High Gap 2건 (Design §6 + §5.5 갱신 필요), Medium 3건, Low 3건. Design v0.4 갱신 권장 |
-| **2.0** | **2026-05-15** | **gap-detector Agent 2차 분석. Match Rate 96% (+8%p). Design v0.4 갱신 + frontend 마이그레이션 + 주석 정리로 High Gap 0건 + Medium Gap 0건 도달. Report 단계 진입 가능** |
+| 2.0 | 2026-05-15 | gap-detector Agent 2차 분석. Match Rate 96% (+8%p). Design v0.4 갱신 + frontend 마이그레이션 + 주석 정리로 High Gap 0건 + Medium Gap 0건 도달. Report 단계 진입 가능 |
+| **3.0** | **2026-05-19** | **gap-detector Agent 3차 분석. Match Rate 98% (+2%p, v2 96% → v3). Design v0.5 갱신(카테고리 도메인 폐기 + SourceOwnership + contractId snapshot + link/unlink-approval webhook + 자동 제목 폐기 + 매뉴얼 v1.4) 모두 코드와 일치 확인. High/Medium Gap 0건, 잔여 Low Gap 2건(G-4, G-6 백로그) + G-9(categoryCode legacy 잔재, 정상). Report 진입 가능** |
 
 ---
 
@@ -220,4 +221,62 @@ Step 4. /pdca report 경비정산-ERP통합 (>=95%)
 
 - **옵션 A**: 즉시 `/pdca report 경비정산-ERP통합` 실행 (기능 5/7~5/12 완료, 안정 가동 중)
 - **옵션 B**: 운영 사용 사례 누적 후 진행 (check 단계 유지)
+
+---
+
+## 9. v3 분석 (2026-05-19) — Design v0.5 갱신 후
+
+### 9.1 요약
+
+| 항목 | 2차 (v0.4 vs 구현) | 3차 (v0.5 vs 구현) | 변화 |
+|---|:---:|:---:|:---:|
+| Match Rate | **96%** | **98%** | +2%p |
+| High Gap | 0건 | **0건** | - |
+| Medium Gap | 0건 | **0건** | - |
+| Low Gap | 2건 (백로그) | 2건 (백로그) + 1건 (legacy 정상) | +1 (정상 잔재) |
+| 통과 카테고리 | 9/9 | **9/9** | - |
+| Report 진입 | 가능 | **가능** | - |
+
+### 9.2 카테고리별 Match 비교
+
+| 카테고리 | v1 | v2 | **v3** | 비고 |
+|---|:---:|:---:|:---:|---|
+| Data Model | 100% | 100% | **100%** | v0.5 schema 완전 일치 — SourceOwnership enum, contractId/contractNumber/contractName/detail, periodStart/periodEnd nullable, unique 제거, categoryCode/categoryStats legacy 잔재 모두 반영 |
+| State Machine | 95% | 100% | **100%** | 변경 없음 — TRANSITIONS (settlement.service.ts:17-24) + clearPaymentSync 일치 |
+| API Endpoints | 85% | 88% | **96%** | `/categories` 폐기 명시 + `POST /settlements/empty` + `PATCH /settlements/transactions/:txId` + `PATCH /settlements/:id/title` 모두 명세-구현 일치 |
+| Approval Template | 60% | 100% | **100%** | 변경 없음 — EXPENSE 단일화 + referenceType 분기 |
+| UI Pages | 95% | 95% | **100%** | `/expense/categories` 폐기 명시 + 폴더 부재 일치, 매뉴얼 v1.4 일치, 정산 상세 컬럼 정정 |
+| Card Parsers | 100% | 100% | **100%** | 변경 없음 |
+| File Storage | 100% | 100% | **100%** | 변경 없음 |
+| Permissions | 85% | 98% | **98%** | 변경 없음 (인라인 패턴 유지) |
+| Webhook (HTTP) | 75% | 100% | **100%** | link-approval / unlink-approval / from-approval / from-payment(POST·DELETE) 5종 모두 일치 (settlement.routes.ts:135-205) |
+
+### 9.3 v0.5 갱신으로 해결된 항목 (v2 잠재 Gap)
+
+| 항목 | 해결 방식 |
+|---|---|
+| Data Model 불일치 — categoryId 코드/스키마 vs Design 미반영 | Design v0.5 §3에 `ExpenseCategory` 폐기 + `contractId`/`contractNumber`/`contractName`/`detail` snapshot 반영 |
+| SourceOwnership enum 미문서화 | Design v0.5 §3 enum 신규 + §6.3 ownership 분기표 추가 |
+| `/settlements` legacy + `/submit` 라우트 명세 vs 코드 폐기 | Design v0.5 §5 폐기 명시 + 신규 라우트 (empty/transactions/title) 명세 추가 |
+| link-approval / unlink-approval webhook 미문서화 (v1.6.4) | Design v0.5 §5.5.0 신규 절 추가 + §5.5.4 통신 방향 정리 |
+| 자동 제목 + periodStart/periodEnd unique 제약 폐기 | Design v0.5 §3 nullable + unique 제거 + O3 해결됨 표기 |
+
+### 9.4 잔여 Gap (v3)
+
+| ID | 항목 | 영향 | 조치 |
+|---|---|:--:|---|
+| G-4 | `/admin/settlements` 미구현 | Low | Design v0.5 §5.3 백로그 명시. 사용자 명시 요청 시 진행 |
+| G-6 | `/internal/expense/settlement-summary` 미구현 | Low | Design v0.5 §5.4 백로그 명시. 실 사용처 발생 시 추가 |
+| G-9 | `ExpenseSettlement.categoryCode` / `categoryStats` legacy 잔재 | Low | Design v0.5 §3 legacy 통계용으로 잔존 명시 — **정상**. 추후 통계 마이그레이션 시 제거 가능 |
+
+신규 High/Medium Gap **0건**.
+
+### 9.5 다음 단계
+
+**Match Rate 98% ≥ 90% → Report 진입 가능**
+
+v2 (96%) 대비 +2%p 회복. v3는 메모리 정책에 따라 사용자가 안정화 후 결정:
+- **옵션 A**: 즉시 `/pdca report 경비정산-ERP통합` 실행 (코드 안정 가동, ecount 마이그도 완료)
+- **옵션 B**: 추가 운영 사례 누적 후 진행 (check 단계 유지)
+- **백로그**: G-4 / G-6는 사용자 명시 요청 시에만 진행 (Design에 백로그로 명시됨)
 
