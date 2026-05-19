@@ -97,6 +97,8 @@ export class InventoryService {
     // v1.6 (2026-05-13)
     const SORTABLE: Record<string, any> = {
       inventoryNo: { inventoryNo: sortOrder },
+      itemName: { itemName: sortOrder },
+      manufacturer: { manufacturer: sortOrder },
       serialNumber: { serialNumber: sortOrder },
       category: { category: sortOrder },
       currentStatus: { currentStatus: sortOrder },
@@ -127,6 +129,7 @@ export class InventoryService {
       where: { id },
       include: {
         productMaster: true,
+        supplierRef: { select: { id: true, name: true } },
         orderItem: { include: { order: { select: { orderNumber: true } } } },
         transactions: { orderBy: { date: "desc" }, take: 50 },
         costEvents: { orderBy: { eventDate: "desc" } },

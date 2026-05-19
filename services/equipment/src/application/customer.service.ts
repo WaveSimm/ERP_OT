@@ -67,7 +67,25 @@ export class CustomerService {
       },
     });
     if (!customer) throw new Error("고객을 찾을 수 없습니다.");
-    return customer;
+
+    // 자산 → inventory_items batch lookup (otInventoryNo 매칭 → inventoryItemId 추가)
+    const inventoryNos = customer.assets
+      .map((a) => a.otInventoryNo)
+      .filter((no): no is string => !!no && no !== "");
+    let invMap = new Map<string, string>();
+    if (inventoryNos.length > 0) {
+      const items = await this.prisma.inventoryItem.findMany({
+        where: { inventoryNo: { in: inventoryNos } },
+        select: { id: true, inventoryNo: true },
+      });
+      invMap = new Map(items.map((i) => [i.inventoryNo, i.id]));
+    }
+    const assetsWithInv = customer.assets.map((a) => ({
+      ...a,
+      inventoryItemId: a.otInventoryNo ? invMap.get(a.otInventoryNo) ?? null : null,
+    }));
+
+    return { ...customer, assets: assetsWithInv };
   }
 
   async create(data: {

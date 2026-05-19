@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { procurementApi } from "@/lib/api";
 import { DateInput } from "@/components/ui/DateInput";
 import { fmtDate, fmtDateTime24 } from "@/lib/datetime";
+import SortableHeader, { SortOrder } from "@/components/SortableHeader";
 
 const CURRENCY_SYMBOLS: Record<string, string> = { EUR: "€", GBP: "£", USD: "$", KRW: "₩" };
 const fmtAmount = (v: any, c?: string) => {
@@ -25,6 +26,10 @@ export default function OrderPaymentRequestsTab() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<any>(null);
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<string>("requestedAt");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const handleSort = (k: string, o: SortOrder) => { setSortBy(k); setSortOrder(o); };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -37,12 +42,40 @@ export default function OrderPaymentRequestsTab() {
 
   useEffect(() => { load(); }, [load]);
 
-  const counts = items.length;
+  // 클라이언트 필터·정렬
+  const displayItems = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let list = q
+      ? items.filter((p) => {
+          const hay = `${p.order?.orderNumber || ""} ${p.order?.manufacturer || ""} ${p.order?.customer || ""}`.toLowerCase();
+          return hay.includes(q);
+        })
+      : items;
+    const dir = sortOrder === "asc" ? 1 : -1;
+    list = [...list].sort((a, b) => {
+      let av: any, bv: any;
+      switch (sortBy) {
+        case "orderNumber": av = a.order?.orderNumber || ""; bv = b.order?.orderNumber || ""; break;
+        case "manufacturer": av = a.order?.manufacturer || ""; bv = b.order?.manufacturer || ""; break;
+        case "customer": av = a.order?.customer || ""; bv = b.order?.customer || ""; break;
+        case "amount": av = Number(a.amount) || 0; bv = Number(b.amount) || 0; break;
+        case "paymentDate": av = a.paymentDate || ""; bv = b.paymentDate || ""; break;
+        case "requestedAt": av = a.requestedAt || ""; bv = b.requestedAt || ""; break;
+        default: av = a[sortBy]; bv = b[sortBy];
+      }
+      if (av < bv) return -1 * dir;
+      if (av > bv) return 1 * dir;
+      return 0;
+    });
+    return list;
+  }, [items, search, sortBy, sortOrder]);
+
+  const counts = displayItems.length;
 
   return (
     <div>
-      {/* status sub-tab */}
-      <div className="flex gap-2 mb-4">
+      {/* status sub-tab + 검색 */}
+      <div className="flex items-center gap-2 mb-4">
         {(["REQUESTED", "COMPLETED", "REJECTED"] as StatusTab[]).map((s) => (
           <button
             key={s}
@@ -55,31 +88,40 @@ export default function OrderPaymentRequestsTab() {
             {statusTab === s && ` (${counts})`}
           </button>
         ))}
+        <div className="ml-auto">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="발주번호·제조사·고객사 검색"
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md w-64"
+          />
+        </div>
       </div>
 
       {loading ? (
         <div className="text-center py-12 text-gray-400">로딩 중...</div>
-      ) : items.length === 0 ? (
+      ) : displayItems.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
-          {statusTab === "REQUESTED" ? "대기 중인 송금 요청이 없습니다." : "내역이 없습니다."}
+          {search ? `'${search}' 검색 결과 없음` : (statusTab === "REQUESTED" ? "대기 중인 송금 요청이 없습니다." : "내역이 없습니다.")}
         </div>
       ) : (
         <div className="bg-white rounded-lg border overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">발주번호</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">제조사</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">고객사</th>
+                <SortableHeader sortKey="orderNumber" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">발주번호</SortableHeader>
+                <SortableHeader sortKey="manufacturer" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">제조사</SortableHeader>
+                <SortableHeader sortKey="customer" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">고객사</SortableHeader>
                 <th className="px-4 py-3 text-center font-medium text-gray-600">방식</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">금액</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">요청일시</th>
+                <SortableHeader sortKey="amount" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="right" className="px-4 py-3 text-right font-medium text-gray-600">금액</SortableHeader>
+                <SortableHeader sortKey="requestedAt" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">요청일시</SortableHeader>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">비고</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {items.map((p: any) => (
+              {displayItems.map((p: any) => (
                 <tr key={p.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-mono">
                     <a href={`/procurement/orders/${p.order?.id}`} className="text-blue-600 hover:underline">{p.order?.orderNumber}</a>
@@ -98,6 +140,12 @@ export default function OrderPaymentRequestsTab() {
                         onClick={() => setSelected(p)}
                         className="text-xs px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
                       >처리</button>
+                    )}
+                    {statusTab === "COMPLETED" && (
+                      <button
+                        onClick={() => setSelected({ ...p, _editMode: true })}
+                        className="text-xs px-3 py-1 border border-blue-500 text-blue-600 rounded hover:bg-blue-50"
+                      >정정</button>
                     )}
                   </td>
                 </tr>
@@ -128,14 +176,17 @@ function ProcessRequestModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const isEditMode = !!payment._editMode;
   const [mode, setMode] = useState<"complete" | "reject">("complete");
   const [form, setForm] = useState({
-    paymentDate: new Date().toISOString().slice(0, 10),
+    paymentDate: isEditMode && payment.paymentDate
+      ? String(payment.paymentDate).slice(0, 10)
+      : new Date().toISOString().slice(0, 10),
     amount: payment.amount ? String(payment.amount) : "",
-    amountKRW: "",
-    exchangeRate: "",
+    amountKRW: payment.amountKRW ? String(payment.amountKRW) : "",
+    exchangeRate: payment.exchangeRate ? String(payment.exchangeRate) : "",
     paymentMethod: payment.paymentMethod || "T/T",
-    bankReference: "",
+    bankReference: payment.bankReference || "",
     notes: payment.notes || "",
     rejectReason: "",
   });
@@ -149,8 +200,8 @@ function ProcessRequestModal({
   const handleComplete = async () => {
     if (!form.paymentDate) { alert("송금일은 필수입니다."); return; }
     if (actualAmount <= 0) { alert("송금액은 0보다 커야 합니다."); return; }
-    // 부분 결제 시 확인
-    if (isPartial) {
+    // 부분 결제 시 확인 (정정 모드에선 잔여 자동 생성 없음, skip)
+    if (isPartial && !isEditMode) {
       const confirmMsg = `실제 송금액(${actualAmount.toLocaleString()})이 요청 금액(${requestedAmount.toLocaleString()})보다 적습니다.\n\n잔여 ${remaining.toLocaleString()}는 새 송금 요청으로 자동 생성됩니다.\n\n진행하시겠습니까?`;
       if (!confirm(confirmMsg)) return;
     }
@@ -165,10 +216,14 @@ function ProcessRequestModal({
       if (form.exchangeRate) payload.exchangeRate = Number(form.exchangeRate);
       if (form.bankReference) payload.bankReference = form.bankReference;
       if (form.notes) payload.notes = form.notes;
-      await procurementApi.completePaymentRequest(payment.id, payload);
+      if (isEditMode) {
+        await procurementApi.updatePayment(payment.id, payload);
+      } else {
+        await procurementApi.completePaymentRequest(payment.id, payload);
+      }
       onDone();
     } catch (e: any) {
-      alert(e.message || "완료 처리 실패");
+      alert(e.message || (isEditMode ? "정정 실패" : "완료 처리 실패"));
     } finally { setSaving(false); }
   };
 
@@ -187,7 +242,7 @@ function ProcessRequestModal({
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-lg font-bold mb-1">송금 요청 처리</h3>
+        <h3 className="text-lg font-bold mb-1">{isEditMode ? "송금 내역 정정" : "송금 요청 처리"}</h3>
         <p className="text-xs text-gray-500 mb-4">
           발주: <a href={`/procurement/orders/${payment.order?.id}`} target="_blank" rel="noreferrer"
             className="text-blue-600 hover:underline font-mono">{payment.order?.orderNumber}</a>
@@ -195,12 +250,14 @@ function ProcessRequestModal({
           {payment.order?.customer && ` · ${payment.order.customer}`}
         </p>
 
-        <div className="flex gap-2 mb-4">
-          <button onClick={() => setMode("complete")}
-            className={`px-3 py-1.5 text-sm rounded ${mode === "complete" ? "bg-green-600 text-white" : "bg-gray-100"}`}>완료 처리</button>
-          <button onClick={() => setMode("reject")}
-            className={`px-3 py-1.5 text-sm rounded ${mode === "reject" ? "bg-red-600 text-white" : "bg-gray-100"}`}>반려</button>
-        </div>
+        {!isEditMode && (
+          <div className="flex gap-2 mb-4">
+            <button onClick={() => setMode("complete")}
+              className={`px-3 py-1.5 text-sm rounded ${mode === "complete" ? "bg-green-600 text-white" : "bg-gray-100"}`}>완료 처리</button>
+            <button onClick={() => setMode("reject")}
+              className={`px-3 py-1.5 text-sm rounded ${mode === "reject" ? "bg-red-600 text-white" : "bg-gray-100"}`}>반려</button>
+          </div>
+        )}
 
         {mode === "complete" ? (
           <div className="grid grid-cols-2 gap-3">
@@ -246,7 +303,12 @@ function ProcessRequestModal({
             <div>
               <label className="block text-sm text-gray-600 mb-1">환율</label>
               <input type="number" step="0.0001" min={0} value={form.exchangeRate}
-                onChange={(e) => setForm({ ...form, exchangeRate: e.target.value })}
+                onChange={(e) => {
+                  const rate = e.target.value;
+                  const amt = Number(form.amount);
+                  const newKRW = rate && amt > 0 ? String(Math.round(amt * Number(rate))) : form.amountKRW;
+                  setForm({ ...form, exchangeRate: rate, amountKRW: newKRW });
+                }}
                 placeholder="0.0000"
                 className="w-full border rounded-lg px-3 py-2 text-sm text-right font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
             </div>
@@ -281,7 +343,7 @@ function ProcessRequestModal({
           {mode === "complete" ? (
             <button onClick={handleComplete} disabled={saving}
               className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50">
-              {saving ? "처리 중..." : "송금 완료"}
+              {saving ? "처리 중..." : (isEditMode ? "정정 저장" : "송금 완료")}
             </button>
           ) : (
             <button onClick={handleReject} disabled={saving}

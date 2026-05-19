@@ -487,7 +487,7 @@ export default function OrderDetailPage() {
           )}
           {/* v1.6 (2026-05-14): PARTIALLY_RECEIVED는 [입고 처리] 모달로만, SETTLEMENT는 송금 요청으로만 진입 */}
           {/* v1.6.1 (2026-05-15): CUSTOMS 상태에서 ARRIVED 전이("통관 완료") 노출 — 관부가세 PAID 시에만 활성 */}
-          {order.status !== "DRAFT" && order.allowedTransitions?.filter((t: string) => !["PENDING_APPROVAL", "APPROVED", "REJECTED", "DRAFT", "PARTIALLY_RECEIVED", "SETTLEMENT"].includes(t)).map((t: string) => {
+          {order.status !== "DRAFT" && order.allowedTransitions?.filter((t: string) => !["PENDING_APPROVAL", "APPROVED", "REJECTED", "DRAFT", "PARTIALLY_RECEIVED", "SETTLEMENT", "CLOSED"].includes(t)).map((t: string) => {
             const isArrived = t === "ARRIVED";
             const customsPaid = order.customsTax?.status === "PAID";
             const disabledByCustomsTax = isArrived && order.status === "CUSTOMS" && !customsPaid;

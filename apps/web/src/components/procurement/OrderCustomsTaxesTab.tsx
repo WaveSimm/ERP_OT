@@ -83,6 +83,9 @@ export default function OrderCustomsTaxesTab() {
                     {statusTab === "PENDING" && (
                       <button onClick={() => setSelected(t)} className="text-xs px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">처리</button>
                     )}
+                    {statusTab === "PAID" && (
+                      <button onClick={() => setSelected({ ...t, _editMode: true })} className="text-xs px-3 py-1 border border-blue-500 text-blue-600 rounded hover:bg-blue-50">정정</button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -104,6 +107,7 @@ export default function OrderCustomsTaxesTab() {
 
 function ProcessModal({ tax, onClose, onSaved }: { tax: any; onClose: () => void; onSaved: () => void }) {
   const today = new Date().toISOString().slice(0, 10);
+  const isEditMode = !!tax._editMode;
   const [form, setForm] = useState({
     customsDuty: tax.customsDuty ? String(tax.customsDuty) : "",
     vat: tax.vat ? String(tax.vat) : "",
@@ -118,15 +122,20 @@ function ProcessModal({ tax, onClose, onSaved }: { tax: any; onClose: () => void
     if (!form.customsDuty && !form.vat) { alert("관세 또는 부가세를 입력해주세요."); return; }
     setSaving(true);
     try {
-      await procurementApi.payCustomsTax(tax.id, {
+      const payload = {
         ...(form.customsDuty ? { customsDuty: Number(form.customsDuty) } : {}),
         ...(form.vat ? { vat: Number(form.vat) } : {}),
         totalAmount,
         paidAt: form.paidAt,
         ...(form.notes ? { notes: form.notes } : {}),
-      });
+      };
+      if (isEditMode) {
+        await procurementApi.correctCustomsTax(tax.id, payload);
+      } else {
+        await procurementApi.payCustomsTax(tax.id, payload);
+      }
       onSaved();
-    } catch (e: any) { alert(e.message || "처리 실패"); }
+    } catch (e: any) { alert(e.message || (isEditMode ? "정정 실패" : "처리 실패")); }
     finally { setSaving(false); }
   };
 
@@ -144,7 +153,7 @@ function ProcessModal({ tax, onClose, onSaved }: { tax: any; onClose: () => void
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-lg font-bold mb-1">관부가세 처리</h3>
+        <h3 className="text-lg font-bold mb-1">{isEditMode ? "관부가세 정정" : "관부가세 처리"}</h3>
         <p className="text-xs text-gray-500 mb-4">
           <a href={`/procurement/orders/${tax.order?.id}`} target="_blank" className="text-blue-600 hover:underline">{tax.order?.orderNumber}</a>
           {tax.order?.manufacturer && ` · ${tax.order.manufacturer}`}
@@ -182,25 +191,27 @@ function ProcessModal({ tax, onClose, onSaved }: { tax: any; onClose: () => void
           </div>
         </div>
 
-        <details className="mb-4">
-          <summary className="text-sm text-red-600 cursor-pointer">반려 처리</summary>
-          <div className="mt-2">
-            <input type="text" value={form.rejectReason}
-              onChange={(e) => setForm({ ...form, rejectReason: e.target.value })}
-              placeholder="반려 사유"
-              className="w-full border rounded-lg px-3 py-2 text-sm mb-2" />
-            <button onClick={handleReject} disabled={saving || !form.rejectReason}
-              className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">
-              반려
-            </button>
-          </div>
-        </details>
+        {!isEditMode && (
+          <details className="mb-4">
+            <summary className="text-sm text-red-600 cursor-pointer">반려 처리</summary>
+            <div className="mt-2">
+              <input type="text" value={form.rejectReason}
+                onChange={(e) => setForm({ ...form, rejectReason: e.target.value })}
+                placeholder="반려 사유"
+                className="w-full border rounded-lg px-3 py-2 text-sm mb-2" />
+              <button onClick={handleReject} disabled={saving || !form.rejectReason}
+                className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">
+                반려
+              </button>
+            </div>
+          </details>
+        )}
 
         <div className="flex justify-end gap-2">
           <button onClick={onClose} disabled={saving} className="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50">취소</button>
           <button onClick={handlePay} disabled={saving || totalAmount <= 0}
             className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
-            {saving ? "처리 중..." : "납부 완료"}
+            {saving ? "처리 중..." : (isEditMode ? "정정 저장" : "납부 완료")}
           </button>
         </div>
       </div>

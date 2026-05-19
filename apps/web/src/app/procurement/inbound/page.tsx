@@ -229,7 +229,7 @@ export default function InboundRequestPage() {
               <SortableHeader sortKey="status" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-2 text-left font-medium text-gray-600">상태</SortableHeader>
               <SortableHeader sortKey="sourceType" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-2 text-left font-medium text-gray-600">출처</SortableHeader>
               <SortableHeader sortKey="sourceDocNumber" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-2 text-left font-medium text-gray-600">출처 문서</SortableHeader>
-              <th className="px-3 py-2 text-center font-medium text-gray-600">품목수</th>
+              <th className="px-3 py-2 text-right font-medium text-gray-600">수량</th>
               <th className="px-3 py-2 text-left font-medium text-gray-600">재고번호</th>
               <SortableHeader sortKey="requestedAt" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-2 text-left font-medium text-gray-600">요청 시각</SortableHeader>
               <th className="px-3 py-2 text-left font-medium text-gray-600">메모</th>
@@ -250,7 +250,7 @@ export default function InboundRequestPage() {
                 </td>
                 <td className="px-3 py-2 text-xs text-gray-500">{SOURCE_LABELS[r.sourceType] || r.sourceType}</td>
                 <td className="px-3 py-2 text-xs truncate max-w-[200px]" title={r.sourceDocNumber}>{r.sourceDocNumber || "-"}</td>
-                <td className="px-3 py-2 text-center text-xs">{r._count?.items ?? r.items?.length ?? 0}</td>
+                <td className="px-3 py-2 text-right text-xs font-mono">{(r.items ?? []).reduce((s: number, i: any) => s + (i.quantity || 0), 0)}</td>
                 <td className="px-3 py-2 text-xs">
                   {Array.isArray(r.inventoryItems) && r.inventoryItems.length > 0
                     ? r.inventoryItems.map((inv: any) => (
@@ -321,7 +321,7 @@ export default function InboundRequestPage() {
                               value={r.productMasterName || ""}
                               onChange={(v) => updateReceiveRow(idx, { productMasterName: v })}
                               onSelect={(item) => onSelectMaster(idx, item)}
-                              placeholder="마스터 검색..."
+                              placeholder="품목 검색 (한글·영문 모두 가능, 예: R500·USB·거치대)"
                               loadOptions={async (q) => {
                                 const res = await procurementApi.getProducts({ search: q, limit: 20 });
                                 return (res.items || []).map((p: any) => ({ id: p.id, name: p.name, sub: p.manufacturer }));

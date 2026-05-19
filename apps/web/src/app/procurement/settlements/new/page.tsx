@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { settlementApi } from "@/lib/api";
+import { settlementApi, procurementApi } from "@/lib/api";
 import { DateInput } from "@/components/ui/DateInput";
+import SearchableSelect from "@/components/SearchableSelect";
 
 const DUTY_TYPES: Record<string, string> = {
   TARIFF: "관세",
@@ -19,16 +20,74 @@ const CURRENCIES = ["USD", "EUR", "JPY", "GBP", "CHF", "CNY"];
 export default function NewSettlementPage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [selectedOrderLabel, setSelectedOrderLabel] = useState("");
+  const [linkedContract, setLinkedContract] = useState<{ id: string; contractNumber: string; name?: string; client?: string } | null>(null);
 
   const [form, setForm] = useState({
     declarationNo: "",
     supplier: "",
     declarationDate: new Date().toISOString().slice(0, 10),
     orderId: "",
+    contractId: "",
     currency: "USD",
     saleInfo: "",
     notes: "",
   });
+
+  // 발주 선택 시 자동 채움 (송금 + 품목)
+  const loadOrderAndPrefill = async (orderId: string) => {
+    try {
+      const order = await procurementApi.getOrder(orderId);
+      setForm((p) => ({
+        ...p,
+        orderId: order.id,
+        contractId: order.contractId || order.contract?.id || "",
+        supplier: order.manufacturer || p.supplier,
+        currency: order.currency || p.currency,
+      }));
+      setLinkedContract(order.contract || null);
+      // 송금 내역 prefill (COMPLETED만)
+      const payments = (order.payments || []).filter((p: any) => p.status === "COMPLETED");
+      setRemittances(payments.map((p: any) => ({
+        remittanceDate: p.paymentDate ? String(p.paymentDate).slice(0, 10) : new Date().toISOString().slice(0, 10),
+        foreignAmount: p.amount?.toString() || "",
+        exchangeRate: p.exchangeRate?.toString() || "",
+        krwAmount: p.amountKRW?.toString() || "",
+        invoiceNo: p.bankReference || "",
+      })));
+      // 품목 명세 prefill (재고번호별 1 row)
+      const rows: any[] = [];
+      for (const it of (order.items || [])) {
+        const invs = it.inventoryItems || [];
+        if (invs.length > 0) {
+          for (const inv of invs) {
+            rows.push({
+              inventoryNo: inv.inventoryNo,
+              name: it.name,
+              quantity: "1",
+              foreignUnitPrice: it.unitPrice?.toString() || "",
+              foreignAmount: it.unitPrice?.toString() || "",
+              unitPrice: "",
+              amount: "",
+            });
+          }
+        } else {
+          rows.push({
+            inventoryNo: "",
+            name: it.name,
+            quantity: it.quantity?.toString() || "1",
+            foreignUnitPrice: it.unitPrice?.toString() || "",
+            foreignAmount: it.amount?.toString() || "",
+            unitPrice: "",
+            amount: "",
+          });
+        }
+      }
+      setItems(rows);
+    } catch (e: any) {
+      alert(e.message || "발주 정보 로드 실패");
+    }
+  };
 
   const [remittances, setRemittances] = useState<Array<{
     remittanceDate: string; foreignAmount: string; exchangeRate: string; krwAmount: string; invoiceNo: string;
@@ -123,6 +182,7 @@ export default function NewSettlementPage() {
         supplier: form.supplier,
         declarationDate: form.declarationDate,
         orderId: form.orderId || undefined,
+        contractId: form.contractId || undefined,
         currency: form.currency,
         saleInfo: form.saleInfo || undefined,
         totalImportCost,
@@ -164,6 +224,40 @@ export default function NewSettlementPage() {
     <div className="max-w-5xl">
       <h2 className="text-lg font-semibold mb-4">수입원가정산서 작성</h2>
 
+      {/* 연결 발주 검색 — 발주 선택 시 송금·품목 자동 채움 */}
+      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+        <label className="text-sm font-medium text-blue-900 block mb-1">연결 발주 (마감된 발주만 검색)</label>
+        <SearchableSelect
+          value={selectedOrderLabel}
+          onChange={(v) => setSelectedOrderLabel(v)}
+          onSelect={(opt) => {
+            if (!opt) return;
+            setSelectedOrderLabel(opt.name);
+            loadOrderAndPrefill(opt.id);
+          }}
+          placeholder="발주번호·제조사 검색 (예: PO-2605-0008)"
+          loadOptions={async (q) => {
+            const res = await procurementApi.getOrders({ search: q, status: "CLOSED", limit: 20 });
+            return (res.items || []).map((o: any) => ({
+              id: o.id,
+              name: o.orderNumber,
+              sub: `${o.manufacturer || ""} · ${o.currency || ""}`,
+            }));
+          }}
+        />
+        <p className="text-xs text-blue-700 mt-1">발주 선택 시 계약·공급업체·통화·송금 내역·품목 명세가 자동 채워집니다.</p>
+        {linkedContract && (
+          <div className="mt-2 px-3 py-2 bg-white border border-blue-300 rounded">
+            <div className="text-xs text-gray-500">연결 계약</div>
+            <div className="text-sm font-medium">
+              <span className="font-mono text-blue-700">{linkedContract.contractNumber}</span>
+              {linkedContract.name && <span className="text-gray-700 ml-2">{linkedContract.name}</span>}
+              {linkedContract.client && <span className="text-gray-400 text-xs ml-2">({linkedContract.client})</span>}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* 기본 정보 */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div>
@@ -187,11 +281,6 @@ export default function NewSettlementPage() {
             className="w-full border rounded px-3 py-2 text-sm">
             {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-        </div>
-        <div>
-          <label className="text-sm text-gray-600">연결 발주 ID</label>
-          <input value={form.orderId} onChange={(e) => setForm(p => ({ ...p, orderId: e.target.value }))}
-            className="w-full border rounded px-3 py-2 text-sm" placeholder="(선택)" />
         </div>
         <div>
           <label className="text-sm text-gray-600">매출 연결 / 비고</label>

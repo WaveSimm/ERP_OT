@@ -186,21 +186,6 @@ export default function SettlementSection({ orderId, orderCurrency, orderStatus,
                             }}
                             className="text-xs text-red-500 hover:underline"
                           >취소</button>
-                        ) : p.status === "COMPLETED" ? (
-                          <>
-                            <button
-                              onClick={() => { setEditingPayment(p); setShowPaymentModal(true); }}
-                              className="text-xs text-blue-600 hover:underline mr-2"
-                            >편집</button>
-                            <button
-                              onClick={async () => {
-                                if (!confirm("이 송금 내역을 삭제하시겠습니까?")) return;
-                                try { await procurementApi.deletePayment(p.id); await load(); }
-                                catch (e: any) { alert(e.message || "삭제 실패"); }
-                              }}
-                              className="text-xs text-red-500 hover:underline"
-                            >삭제</button>
-                          </>
                         ) : null}
                       </td>
                     )}
@@ -242,6 +227,7 @@ export default function SettlementSection({ orderId, orderCurrency, orderStatus,
           orderId={orderId}
           orderCurrency={orderCurrency}
           invoice={invoice}
+          paidSum={payments.filter((p: any) => p.status === "COMPLETED").reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0)}
           onClose={() => setShowInvoiceModal(false)}
           onSaved={async () => { setShowInvoiceModal(false); await load(); }}
         />
@@ -375,12 +361,14 @@ function InvoiceModal({
   orderId,
   orderCurrency,
   invoice,
+  paidSum,
   onClose,
   onSaved,
 }: {
   orderId: string;
   orderCurrency: string;
   invoice: any | null;
+  paidSum: number;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -411,6 +399,17 @@ function InvoiceModal({
     if (isEdit && amountChanged && !form.amendReason) {
       alert("금액 변경 시 사유를 입력해주세요.");
       return;
+    }
+    // Invoice 금액 = 송금 합 검증 (룰: 인보이스 금액 = 송금금액)
+    if (paidSum > 0 && Math.abs(newAmount - paidSum) > 0.01) {
+      const ok = confirm(
+        `⚠ 인보이스 금액과 송금 합이 다릅니다.\n\n` +
+        `인보이스: ${newAmount.toLocaleString()} ${form.currency}\n` +
+        `송금 합 (COMPLETED): ${paidSum.toLocaleString()} ${form.currency}\n` +
+        `차액: ${(newAmount - paidSum).toLocaleString()} ${form.currency}\n\n` +
+        `룰: 인보이스 금액은 송금 합과 일치해야 합니다.\n계속 진행하시겠습니까?`
+      );
+      if (!ok) return;
     }
     setSaving(true);
     try {

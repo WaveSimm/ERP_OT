@@ -82,7 +82,19 @@ function useKanban() {
     });
     try {
       await meApi.updateSegmentProgress(segmentId, { progressPercent, changeReason });
-    } catch { load(); }
+    } catch (e: any) {
+      const msg = e?.message ?? "";
+      const isWorkLogRequired = e?.code === "WORK_LOG_REQUIRED_FOR_COMPLETION" || /작업일지/.test(msg);
+      if (isWorkLogRequired) {
+        alert(
+          "이 태스크를 100%로 완료하려면 작업일지가 1건 이상 필요합니다.\n" +
+          "작업 목록 탭에서 태스크 상세를 열어 작성해 주세요."
+        );
+      } else if (msg) {
+        alert(msg);
+      }
+      load();
+    }
   }, [load]);
 
   return { data, loading, error, load, updateProgress };
@@ -443,6 +455,25 @@ function MyTasksView() {
           allocationMode: seg.allocationMode ?? "PERCENT",
           allocationPercent: Math.min(200, Math.max(0, Number(val))),
         });
+      }
+      await load();
+    } catch (e: any) {
+      const msg = e?.message ?? "";
+      const isWorkLogRequired = e?.code === "WORK_LOG_REQUIRED_FOR_COMPLETION" || /작업일지/.test(msg);
+      if (isWorkLogRequired) {
+        const ok = confirm(
+          "이 태스크를 100%로 완료하려면 작업일지가 1건 이상 필요합니다.\n" +
+          "태스크 상세를 열어 작업일지를 작성하시겠습니까?"
+        );
+        if (ok) {
+          try {
+            const full = await taskApi.get(task.project.id, task.taskId);
+            setSelectedTask(full);
+            setSelectedProjectId(task.project.id);
+          } catch { /* drawer 열기 실패는 silent */ }
+        }
+      } else {
+        alert(msg || "저장 실패");
       }
       await load();
     } finally { setSavingKey(key, false); }

@@ -284,6 +284,43 @@ export class InboundRequestService {
       // v1.6.1 (2026-05-15): OVERSEAS_ORDER는 발주 [입고 처리] 시점에 이미
       //   OrderItem.receivedQuantity가 갱신되어 도착 처리 완료된 상태.
       //   입고 큐에서는 InventoryItem 생성만 처리. 발주 측 데이터는 건드리지 않음.
+      // v1.6.2 (2026-05-18): 발주 자동 마감
+      //   - 해당 발주의 다른 InboundRequest 중 PENDING 잔여 없음
+      //   - 모든 OrderItem이 FULLY_RECEIVED
+      //   - 현재 status ARRIVED  → status CLOSED 로 자동 전이
+      if (req.sourceType === "OVERSEAS_ORDER" && req.sourceId) {
+        const pendingCount = await tx.inboundRequest.count({
+          where: {
+            sourceType: "OVERSEAS_ORDER",
+            sourceId: req.sourceId,
+            status: "PENDING",
+            id: { not: id },
+          },
+        });
+        if (pendingCount === 0) {
+          const order = await tx.overseasOrder.findUnique({
+            where: { id: req.sourceId },
+            include: { items: true },
+          });
+          if (order && order.status === "ARRIVED") {
+            const allItemsReceived = order.items.every((it) => it.receiptStatus === "FULLY_RECEIVED");
+            if (allItemsReceived) {
+              await tx.overseasOrder.update({
+                where: { id: req.sourceId },
+                data: { status: "CLOSED" },
+              });
+              await tx.orderProgressLog.create({
+                data: {
+                  orderId: req.sourceId,
+                  progress: order.productionProgress,
+                  note: `자동 마감: 입고큐 ${req.code} 처리 완료`,
+                  updatedBy: data.receivedBy,
+                },
+              });
+            }
+          }
+        }
+      }
 
       return { ...updated, createdInventoryItems };
     });

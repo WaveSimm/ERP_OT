@@ -29,6 +29,13 @@ export async function customsTaxRoutes(fastify: FastifyInstance) {
     return fastify.customsTaxService.pay(id, body, request.userId, (request as any).userName);
   });
 
+  // PAID 정정 — OPERATOR 이상
+  fastify.patch("/customs-taxes/:id/correct", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
+    const { id } = request.params as any;
+    const body = request.body as any;
+    return fastify.customsTaxService.correct(id, body);
+  });
+
   // 반려 — OPERATOR 이상
   fastify.patch("/customs-taxes/:id/reject", { preHandler: [requireRole("ADMIN", "MANAGER", "OPERATOR")] }, async (request) => {
     const { id } = request.params as any;

@@ -98,6 +98,8 @@ export class OverseasOrderService {
         },
         progressLogs: { orderBy: { createdAt: "desc" }, take: 20 },
         customsTax: true,  // v1.6.1 (2026-05-15): 관부가세 정보 포함
+        // v1.6.2 (2026-05-18): 수입원가정산서 작성 시 송금 자동 채움
+        payments: { where: { status: "COMPLETED" }, orderBy: { paymentDate: "asc" } },
       },
     });
     if (!order) throw new Error("발주를 찾을 수 없습니다.");
@@ -412,6 +414,53 @@ export class OverseasOrderService {
           progress: order.productionProgress,
           note: allReceived ? "전체 입고 완료" : `부분 입고: ${receipts.map((r) => `${r.quantity}개`).join(", ")}`,
           updatedBy: userId,
+        },
+      });
+
+      // v1.6 (2026-05-18): 입고큐(InboundRequest) 자동 생성 — 재무팀 재고번호 부여 단계
+      const now = new Date();
+      const yy = String(now.getFullYear()).slice(-2);
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const irPrefix = `IR-${yy}${mm}-`;
+      const lastIr = await tx.inboundRequest.findFirst({
+        where: { code: { startsWith: irPrefix } },
+        orderBy: { code: "desc" },
+        select: { code: true },
+      });
+      let irSeq = 1;
+      if (lastIr) {
+        const m = lastIr.code.match(/^IR-\d{4}-(\d+)$/);
+        if (m && m[1]) irSeq = parseInt(m[1], 10) + 1;
+      }
+      const irCode = `${irPrefix}${String(irSeq).padStart(4, "0")}`;
+      await tx.inboundRequest.create({
+        data: {
+          code: irCode,
+          status: "PENDING",
+          sourceType: "OVERSEAS_ORDER",
+          sourceId: orderId,
+          sourceDocNumber: order.orderNumber,
+          requesterId: userId,
+          notes: `발주 ${order.orderNumber} 입고 자동 등록`,
+          items: {
+            create: receipts.map(({ itemId, quantity }) => {
+              const item = order.items.find((i) => i.id === itemId)!;
+              const flag = item.productMasterId && item.variantId
+                ? "AUTO_MATCHED"
+                : item.productMasterId
+                ? "PARTIAL"
+                : "MANUAL_NEEDED";
+              return {
+                productMasterId: item.productMasterId,
+                variantId: item.variantId,
+                itemNameRaw: item.name,
+                quantity,
+                unitPrice: item.unitPrice,
+                completenessFlag: flag as any,
+                orderItemId: item.id,
+              };
+            }),
+          },
         },
       });
 

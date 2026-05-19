@@ -537,7 +537,9 @@
       "Bash(grep -nA 12 \"^model ExpenseSource \" E:/claude/ERP_OT/services/expense/prisma/schema.prisma)",
       "Bash(grep -E \"\\(~\\\\$|계약파일\\)\")",
       "Bash(rm \"data/sources/~\\\\$2026년 계약파일리스트_금액포함전체.xlsx\")",
-      "Read(//e/claude/ERP_OT/data/sources/**)"
+      "Read(//e/claude/ERP_OT/data/sources/**)",
+      "Bash(PYTHONIOENCODING=utf-8 grep -nE \"search|q=|inv_no|InventoryNo|inventory_no|filter\" \"apps/web/src/app/procurement/inventory/page.tsx\")",
+      "Bash(PYTHONIOENCODING=utf-8 grep -nE \"sortBy|sortOrder|handleSort|onClick.*sort\" \"apps/web/src/app/procurement/inventory/page.tsx\")"
     ]
   }
 }

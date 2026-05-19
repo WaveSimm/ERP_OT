@@ -72,6 +72,29 @@ export class CustomsTaxService {
     });
   }
 
+  /** 재무팀 — PAID 정정 (오기·휴먼 에러 보정) */
+  async correct(id: string, data: {
+    customsDuty?: number;
+    vat?: number;
+    totalAmount?: number;
+    paidAt?: string;
+    notes?: string;
+  }) {
+    const tax = await this.prisma.orderCustomsTax.findUnique({ where: { id } });
+    if (!tax) throw new Error("관부가세 레코드를 찾을 수 없습니다.");
+    if (tax.status !== "PAID") throw new Error("PAID 상태만 정정할 수 있습니다.");
+    return this.prisma.orderCustomsTax.update({
+      where: { id },
+      data: {
+        ...(data.customsDuty !== undefined && { customsDuty: data.customsDuty }),
+        ...(data.vat !== undefined && { vat: data.vat }),
+        ...(data.totalAmount !== undefined && { totalAmount: data.totalAmount }),
+        ...(data.notes !== undefined && { notes: data.notes }),
+        ...(data.paidAt && { paidAt: new Date(data.paidAt) }),
+      },
+    });
+  }
+
   /** 재무팀 — 반려 */
   async reject(id: string, reason: string, _userId?: string) {
     const tax = await this.prisma.orderCustomsTax.findUnique({ where: { id } });

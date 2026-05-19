@@ -1377,6 +1377,8 @@ export const procurementApi = {
     request<any>(`/procurement/orders/${orderId}/customs-tax`),
   listCustomsTaxes: (status?: "PENDING" | "PAID" | "REJECTED") =>
     request<any[]>(`/procurement/customs-taxes${status ? `?status=${status}` : ""}`),
+  correctCustomsTax: (id: string, data: { customsDuty?: number; vat?: number; totalAmount?: number; paidAt?: string; notes?: string }) =>
+    request<any>(`/customs-taxes/${id}/correct`, { method: "PATCH", body: JSON.stringify(data) }),
   payCustomsTax: (id: string, data: { customsDuty?: number; vat?: number; totalAmount?: number; paidAt?: string; notes?: string }) =>
     request<any>(`/procurement/customs-taxes/${id}/pay`, { method: "PATCH", body: JSON.stringify(data) }),
   rejectCustomsTax: (id: string, reason: string) =>
@@ -1461,7 +1463,7 @@ export const settlementApi = {
 // ── Inventory (재고) ─────────────────────────────────────────────────────
 export const inventoryApi = {
   // 재고 목록
-  list: (params?: { category?: string; status?: string; location?: string; search?: string; productMasterId?: string; page?: number; limit?: number }) => {
+  list: (params?: { category?: string; status?: string; location?: string; search?: string; productMasterId?: string; page?: number; limit?: number; sortBy?: string; sortOrder?: "asc" | "desc" }) => {
     const q = new URLSearchParams();
     if (params?.category) q.set("category", params.category);
     if (params?.status) q.set("status", params.status);
@@ -1470,11 +1472,13 @@ export const inventoryApi = {
     if (params?.productMasterId) q.set("productMasterId", params.productMasterId);
     if (params?.page) q.set("page", String(params.page));
     if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.sortBy) q.set("sortBy", params.sortBy);
+    if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
     return request<any>(`/inventory/items?${q.toString()}`);
   },
   getFilterOptions: () => request<{ locations: string[]; projects: string[]; assignees: string[] }>("/inventory/items/filter-options"),
   getStats: () => request<any>("/inventory/items/stats"),
-  getByNo: (inventoryNo: string) => request<any>(`/inventory/items/by-no/${inventoryNo}`),
+  getByNo: (inventoryNo: string) => request<any>(`/inventory/items/by-no/${encodeURIComponent(inventoryNo)}`),
   getById: (id: string) => request<any>(`/inventory/items/${id}`),
   create: (data: any) =>
     request<any>("/inventory/items", { method: "POST", body: JSON.stringify(data) }),

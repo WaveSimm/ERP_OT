@@ -44,15 +44,18 @@ export default function SortableHeader({
 
   const alignClass = align === "center" ? "justify-center" : align === "right" ? "justify-end" : "justify-start";
 
+  const indicator = isActive ? (order === "asc" ? "▲" : "▼") : "↕";
+
   return (
     <th className={className}>
       <button
         type="button"
         onClick={handleClick}
         title={isActive ? (order === "asc" ? "오름차순" : "내림차순") : "클릭하여 정렬"}
-        className={`flex items-center w-full whitespace-nowrap ${alignClass} hover:text-blue-600 transition-colors ${isActive ? "text-blue-600 font-semibold" : "text-inherit"}`}
+        className={`flex items-center gap-1 w-full whitespace-nowrap ${alignClass} hover:text-blue-600 transition-colors ${isActive ? "text-blue-600 font-semibold" : "text-inherit"}`}
       >
         <span className="truncate">{children}</span>
+        <span className={`text-[10px] ${isActive ? "text-blue-600" : "text-gray-300"}`}>{indicator}</span>
       </button>
     </th>
   );

@@ -62,7 +62,7 @@
 
 <h1 id="경비정산-사용자-매뉴얼">💳 경비정산 사용자 매뉴얼</h1>
 <ul>
-  <li><strong>버전</strong>: v1.3 (2026-05-13 — 결재 후속 통합 + 송금 sync + 3단계 진행 + 개인경비 범위 명확화)</li>
+  <li><strong>버전</strong>: v1.4 (2026-05-18 — 카테고리 도메인 폐기 · 사업(계약)/구분/상세내역 컬럼 도입 · 정산분류 4옵션 · 자동 제목 폐기 · 탭 단순화)</li>
   <li><strong>대상 사용자</strong>: 모든 직원 (본인 경비 정산)</li>
 </ul>
 <hr />
@@ -74,11 +74,12 @@
   <li><a href="#3-업무-전체-흐름">업무 전체 흐름</a></li>
   <li><a href="#4-거래-등록">거래 등록 (카드 명세서/수동)</a></li>
   <li><a href="#5-영수증-처리">영수증 업로드 + 매칭 + 분할</a></li>
-  <li><a href="#6-정산내역관리">정산내역관리 (카테고리·정산분류)</a></li>
+  <li><a href="#6-정산내역관리">정산내역관리 (사업·구분·상세내역·정산분류)</a></li>
   <li><a href="#7-정산결재">정산결재 (결재 상신)</a></li>
   <li><a href="#8-재무-처리">재무 처리 (재무 접수·송금)</a></li>
   <li><a href="#9-상태-필터">상태 필터·진행 단계</a></li>
   <li><a href="#10-faq">자주 묻는 사용법</a></li>
+  <li><a href="#11-지출결의서">지출결의서 작성 (법인카드·일반 지출용)</a></li>
 </ol>
 <hr />
 
@@ -95,7 +96,7 @@
         <span class="step-num">①</span><span class="step-title">거래 등록</span><span class="step-status">PENDING</span>
       </a>
       <span class="as-flow-arrow">→</span>
-      <a href="#6-정산내역관리" class="as-flow-node node-classify" title="카테고리·상세내역·메모">
+      <a href="#6-정산내역관리" class="as-flow-node node-classify" title="사업(계약)·구분·상세내역">
         <span class="step-num">②</span><span class="step-title">분류</span><span class="step-status">CATEGORIZED</span>
       </a>
       <span class="as-flow-arrow">→</span>
@@ -103,7 +104,7 @@
         <span class="step-num">③</span><span class="step-title">영수증 매칭</span><span class="step-status">📎 confirmed</span>
       </a>
       <span class="as-flow-arrow">→</span>
-      <a href="#6-정산내역관리" class="as-flow-node node-settle" title="정산묶음 할당">
+      <a href="#6-정산내역관리" class="as-flow-node node-settle" title="정산묶음 할당 (직접 제목 입력)">
         <span class="step-num">④</span><span class="step-title">정산묶음</span><span class="step-status">미결재</span>
       </a>
     </div>
@@ -136,16 +137,16 @@
 <p>경비정산은 직원이 회사 일로 사용한 비용 중 <strong>개인카드·현금</strong>으로 결제한 금액을 환급받는 워크플로우입니다.</p>
 <div class="page-box warn">
   ⚠ <strong>법인카드는 경비정산 대상이 아닙니다.</strong> 법인카드는 회사가 직접 결제하므로 환급(송금)이 필요 없습니다.<br />
-  법인카드 사용분은 <strong>전자결재 → 새 결재 → 지출결의서</strong> 양식으로 직접 작성하세요.<br />
+  법인카드 사용분은 <a href="#11-지출결의서"><strong>지출결의서</strong></a> 양식으로 직접 작성하세요 (§11 참고).<br />
   경비정산 시스템은 <strong>개인 비용(개인카드·현금)을 회사가 환급</strong>하기 위한 도구입니다.
 </div>
 <ul>
   <li><strong>입력</strong>: 개인카드 명세서 파일(Excel/HTML) import, 수동 거래 입력(현금 결제), 영수증 사진 업로드</li>
-  <li><strong>분류</strong>: 카테고리(식대·교통비·접대비 등) 및 상세 내역 입력</li>
+  <li><strong>분류</strong>: 사업(계약)·구분·상세내역 입력 (카테고리 도메인은 v1.4부터 폐기 — 사업/구분으로 통합)</li>
   <li><strong>매칭</strong>: 영수증과 거래를 묶어 증빙 확보 (수동 매칭)</li>
-  <li><strong>정산</strong>: 거래를 정산묶음으로 모아서 결재 상신</li>
-  <li><strong>결재</strong>: <strong>지출결의서</strong> 양식 사용, 결제수단 <strong>"개인정산"</strong>으로 표시</li>
-  <li><strong>재무 처리</strong>: 결재 완료 후 자동으로 <strong>회계 &gt; 재무 접수</strong> 모듈로 이관 → 재무팀이 본인 계좌로 송금 → 정산완료</li>
+  <li><strong>정산</strong>: 거래를 정산묶음으로 모아서 결재 상신 (정산 묶음 제목은 사용자가 직접 입력)</li>
+  <li><strong>결재</strong>: <strong>EXPENSE(지출결의서)</strong> 양식 사용, 결제수단 <strong>"개인정산"</strong>으로 표시 — EXPENSE_CLAIM 별도 양식은 폐기되어 모든 결재가 EXPENSE 단일 양식</li>
+  <li><strong>재무 처리</strong>: 결재 완료 즉시 자동으로 <strong>회계 &gt; 재무 접수</strong> 모듈에 등록 → 재무팀이 본인 계좌로 송금 → 정산완료</li>
 </ul>
 <hr />
 
@@ -154,21 +155,23 @@
 <div class="page-box">
   <strong>접근 경로</strong><br />
   내 대시보드 → 상단 탭 <strong>"경비"</strong> 클릭<br />
-  → 요약 카드 5개 (미내역분류 / 미정산분류 / 미결재 / 정산됨 / 입금완료)<br />
-  → 빠른 작업 버튼: 정산내역관리, 정산결재, 카테고리, 카드 관리, 매뉴얼<br />
+  → 요약 카드들 (정산대상 / 정산완료 / 제외 / 전체 등)<br />
+  → 빠른 작업 버튼: 정산내역관리, 정산결재, 카드 관리, 매뉴얼<br />
   → 최근 정산 (아무 빠른 작업도 선택 안 했을 때만 표시)<br />
 </div>
 
 <table>
 <thead><tr><th>빠른 작업</th><th>역할</th></tr></thead>
 <tbody>
-<tr><td>📋 정산내역관리</td><td>거래 목록 — 카테고리 분류, 상세내역, 정산분류 할당, 영수증 업로드·매칭·분할 모두 여기서 처리</td></tr>
+<tr><td>📋 정산내역관리</td><td>거래 목록 — 사업(계약)·구분·상세내역 분류, 정산분류 할당, 영수증 업로드·매칭·분할 모두 여기서 처리</td></tr>
 <tr><td>📦 정산결재</td><td>정산묶음 목록 + 상세 + 결재 상신·취소</td></tr>
-<tr><td>🏷 카테고리</td><td>표준 카테고리 + 개인 카테고리 관리</td></tr>
 <tr><td>💳 카드 관리</td><td>본인 <strong>개인카드</strong> 등록 (명세서 import 시 사용. 법인카드 X)</td></tr>
 <tr><td>📘 매뉴얼</td><td>이 문서 (새 탭)</td></tr>
 </tbody>
 </table>
+<div class="page-box warn">
+  ⚠ <strong>v1.4 변경</strong>: 카테고리 도메인 폐기. 별도의 "🏷 카테고리" 관리 페이지가 없어졌고, 카테고리 셀렉트 컬럼 대신 <strong>사업(계약) · 구분 · 상세내역</strong> 3개 컬럼으로 분류합니다. 기존 PERSONAL 카테고리에 해당하던 거래는 정산분류 셀렉트의 <strong>"제외"</strong> 옵션으로 처리하세요.
+</div>
 <div class="page-box info">
   ℹ <strong>영수증 관련 모든 작업은 정산내역관리 페이지 안에서 처리</strong>됩니다 (별도 페이지 없음).
 </div>
@@ -177,12 +180,12 @@
 <h2 id="3-업무-전체-흐름">3. 업무 전체 흐름</h2>
 <ol>
   <li><strong>거래 등록</strong>: 카드 명세서 파일을 import하거나 현금 거래를 수동 입력</li>
-  <li><strong>카테고리·상세내역 입력</strong>: 거래마다 카테고리·상세내역 분류</li>
+  <li><strong>사업·구분·상세내역 입력</strong>: 거래마다 사업(계약)·구분·상세내역을 분류 (카테고리 도메인 없음)</li>
   <li><strong>영수증 업로드 + 매칭</strong>: 정산내역관리 상단 <strong>"+ 영수증 업로드"</strong>로 다중 업로드 또는 거래 행의 <strong>+</strong> 버튼으로 단일 업로드. 모달에서 거래에 직접 매칭</li>
-  <li><strong>정산분류 할당</strong>: 같은 정산 묶음에 포함될 거래들을 정산분류 셀렉트로 묶음 (혹은 "+ 새 정산"으로 새 묶음 생성)</li>
+  <li><strong>정산분류 할당</strong>: 같은 정산 묶음에 포함될 거래들을 정산분류 셀렉트로 묶음 ("+ 새 정산"으로 새 묶음 생성 시 제목은 사용자가 직접 입력). 정산 대상이 아닌 거래는 <strong>"제외"</strong> 옵션 선택</li>
   <li><strong>결재 상신</strong>: 정산결재에서 정산묶음 선택 → 프로젝트(옵션)·본문(옵션)·결재선 입력 → "결재 상신"</li>
-  <li><strong>결재 진행</strong>: 결재중 → 결재완료 (결재자 승인 시)</li>
-  <li><strong>재무 처리</strong>: 회계 &gt; 재무 접수 자동 등록 → 재무팀 송금 처리 → 정산완료(입금)</li>
+  <li><strong>결재 진행</strong>: 결재중 → 결재완료 (결재자 승인 시 자동으로 회계 &gt; 재무 접수에 등록됨)</li>
+  <li><strong>재무 처리</strong>: 재무팀이 회계 &gt; 재무 접수에서 송금 처리 → 정산완료(입금)</li>
 </ol>
 <hr />
 
@@ -264,29 +267,39 @@
 <table>
 <thead><tr><th>컬럼</th><th>편집</th></tr></thead>
 <tbody>
-<tr><td>카테고리</td><td>드롭다운 — 표준 + 개인 카테고리</td></tr>
-<tr><td>상세 내역</td><td>자유 텍스트 (정산묶음 제목에 사용됨)</td></tr>
-<tr><td>메모</td><td>자유 텍스트 (참고용)</td></tr>
-<tr><td>영수증</td><td>📎 보기 / ⚡N 매칭 후보 / <strong>+</strong> 업로드 (없음)</td></tr>
-<tr><td>정산분류</td><td>드롭다운 — 미설정 / 기존 DRAFT 정산묶음 / "+ 새 정산"</td></tr>
+<tr><td>거래일시 / 가맹점 / 결제수단 / 금액</td><td>거래 자체 정보 (명세서 import 또는 수동 입력 시 결정)</td></tr>
+<tr><td><strong>사업(계약)</strong></td><td>검색 드롭다운 — 진행 중인 계약 목록에서 선택. 미설정 가능</td></tr>
+<tr><td><strong>구분</strong></td><td>자유 텍스트 — 식대/교통비/접대비 등 기존 카테고리 역할 (v1.4부터 사업 안 분류로 사용)</td></tr>
+<tr><td><strong>상세내역</strong></td><td>자유 텍스트 — 결재 문서·정산묶음에 노출되는 상세 설명</td></tr>
+<tr><td>영수증</td><td>📎 보기 / <strong>+</strong> 업로드 (없음)</td></tr>
+<tr><td><strong>정산분류</strong></td><td>드롭다운 4옵션 — 미설정 / 기존 DRAFT 정산묶음 / <strong>+ 새 정산</strong> (직접 제목 입력) / <strong>제외</strong></td></tr>
+<tr><td>상태</td><td>PENDING (미분류) / CATEGORIZED (분류완료) / EXCLUDED (제외) / SETTLED (정산묶음 포함)</td></tr>
 </tbody>
 </table>
 
 <h3>6-2. 일괄 작업 (상단 바)</h3>
 <div class="page-box">
-  체크박스로 거래 1건 이상 선택 → 상단 일괄 작업바에서 카테고리·상세내역·메모·정산분류 한 번에 적용
+  체크박스로 거래 1건 이상 선택 → 상단 일괄 작업바에서 사업(계약)·구분·상세내역·정산분류 한 번에 적용
 </div>
-<p><strong>Tip</strong>: Shift+클릭으로 범위 선택. 정산됨/입금완료 필터에서는 진행 단계 범례(<span class="stage-tag stage-submitted">결재중</span> → <span class="stage-tag stage-approved">결재완료</span> → <span class="stage-tag stage-paid">정산완료</span>)가 우측에 표시됩니다.</p>
+<p><strong>Tip</strong>: Shift+클릭으로 범위 선택. 정산완료/전체 탭에서는 진행 단계 범례(<span class="stage-tag stage-submitted">결재중</span> → <span class="stage-tag stage-approved">결재완료</span> → <span class="stage-tag stage-paid">정산완료</span>)가 우측에 표시됩니다.</p>
 
 <h3>6-3. 정산분류 "+ 새 정산"</h3>
 <p>여러 거래를 한 정산묶음으로 묶을 때:</p>
 <ol>
   <li>거래들을 체크 → 정산분류 셀렉트에서 "<strong>+ 새 정산</strong>" 선택 → 일괄 적용</li>
-  <li>자동으로 정산묶음 생성. 제목: <code>YYYY-MM-DD 카테고리-상세내역</code> (가장 최근 거래 날짜 + 거래들의 카테고리-상세내역 조합, 구분자 "/")</li>
+  <li><strong>제목 입력 prompt</strong>가 뜸 — 사용자가 직접 정산묶음 제목 입력 (예: "2026-05 식대 정산", "차세대로거 출장비"). 자동 제목 생성은 v1.6.3 (5/16) 부터 폐기됨</li>
   <li>선택한 거래 모두 새 정산묶음에 할당됨. 제목은 정산결재 상세 화면에서 ✏️ 클릭해 수동 수정 가능 (DRAFT/REJECTED/SUBMITTED 단계까지)</li>
 </ol>
 
-<h3>6-4. 선택 삭제</h3>
+<h3>6-4. 정산분류 "제외"</h3>
+<p>회사 환급 대상이 아닌 거래(사적 결제 등)를 "제외"로 설정:</p>
+<ul>
+  <li>정산분류 셀렉트에서 <strong>"제외"</strong> 선택</li>
+  <li>거래 상태가 <strong>EXCLUDED</strong>로 변경 + 정산묶음 할당 자동 해제</li>
+  <li>이전 PERSONAL 카테고리 자동 처리를 대체 (명시적 선택 방식)</li>
+</ul>
+
+<h3>6-5. 선택 삭제</h3>
 <p>일괄 작업바의 <strong>"선택 삭제"</strong>: 선택한 거래 영구 삭제 (매칭·정산 할당도 해제). 카드 명세서 재import 시 다시 복원됨.</p>
 <hr />
 
@@ -369,18 +382,20 @@
 
 <h2 id="9-상태-필터">9. 상태 필터·진행 단계</h2>
 
-<h3>9-1. 상단 카드 5개</h3>
-<p>내 대시보드 &gt; 경비 상단의 카운트 카드를 클릭하면 해당 필터로 정산내역관리 진입.</p>
+<h3>9-1. 정산내역관리 탭 (v1.4 단순화)</h3>
+<p>정산내역관리 상단의 탭으로 거래를 필터링합니다. v1.4 (5/16~5/18) 부터 카드·탭이 단순화되었습니다.</p>
 <table>
-<thead><tr><th>카드</th><th>의미</th><th>다음 작업</th></tr></thead>
+<thead><tr><th>탭</th><th>의미</th><th>다음 작업</th></tr></thead>
 <tbody>
-<tr><td><span class="badge badge-pending">미내역분류</span> (빨강)</td><td>카테고리 미분류 거래</td><td>카테고리 셀렉트로 분류</td></tr>
-<tr><td>미정산분류 (주황)</td><td>카테고리 됐지만 정산묶음 미할당</td><td>정산분류 셀렉트로 묶음 할당</td></tr>
-<tr><td>미결재 (파랑)</td><td>정산묶음 있지만 결재 상신 전</td><td>정산결재에서 상신</td></tr>
-<tr><td><span class="badge badge-settled">정산됨</span> (청록)</td><td>결재 진행 ~ 정산완료 전체</td><td>진행 단계 모니터링</td></tr>
-<tr><td><span class="badge badge-paid">입금완료</span> (초록)</td><td>송금 처리 완료 (정산됨의 부분집합)</td><td>완료</td></tr>
+<tr><td><strong>정산대상</strong></td><td>아직 정산묶음에 포함되지 않은 거래 (PENDING + CATEGORIZED)</td><td>사업·구분·상세내역 분류 → 정산분류로 묶음 할당</td></tr>
+<tr><td><strong>정산완료</strong></td><td>정산묶음에 포함된 거래 (SETTLED) — 결재중/결재완료/송금완료 모두 포함</td><td>진행 단계 모니터링 (결재중→결재완료→정산완료)</td></tr>
+<tr><td><strong>제외</strong></td><td>정산 대상 외 (EXCLUDED) — 사적 결제 등</td><td>없음 (필요 시 다시 정산분류로 돌리기 가능)</td></tr>
+<tr><td><strong>전체</strong></td><td>모든 거래 통합 보기</td><td>필요한 거래 검색·필터</td></tr>
 </tbody>
 </table>
+<div class="page-box info">
+  ℹ <strong>v1.4 변경</strong>: 기존 "미내역분류·미정산분류·미결재·정산됨·입금완료" 5단계 카드가 4개 탭으로 단순화되었습니다. 헤더 popover의 정산분류 필터로 추가 좁히기 가능.
+</div>
 
 <h3>9-2. 정산됨 진행 단계 (3단계)</h3>
 <p>정산됨 또는 입금완료 필터에서 거래 행의 상태 컬럼은 정산묶음의 진행 단계를 표시:</p>
@@ -396,14 +411,14 @@
   ℹ 일괄 작업바 우측에 진행 단계 범례가 함께 표시되어 작업 흐름 파악 용이.
 </div>
 
-<h3>9-3. 정산내역관리 상단 필터 버튼</h3>
+<h3>9-3. 정산분류 필터 (헤더 popover)</h3>
+<p>정산내역관리 컬럼 헤더의 popover로 추가 정산분류 필터링 가능. 탭(정산대상/정산완료/제외/전체)과 조합 사용.</p>
 <table>
 <thead><tr><th>필터</th><th>대상</th></tr></thead>
 <tbody>
-<tr><td>전체</td><td>모든 활성 거래</td></tr>
-<tr><td>미내역분류 / 미정산분류 / 미결재</td><td>위 카드와 동일</td></tr>
-<tr><td>정산됨</td><td>정산 진행 전체 (결재중·결재완료·정산완료 포함)</td></tr>
-<tr><td>제외</td><td>정산 대상 외 (사적 결제 등)</td></tr>
+<tr><td>미설정</td><td>정산분류 미할당 거래</td></tr>
+<tr><td>특정 정산묶음</td><td>해당 정산묶음에 포함된 거래만</td></tr>
+<tr><td>제외</td><td>EXCLUDED 거래</td></tr>
 </tbody>
 </table>
 <hr />
@@ -429,16 +444,10 @@
 <p>정산결재 상세 → 정산묶음이 <span class="badge badge-rejected">REJECTED</span> 상태로 보임. 필요 정보 보강 후 다시 결재 상신, 또는 삭제 후 다른 묶음으로 재구성.</p>
 
 <h3>Q7. 사적인 결제가 개인카드 명세서에 같이 들어왔어요</h3>
-<p>해당 거래의 상태를 "제외"로 변경 (정산 대상에서 제외됨). 사적 비용은 환급 대상이 아닙니다.</p>
+<p>해당 거래의 <strong>정산분류 셀렉트에서 "제외"</strong>를 선택하세요. 거래 상태가 EXCLUDED로 변경되고 환급 대상에서 빠집니다. v1.4부터 명시적 옵션 (이전 PERSONAL 카테고리 자동 처리를 대체).</p>
 
 <h3>Q7-2. 법인카드 사용분은 어떻게 처리하나요?</h3>
-<p><strong>법인카드는 경비정산이 아닌 지출결의서로 처리</strong>합니다. 법인카드 결제는 회사가 카드사에 직접 지급하므로 환급할 금액이 없습니다.</p>
-<ul>
-  <li>경로: <strong>전자결재 → 새 결재 → 지출결의서</strong></li>
-  <li>결제수단: <strong>"법인카드"</strong> 선택</li>
-  <li>거래 내역·영수증을 직접 항목 입력 (경비정산 시스템 사용 안 함)</li>
-  <li>승인되면 회계 &gt; 재무 접수에 자동 등록 (단, 송금 처리는 불필요 — 회계 처리만)</li>
-</ul>
+<p><strong>법인카드는 경비정산이 아닌 지출결의서로 처리</strong>합니다. 법인카드 결제는 회사가 카드사에 직접 지급하므로 환급할 금액이 없습니다. 단계별 작성 방법은 <a href="#11-지출결의서">§11. 지출결의서 작성</a>을 참고하세요.</p>
 
 <h3>Q8. 영수증을 분실했어요</h3>
 <p>매칭된 영수증이 없는 거래가 있으면 <strong>결재 상신이 차단</strong>됩니다 ("영수증이 매칭되지 않은 거래가 N건..." 에러). 영수증 재확보 또는 해당 거래를 정산묶음에서 제외해야 상신 가능.</p>
@@ -452,9 +461,104 @@
 <h3>Q11. 정산묶음 제목을 바꾸고 싶어요</h3>
 <p>정산결재 상세 화면에서 제목 옆 ✏️ 클릭 → 직접 수정. DRAFT/REJECTED/SUBMITTED 단계까지 가능 (APPROVED/PAID 이후는 잠김).</p>
 
+<h3>Q12. v1.4에서 카테고리 페이지가 사라졌어요</h3>
+<p>v1.4 (2026-05-18) 부터 카테고리 도메인을 폐기했습니다. 별도의 "🏷 카테고리" 관리 페이지·셀렉트가 없어졌고, 대신 거래 행에서 <strong>사업(계약) · 구분 · 상세내역</strong> 세 컬럼으로 분류합니다.</p>
+<ul>
+  <li>이전에 표준 카테고리(식대·교통비 등)로 분류하던 정보 → <strong>구분</strong> 컬럼에 자유 텍스트로 입력</li>
+  <li>이전에 PERSONAL(사적) 카테고리로 자동 제외되던 거래 → <strong>정산분류 셀렉트의 "제외"</strong>를 명시적으로 선택</li>
+  <li>이전 정산묶음에 남은 카테고리 코드(legacy)는 표시만 되고 신규 작업에는 영향 없음</li>
+</ul>
+
+<h3>Q13. "+ 새 정산" 했더니 제목 입력 prompt가 떠요. 자동 생성 안 되나요?</h3>
+<p>v1.6.3 (2026-05-16) 부터 자동 제목 생성을 폐기했습니다. 카테고리·날짜 기반 자동 제목이 실제 의도와 자주 맞지 않아 사용자가 직접 입력하도록 변경되었습니다. 의미 있는 제목(예: "2026-05 식대 정산", "차세대로거 출장비") 입력을 권장합니다.</p>
+
+<hr />
+
+<h2 id="11-지출결의서">11. 지출결의서 작성 (법인카드·일반 지출용)</h2>
+<p>경비정산이 <strong>개인 비용을 회사가 환급</strong>하는 도구라면, <strong>지출결의서</strong>는 <strong>회사가 직접 지출을 결정·집행</strong>하는 결재 양식입니다. 양식 코드는 <code>EXPENSE</code>이며 경비정산도 같은 양식을 사용하지만 진입 경로가 다릅니다.</p>
+<div class="page-box info">
+  ℹ 경비정산은 자동으로 결제수단 <strong>"개인정산"</strong>으로 상신되고, 지출결의서는 사용자가 직접 결제수단을 선택합니다. 어느 쪽이든 결재 완료 시 동일하게 <strong>회계 &gt; 재무 접수</strong>에 자동 등록됩니다 (<code>FINANCE_FORWARD</code>).
+</div>
+
+<h3>11-1. 언제 사용?</h3>
+<table>
+<thead><tr><th>케이스</th><th>처리 방식</th><th>송금</th></tr></thead>
+<tbody>
+<tr><td><strong>법인카드 결제</strong></td><td>지출결의서 (결제수단 "법인카드")</td><td>X — 회사가 카드사에 직접 지급, 회계 처리만</td></tr>
+<tr><td><strong>일반 업체 지출</strong> (세금계산서·계좌이체)</td><td>지출결의서 (결제수단 "계좌이체")</td><td>O — 재무팀이 업체 계좌로 송금</td></tr>
+<tr><td><strong>현금 직접 지급</strong> (회사 차원)</td><td>지출결의서 (결제수단 "현금")</td><td>케이스별</td></tr>
+<tr><td>개인카드·개인 현금 사용 후 환급</td><td><a href="#3-업무-전체-흐름">경비정산 (§1~§9)</a></td><td>O — 본인 계좌로 송금</td></tr>
+</tbody>
+</table>
+
+<h3>11-2. 접근 경로</h3>
+<div class="page-box">
+  상단 메뉴 <strong>전자결재</strong> → <strong>새 결재</strong> 클릭 → 양식 선택에서 <strong>"지출결의서 (EXPENSE)"</strong>
+</div>
+
+<h3>11-3. 헤더 입력</h3>
+<table>
+<thead><tr><th>필드</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td><strong>제목</strong></td><td>결재 문서 제목 (예: "5월 법인카드 사용분 — 영업팀")</td></tr>
+<tr><td><strong>프로젝트</strong> (옵션)</td><td>관련 프로젝트 선택. 계약번호/프로젝트명 검색</td></tr>
+<tr><td><strong>결제 방법</strong> (필수)</td><td>드롭다운 — <strong>법인카드 / 계좌이체 / 현금</strong> 중 선택. (경비정산은 자동 "개인정산"으로 별도 처리)</td></tr>
+</tbody>
+</table>
+
+<h3>11-4. 항목 테이블 — 지출 내역</h3>
+<p>"+ 항목 추가" 버튼으로 행을 추가하고 각 행에 다음 정보 입력:</p>
+<table>
+<thead><tr><th>컬럼</th><th>입력</th></tr></thead>
+<tbody>
+<tr><td><strong>내역</strong></td><td>가맹점·물품·서비스 설명 (예: "복사용지 구매 - 알파문구")</td></tr>
+<tr><td><strong>단가</strong></td><td>건당 금액</td></tr>
+<tr><td><strong>수량</strong></td><td>구매 수량</td></tr>
+<tr><td><strong>소계</strong></td><td>단가 × 수량 (자동 계산)</td></tr>
+<tr><td><strong>부가세</strong></td><td>VAT 금액 (별도 입력. 영수증 기준)</td></tr>
+<tr><td><strong>📎 영수증</strong></td><td>항목별로 영수증·세금계산서 첨부 (image / PDF). 항목 N개 → 영수증 N건</td></tr>
+</tbody>
+</table>
+<div class="page-box warn">
+  ⚠ 모든 항목에는 영수증·세금계산서 첨부를 권장합니다. 재무 접수 단계에서 증빙으로 사용됩니다.
+</div>
+
+<h3>11-5. 결재선 & 본문</h3>
+<ul>
+  <li><strong>"부서 기본선 불러오기"</strong> 버튼으로 본인 부서 기본 결재라인 한 번에 로드</li>
+  <li>부서·이름·역할(결재/합의) 셀렉트로 결재자 직접 추가 가능</li>
+  <li><strong>본문</strong>: 자유 텍스트 — 지출 사유·배경·집행 시점 등 결재자가 알아야 할 정보 작성</li>
+  <li>결재선을 비우면 부서 기본 결재라인이 자동 적용됩니다</li>
+</ul>
+
+<h3>11-6. 상신 → 결재 → 재무 접수</h3>
+<ol>
+  <li><strong>"결재 상신"</strong> 클릭 → 임시저장 없이 바로 결재 대기 상태</li>
+  <li>결재자들이 순차 승인 → 마지막 결재 완료 시 <span class="badge badge-approved">APPROVED</span></li>
+  <li>승인 즉시 자동으로 <strong>회계 &gt; 재무 접수</strong>에 등록됨 (<code>postApprovalAction: FINANCE_FORWARD</code>)</li>
+  <li>재무 접수 화면에 종류 배지 <strong>"업체 송금"</strong>으로 표시됨 (개인정산은 "개인경비 송금")</li>
+  <li>법인카드 — 송금 처리 X. 회계 메모만 (이미 카드사에 지급됨)</li>
+  <li>계좌이체·현금 — 재무팀이 송금 처리 → 완료 시 송금 컬럼에 ✓ 날짜 표시</li>
+</ol>
+
+<h3>11-7. 경비정산 vs 지출결의서 비교</h3>
+<table>
+<thead><tr><th></th><th>경비정산</th><th>지출결의서</th></tr></thead>
+<tbody>
+<tr><td><strong>사용 케이스</strong></td><td>개인카드·현금으로 회사 일에 쓴 금액 환급</td><td>법인카드·계좌이체·현금으로 회사가 집행한 지출 결재</td></tr>
+<tr><td><strong>진입</strong></td><td>내 대시보드 → 경비 탭</td><td>전자결재 → 새 결재 → 지출결의서</td></tr>
+<tr><td><strong>거래 입력</strong></td><td>카드 명세서 import 또는 영수증 업로드로 자동</td><td>항목 테이블에 수동 입력 (내역·단가·수량 등)</td></tr>
+<tr><td><strong>결제 수단</strong></td><td>자동 "개인정산"</td><td>법인카드 / 계좌이체 / 현금 직접 선택</td></tr>
+<tr><td><strong>영수증</strong></td><td>거래에 매칭. OCR 자동 추출 가능. <strong>영수증 없으면 상신 차단</strong></td><td>항목별로 첨부 (선택). 권장 사항</td></tr>
+<tr><td><strong>양식 코드</strong></td><td>EXPENSE (자동)</td><td>EXPENSE (사용자 선택)</td></tr>
+<tr><td><strong>재무 접수 등록</strong></td><td>✓ 자동</td><td>✓ 자동</td></tr>
+<tr><td><strong>송금 대상</strong></td><td>본인 계좌</td><td>업체 계좌 (법인카드는 송금 X)</td></tr>
+</tbody>
+</table>
+
 <hr />
 <p style="color: #6b7280; font-size: 12px; text-align: center;">
-경비정산 v1.3 · 2026-05-13 · 결재 후속 통합 + 송금 sync + 3단계 진행 + 개인경비 범위 명확화
+경비정산 v1.4 · 2026-05-18 · 카테고리 도메인 폐기 · 사업(계약)/구분/상세내역 컬럼 · 정산분류 4옵션 · 자동 제목 폐기 · 탭 단순화 · 지출결의서 작성 가이드 통합
 </p>
 </body>
 </html>

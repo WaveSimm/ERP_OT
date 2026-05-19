@@ -239,6 +239,9 @@ export default function InventoryDetailPage() {
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3">
+              <InfoField label="품목명" value={item.itemName || item.productMaster?.name || "-"} />
+              <InfoField label="제조사" value={item.manufacturer || item.productMaster?.manufacturer || "-"} />
+              <InfoField label="구매처" value={item.supplierRef?.name || "-"} />
               <InfoField label="분류" value={CATEGORY_LABELS[item.category]} />
               <InfoField label="상태">
                 <span className={`text-xs px-2 py-0.5 rounded ${STATUS_COLORS[item.currentStatus] || "bg-gray-100"}`}>

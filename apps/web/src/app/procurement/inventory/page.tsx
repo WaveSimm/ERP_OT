@@ -312,7 +312,8 @@ export default function InventoryPage() {
             <thead className="bg-gray-50 text-gray-600">
               <tr>
                 <SortableHeader sortKey="inventoryNo" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="text-left px-4 py-3 font-medium">재고번호</SortableHeader>
-                <th className="text-left px-4 py-3 font-medium">품명</th>
+                <SortableHeader sortKey="itemName" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="text-left px-4 py-3 font-medium">품명</SortableHeader>
+                <SortableHeader sortKey="manufacturer" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="text-left px-4 py-3 font-medium">제조사</SortableHeader>
                 <SortableHeader sortKey="serialNumber" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="text-left px-4 py-3 font-medium">시리얼</SortableHeader>
                 <SortableHeader sortKey="category" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="text-center px-4 py-3 font-medium">분류</SortableHeader>
                 <SortableHeader sortKey="currentStatus" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="text-center px-4 py-3 font-medium">상태</SortableHeader>
@@ -327,6 +328,7 @@ export default function InventoryPage() {
                   onClick={() => router.push(`/procurement/inventory/${item.id}`)}>
                   <td className="px-4 py-3 font-mono text-xs">{item.inventoryNo}</td>
                   <td className="px-4 py-3 font-medium">{item.itemName || item.productMaster?.name || "-"}</td>
+                  <td className="px-4 py-3 text-gray-600">{item.manufacturer || item.productMaster?.manufacturer || "-"}</td>
                   <td className="px-4 py-3 text-gray-500">{item.serialNumber || "-"}</td>
                   <td className="px-4 py-3 text-center">
                     <span className="text-xs px-2 py-0.5 rounded bg-gray-100">

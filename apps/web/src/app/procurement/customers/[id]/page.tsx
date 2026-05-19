@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { useParams, useRouter, usePathname } from "next/navigation";
 import { repairApi, supplierApi, inventoryApi } from "@/lib/api";
 import SearchableSelect from "@/components/SearchableSelect";
@@ -21,8 +22,6 @@ export default function CustomerDetailPage() {
 
   const [customer, setCustomer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [showAssetForm, setShowAssetForm] = useState(false);
-  const [editingAsset, setEditingAsset] = useState<any>(null);
   const [showContactForm, setShowContactForm] = useState(false);
   const [editingContact, setEditingContact] = useState<any>(null);
 
@@ -56,11 +55,9 @@ export default function CustomerDetailPage() {
         }}
       />
 
-      {/* 보유 자산 */}
+      {/* 보유 자산 — 재고관리 출고 흐름으로만 등록. 수동 추가 폐기 */}
       <AssetsSection
         customer={customer}
-        onAdd={() => { setEditingAsset(null); setShowAssetForm(true); }}
-        onEdit={(a: any) => { setEditingAsset(a); setShowAssetForm(true); }}
         onDelete={async (assetId: string) => {
           if (!confirm("자산을 삭제하시겠습니까?")) return;
           try { await repairApi.deleteCustomerAsset(assetId); load(); } catch (e: any) { alert(e.message || "삭제 실패"); }
@@ -69,16 +66,6 @@ export default function CustomerDetailPage() {
 
       {/* AS 이력 */}
       <RepairHistorySection customer={customer} />
-
-      {/* 자산 추가/수정 모달 */}
-      {showAssetForm && (
-        <AssetForm
-          customerId={id}
-          asset={editingAsset}
-          onClose={() => { setShowAssetForm(false); setEditingAsset(null); }}
-          onSaved={() => { setShowAssetForm(false); setEditingAsset(null); load(); }}
-        />
-      )}
 
       {/* 담당자 추가/수정 모달 */}
       {showContactForm && (
@@ -371,25 +358,19 @@ function ContactForm({ customerId, contact, onClose, onSaved }: {
 
 // ─── 보유 자산 ──────────────────────────────────────────────────────────
 
-function AssetsSection({ customer, onAdd, onEdit, onDelete }: {
+function AssetsSection({ customer, onDelete }: {
   customer: any;
-  onAdd: () => void;
-  onEdit: (a: any) => void;
   onDelete: (id: string) => void;
 }) {
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-5">
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-semibold text-gray-800">보유 자산 ({customer.assets?.length || 0})</h3>
-        <button onClick={onAdd}
-          className="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-          + 자산 추가
-        </button>
+        <span className="text-xs text-gray-400">재고관리 출고 시 자동 등록</span>
       </div>
       {customer.assets?.length > 0 ? (
         <table className="w-full text-sm">
           <colgroup>
-            <col style={{ width: "8%" }} />
             <col />
             <col style={{ width: "18%" }} />
             <col style={{ width: "16%" }} />
@@ -398,8 +379,7 @@ function AssetsSection({ customer, onAdd, onEdit, onDelete }: {
           </colgroup>
           <thead>
             <tr className="border-b border-gray-200">
-              <th className="text-left py-2 text-xs text-gray-500 whitespace-nowrap">유형</th>
-              <th className="text-left py-2 text-xs text-gray-500">이름</th>
+              <th className="text-left py-2 text-xs text-gray-500">품목명</th>
               <th className="text-left py-2 text-xs text-gray-500">제작사</th>
               <th className="text-left py-2 text-xs text-gray-500 whitespace-nowrap">S.N</th>
               <th className="text-left py-2 text-xs text-gray-500 whitespace-nowrap">OT재고NO</th>
@@ -409,13 +389,17 @@ function AssetsSection({ customer, onAdd, onEdit, onDelete }: {
           <tbody>
             {customer.assets.map((a: any) => (
               <tr key={a.id} className="border-t border-gray-100">
-                <td className="py-2 whitespace-nowrap">{a.assetType === "EQUIPMENT" ? "장비" : "센서"}</td>
                 <td className="py-2 font-medium break-keep">{a.name}</td>
                 <td className="py-2 text-gray-600 break-keep">{a.manufacturer || "-"}</td>
                 <td className="py-2 text-gray-500 break-all">{a.serialNumber || "-"}</td>
-                <td className="py-2 text-gray-500 break-all">{a.otInventoryNo || "-"}</td>
+                <td className="py-2 text-gray-500 break-all">
+                  {a.otInventoryNo
+                    ? (a.inventoryItemId
+                        ? <Link href={`/procurement/inventory/${a.inventoryItemId}`} className="text-blue-600 hover:text-blue-800 hover:underline" title="재고관리에서 보기">{a.otInventoryNo}</Link>
+                        : a.otInventoryNo)
+                    : "-"}
+                </td>
                 <td className="py-2 text-right whitespace-nowrap">
-                  <button onClick={() => onEdit(a)} className="text-xs text-gray-400 hover:text-blue-600 mr-2">수정</button>
                   <button onClick={() => onDelete(a.id)} className="text-xs text-gray-400 hover:text-red-600">삭제</button>
                 </td>
               </tr>
@@ -468,134 +452,3 @@ function RepairHistorySection({ customer }: { customer: any }) {
   );
 }
 
-// ─── 자산 추가 모달 ─────────────────────────────────────────────────────
-
-function AssetForm({ customerId, asset, onClose, onSaved }: {
-  customerId: string;
-  asset?: any;
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const isEdit = !!asset?.id;
-  const [form, setForm] = useState({
-    assetType: asset?.assetType || "EQUIPMENT",
-    name: asset?.name || "",
-    serialNumber: asset?.serialNumber || "",
-    manufacturer: asset?.manufacturer || "",
-    model: asset?.model || "",
-    otInventoryNo: asset?.otInventoryNo || "",
-  });
-  const [saving, setSaving] = useState(false);
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      if (isEdit) {
-        await repairApi.updateCustomerAsset(asset.id, form);
-      } else {
-        await repairApi.createCustomerAsset({ customerId, ...form });
-      }
-      onSaved();
-    } catch (e: any) {
-      alert(e.message || (isEdit ? "수정 실패" : "추가 실패"));
-    }
-    setSaving(false);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900">{isEdit ? "자산 수정" : "자산 추가"}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
-        </div>
-        <form onSubmit={submit} className="p-6 space-y-3">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">유형</label>
-            <select value={form.assetType} onChange={(e) => setForm((f) => ({ ...f, assetType: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-              <option value="EQUIPMENT">장비</option>
-              <option value="SENSOR">센서</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">이름 (제품명) *</label>
-            <input type="text" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" required />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">제작사</label>
-              <SearchableSelect
-                value={form.manufacturer}
-                onChange={(v) => setForm((f) => ({ ...f, manufacturer: v }))}
-                placeholder="제조사 검색..."
-                allowCustom
-                loadOptions={async (q) => {
-                  const res = await supplierApi.list({ search: q, limit: 20 });
-                  return (res.items || []).map((s: any) => ({ id: s.id, name: s.name, sub: s.country || undefined }));
-                }}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">모델</label>
-              <input type="text" value={form.model} onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">시리얼 번호</label>
-              <input type="text" value={form.serialNumber} onChange={(e) => setForm((f) => ({ ...f, serialNumber: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">OT재고NO</label>
-              {/* v1.6.1 (2026-05-15): 재고 검색 → 선택 시 제품명·제조사·모델·시리얼 자동 prefill */}
-              <SearchableSelect
-                value={form.otInventoryNo}
-                onChange={(v) => setForm((f) => ({ ...f, otInventoryNo: v }))}
-                onSelect={(opt) => {
-                  if (!opt) return;
-                  const inv = (opt as any).inv || {};
-                  setForm((f) => ({
-                    ...f,
-                    otInventoryNo: inv.inventoryNo || opt.id,
-                    name: f.name || inv.itemName || inv.productMaster?.name || "",
-                    manufacturer: f.manufacturer || inv.productMaster?.manufacturer || "",
-                    model: f.model || "",
-                    serialNumber: f.serialNumber || inv.serialNumber || "",
-                  }));
-                }}
-                placeholder="재고번호 검색..."
-                allowCustom
-                loadOptions={async (q) => {
-                  const res = await inventoryApi.list({ search: q, limit: 20 });
-                  return (res.items || []).map((inv: any) => {
-                    const parts = [
-                      inv.productMaster?.manufacturer,
-                      inv.serialNumber ? `S/N ${inv.serialNumber}` : null,
-                    ].filter(Boolean);
-                    return {
-                      id: inv.inventoryNo,
-                      name: inv.inventoryNo,
-                      sub: parts.join(" · ") || inv.itemName || undefined,
-                      inv,
-                    } as any;
-                  });
-                }}
-              />
-            </div>
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">취소</button>
-            <button type="submit" disabled={saving} className="flex-1 bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
-              {saving ? (isEdit ? "수정 중..." : "추가 중...") : (isEdit ? "수정" : "추가")}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
