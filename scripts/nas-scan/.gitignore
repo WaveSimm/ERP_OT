@@ -1,0 +1,6 @@
+# 스캔 산출물 (재생성 가능, git 추적 X)
+data/
+*.duckdb
+*.duckdb.wal
+*.duckdb.tmp
+__pycache__/

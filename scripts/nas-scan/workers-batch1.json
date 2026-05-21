@@ -1,0 +1,48 @@
+[
+  {
+    "id": "30-01-business",
+    "label": "01. 사업팀",
+    "subdirs": ["30. 팀_개인\\01. 사업팀"]
+  },
+  {
+    "id": "30-02-tech",
+    "label": "02. 기술팀",
+    "subdirs": ["30. 팀_개인\\02. 기술팀"]
+  },
+  {
+    "id": "30-rest",
+    "label": "30 나머지 6개",
+    "subdirs": [
+      "30. 팀_개인\\00. 임원진",
+      "30. 팀_개인\\03. 연구팀",
+      "30. 팀_개인\\04. 영업팀",
+      "30. 팀_개인\\05. 관리팀",
+      "30. 팀_개인\\06. 무인체계사업팀",
+      "30. 팀_개인\\99. 팀별 공구 관리"
+    ]
+  },
+  {
+    "id": "10-old",
+    "label": "OLD_PROJECTS",
+    "subdirs": ["10. Project\\PROJECT\\OLD_PROJECTS"]
+  },
+  {
+    "id": "10-kma",
+    "label": "2. KMA+KMITI",
+    "subdirs": ["10. Project\\PROJECT\\2. 기상청(KMA),한국기상산업기술원(KMITI)"]
+  },
+  {
+    "id": "10-rest",
+    "label": "10 나머지 8개 (3~9 + 추가납품)",
+    "subdirs": [
+      "10. Project\\PROJECT\\3. 국립수산과학원(NIFS)",
+      "10. Project\\PROJECT\\4. 한국해양과학기술원(KIOST, 부설 KRISO, KOPRI)",
+      "10. Project\\PROJECT\\5. 한국수자원공사(KWATER)",
+      "10. Project\\PROJECT\\6. 한국지질자원연구원(KIGAM)",
+      "10. Project\\PROJECT\\7. 한국수력원자력(KHNP),한국서부발전",
+      "10. Project\\PROJECT\\8. 연구과제(국가 R&D)",
+      "10. Project\\PROJECT\\9. 기타",
+      "10. Project\\PROJECT\\추가납품"
+    ]
+  }
+]

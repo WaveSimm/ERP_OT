@@ -1,0 +1,7 @@
+[
+  {"name": "00. 일반관리", "slug": "00-general"},
+  {"name": "10. Project", "slug": "10-project"},
+  {"name": "30. 팀_개인", "slug": "30-team-personal"},
+  {"name": "98.Fax", "slug": "98-fax"},
+  {"name": "99.SCAN", "slug": "99-scan"}
+]

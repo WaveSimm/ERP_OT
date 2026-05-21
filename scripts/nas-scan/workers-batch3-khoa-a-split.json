@@ -1,0 +1,47 @@
+[
+  {
+    "id": "10-khoa-a1",
+    "label": "KHOA-A1 (통합+2025+2026, 최근 활성)",
+    "subdirs": [
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\00. KHOA_해양관측부이 유지관리\\KHOA_해양관측망 유지보수 통합",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\00. KHOA_해양관측부이 유지관리\\KHOA_해양관측부이 유지관리(2025)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\00. KHOA_해양관측부이 유지관리\\KHOA_해양관측부이 유지관리(2026)"
+    ]
+  },
+  {
+    "id": "10-khoa-a2",
+    "label": "KHOA-A2 (2020~2024)",
+    "subdirs": [
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\00. KHOA_해양관측부이 유지관리\\KHOA_해양관측부이 유지관리(2020)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\00. KHOA_해양관측부이 유지관리\\KHOA_해양관측부이 유지관리(2021)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\00. KHOA_해양관측부이 유지관리\\KHOA_해양관측부이 유지관리(2022)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\00. KHOA_해양관측부이 유지관리\\KHOA_해양관측부이 유지관리(2023)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\00. KHOA_해양관측부이 유지관리\\KHOA_해양관측부이 유지관리(2024)"
+    ]
+  },
+  {
+    "id": "10-khoa-a3",
+    "label": "KHOA-A3 (2014~2019)",
+    "subdirs": [
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\00. KHOA_해양관측부이 유지관리\\KHOA_해양관측망 유지보수(2014)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\00. KHOA_해양관측부이 유지관리\\KHOA_해양관측망 유지보수(2015)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\00. KHOA_해양관측부이 유지관리\\KHOA_해양관측망 유지보수(2016)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\00. KHOA_해양관측부이 유지관리\\KHOA_해양관측망 유지보수(2017)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\00. KHOA_해양관측부이 유지관리\\KHOA_해양관측망 유지보수(2018)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\00. KHOA_해양관측부이 유지관리\\KHOA_해양관측망 유지보수(2019)"
+    ]
+  },
+  {
+    "id": "10-khoa-a4",
+    "label": "KHOA-A4 (2008~2013 + 비교관측자료)",
+    "subdirs": [
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\00. KHOA_해양관측부이 유지관리\\KHOA_해양관측망 유지보수(2008)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\00. KHOA_해양관측부이 유지관리\\KHOA_해양관측망 유지보수(2009)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\00. KHOA_해양관측부이 유지관리\\KHOA_해양관측망 유지보수(2010)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\00. KHOA_해양관측부이 유지관리\\KHOA_해양관측망 유지보수(2011)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\00. KHOA_해양관측부이 유지관리\\KHOA_해양관측망 유지보수(2012)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\00. KHOA_해양관측부이 유지관리\\KHOA_해양관측망 유지보수(2013)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\00. KHOA_해양관측부이 유지관리\\비교관측자료"
+    ]
+  }
+]

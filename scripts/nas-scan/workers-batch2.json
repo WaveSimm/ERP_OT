@@ -1,0 +1,60 @@
+[
+  {
+    "id": "10-khoa-a",
+    "label": "KHOA-A (1개, 13013GB, 2,374,627건)",
+    "subdirs": [
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\00. KHOA_해양관측부이 유지관리"
+    ]
+  },
+  {
+    "id": "10-khoa-b",
+    "label": "KHOA-B (25개, 2446GB, 550,909건)",
+    "subdirs": [
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\03. KHOA_과학기지 유지관리(2017~)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\07. KHOA_영해기점(2014~)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\05. KHOA_무인해양조사체계(2017~)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\06. KHOA_해수유동관측시설 비교관측 및 자료분석(2020~)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_차세대 해양관측부이 데이터로거 규격 연구(2023)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_천부지층탐사 장비 구매 및 설치(2020)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_무인해양조사선 제작 및 장비 설치(2021)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_블록형 다목적 해양관측 플랫폼 및 운용기술 개발 기획연구(2021)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_바다로5호 중력계(2021)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_바다로1호 중력계(2020)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_Fiji ODA 해양조사장비_2018",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_무인해양조사선 다중빔 음향측심기 구매 및 설치(2022)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_지자기탐사 장비 구매 및 설치(2019)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_해양관측망 신설(2017)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_수중 위치 추적시스템(2024)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_자율무인잠수정 구매(2025)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_동해로호 다중빔 음향측심기 구매 및 설치(2026)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\02. KHOA_해양관측망 유지보수 물품구매(2017~)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_지구자기탐사 장비 구매 및 설치(2021)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_무인파력선 장비 제작 및 구매(2024)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_해양관측부이 차세대 데이터로거 제작(2025)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_해양관측부이 차세대 데이터로거 물품 제작(2026)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_조위관측소 레이저 및 디지털 부표식 조위계 제작 구매_2017",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_해무관측소 데이터로거 구매(2026)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\펌웨어및개정이력"
+    ]
+  },
+  {
+    "id": "10-khoa-c",
+    "label": "KHOA-C (14개, 1105GB, 550,905건)",
+    "subdirs": [
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\01. KHOA_해수유동관측소 유지보수(2020~)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\09. KHOA_해양위성정보 품질검증 체계구축",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\08. KHOA_조위관측소(2009~)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_해양2000호_대체선(2021-25)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\04. KHOA_이안류부이(2013~)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_해무(2017~2020)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_교본초 보험 복구(2021)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_수조동 조위 검정 시스템(2017)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_무인해양조사선 운용지원(2022~)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_바다로1호 대체선(2026-)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_울산항 등 장기조류관측 및 자료분석",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_무역항 해양정보 서비스 개선(2025)",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA 해양수산과학기술 협의회 공동기획과제",
+      "10. Project\\PROJECT\\1. 국립해양조사원(KHOA)\\KHOA_2024년 무인해양조사 기술지원(호미곶)"
+    ]
+  }
+]
