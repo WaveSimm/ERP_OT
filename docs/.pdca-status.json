@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-05-19T01:01:19.698Z",
+  "lastUpdated": "2026-05-21T13:05:13.703Z",
   "activeFeatures": [
     "OCR-문서인식",
     "monorepo-dockerfile-정리",
@@ -84,9 +84,13 @@
     "po-print",
     "경비정산-ERP통합 Gap 분석",
     "발주관리-v1.6 Gap 분석",
-    "경비정산-ERP통합 v3 Gap 분석"
+    "경비정산-ERP통합 v3 Gap 분석",
+    "nas-scan",
+    "oceantech-knowledge",
+    "한글-정렬-collation",
+    "정렬-기억-hook"
   ],
-  "primaryFeature": "경비정산-ERP통합",
+  "primaryFeature": "nas-scan",
   "features": {
     "프로젝트-관리": {
       "phase": "report",
@@ -286,19 +290,33 @@
       }
     },
     "구매-재고-결재": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
+      "phase": "check",
+      "phaseNumber": 4,
+      "matchRate": 88,
       "iterationCount": 0,
+      "analysisVersion": "v1.0",
       "requirements": [],
       "documents": {
         "plan": "docs/01-plan/features/구매-재고-결재.plan.md",
-        "design": "docs/02-design/features/구매-재고-결재.design.md"
+        "design": "docs/02-design/features/구매-재고-결재.design.md",
+        "analysis": "docs/03-analysis/구매-재고-결재.analysis.md"
       },
       "timestamps": {
         "started": "2026-04-10T18:48:23.758Z",
-        "lastUpdated": "2026-04-10T18:48:23.946Z"
-      }
+        "lastUpdated": "2026-05-20T00:00:00.000Z",
+        "checkCompletedAt": "2026-05-20T00:00:00.000Z"
+      },
+      "gapSummary": {
+        "high": 0,
+        "medium": 5,
+        "low": 6,
+        "intentMapped": "24/27"
+      },
+      "userDecisionsNeeded": [
+        "M5-Bundle-B안-Design",
+        "M4-referencePrice-제거강도",
+        "L2-마이그-apply-시점"
+      ]
     },
     "OCR-문서인식": {
       "phase": "do",
@@ -579,9 +597,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-06T10:23:41.325Z",
-        "lastUpdated": "2026-05-18T15:01:55.796Z"
+        "lastUpdated": "2026-05-20T00:50:05.688Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\lib\\api.ts"
+      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\hooks\\useSortPreference.ts"
     },
     "domain": {
       "phase": "do",
@@ -740,7 +758,7 @@
       "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\index.ts"
     },
     "경비정산-ERP통합": {
-      "phase": "do",
+      "phase": "act",
       "startedAt": "2026-05-08T11:51:10.049Z",
       "planCreatedAt": "2026-05-08T11:51:10.050Z",
       "designCreatedAt": "2026-05-08T12:16:28.665Z",
@@ -754,7 +772,15 @@
       "p4CompletedAt": "2026-05-08T13:34:43.737Z",
       "p5Completed": true,
       "p6Completed": true,
-      "p6CompletedAt": "2026-05-08T13:52:43.281Z"
+      "p6CompletedAt": "2026-05-08T13:52:43.281Z",
+      "checkCompletedAt": "2026-05-19T00:00:00.000Z",
+      "matchRate": 98,
+      "analysisVersion": "v3",
+      "actStartedAt": "2026-05-19T00:00:00.000Z",
+      "remainingBacklog": [
+        "G-4",
+        "G-6"
+      ]
     },
     "expense": {
       "phase": "do",
@@ -830,9 +856,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-08T13:44:40.675Z",
-        "lastUpdated": "2026-05-15T17:10:00.351Z"
+        "lastUpdated": "2026-05-20T00:52:09.212Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\expense\\settlements\\page.tsx"
+      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\settlements\\page.tsx"
     },
     "finance": {
       "phase": "do",
@@ -895,7 +921,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-08T13:52:18.953Z",
-        "lastUpdated": "2026-05-15T10:15:08.034Z"
+        "lastUpdated": "2026-05-20T00:52:05.307Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\expenses\\page.tsx"
     },
@@ -986,9 +1012,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-12T08:46:13.137Z",
-        "lastUpdated": "2026-05-18T15:11:17.293Z"
+        "lastUpdated": "2026-05-20T00:52:29.470Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\components\\procurement\\SettlementSection.tsx"
+      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\page.tsx"
     },
     "dtos": {
       "phase": "do",
@@ -1025,7 +1051,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-13T02:43:31.768Z",
-        "lastUpdated": "2026-05-18T13:22:36.693Z"
+        "lastUpdated": "2026-05-20T00:52:01.580Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\inventory\\page.tsx"
     },
@@ -1051,7 +1077,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-13T08:37:06.473Z",
-        "lastUpdated": "2026-05-18T13:53:31.007Z"
+        "lastUpdated": "2026-05-20T00:52:38.362Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\inbound\\page.tsx"
     },
@@ -1064,7 +1090,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-13T08:38:33.413Z",
-        "lastUpdated": "2026-05-15T12:11:17.777Z"
+        "lastUpdated": "2026-05-20T00:52:33.644Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\bundles\\page.tsx"
     },
@@ -1077,7 +1103,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-13T08:39:33.077Z",
-        "lastUpdated": "2026-05-15T12:11:01.935Z"
+        "lastUpdated": "2026-05-20T00:51:36.994Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\products\\page.tsx"
     },
@@ -1090,7 +1116,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-13T11:23:15.841Z",
-        "lastUpdated": "2026-05-13T11:23:31.974Z"
+        "lastUpdated": "2026-05-20T00:51:45.049Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\locations\\page.tsx"
     },
@@ -1103,7 +1129,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-13T11:23:47.335Z",
-        "lastUpdated": "2026-05-13T11:23:59.074Z"
+        "lastUpdated": "2026-05-20T00:53:14.958Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\audits\\page.tsx"
     },
@@ -1116,7 +1142,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-13T11:29:08.524Z",
-        "lastUpdated": "2026-05-13T11:29:33.416Z"
+        "lastUpdated": "2026-05-20T00:50:19.736Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\customers\\page.tsx"
     },
@@ -1129,7 +1155,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-13T11:29:44.360Z",
-        "lastUpdated": "2026-05-13T11:30:13.711Z"
+        "lastUpdated": "2026-05-20T00:51:33.238Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\suppliers\\page.tsx"
     },
@@ -1142,7 +1168,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-13T11:30:27.382Z",
-        "lastUpdated": "2026-05-15T13:40:04.356Z"
+        "lastUpdated": "2026-05-20T00:51:41.203Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\procurement\\contracts\\page.tsx"
     },
@@ -1213,17 +1239,104 @@
       },
       "previousPhase": "check",
       "autoAdvanced": true
+    },
+    "nas-scan": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [
+        "12 워커 병렬 walking (KHOA-A 4분할 포함)",
+        "Tier 0 walk → Tier 1 PDF → Tier 2 HWP → Tier 3 hash",
+        "자동 merge + 카탈로그 리포트 생성"
+      ],
+      "documents": {
+        "scripts": "scripts/nas-scan/ (common.py, 01~06, _split-khoa.py, _check-tier-done.py, run-everything-v4.ps1)",
+        "schemas": "DuckDB (data/nas-scan.duckdb + 12 shards)",
+        "config": "folders.json, folders-30-depts.json, workers-batch1/2/3.json"
+      },
+      "timestamps": {
+        "started": "2026-05-19T09:26:30.447Z",
+        "lastUpdated": "2026-05-21T22:40:00.000Z"
+      },
+      "progress": {
+        "tier_0_percent": 58,
+        "active_workers": 8,
+        "completed_workers": 4,
+        "total_files_processed": 4600000,
+        "total_files_target": 7900000,
+        "eta_hours": 33
+      },
+      "lastFile": "scripts/nas-scan/05-report.py (자산 카탈로그 + RAG 청사진 재설계)",
+      "notes": "스캔 자동 진행 중. 완료 후 Enterprise Knowledge Platform CTO Lead 호출 예정."
+    },
+    "oceantech-knowledge": {
+      "phase": "plan-pending",
+      "phaseNumber": 0,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [
+        "별도 독립 시스템 (ERP-OT와 분리)",
+        "NAS + ERP + 미래 자료 통합 흡수",
+        "ERP는 source + consumer 양방향",
+        "CTO Lead 모드 진행 (PDCA team)",
+        "Production-quality 완성 후 ERP 연동"
+      ],
+      "documents": {
+        "memory": "project_oceantech_knowledge_platform.md (비전)",
+        "scope": "NAS Catalog + ERP 데이터 ingestor + RAG + 통합 검색·답변"
+      },
+      "timestamps": {
+        "decided": "2026-05-21T22:30:00.000Z",
+        "lastUpdated": "2026-05-21T22:40:00.000Z"
+      },
+      "milestones": [
+        "M1 비전·아키텍처 + 인프라",
+        "M2 NAS Catalog 서비스",
+        "M3 Indexer + Cron",
+        "M4 RAG 서비스 (임베딩·LLM)",
+        "M5 웹 UI",
+        "M6 ERP 연동 + 생산 배포"
+      ],
+      "estimatedDuration": "6~9개월",
+      "blockedBy": "nas-scan 완료 (~33시간 후)",
+      "notes": "NAS 스캔 자동 완료 후 CTO Lead 에이전트 호출하여 PDCA Plan 본격 시작."
+    },
+    "한글-정렬-collation": {
+      "phase": "completed",
+      "phaseNumber": 6,
+      "matchRate": null,
+      "documents": {
+        "migration": "scripts/migrate-korean-collation.sql"
+      },
+      "timestamps": {
+        "completed": "2026-05-19T15:15:00.000Z"
+      },
+      "notes": "60 컬럼에 ko-KR-x-icu collation 적용. 한글 정렬 글자수→자모순 문제 해결. 미커밋."
+    },
+    "정렬-기억-hook": {
+      "phase": "completed",
+      "phaseNumber": 6,
+      "matchRate": null,
+      "documents": {
+        "hook": "apps/web/src/hooks/useSortPreference.ts",
+        "pages": "12 procurement 페이지에 적용"
+      },
+      "timestamps": {
+        "completed": "2026-05-21T13:00:00.000Z"
+      },
+      "notes": "localStorage 기반 정렬 선호 기억. 페이지별 격리. 미커밋."
     }
   },
   "pipeline": {
     "currentPhase": 1,
-    "level": "Dynamic",
+    "level": "Enterprise",
     "phaseHistory": []
   },
   "session": {
     "startedAt": "2026-02-26T10:52:05.428Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-05-19T01:01:19.698Z"
+    "lastActivity": "2026-05-21T22:40:00.000Z"
   },
   "history": [
     {
@@ -12492,6 +12605,354 @@
       "timestamp": "2026-05-19T01:01:19.698Z",
       "feature": "경비정산-ERP통합 v3 Gap 분석",
       "phase": "act",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-19T09:26:30.447Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-19T09:28:53.772Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-19T09:30:19.084Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-19T09:33:28.557Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-19T09:33:33.416Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-19T09:34:42.893Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-19T09:37:41.723Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-19T09:38:41.677Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-19T09:39:00.180Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-19T09:41:32.168Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-19T09:50:55.103Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-19T09:55:15.460Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-19T09:55:31.171Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-19T09:56:31.596Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-19T12:40:42.008Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-19T12:40:48.273Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-19T12:41:03.540Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-19T12:41:11.352Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-19T12:41:42.282Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-19T12:42:03.269Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-19T12:42:35.184Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-19T12:44:03.762Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-19T23:55:30.885Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-19T23:57:25.429Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T00:50:05.688Z",
+      "feature": "web",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T00:50:19.736Z",
+      "feature": "customers",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T00:51:30.598Z",
+      "feature": "suppliers",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T00:51:33.238Z",
+      "feature": "suppliers",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T00:51:34.758Z",
+      "feature": "products",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T00:51:36.994Z",
+      "feature": "products",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T00:51:39.185Z",
+      "feature": "contracts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T00:51:41.203Z",
+      "feature": "contracts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T00:51:43.244Z",
+      "feature": "locations",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T00:51:45.049Z",
+      "feature": "locations",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T00:51:59.019Z",
+      "feature": "inventory",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T00:52:01.580Z",
+      "feature": "inventory",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T00:52:03.208Z",
+      "feature": "expenses",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T00:52:05.307Z",
+      "feature": "expenses",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T00:52:09.212Z",
+      "feature": "settlements",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T00:52:23.719Z",
+      "feature": "procurement",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T00:52:29.470Z",
+      "feature": "procurement",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T00:52:31.055Z",
+      "feature": "bundles",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T00:52:33.644Z",
+      "feature": "bundles",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T00:52:35.282Z",
+      "feature": "inbound",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T00:52:38.362Z",
+      "feature": "inbound",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T00:52:40.431Z",
+      "feature": "audits",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T00:52:42.043Z",
+      "feature": "audits",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T00:53:14.958Z",
+      "feature": "audits",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T04:08:53.014Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T04:09:04.226Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T04:09:14.024Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T04:09:37.805Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T04:12:18.052Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T04:13:13.463Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T04:16:12.967Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-20T06:08:02.015Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-21T11:37:17.825Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-21T13:05:13.703Z",
+      "feature": "nas-scan",
+      "phase": "do",
       "action": "updated"
     }
   ],

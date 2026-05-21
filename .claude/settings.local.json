@@ -539,7 +539,30 @@
       "Bash(rm \"data/sources/~\\\\$2026년 계약파일리스트_금액포함전체.xlsx\")",
       "Read(//e/claude/ERP_OT/data/sources/**)",
       "Bash(PYTHONIOENCODING=utf-8 grep -nE \"search|q=|inv_no|InventoryNo|inventory_no|filter\" \"apps/web/src/app/procurement/inventory/page.tsx\")",
-      "Bash(PYTHONIOENCODING=utf-8 grep -nE \"sortBy|sortOrder|handleSort|onClick.*sort\" \"apps/web/src/app/procurement/inventory/page.tsx\")"
+      "Bash(PYTHONIOENCODING=utf-8 grep -nE \"sortBy|sortOrder|handleSort|onClick.*sort\" \"apps/web/src/app/procurement/inventory/page.tsx\")",
+      "PowerShell(if \\(Test-Path \"Z:\\\\\"\\) { Write-Output \"ACCESSIBLE\"; Get-ChildItem \"Z:\\\\\" -ErrorAction SilentlyContinue | Select-Object -First 30 Name, @{N='Type';E={if \\($_.PSIsContainer\\){'DIR'}else{'FILE'}}}, @{N='SizeMB';E={if \\(-not $_.PSIsContainer\\){[math]::Round\\($_.Length/1MB,2\\)}}} } else { Write-Output \"NOT_ACCESSIBLE\" })",
+      "PowerShell(net use *)",
+      "PowerShell(Get-ChildItem \"E:\\\\Users\\\\yunsi\\\\OneDrive\\\\Screenshots\" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 5 Name, LastWriteTime, @{N='SizeKB';E={[math]::Round\\($_.Length/1KB,1\\)}})",
+      "PowerShell(Test-Path *)",
+      "PowerShell(Get-Command *)",
+      "PowerShell(python -m pip install --quiet duckdb pdfplumber tqdm olefile 2>&1 | Select-Object -Last 5)",
+      "PowerShell(New-Item *)",
+      "PowerShell(python -c \"import duckdb, pdfplumber, tqdm, olefile; print\\('duckdb', duckdb.__version__\\); print\\('all packages OK'\\)\")",
+      "PowerShell($env:PYTHONIOENCODING=\"utf-8\"; cd \"E:\\\\claude\\\\ERP_OT\\\\scripts\\\\nas-scan\"; python \"01-walk-and-record.py\" --dry-run --max 100 2>&1 | Select-Object -Last 25)",
+      "PowerShell($env:PYTHONIOENCODING=\"utf-8\"; cd \"E:\\\\claude\\\\ERP_OT\\\\scripts\\\\nas-scan\"; python \"01-walk-and-record.py\" --max 5000 2>&1 | Select-Object -Last 25)",
+      "PowerShell(Remove-Item *)",
+      "PowerShell(Tee-Object *)",
+      "PowerShell(python -m pip install --quiet matplotlib 2>&1 | Select-Object -Last 2)",
+      "PowerShell(Set-Location \"E:\\\\claude\\\\ERP_OT\\\\scripts\\\\nas-scan\"; powershell -ExecutionPolicy Bypass -File \".\\\\run-all-tiers.ps1\")",
+      "PowerShell(Out-Null *)",
+      "PowerShell(Get-Process *)",
+      "PowerShell(Get-Content *)",
+      "PowerShell($env:PYTHONIOENCODING=\"utf-8\"; cd \"E:\\\\claude\\\\ERP_OT\\\\scripts\\\\nas-scan\"; Write-Output \"=== Sanity: 98.Fax worker, max 200 ===\"; python \"01-walk-and-record.py\" --subdir \"98.Fax\" --db \"data/shards/test-98fax.duckdb\" --max 200 2>&1 | Select-Object -Last 12)",
+      "PowerShell(cd \"E:\\\\claude\\\\ERP_OT\\\\scripts\\\\nas-scan\"; powershell -ExecutionPolicy Bypass -File \".\\\\run-everything.ps1\")",
+      "PowerShell($env:PYTHONIOENCODING=\"utf-8\"; cd \"E:\\\\claude\\\\ERP_OT\\\\scripts\\\\nas-scan\"; Write-Output \"=== Sanity: --subdirs로 두 작은 폴더 동시 ===\"; python \"01-walk-and-record.py\" --subdirs \"98.Fax\" \"99.SCAN\" --db \"data/shards/test-multi.duckdb\" --max 50 2>&1 | Select-Object -Last 15)",
+      "PowerShell(cd \"E:\\\\claude\\\\ERP_OT\\\\scripts\\\\nas-scan\"; powershell -ExecutionPolicy Bypass -File \".\\\\run-everything-v3.ps1\")",
+      "PowerShell(cd \"E:\\\\claude\\\\ERP_OT\\\\scripts\\\\nas-scan\"; powershell -ExecutionPolicy Bypass -File \".\\\\run-everything-v4.ps1\")",
+      "PowerShell($env:PYTHONIOENCODING=\"utf-8\"; cd \"E:\\\\claude\\\\ERP_OT\\\\scripts\\\\nas-scan\"; python \"_cleanup-analysis.py\" 2>&1 | Select-Object -First 200)"
     ]
   }
 }
