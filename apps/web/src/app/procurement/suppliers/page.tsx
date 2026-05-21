@@ -6,7 +6,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { supplierApi } from "@/lib/api";
 import Pagination from "@/components/Pagination";
-import SortableHeader, { SortOrder } from "@/components/SortableHeader";
+import SortableHeader from "@/components/SortableHeader";
+import { useSortPreference } from "@/hooks/useSortPreference";
 
 const PAGE_SIZE = 50;
 
@@ -19,9 +20,7 @@ export default function SuppliersPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(searchParams.get("search") || "");
-  const [sortBy, setSortBy] = useState<string>("");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
-  const handleSort = (k: string, o: SortOrder) => { setSortBy(k); setSortOrder(o); };
+  const { sortBy, sortOrder, handleSort } = useSortPreference("suppliers");
   const [page, setPage] = useState(1);
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const [showForm, setShowForm] = useState(false);

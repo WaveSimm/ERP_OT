@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { inboundRequestApi, supplierApi, procurementApi, inventoryApi, productVariantApi } from "@/lib/api";
 import { fmtDateTime24 } from "@/lib/datetime";
 import SearchableSelect from "@/components/SearchableSelect";
-import SortableHeader, { SortOrder } from "@/components/SortableHeader";
+import SortableHeader from "@/components/SortableHeader";
+import { useSortPreference } from "@/hooks/useSortPreference";
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: "대기",
@@ -50,10 +51,8 @@ export default function InboundRequestPage() {
   const [list, setList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("PENDING");
-  const [sortBy, setSortBy] = useState<string>("requestedAt");
   const router = useRouter();
-  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
-  const handleSort = (k: string, o: SortOrder) => { setSortBy(k); setSortOrder(o); };
+  const { sortBy, sortOrder, handleSort } = useSortPreference("inbound", "requestedAt", "desc");
   const [detail, setDetail] = useState<any | null>(null);
   const [receiveRows, setReceiveRows] = useState<ReceiveRow[]>([]);
   const [locations, setLocations] = useState<any[]>([]);

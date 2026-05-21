@@ -6,7 +6,8 @@ import { bundleShipmentApi, procurementApi, inventoryApi } from "@/lib/api";
 import { fmtDate } from "@/lib/datetime";
 import { DateInput } from "@/components/ui/DateInput";
 import SearchableSelect from "@/components/SearchableSelect";
-import SortableHeader, { SortOrder } from "@/components/SortableHeader";
+import SortableHeader from "@/components/SortableHeader";
+import { useSortPreference } from "@/hooks/useSortPreference";
 
 // v1.6 B안 (2026-05-13): BOM 정의 탭 제거. 번들 정의는 /procurement/products에서 관리.
 export default function BundlesPage() {
@@ -31,9 +32,7 @@ function ShipmentTab() {
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<any | null>(null);
   const [showCreate, setShowCreate] = useState(false);
-  const [sortBy, setSortBy] = useState<string>("shippedAt");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
-  const handleSort = (k: string, o: SortOrder) => { setSortBy(k); setSortOrder(o); };
+  const { sortBy, sortOrder, handleSort } = useSortPreference("bundles", "shippedAt", "desc");
 
   const load = useCallback(async () => {
     setLoading(true);

@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { procurementApi } from "@/lib/api";
 import Pagination from "@/components/Pagination";
-import SortableHeader, { SortOrder } from "@/components/SortableHeader";
+import SortableHeader from "@/components/SortableHeader";
+import { useSortPreference } from "@/hooks/useSortPreference";
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "초안", PENDING_APPROVAL: "승인대기", APPROVED: "승인",
@@ -75,9 +76,7 @@ export default function ProcurementPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [dashboard, setDashboard] = useState<any>(null);
-  const [sortBy, setSortBy] = useState<string>("");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
-  const handleSort = (k: string, o: SortOrder) => { setSortBy(k); setSortOrder(o); };
+  const { sortBy, sortOrder, handleSort } = useSortPreference("orders", "", "desc");
 
   const load = useCallback(async () => {
     setLoading(true);

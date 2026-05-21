@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auditApi } from "@/lib/api";
 import { DateInput } from "@/components/ui/DateInput";
+import { useSortPreference } from "@/hooks/useSortPreference";
 
 const STATUS_COLORS: Record<string, string> = { PLANNED: "bg-gray-100 text-gray-600", IN_PROGRESS: "bg-yellow-100 text-yellow-700", PAUSED: "bg-blue-100 text-blue-700", CANCELLED: "bg-red-100 text-red-700", COMPLETED: "bg-green-100 text-green-700" };
 const STATUS_LABELS: Record<string, string> = { PLANNED: "예정", IN_PROGRESS: "진행중", PAUSED: "일시정지", CANCELLED: "취소", COMPLETED: "완료" };
@@ -15,8 +16,7 @@ export default function AuditsPage() {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ name: "", plannedDate: new Date().toISOString().slice(0, 10), notes: "" });
   const [saving, setSaving] = useState(false);
-  const [sortBy, setSortBy] = useState<string>("plannedDate");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const { sortBy, sortOrder, handleSort } = useSortPreference("audits", "plannedDate", "desc");
 
   useEffect(() => {
     setLoading(true);
@@ -38,12 +38,12 @@ export default function AuditsPage() {
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2 text-xs text-gray-600">
           <span>정렬:</span>
-          <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="border rounded px-2 py-1">
+          <select value={sortBy} onChange={e => handleSort(e.target.value, sortOrder)} className="border rounded px-2 py-1">
             <option value="plannedDate">계획일</option>
             <option value="name">이름</option>
             <option value="status">상태</option>
           </select>
-          <button onClick={() => setSortOrder(o => o === "asc" ? "desc" : "asc")}
+          <button onClick={() => handleSort(sortBy, sortOrder === "asc" ? "desc" : "asc")}
             className="border rounded px-2 py-1 hover:bg-gray-50">
             {sortOrder === "asc" ? "오름차 ▲" : "내림차 ▼"}
           </button>

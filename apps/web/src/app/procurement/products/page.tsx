@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { procurementApi, supplierApi, productVariantApi, inventoryApi } from "@/lib/api";
 import SearchableSelect from "@/components/SearchableSelect";
 import Pagination from "@/components/Pagination";
-import SortableHeader, { SortOrder } from "@/components/SortableHeader";
+import SortableHeader from "@/components/SortableHeader";
+import { useSortPreference } from "@/hooks/useSortPreference";
 
 const CURRENCY_LABELS: Record<string, string> = { EUR: "EUR", GBP: "GBP", USD: "USD", KRW: "KRW" };
 const PAGE_SIZE = 50;
@@ -15,9 +16,7 @@ export default function ProductMasterPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [itemTypeFilter, setItemTypeFilter] = useState<"" | "SIMPLE" | "BUNDLE">("");
-  const [sortBy, setSortBy] = useState<string>("");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
-  const handleSort = (k: string, o: SortOrder) => { setSortBy(k); setSortOrder(o); };
+  const { sortBy, sortOrder, handleSort } = useSortPreference("products");
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);

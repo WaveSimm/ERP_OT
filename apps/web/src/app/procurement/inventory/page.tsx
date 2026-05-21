@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { inventoryApi, procurementApi, supplierApi } from "@/lib/api";
 import LocationSelect from "@/components/LocationSelect";
 import SearchableSelect from "@/components/SearchableSelect";
-import SortableHeader, { SortOrder } from "@/components/SortableHeader";
+import SortableHeader from "@/components/SortableHeader";
+import { useSortPreference } from "@/hooks/useSortPreference";
 import Pagination from "@/components/Pagination";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -36,9 +37,7 @@ export default function InventoryPage() {
   const [category, setCategory] = useState("");
   const [status, setStatus] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
-  const [sortBy, setSortBy] = useState<string>("");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
-  const handleSort = (k: string, o: SortOrder) => { setSortBy(k); setSortOrder(o); };
+  const { sortBy, sortOrder, handleSort } = useSortPreference("inventory", "", "desc");
   const [filterOptions, setFilterOptions] = useState<{ locations: string[]; projects: string[]; assignees: string[] }>({ locations: [], projects: [], assignees: [] });
   const [stats, setStats] = useState<any>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);

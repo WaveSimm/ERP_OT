@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { procurementApi, repairApi, supplierApi } from "@/lib/api";
 import SearchableSelect from "@/components/SearchableSelect";
 import { DateInput } from "@/components/ui/DateInput";
-import SortableHeader, { SortOrder } from "@/components/SortableHeader";
+import SortableHeader from "@/components/SortableHeader";
+import { useSortPreference } from "@/hooks/useSortPreference";
 
 const STATUS_LABELS: Record<string, string> = { PROSPECTIVE: "예정", ACTIVE: "진행중", COMPLETED: "완료", CANCELLED: "취소" };
 const STATUS_COLORS: Record<string, string> = {
@@ -27,9 +28,7 @@ export default function ContractsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [sortBy, setSortBy] = useState<string>("");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
-  const handleSort = (k: string, o: SortOrder) => { setSortBy(k); setSortOrder(o); };
+  const { sortBy, sortOrder, handleSort } = useSortPreference("contracts");
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);

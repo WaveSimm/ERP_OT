@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { expenseFollowupApi } from "@/lib/api";
-import SortableHeader, { SortOrder } from "@/components/SortableHeader";
+import SortableHeader from "@/components/SortableHeader";
+import { useSortPreference } from "@/hooks/useSortPreference";
 import OrderPaymentRequestsTab from "@/components/procurement/OrderPaymentRequestsTab";
 import OrderCustomsTaxesTab from "@/components/procurement/OrderCustomsTaxesTab";
 
@@ -63,9 +64,7 @@ function ExpenseApprovalTab() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
-  const [sortBy, setSortBy] = useState<string>("");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
-  const handleSort = (k: string, o: SortOrder) => { setSortBy(k); setSortOrder(o); };
+  const { sortBy, sortOrder, handleSort } = useSortPreference("expenses-approval", "", "desc");
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [acting, setActing] = useState(false);
   const [checkedItems, setCheckedItems] = useState<number[]>([]);
