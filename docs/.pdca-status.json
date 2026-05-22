@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-05-21T13:05:13.703Z",
+  "lastUpdated": "2026-05-22T04:26:16.912Z",
   "activeFeatures": [
     "OCR-문서인식",
     "monorepo-dockerfile-정리",
@@ -88,7 +88,11 @@
     "nas-scan",
     "oceantech-knowledge",
     "한글-정렬-collation",
-    "정렬-기억-hook"
+    "정렬-기억-hook",
+    "board",
+    "write",
+    "[postId]",
+    "feature-requests"
   ],
   "primaryFeature": "nas-scan",
   "features": {
@@ -480,9 +484,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-06T02:42:34.012Z",
-        "lastUpdated": "2026-05-18T15:01:35.142Z"
+        "lastUpdated": "2026-05-22T02:57:26.249Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\equipment\\src\\application\\customs-tax.service.ts"
+      "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\application\\post.service.ts"
     },
     "[id]": {
       "phase": "do",
@@ -571,9 +575,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-06T10:23:06.725Z",
-        "lastUpdated": "2026-05-18T15:01:51.801Z"
+        "lastUpdated": "2026-05-22T02:50:14.619Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\equipment\\src\\api\\routes\\customs-tax.routes.ts"
+      "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\api\\routes\\post.routes.ts"
     },
     "prisma": {
       "phase": "do",
@@ -584,9 +588,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-06T10:23:35.619Z",
-        "lastUpdated": "2026-05-15T17:20:37.905Z"
+        "lastUpdated": "2026-05-22T04:19:54.895Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\approval\\prisma\\seed.ts"
+      "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\prisma\\seed.ts"
     },
     "web": {
       "phase": "do",
@@ -597,9 +601,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-06T10:23:41.325Z",
-        "lastUpdated": "2026-05-20T00:50:05.688Z"
+        "lastUpdated": "2026-05-22T03:05:39.532Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\hooks\\useSortPreference.ts"
+      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\components\\AppLayout.tsx"
     },
     "domain": {
       "phase": "do",
@@ -1025,9 +1029,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-13T02:00:52.892Z",
-        "lastUpdated": "2026-05-13T02:00:52.892Z"
+        "lastUpdated": "2026-05-22T02:50:30.741Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\services\\project\\src\\api\\dtos\\resource.dto.ts"
+      "lastFile": "E:\\claude\\ERP_OT\\services\\auth\\src\\api\\dtos\\board.dto.ts"
     },
     "repositories": {
       "phase": "do",
@@ -1326,6 +1330,58 @@
         "completed": "2026-05-21T13:00:00.000Z"
       },
       "notes": "localStorage 기반 정렬 선호 기억. 페이지별 격리. 미커밋."
+    },
+    "board": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-05-22T02:53:47.941Z",
+        "lastUpdated": "2026-05-22T04:26:16.912Z"
+      },
+      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\components\\board\\PostEditor.tsx"
+    },
+    "write": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-05-22T02:54:24.998Z",
+        "lastUpdated": "2026-05-22T02:54:33.464Z"
+      },
+      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\board\\[catCode]\\[boardCode]\\write\\page.tsx"
+    },
+    "[postId]": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-05-22T02:56:12.904Z",
+        "lastUpdated": "2026-05-22T02:56:18.545Z"
+      },
+      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\board\\[catCode]\\[boardCode]\\[postId]\\page.tsx"
+    },
+    "feature-requests": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-05-22T03:06:16.491Z",
+        "lastUpdated": "2026-05-22T03:26:44.362Z"
+      },
+      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\admin\\feature-requests\\page.tsx"
     }
   },
   "pipeline": {
@@ -1336,7 +1392,7 @@
   "session": {
     "startedAt": "2026-02-26T10:52:05.428Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-05-21T22:40:00.000Z"
+    "lastActivity": "2026-05-22T04:26:16.912Z"
   },
   "history": [
     {
@@ -12952,6 +13008,234 @@
     {
       "timestamp": "2026-05-21T13:05:13.703Z",
       "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T02:41:05.469Z",
+      "feature": "prisma",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T02:41:22.442Z",
+      "feature": "prisma",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T02:46:21.524Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T02:46:47.756Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T02:50:14.619Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T02:50:30.741Z",
+      "feature": "dtos",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T02:53:47.941Z",
+      "feature": "board",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T02:54:00.509Z",
+      "feature": "board",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T02:54:05.255Z",
+      "feature": "board",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T02:54:14.324Z",
+      "feature": "board",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T02:54:24.998Z",
+      "feature": "write",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T02:54:33.465Z",
+      "feature": "write",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T02:55:04.504Z",
+      "feature": "web",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T02:55:42.499Z",
+      "feature": "board",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T02:55:58.394Z",
+      "feature": "board",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T02:56:04.365Z",
+      "feature": "board",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T02:56:12.904Z",
+      "feature": "[postId]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T02:56:18.545Z",
+      "feature": "[postId]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T02:56:35.717Z",
+      "feature": "board",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T02:56:44.196Z",
+      "feature": "board",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T02:57:04.292Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T02:57:15.725Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T02:57:26.249Z",
+      "feature": "application",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T03:05:39.532Z",
+      "feature": "web",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T03:06:16.491Z",
+      "feature": "feature-requests",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T03:21:49.090Z",
+      "feature": "feature-requests",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T03:21:58.560Z",
+      "feature": "feature-requests",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T03:22:04.414Z",
+      "feature": "feature-requests",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T03:22:13.069Z",
+      "feature": "feature-requests",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T03:25:50.454Z",
+      "feature": "feature-requests",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T03:26:06.562Z",
+      "feature": "feature-requests",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T03:26:28.663Z",
+      "feature": "feature-requests",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T03:26:44.362Z",
+      "feature": "feature-requests",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T04:19:54.895Z",
+      "feature": "prisma",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T04:23:43.509Z",
+      "feature": "board",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T04:23:51.173Z",
+      "feature": "board",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T04:25:56.115Z",
+      "feature": "board",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-22T04:26:16.912Z",
+      "feature": "board",
       "phase": "do",
       "action": "updated"
     }
