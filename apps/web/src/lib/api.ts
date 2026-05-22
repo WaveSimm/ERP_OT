@@ -1787,7 +1787,12 @@ export const postApi = {
   get: (id: string) => request<any>(`/posts/${id}`),
   create: (
     boardCode: string,
-    data: { title: string; content: string; priority?: number; expiresAt?: string | null; attachmentIds?: string[] },
+    data: {
+      title: string; content: string; priority?: number; expiresAt?: string | null;
+      attachmentIds?: string[]; targetDepartmentId?: string | null;
+      // 게시판 design v2.0 (2026-05-22): 기능 요구
+      requestType?: string; moduleArea?: string;
+    },
   ) =>
     request<any>(`/boards/${encodeURIComponent(boardCode)}/posts`, {
       method: "POST",
@@ -1804,6 +1809,21 @@ export const postApi = {
       method: "POST",
       body: JSON.stringify({ isPinned }),
     }),
+  // 게시판 design v2.0 (2026-05-22): 기능 요구 카테고리 전용
+  updateFeatureStatus: (
+    id: string,
+    data: {
+      requestStatus: "SUBMITTED" | "UNDER_REVIEW" | "APPROVED" | "IN_PROGRESS" | "COMPLETED" | "REJECTED" | "ON_HOLD";
+      releaseVersion?: string | null;
+    },
+  ) =>
+    request<any>(`/posts/${id}/feature-status`, { method: "PATCH", body: JSON.stringify(data) }),
+  assignFeature: (id: string, assigneeId: string | null) =>
+    request<any>(`/posts/${id}/feature-assign`, { method: "PATCH", body: JSON.stringify({ assigneeId }) }),
+  featureRequestStats: () =>
+    request<{ total: number; byStatus: Record<string, number>; byType: Record<string, number>; byModule: Record<string, number> }>(
+      `/feature-requests/stats`,
+    ),
 };
 
 export const boardCommentApi = {

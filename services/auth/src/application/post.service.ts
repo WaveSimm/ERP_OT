@@ -108,6 +108,11 @@ export class PostService {
         ? { id: p.targetDepartmentId, name: p.targetDepartmentName ?? "" }
         : null,
       board: { code: board.code, name: board.name },
+      // 게시판 design v2.0 (2026-05-22): 기능 요구 카테고리 필드
+      requestStatus: p.requestStatus ?? null,
+      requestType: p.requestType ?? null,
+      moduleArea: p.moduleArea ?? null,
+      assigneeId: p.assigneeId ?? null,
     }));
 
     return { items: result, total, page, pageSize };
@@ -121,6 +126,7 @@ export class PostService {
         author: { select: { id: true, name: true } },
         attachments: { orderBy: { uploadedAt: "asc" } },
         _count: { select: { comments: true } },
+        assignee: { select: { id: true, name: true } },
       },
     });
     if (!post) throw new PostError("POST_NOT_FOUND", "글을 찾을 수 없습니다.", 404);
@@ -175,6 +181,14 @@ export class PostService {
         url: `/api/v1/attachments/${a.id}`,
         uploadedAt: a.uploadedAt,
       })),
+      // 게시판 design v2.0 (2026-05-22): 기능 요구 카테고리 필드
+      requestStatus: post.requestStatus ?? null,
+      requestType: post.requestType ?? null,
+      moduleArea: post.moduleArea ?? null,
+      releaseVersion: post.releaseVersion ?? null,
+      resolvedAt: post.resolvedAt ?? null,
+      assigneeId: post.assigneeId ?? null,
+      assignee: post.assignee ?? null,
     };
   }
 
@@ -185,8 +199,14 @@ export class PostService {
     expiresAt?: string | null | undefined;
     attachmentIds?: string[] | undefined;
     targetDepartmentId?: string | null | undefined;
+    // 게시판 design v2.0 (2026-05-22): 기능 요구 필드
+    requestType?: "BUG" | "NEW_FEATURE" | "IMPROVEMENT" | "UI_UX" | "DOCS" | "OTHER" | undefined;
+    moduleArea?: string | undefined;
   }, user: AuthUserContext): Promise<string> {
-    const board = await this.prisma.board.findUnique({ where: { code: boardCode } });
+    const board = await this.prisma.board.findUnique({
+      where: { code: boardCode },
+      include: { category: { select: { code: true } } },
+    });
     if (!board) throw new PostError("BOARD_NOT_FOUND", "보드를 찾을 수 없습니다.", 404);
 
     // 발행 부서 스냅샷
@@ -206,6 +226,9 @@ export class PostService {
       targetDeptName = target.name;
     }
 
+    // 기능 요구 카테고리: 자동으로 SUBMITTED 상태로 시작
+    const isFeatureRequest = board.category.code === "feature-request";
+
     const post = await this.prisma.$transaction(async (tx) => {
       const created = await tx.post.create({
         data: {
@@ -219,6 +242,12 @@ export class PostService {
           publishingDepartmentName: profile?.departmentName ?? null,
           targetDepartmentId: data.targetDepartmentId ?? null,
           targetDepartmentName: targetDeptName,
+          // 기능 요구 카테고리만 적용
+          ...(isFeatureRequest && {
+            requestStatus: "SUBMITTED",
+            requestType: data.requestType ?? "NEW_FEATURE",
+            moduleArea: data.moduleArea ?? null,
+          }),
         },
       });
       if (data.attachmentIds && data.attachmentIds.length > 0) {
@@ -295,6 +324,108 @@ export class PostService {
       data: { isPinned },
       select: { id: true, isPinned: true },
     });
+  }
+
+  // ─────────────────────────────────────────────────────
+  // 게시판 design v2.0 (2026-05-22): 기능 요구 카테고리 전용
+  // ─────────────────────────────────────────────────────
+
+  /**
+   * 기능 요구 글의 status 변경. ADMIN 또는 담당자(assignee).
+   * COMPLETED 전이 시 resolvedAt 자동 설정. releaseVersion 함께 입력 가능.
+   */
+  async updateFeatureStatus(postId: string, data: {
+    requestStatus: "SUBMITTED" | "UNDER_REVIEW" | "APPROVED" | "IN_PROGRESS" | "COMPLETED" | "REJECTED" | "ON_HOLD";
+    releaseVersion?: string | null;
+  }, user: AuthUserContext) {
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId },
+      include: { board: { include: { category: { select: { code: true } } } } },
+    });
+    if (!post) throw new PostError("POST_NOT_FOUND", "글을 찾을 수 없습니다.", 404);
+    if (post.board.category.code !== "feature-request") {
+      throw new PostError("NOT_FEATURE_REQUEST", "기능 요구 글이 아닙니다.", 400);
+    }
+    // 권한: ADMIN 또는 담당자
+    const isAdmin = user.role === "ADMIN";
+    const isAssignee = post.assigneeId === user.id;
+    if (!isAdmin && !isAssignee) {
+      throw new PostError("FORBIDDEN_STATUS", "상태 변경 권한이 없습니다 (ADMIN 또는 담당자).", 403);
+    }
+
+    const updateData: Prisma.PostUpdateInput = {
+      requestStatus: data.requestStatus,
+    };
+    if (data.releaseVersion !== undefined) {
+      updateData.releaseVersion = data.releaseVersion;
+    }
+    if (data.requestStatus === "COMPLETED" && !post.resolvedAt) {
+      updateData.resolvedAt = new Date();
+    } else if (data.requestStatus !== "COMPLETED" && post.resolvedAt) {
+      // 완료 후 다른 상태로 복귀 시 resolvedAt 해제
+      updateData.resolvedAt = null;
+    }
+
+    return this.prisma.post.update({
+      where: { id: postId },
+      data: updateData,
+      select: {
+        id: true, requestStatus: true, releaseVersion: true, resolvedAt: true,
+        assigneeId: true,
+      },
+    });
+  }
+
+  /**
+   * 기능 요구 글의 담당자(assignee) 지정. ADMIN만.
+   */
+  async assignFeature(postId: string, data: { assigneeId: string | null }, user: AuthUserContext) {
+    if (user.role !== "ADMIN") {
+      throw new PostError("FORBIDDEN_ASSIGN", "담당자 지정은 ADMIN만 가능합니다.", 403);
+    }
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId },
+      include: { board: { include: { category: { select: { code: true } } } } },
+    });
+    if (!post) throw new PostError("POST_NOT_FOUND", "글을 찾을 수 없습니다.", 404);
+    if (post.board.category.code !== "feature-request") {
+      throw new PostError("NOT_FEATURE_REQUEST", "기능 요구 글이 아닙니다.", 400);
+    }
+    if (data.assigneeId) {
+      const assignee = await this.prisma.user.findUnique({ where: { id: data.assigneeId } });
+      if (!assignee) throw new PostError("ASSIGNEE_NOT_FOUND", "담당자를 찾을 수 없습니다.", 404);
+    }
+    return this.prisma.post.update({
+      where: { id: postId },
+      data: { assigneeId: data.assigneeId },
+      select: { id: true, assigneeId: true },
+    });
+  }
+
+  /**
+   * 관리자 대시보드용 통계 (status·type별 카운트).
+   */
+  async getFeatureRequestStats() {
+    const board = await this.prisma.board.findFirst({
+      where: { category: { code: "feature-request" } },
+      select: { id: true },
+    });
+    if (!board) return { total: 0, byStatus: {}, byType: {}, byModule: {} };
+
+    const posts = await this.prisma.post.findMany({
+      where: { boardId: board.id, isDeleted: false },
+      select: { requestStatus: true, requestType: true, moduleArea: true },
+    });
+
+    const byStatus: Record<string, number> = {};
+    const byType: Record<string, number> = {};
+    const byModule: Record<string, number> = {};
+    for (const p of posts) {
+      if (p.requestStatus) byStatus[p.requestStatus] = (byStatus[p.requestStatus] ?? 0) + 1;
+      if (p.requestType) byType[p.requestType] = (byType[p.requestType] ?? 0) + 1;
+      if (p.moduleArea) byModule[p.moduleArea] = (byModule[p.moduleArea] ?? 0) + 1;
+    }
+    return { total: posts.length, byStatus, byType, byModule };
   }
 
   async getFeed(params: { categoryCode?: string | undefined; limit?: number | undefined }, user: AuthUserContext) {

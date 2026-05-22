@@ -29,7 +29,9 @@ async function seedBoards() {
   const categories: Array<{ code: string; name: string; icon: string; sortOrder: number; isVisible: boolean }> = [
     { code: "notice", name: "공지사항", icon: "📢", sortOrder: 1, isVisible: true },
     { code: "wiki", name: "게시판", icon: "📚", sortOrder: 2, isVisible: true },
-    { code: "department", name: "부서별 게시판", icon: "🏢", sortOrder: 3, isVisible: false },
+    // 게시판 design v2.0 (2026-05-22): 기능 요구 카테고리 신규
+    { code: "feature-request", name: "기능 요구", icon: "💡", sortOrder: 3, isVisible: true },
+    { code: "department", name: "부서별 게시판", icon: "🏢", sortOrder: 4, isVisible: false },
   ];
 
   for (const c of categories) {
@@ -44,6 +46,7 @@ async function seedBoards() {
 
   const noticeCat = await prisma.boardCategory.findUniqueOrThrow({ where: { code: "notice" } });
   const wikiCat = await prisma.boardCategory.findUniqueOrThrow({ where: { code: "wiki" } });
+  const frCat = await prisma.boardCategory.findUniqueOrThrow({ where: { code: "feature-request" } });
 
   const boards: Array<{
     categoryId: string;
@@ -57,7 +60,11 @@ async function seedBoards() {
     { categoryId: wikiCat.id, code: "wiki-debug", name: "장비 관련", description: "장비 설치·점검·트러블슈팅 노하우", sortOrder: 1 },
     { categoryId: wikiCat.id, code: "wiki-field", name: "현장 업무", description: "현장 업무 진행 자료·노하우", sortOrder: 2 },
     { categoryId: wikiCat.id, code: "wiki-tech", name: "기술 정보", description: "기술 자료, 매뉴얼, 문서", sortOrder: 3 },
-    { categoryId: wikiCat.id, code: "wiki-misc", name: "기타 자유", description: "자유 게시판", sortOrder: 4 },
+    // 2026-05-22: 회의자료 분류 신규 (사내·사외 회의록 정리)
+    { categoryId: wikiCat.id, code: "wiki-meeting", name: "회의자료", description: "사내·사외 회의록, 미팅 정리", sortOrder: 4 },
+    { categoryId: wikiCat.id, code: "wiki-misc", name: "기타 자유", description: "자유 게시판", sortOrder: 5 },
+    // 게시판 design v2.0 (2026-05-22): 기능 요구 (1차 통합 1개 board)
+    { categoryId: frCat.id, code: "feature-request-all", name: "기능 요구", description: "ERP 기능 요청·버그·개선 의견. 모든 직원이 등록 가능.", sortOrder: 1 },
   ];
 
   for (const b of boards) {

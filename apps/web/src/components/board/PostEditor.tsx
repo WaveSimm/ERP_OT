@@ -6,6 +6,8 @@ import AttachmentUploader, { type UploadedAttachment } from "./AttachmentUploade
 import { departmentApi, myProfileApi } from "@/lib/api";
 import { DateInput } from "@/components/ui/DateInput";
 
+export type FeatureRequestType = "BUG" | "NEW_FEATURE" | "IMPROVEMENT" | "UI_UX" | "DOCS" | "OTHER";
+
 export interface PostEditorValue {
   title: string;
   content: string;
@@ -13,6 +15,9 @@ export interface PostEditorValue {
   expiresAt: string | null;
   attachmentIds: string[];
   targetDepartmentId?: string | null;
+  // 게시판 design v2.0 (2026-05-22): 기능 요구 카테고리
+  requestType?: FeatureRequestType;
+  moduleArea?: string;
 }
 
 interface Props {
@@ -22,21 +27,71 @@ interface Props {
   submitLabel?: string;
   /** 부서 선택 필드 표시 (부서 공지 보드에만 사용) */
   showTargetDepartment?: boolean;
+  /** 기능 요구 필드 (requestType·moduleArea) 표시 */
+  showFeatureRequest?: boolean;
 }
+
+const REQUEST_TYPE_LABEL: Record<FeatureRequestType, string> = {
+  BUG: "🐛 버그",
+  NEW_FEATURE: "✨ 신규 기능",
+  IMPROVEMENT: "📈 개선",
+  UI_UX: "🎨 UI/UX",
+  DOCS: "📄 매뉴얼·문서",
+  OTHER: "📌 기타",
+};
+
+const MODULE_AREA_OPTIONS = [
+  "프로젝트관리", "수리관리", "장비관리", "근태현황", "발주관리",
+  "재고관리", "전자결재", "경비정산", "게시판·공지", "회사달력",
+  "검색", "OCR", "사이트관리·권한", "전반·기타",
+];
+
+// 2026-05-22: 신규 작성 시 본문 기본 템플릿 (마크다운 샘플)
+//   - 사용자가 그대로 편집해 시작할 수 있도록 placeholder가 아닌 실제 텍스트로 채움
+//   - edit 모드(initial.content 존재)에서는 사용되지 않음
+const DEFAULT_CONTENT_TEMPLATE = `# 제목
+
+## 1단 소제목
+
+- 글머리 (대시) 1
+  - 하위 항목 1-1
+  - 하위 항목 1-2
+    - 하위의 하위 1-2-1
+- 글머리 (대시) 2
+- 글머리 (대시) 3
+
+1. 번호 매기기 1
+   1. 하위 번호 1-1
+   2. 하위 번호 1-2
+2. 번호 매기기 2
+3. 번호 매기기 3
+
+- [ ] 체크박스 1 (미완)
+- [ ] 체크박스 2 (미완)
+- [x] 체크박스 3 (완료)
+
+## 2단 소제목
+
+- 글머리 1
+- 글머리 2
+- 글머리 3
+`;
 
 interface DeptOption {
   id: string;
   name: string;
 }
 
-export default function PostEditor({ initial, onSubmit, onCancel, submitLabel = "발행", showTargetDepartment = false }: Props) {
+export default function PostEditor({ initial, onSubmit, onCancel, submitLabel = "발행", showTargetDepartment = false, showFeatureRequest = false }: Props) {
   const [title, setTitle] = useState(initial?.title ?? "");
-  const [content, setContent] = useState(initial?.content ?? "");
+  const [content, setContent] = useState(initial?.content ?? DEFAULT_CONTENT_TEMPLATE);
   const [priority, setPriority] = useState<number>(initial?.priority ?? 0);
   const [expiresAt, setExpiresAt] = useState<string>(initial?.expiresAt ? initial.expiresAt.slice(0, 10) : "");
   const [attachments, setAttachments] = useState<UploadedAttachment[]>(initial?.attachments ?? []);
   const [targetDeptId, setTargetDeptId] = useState<string>(initial?.targetDepartmentId ?? "");
   const [departments, setDepartments] = useState<DeptOption[]>([]);
+  const [requestType, setRequestType] = useState<FeatureRequestType>(initial?.requestType ?? "NEW_FEATURE");
+  const [moduleArea, setModuleArea] = useState<string>(initial?.moduleArea ?? "");
 
   // 부서 선택 필드 표시 시: 부서 목록 + 본인 부서 기본값 로드
   useEffect(() => {
@@ -113,6 +168,10 @@ export default function PostEditor({ initial, onSubmit, onCancel, submitLabel = 
       if (showTargetDepartment) {
         payload.targetDepartmentId = targetDeptId || null;
       }
+      if (showFeatureRequest) {
+        payload.requestType = requestType;
+        if (moduleArea) payload.moduleArea = moduleArea;
+      }
       await onSubmit(payload);
     } catch (err: any) {
       setError(err?.message ?? "저장 실패");
@@ -161,6 +220,38 @@ export default function PostEditor({ initial, onSubmit, onCancel, submitLabel = 
           />
         </div>
       </div>
+
+      {showFeatureRequest && (
+        <div className="flex gap-3 bg-blue-50/40 border border-blue-100 rounded-lg p-3">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">요청 유형</label>
+            <select
+              value={requestType}
+              onChange={(e) => setRequestType(e.target.value as FeatureRequestType)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+            >
+              {(Object.keys(REQUEST_TYPE_LABEL) as FeatureRequestType[]).map((k) => (
+                <option key={k} value={k}>{REQUEST_TYPE_LABEL[k]}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              관련 모듈 <span className="text-xs text-gray-400">(선택)</span>
+            </label>
+            <select
+              value={moduleArea}
+              onChange={(e) => setModuleArea(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+            >
+              <option value="">— 미지정 —</option>
+              {MODULE_AREA_OPTIONS.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
 
       {showTargetDepartment && (
         <div>

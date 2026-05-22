@@ -124,6 +124,9 @@ const nextConfig = {
       { source: "/api/v1/comments/:path*", destination: `${auth}/api/v1/comments/:path*` },
       { source: "/api/v1/attachments", destination: `${auth}/api/v1/attachments` },
       { source: "/api/v1/attachments/:path*", destination: `${auth}/api/v1/attachments/:path*` },
+      // 게시판 design v2.0 (2026-05-22): 기능 요구 관리
+      { source: "/api/v1/feature-requests", destination: `${auth}/api/v1/feature-requests` },
+      { source: "/api/v1/feature-requests/:path*", destination: `${auth}/api/v1/feature-requests/:path*` },
 
       // 작업비고 (WorkLog) — project-service
       { source: "/api/v1/work-logs", destination: `${proj}/api/v1/work-logs` },

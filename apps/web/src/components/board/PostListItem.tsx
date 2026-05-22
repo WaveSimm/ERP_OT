@@ -8,6 +8,17 @@ const PRIORITY_LABELS: Record<number, { label: string; color: string }> = {
   2: { label: "긴급", color: "bg-red-100 text-red-700" },
 };
 
+// 게시판 design v2.0 (2026-05-22): 기능 요구 status 라벨
+const FR_STATUS_LABEL: Record<string, { label: string; color: string }> = {
+  SUBMITTED:    { label: "접수",    color: "bg-gray-100 text-gray-700" },
+  UNDER_REVIEW: { label: "검토중",  color: "bg-blue-100 text-blue-700" },
+  APPROVED:     { label: "승인",    color: "bg-emerald-100 text-emerald-700" },
+  IN_PROGRESS:  { label: "진행중",  color: "bg-amber-100 text-amber-700" },
+  COMPLETED:    { label: "완료",    color: "bg-green-200 text-green-800" },
+  REJECTED:     { label: "반려",    color: "bg-red-100 text-red-700" },
+  ON_HOLD:      { label: "보류",    color: "bg-stone-200 text-stone-700" },
+};
+
 export interface PostListItemData {
   id: string;
   title: string;
@@ -22,6 +33,9 @@ export interface PostListItemData {
   author: { id: string; name: string };
   publishingDepartment: { id: string; name: string } | null;
   board: { code: string; name: string };
+  // 기능 요구 카테고리 전용 (다른 카테고리는 null)
+  requestStatus?: string | null;
+  requestType?: string | null;
 }
 
 export default function PostListItem({ post, catCode }: { post: PostListItemData; catCode: string }) {
@@ -41,6 +55,11 @@ export default function PostListItem({ post, catCode }: { post: PostListItemData
         {pri.label && (
           <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${pri.color} mt-0.5`}>
             {pri.label}
+          </span>
+        )}
+        {post.requestStatus && FR_STATUS_LABEL[post.requestStatus] && (
+          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${FR_STATUS_LABEL[post.requestStatus].color} mt-0.5`}>
+            {FR_STATUS_LABEL[post.requestStatus].label}
           </span>
         )}
         <div className="flex-1 min-w-0">

@@ -49,6 +49,8 @@ export default function WritePostPage({
     expiresAt: string | null;
     attachmentIds: string[];
     targetDepartmentId?: string | null;
+    requestType?: string;
+    moduleArea?: string;
   }) => {
     const created = await postApi.create(boardCode, v);
     router.push(`/board/${catCode}/${boardCode}/${created.id}`);
@@ -114,6 +116,7 @@ export default function WritePostPage({
             onCancel={() => router.push(`/board/${catCode}/${boardCode}`)}
             submitLabel="발행"
             showTargetDepartment={boardCode === "notice-dept"}
+            showFeatureRequest={catCode === "feature-request"}
           />
         </div>
       </div>

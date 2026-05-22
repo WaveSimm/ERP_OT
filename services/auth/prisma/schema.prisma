@@ -24,6 +24,7 @@ model User {
   refreshTokens RefreshToken[]
   profile       UserProfile?
   posts         Post[]    @relation("PostAuthor")
+  assignedPosts Post[]    @relation("PostAssignee")
   comments      Comment[] @relation("CommentAuthor")
   attachments   Attachment[] @relation("AttachmentUploader")
   postReads     PostRead[]
@@ -205,11 +206,21 @@ model Post {
 
   viewCount       Int      @default(0) @map("view_count")
 
+  // 기능 요구 카테고리 전용 (board.category.code='feature-request'일 때만 사용)
+  // 게시판 design v2.0 (2026-05-22) 참조
+  requestStatus    FeatureRequestStatus?  @map("request_status")
+  requestType      FeatureRequestType?    @map("request_type")
+  assigneeId       String?                @map("assignee_id")
+  moduleArea       String?                @map("module_area")
+  releaseVersion   String?                @map("release_version")
+  resolvedAt       DateTime?              @map("resolved_at")
+
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   board           Board       @relation(fields: [boardId], references: [id])
   author          User        @relation("PostAuthor", fields: [authorId], references: [id])
+  assignee        User?       @relation("PostAssignee", fields: [assigneeId], references: [id])
   reads           PostRead[]
   comments        Comment[]
   attachments     Attachment[]
@@ -218,7 +229,29 @@ model Post {
   @@index([authorId])
   @@index([publishingDepartmentId])
   @@index([targetDepartmentId])
+  @@index([requestStatus])
+  @@index([requestType])
+  @@index([assigneeId])
   @@map("board_posts")
+}
+
+enum FeatureRequestStatus {
+  SUBMITTED       // 접수
+  UNDER_REVIEW    // 검토 중
+  APPROVED        // 승인 (개발 대기)
+  IN_PROGRESS     // 진행 중
+  COMPLETED       // 완료
+  REJECTED        // 거부
+  ON_HOLD         // 보류
+}
+
+enum FeatureRequestType {
+  BUG             // 버그
+  NEW_FEATURE     // 신규 기능
+  IMPROVEMENT     // 개선
+  UI_UX           // UI/UX
+  DOCS            // 문서·매뉴얼
+  OTHER
 }
 
 model PostRead {

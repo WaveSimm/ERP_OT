@@ -184,4 +184,58 @@ export async function postRoutes(
       return handleError(reply, err);
     }
   });
+
+  // ─────────────────────────────────────────────────────
+  // 게시판 design v2.0 (2026-05-22): 기능 요구 카테고리 전용
+  // ─────────────────────────────────────────────────────
+
+  // PATCH /api/v1/posts/:id/feature-status
+  app.patch("/posts/:id/feature-status", { preHandler: [authenticate] }, async (req, reply) => {
+    try {
+      const { id } = req.params as { id: string };
+      const dto = req.body as {
+        requestStatus: "SUBMITTED" | "UNDER_REVIEW" | "APPROVED" | "IN_PROGRESS" | "COMPLETED" | "REJECTED" | "ON_HOLD";
+        releaseVersion?: string | null;
+      };
+      const validStatuses = ["SUBMITTED","UNDER_REVIEW","APPROVED","IN_PROGRESS","COMPLETED","REJECTED","ON_HOLD"];
+      if (!dto?.requestStatus || !validStatuses.includes(dto.requestStatus)) {
+        return reply.code(400).send({ error: { code: "INVALID_INPUT", message: "requestStatus가 올바르지 않습니다." } });
+      }
+      const user = extractUser(req);
+      const result = await postService.updateFeatureStatus(id, dto, user);
+      return reply.send(result);
+    } catch (err) {
+      return handleError(reply, err);
+    }
+  });
+
+  // PATCH /api/v1/posts/:id/feature-assign
+  app.patch("/posts/:id/feature-assign", { preHandler: [authenticate] }, async (req, reply) => {
+    try {
+      const { id } = req.params as { id: string };
+      const dto = req.body as { assigneeId: string | null };
+      if (dto?.assigneeId !== null && typeof dto?.assigneeId !== "string") {
+        return reply.code(400).send({ error: { code: "INVALID_INPUT", message: "assigneeId는 문자열 또는 null이어야 합니다." } });
+      }
+      const user = extractUser(req);
+      const result = await postService.assignFeature(id, dto, user);
+      return reply.send(result);
+    } catch (err) {
+      return handleError(reply, err);
+    }
+  });
+
+  // GET /api/v1/feature-requests/stats (관리자 대시보드)
+  app.get("/feature-requests/stats", { preHandler: [authenticate] }, async (req, reply) => {
+    try {
+      const user = extractUser(req);
+      if (user.role !== "ADMIN") {
+        return reply.code(403).send({ error: { code: "FORBIDDEN", message: "관리자만 접근 가능합니다." } });
+      }
+      const result = await postService.getFeatureRequestStats();
+      return reply.send(result);
+    } catch (err) {
+      return handleError(reply, err);
+    }
+  });
 }

@@ -8,6 +8,7 @@ import PostMarkdownView from "@/components/board/PostMarkdownView";
 import PostAttachmentList from "@/components/board/PostAttachmentList";
 import CommentTree from "@/components/board/CommentTree";
 import SearchBar from "@/components/board/SearchBar";
+import FeatureRequestPanel from "@/components/board/FeatureRequestPanel";
 import { postApi, getUser } from "@/lib/api";
 
 export default function PostDetailPage({ params }: { params: { catCode: string; boardCode: string; postId: string } }) {
@@ -165,6 +166,12 @@ export default function PostDetailPage({ params }: { params: { catCode: string; 
               </div>
             </div>
           </div>
+
+          {catCode === "feature-request" && (
+            <div className="px-6 py-3 border-b border-gray-100">
+              <FeatureRequestPanel post={post} onUpdated={(next) => setPost({ ...post, ...next })} />
+            </div>
+          )}
 
           <div className="px-6 py-5">
             <PostMarkdownView content={post.content} />
