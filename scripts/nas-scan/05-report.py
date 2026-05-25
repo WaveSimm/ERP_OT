@@ -302,13 +302,18 @@ def build_report(con) -> str:
         P(f"| {label} | {cnt_gb[0]:,} | {(cnt_gb[1] or 0):.2f} GB | {meaning} |")
     P("")
 
-    # ─── 6. 분류 맥락 분석 (Tier 3) ───────────────────────
+    # ─── 6. 분류 맥락 분석 (Tier 3) — 반복 업무 패턴 ─────
     if q(con, "SELECT COUNT(*) FROM files WHERE hash_head1mb IS NOT NULL")[0][0] > 0:
-        P("## 6. 자료 분류 맥락 분석 ★ (Tier 3 hash 기반)")
+        P("## 6. 자료 분류 맥락 분포 ★ (Tier 3 hash 기반 — 반복 업무 패턴)")
         P("")
-        P("**중요**: 같은 hash 그룹은 \"같은 자료의 다중 분류 위치\"를 의미합니다.")
-        P("이는 직원들이 의도적으로 자료를 여러 맥락에 분류한 결과이며, **보존**합니다.")
-        P("RAG 인덱싱 시 풍부한 메타데이터로 활용됩니다.")
+        P("같은 hash 그룹은 동일 자료가 여러 폴더에서 **반복 참조**되는 흔적입니다.")
+        P("이는 자료의 **핵심성**이 아니라 **회사가 반복 수행하는 업무의 발자국**입니다.")
+        P("직원들이 같은 업무를 할 때마다 동일 자료를 첨부·참조한 결과로,")
+        P("ERP/Knowledge Platform 업무 자동화 후보 발견에 활용됩니다 (§7 참조).")
+        P("")
+        P("⚠ **진짜 회사 핵심 산출물은 \"유일 자료\" 영역(단일 위치)에 묻혀 있을**")
+        P("가능성이 큽니다 — KHOA 부이 raw 데이터, 연구 최종 보고서 등은 한 곳에만")
+        P("보관됩니다. 핵심 산출물 발굴은 별도 다차원 점수 분석이 필요합니다 (향후 작업).")
         P("")
         # 분류 맥락 분포
         rows = q(con, """
@@ -336,43 +341,117 @@ def build_report(con) -> str:
         P("| 분류 맥락 수 | 자료 수 (unique) | 총 위치 수 | 의미 |")
         P("|---|---:|---:|---|")
         meanings = {
-            "단일 위치": "한 폴더에만 존재",
-            "2개 맥락": "두 부서·맥락에서 활용",
-            "3개 맥락": "여러 맥락에서 참조",
-            "4~5개 맥락 (활용도 ↑)": "활용도 높은 공유 자료",
-            "6~10개 맥락 (핵심 자료)": "회사 핵심·표준 자료",
-            "10개+ 맥락 (회사 표준 자료)": "회사 차원의 핵심 자산",
+            "단일 위치": "유일 자료 (진짜 산출물·raw 데이터 후보)",
+            "2개 맥락": "두 곳 활용",
+            "3개 맥락": "다맥락 참조",
+            "4~5개 맥락 (활용도 ↑)": "반복 업무 자료",
+            "6~10개 맥락 (핵심 자료)": "회사 표준 첨부물",
+            "10개+ 맥락 (회사 표준 자료)": "회사 반복 업무 양식 (행정·인허가)",
         }
         for band, cnt, locs in rows:
             P(f"| {band} | {cnt:,} | {locs:,} | {meanings.get(band, '')} |")
         P("")
 
-        # Top 다중 분류 자료
-        top_multi = q(con, """
-            SELECT hash_head1mb, size/1e6 AS mb, COUNT(*) AS contexts,
-                   MIN(name) AS sample_name
-            FROM files
-            WHERE hash_head1mb IS NOT NULL AND is_readable
-            GROUP BY hash_head1mb, size
-            HAVING COUNT(*) >= 5
-            ORDER BY contexts DESC LIMIT 20
-        """)
-        if top_multi:
-            P("### 핵심 자료 Top 20 (5개 이상 맥락에 등장)")
-            P("")
-            P("| 맥락 수 | 파일명 (샘플) | 크기 (MB) |")
-            P("|---:|---|---:|")
-            for hash_, mb, ctxs, name in top_multi:
-                P(f"| {ctxs} | `{name}` | {mb:.2f} |")
-            P("")
     else:
-        P("## 6. 자료 분류 맥락 분석 (Tier 3 미완료)")
+        P("## 6. 자료 분류 맥락 분포 (Tier 3 미완료)")
         P("")
         P("Tier 3 (hash) 완료 후 이 섹션에 분류 맥락 그래프가 채워집니다.")
         P("")
 
-    # ─── 7. RAG 인덱싱 시간·비용 추정 ─────────────────────
-    P("## 7. RAG 인덱싱 시간·비용 추정")
+    # ─── 7. 반복 업무 자동화 후보 (신규) ──────────────────
+    if q(con, "SELECT COUNT(*) FROM files WHERE hash_head1mb IS NOT NULL")[0][0] > 0:
+        P("## 7. 반복 업무 자동화 후보 ★ (반복 첨부 자료 발견)")
+        P("")
+        P("§6의 다맥락 자료는 회사 반복 업무의 발자국입니다. 같은 자료가 여러 폴더에서")
+        P("반복 등장한다는 것은 직원들이 그 업무를 반복하면서 매번 첨부·참조하고 있음을")
+        P("의미합니다. → **ERP/Knowledge Platform 자동 첨부 후보**.")
+        P("")
+
+        # Top 30 반복 첨부 자료 (부서 수 포함)
+        top_repeat = q(con, """
+            WITH grp AS (
+                SELECT hash_head1mb,
+                       COUNT(*) AS ctxs,
+                       MAX(size) AS size,
+                       MIN(name) AS sample_name,
+                       MIN(COALESCE(NULLIF(ext,''), '(없음)')) AS ext,
+                       COUNT(DISTINCT top_dir) AS dept_count
+                FROM files
+                WHERE hash_head1mb IS NOT NULL AND is_readable
+                GROUP BY hash_head1mb
+                HAVING COUNT(*) >= 6
+            )
+            SELECT ctxs, sample_name, ext, ROUND(size/1e6, 2) AS mb, dept_count
+            FROM grp ORDER BY ctxs DESC LIMIT 30
+        """)
+        if top_repeat:
+            P("### Top 30 반복 첨부 자료 (6회 이상 등장)")
+            P("")
+            P("| 등장 | 파일명 | 형식 | 크기(MB) | 부서·기관 수 |")
+            P("|---:|---|---|---:|---:|")
+            for ctxs, name, ext, mb, dept_cnt in top_repeat:
+                # 파일명 길면 잘라서 표시
+                disp_name = name[:55] + ('…' if len(name) > 55 else '')
+                P(f"| {ctxs} | `{disp_name}` | {ext} | {mb:.2f} | {dept_cnt} |")
+            P("")
+
+        # 형식별 반복 업무 자료 분포 (4개+ 맥락)
+        ext_dist = q(con, """
+            WITH multi AS (
+                SELECT hash_head1mb,
+                       MIN(COALESCE(NULLIF(ext,''), '(없음)')) AS ext,
+                       MAX(size) AS size,
+                       COUNT(*) AS ctxs
+                FROM files
+                WHERE hash_head1mb IS NOT NULL AND is_readable
+                GROUP BY hash_head1mb
+                HAVING COUNT(*) >= 4
+            )
+            SELECT ext, COUNT(*) AS cnt, ROUND(SUM(size)/1e9, 2) AS gb
+            FROM multi
+            GROUP BY ext
+            ORDER BY cnt DESC LIMIT 15
+        """)
+        if ext_dist:
+            P("### 반복 업무 자료 — 형식별 분포 (4회 이상 맥락)")
+            P("")
+            P("| 확장자 | 자료 수 (unique) | 총 용량(GB) | 자동화 가치 |")
+            P("|---|---:|---:|---|")
+            auto_value = {
+                'pdf':  '⭐⭐⭐ 행정 서류 자동 첨부 (선적증서·검사증서 등)',
+                'hwp':  '⭐⭐⭐ 양식 자동 첨부 (계약·보고서 양식)',
+                'hwpx': '⭐⭐⭐ 양식 자동 첨부',
+                'docx': '⭐⭐⭐ 양식 자동 첨부',
+                'doc':  '⭐⭐ 레거시 양식',
+                'xlsx': '⭐⭐ 표준 양식 (계산서·집계표)',
+                'xls':  '⭐⭐ 레거시 양식',
+                'pptx': '⭐⭐ 발표 양식·교육 자료',
+                'bmp':  '⭐⭐ 표준 사진 라이브러리',
+                'jpg':  '⭐⭐ 표준 사진 라이브러리',
+                'png':  '⭐⭐ 표준 도면·아이콘',
+                'tif':  '⭐⭐ 표준 스캔본',
+                'mp4':  '⭐⭐ 표준 영상 라이브러리 (교육·홍보)',
+                'wav':  '⭐ 장비 부속 음성',
+                'dwg':  '⭐⭐ 표준 도면',
+            }
+            for ext, cnt, gb in ext_dist:
+                val = auto_value.get(ext, '—')
+                P(f"| `{ext}` | {cnt:,} | {gb:.2f} | {val} |")
+            P("")
+
+        P("### 시사점")
+        P("")
+        P("- **ERP 자동 첨부 라이브러리**: 발주·계약·납품 시 선박 서류·증서를 자동 첨부 →")
+        P("  직원 반복 검색·첨부 시간 절감 + 누락 방지")
+        P("- **표준 서류 중앙 보관**: 회사 표준 양식·증서를 한 곳에서 관리 + 버전 통제")
+        P("- **업무 흐름 역추적**: 자료별 등장 부서·프로젝트 분포로 어떤 업무가 어떤 자료를")
+        P("  요구하는지 발견 → 업무 자동화 우선순위 결정 근거")
+        P("- **신입 온보딩 가이드**: \"이 업무에는 이 자료가 반복 필요\" 자동 안내")
+        P("- **신규 자료 표준화**: 새 자료가 다맥락에 등장하기 시작하면 표준화 후보 자동 식별")
+        P("")
+
+    # ─── 8. RAG 인덱싱 시간·비용 추정 ─────────────────────
+    P("## 8. RAG 인덱싱 시간·비용 추정")
     P("")
     rag_target = q(con, """
         SELECT
@@ -406,8 +485,8 @@ def build_report(con) -> str:
     P("- ⚠ 비용 0 운영 정책 ([[project_nas_rag_ocr_policy]]) — PaddleOCR + 텍스트레이어 fallback")
     P("")
 
-    # ─── 8. 정리 가능 안전 영역 (좁음) ────────────────────
-    P("## 8. 정리 가능 안전 영역 (좁음, 분류 의도 X)")
+    # ─── 9. 정리 가능 안전 영역 (좁음) ────────────────────
+    P("## 9. 정리 가능 안전 영역 (좁음, 분류 의도 X)")
     P("")
     P("⚠ 정보 축적 원칙에 따라 의도된 중복·옛 자료는 보존합니다.")
     P("아래는 분류 의도가 없는 시스템·임시 파일만 표시합니다.")
@@ -431,8 +510,8 @@ def build_report(con) -> str:
     P("**그 외 영역은 정보 축적 원칙에 따라 보존합니다.** 중복은 분류 맥락으로 활용됩니다.")
     P("")
 
-    # ─── 9. 다음 단계 ────────────────────────────────────
-    P("## 9. 다음 단계 — NAS RAG 진입 로드맵")
+    # ─── 10. 다음 단계 ───────────────────────────────────
+    P("## 10. 다음 단계 — NAS RAG 진입 로드맵")
     P("")
     P("1. **RAG 인덱싱 큐 CSV 검토** (별도 산출물)")
     P("   - `data/rag-queue/q1_text_pdf.csv` — 즉시 임베딩 대상")
