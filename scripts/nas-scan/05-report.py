@@ -121,26 +121,46 @@ def classify_rag_queue(con):
                 WHEN ext = 'pdf' AND pdf_has_text = TRUE THEN 'Q1_text_pdf'
                 -- Q2: 파싱 가능 HWP
                 WHEN ext IN ('hwp','hwpx') AND hwp_parseable = TRUE THEN 'Q2_hwp_auto'
-                -- Q3: 일반 문서 (즉시 처리)
-                WHEN ext IN ('docx','xlsx','txt','md','csv','rtf') THEN 'Q3_general_doc'
+                -- Q3: 일반 문서 (즉시 처리) — 레거시 Office + 웹 문서 포함
+                WHEN ext IN (
+                    'docx','doc','xlsx','xls','pptx','ppt',
+                    'txt','md','csv','rtf','tsv',
+                    'html','htm','xml','json'
+                ) THEN 'Q3_general_doc'
                 -- Q4: OCR 필요 PDF
                 WHEN ext = 'pdf' AND pdf_is_scan_likely = TRUE THEN 'Q4_ocr_pdf'
                 -- Q5: 수동 검토 HWP (3.0 또는 파싱 어려운 hwpx)
                 WHEN ext IN ('hwp','hwpx') AND (hwp_parseable = FALSE OR hwp_version = '3.0') THEN 'Q5_hwp_manual'
                 -- Q6: 이미지 (OCR 검토 가능)
-                WHEN ext IN ('jpg','jpeg','png','tiff','bmp') THEN 'Q6_image_ocr_optional'
+                WHEN ext IN ('jpg','jpeg','png','tiff','tif','bmp','gif','webp') THEN 'Q6_image_ocr_optional'
                 -- X1: 영상 (인덱싱 대상 아님, 메타만)
-                WHEN ext IN ('mp4','m4v','mov','avi','mkv','wmv','flv') THEN 'X1_video'
+                WHEN ext IN ('mp4','m4v','mov','avi','mkv','wmv','flv','mpg','mpeg') THEN 'X1_video'
                 -- X2: 백업·VM 이미지 (자료 X)
                 WHEN ext IN ('tib','vhdx','vmdk','iso','ova','dmg') THEN 'X2_backup_image'
                 -- X3: 압축 (풀어야 확인, 일단 skip)
-                WHEN ext IN ('zip','rar','7z','tar','gz','bz2') THEN 'X3_archive'
-                -- X4: 계측 데이터 (raw)
-                WHEN ext IN ('dat','sdf','raw','bin','sgy','xtf') THEN 'X4_measurement_raw'
+                WHEN ext IN ('zip','rar','7z','tar','gz','bz2','egg') THEN 'X3_archive'
+                -- X4: 계측·관측 raw — 회사 고유 DataFlow + HF radar + 음향측심 등
+                WHEN ext IN (
+                    'dat','sdf','raw','bin','sgy','xtf',
+                    'df047','df038','df037','df025',
+                    'ruv','tuv',
+                    'mat','hdf','h5','nc',
+                    'kan','sil','sdl',
+                    'wvp','wvs','wvr',
+                    'oculus','pds','jsf','wcd'
+                ) THEN 'X4_measurement_raw'
                 -- X5: 실행 파일·코드
-                WHEN ext IN ('exe','dll','msi','sys','iso','bat','sh') THEN 'X5_executable'
+                WHEN ext IN ('exe','dll','msi','sys','bat','sh','cmd','jar') THEN 'X5_executable'
                 -- X6: 시스템·임시 (skip + 정리 후보)
-                WHEN name LIKE '~$%' OR ext IN ('tmp','bak') OR name IN ('Thumbs.db','.DS_Store','desktop.ini') THEN 'X6_temp_system'
+                WHEN name LIKE '~$%' OR ext IN ('tmp','bak','now','opt','wpa','blc') OR name IN ('Thumbs.db','.DS_Store','desktop.ini') THEN 'X6_temp_system'
+                -- X7: 로그 (신규)
+                WHEN ext = 'log' THEN 'X7_log'
+                -- X8: 음성 (신규)
+                WHEN ext IN ('wav','mp3','m4a','flac','ogg','aac','wma') THEN 'X8_audio'
+                -- X9: CAD·도면 (신규)
+                WHEN ext IN ('dwg','dxf','dwf','step','stp','iges','igs','prt','sldprt','sldasm','3dm') THEN 'X9_cad'
+                -- X10: 확장자 없는 큰 파일 (휴리스틱) — CCTV chunk, 음향측심 raw 등
+                WHEN (ext IS NULL OR ext = '') AND size >= 50000000 THEN 'X10_noext_large'
                 -- Q7: 기타 (검토 필요)
                 ELSE 'Q7_unknown'
             END AS rag_queue
@@ -191,7 +211,7 @@ def build_report(con) -> str:
     queue_labels = {
         "Q1_text_pdf":      "Q1 — 텍스트 PDF (즉시 임베딩)",
         "Q2_hwp_auto":      "Q2 — HWP 자동 파싱 (즉시 임베딩)",
-        "Q3_general_doc":   "Q3 — 일반 문서 docx/xlsx/txt/md/csv (즉시)",
+        "Q3_general_doc":   "Q3 — 일반 문서 docx/doc/xlsx/xls/pptx/ppt/txt/md/csv/html/xml (즉시)",
         "Q4_ocr_pdf":       "Q4 — 스캔 PDF (OCR 큐)",
         "Q5_hwp_manual":    "Q5 — HWP 수동 검토 (3.0 등)",
         "Q6_image_ocr_optional": "Q6 — 이미지 (OCR 선택)",
@@ -199,9 +219,13 @@ def build_report(con) -> str:
         "X1_video":         "X1 — 영상 (인덱싱 X, 메타만)",
         "X2_backup_image":  "X2 — 백업·VM 이미지",
         "X3_archive":       "X3 — 압축 (풀어야 확인)",
-        "X4_measurement_raw": "X4 — 계측 raw 데이터",
+        "X4_measurement_raw": "X4 — 계측·관측 raw (df*/ruv/tuv/mat/hdf/sgy 등)",
         "X5_executable":    "X5 — 실행 파일·코드",
         "X6_temp_system":   "X6 — 임시·시스템 (정리 안전)",
+        "X7_log":           "X7 — 로그 (신규)",
+        "X8_audio":         "X8 — 음성 (신규)",
+        "X9_cad":           "X9 — CAD·도면 (신규)",
+        "X10_noext_large":  "X10 — 확장자 없는 큰 파일 (CCTV chunk/음향측심 raw 등)",
     }
     P("| 큐 | 의미 | 파일 수 | 용량 |")
     P("|---|---|---:|---:|")
@@ -233,14 +257,20 @@ def build_report(con) -> str:
     P("|---|---:|---:|---|")
     ext_rag = {
         "pdf": "✅ Q1(텍스트) or Q4(스캔)", "hwp": "✅ Q2 or Q5", "hwpx": "✅ Q2",
-        "docx": "✅ Q3", "doc": "✅ Q3 (변환 후)",
-        "xlsx": "✅ Q3", "xls": "✅ Q3 (변환 후)",
+        "docx": "✅ Q3", "doc": "✅ Q3",
+        "xlsx": "✅ Q3", "xls": "✅ Q3",
+        "pptx": "✅ Q3", "ppt": "✅ Q3",
         "txt": "✅ Q3", "md": "✅ Q3", "csv": "✅ Q3", "rtf": "✅ Q3",
-        "jpg": "🔍 Q6 (OCR 선택)", "jpeg": "🔍 Q6", "png": "🔍 Q6",
+        "html": "✅ Q3", "htm": "✅ Q3", "xml": "✅ Q3", "json": "✅ Q3",
+        "jpg": "🔍 Q6 (OCR 선택)", "jpeg": "🔍 Q6", "png": "🔍 Q6", "gif": "🔍 Q6", "bmp": "🔍 Q6", "tiff": "🔍 Q6",
         "mp4": "❌ X1 (메타만)", "m4v": "❌ X1", "mov": "❌ X1", "avi": "❌ X1",
-        "zip": "📦 X3 (풀기 검토)", "rar": "📦 X3",
+        "zip": "📦 X3 (풀기 검토)", "rar": "📦 X3", "egg": "📦 X3",
         "tib": "❌ X2 (PC 백업)", "vhdx": "❌ X2", "vmdk": "❌ X2",
         "dat": "📊 X4 (계측)", "sdf": "📊 X4", "raw": "📊 X4",
+        "df047": "📊 X4 (DataFlow)", "df038": "📊 X4", "df037": "📊 X4", "df025": "📊 X4",
+        "ruv": "📊 X4 (HF radar)", "tuv": "📊 X4 (HF radar)",
+        "mat": "📊 X4 (Matlab)", "hdf": "📊 X4", "sgy": "📊 X4 (음향)",
+        "log": "📝 X7 (로그)", "wav": "🔊 X8 (음성)", "dwg": "📐 X9 (CAD)",
         "tmp": "🧹 X6 (정리)", "bak": "🧹 X6",
     }
     rows = q(con, """
@@ -452,7 +482,11 @@ def build_report(con) -> str:
 
 def export_rag_queues(con):
     """RAG 인덱싱 큐별 CSV 산출."""
-    queues = ["Q1_text_pdf", "Q2_hwp_auto", "Q3_general_doc", "Q4_ocr_pdf", "Q5_hwp_manual", "Q6_image_ocr_optional", "Q7_unknown"]
+    queues = [
+        "Q1_text_pdf", "Q2_hwp_auto", "Q3_general_doc", "Q4_ocr_pdf",
+        "Q5_hwp_manual", "Q6_image_ocr_optional", "Q7_unknown",
+        "X7_log", "X8_audio", "X9_cad", "X10_noext_large",
+    ]
     for q_name in queues:
         out = RAG_QUEUE_DIR / f"{q_name.lower()}.csv"
         try:
