@@ -581,7 +581,9 @@
       "Bash(tee data/logs/tier3-v4-100kb-20260524.log)",
       "Bash(tee data/logs/tier3-v5-1mb-w12-20260524.log)",
       "PowerShell(Get-ChildItem E:/claude/ERP_OT/scripts/nas-scan/logs/ -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 8 Name, LastWriteTime, @{N='SizeKB';E={[int]\\($_.Length/1KB\\)}})",
-      "Bash(tee data/logs/tier3-resume-20260525.log)"
+      "Bash(tee data/logs/tier3-resume-20260525.log)",
+      "Bash(tee data/logs/report-20260526.log)",
+      "Bash(grep -nA 12 \"분류 맥락 분석\" \"E:/claude/ERP_OT/docs/04-operation/nas-스캔-카탈로그-20260526.md\")"
     ]
   }
 }
