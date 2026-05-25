@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-05-24T09:05:57.835Z",
+  "lastUpdated": "2026-05-25T23:16:57.393Z",
   "activeFeatures": [
     "OCR-문서인식",
     "monorepo-dockerfile-정리",
@@ -1261,7 +1261,7 @@
       },
       "timestamps": {
         "started": "2026-05-19T09:26:30.447Z",
-        "lastUpdated": "2026-05-24T09:05:57.835Z"
+        "lastUpdated": "2026-05-25T23:16:57.392Z"
       },
       "progress": {
         "tier_0_percent": 58,
@@ -1271,7 +1271,7 @@
         "total_files_target": 7900000,
         "eta_hours": 33
       },
-      "lastFile": "E:\\claude\\ERP_OT\\scripts\\nas-scan\\04-hash-dedup.py",
+      "lastFile": "E:\\claude\\ERP_OT\\scripts\\nas-scan\\05-report.py",
       "notes": "스캔 자동 진행 중. 완료 후 Enterprise Knowledge Platform CTO Lead 호출 예정."
     },
     "oceantech-knowledge": {
@@ -1392,7 +1392,7 @@
   "session": {
     "startedAt": "2026-02-26T10:52:05.428Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-05-24T09:05:57.835Z"
+    "lastActivity": "2026-05-25T23:16:57.393Z"
   },
   "history": [
     {
@@ -13313,6 +13313,30 @@
     },
     {
       "timestamp": "2026-05-24T09:05:57.835Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-25T23:16:32.118Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-25T23:16:43.126Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-25T23:16:54.805Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-25T23:16:57.392Z",
       "feature": "nas-scan",
       "phase": "do",
       "action": "updated"
