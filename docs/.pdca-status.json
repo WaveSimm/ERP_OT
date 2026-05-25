@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-05-22T04:26:16.912Z",
+  "lastUpdated": "2026-05-24T09:05:57.835Z",
   "activeFeatures": [
     "OCR-문서인식",
     "monorepo-dockerfile-정리",
@@ -1261,7 +1261,7 @@
       },
       "timestamps": {
         "started": "2026-05-19T09:26:30.447Z",
-        "lastUpdated": "2026-05-21T22:40:00.000Z"
+        "lastUpdated": "2026-05-24T09:05:57.835Z"
       },
       "progress": {
         "tier_0_percent": 58,
@@ -1271,7 +1271,7 @@
         "total_files_target": 7900000,
         "eta_hours": 33
       },
-      "lastFile": "scripts/nas-scan/05-report.py (자산 카탈로그 + RAG 청사진 재설계)",
+      "lastFile": "E:\\claude\\ERP_OT\\scripts\\nas-scan\\04-hash-dedup.py",
       "notes": "스캔 자동 진행 중. 완료 후 Enterprise Knowledge Platform CTO Lead 호출 예정."
     },
     "oceantech-knowledge": {
@@ -1392,7 +1392,7 @@
   "session": {
     "startedAt": "2026-02-26T10:52:05.428Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-05-22T04:26:16.912Z"
+    "lastActivity": "2026-05-24T09:05:57.835Z"
   },
   "history": [
     {
@@ -13236,6 +13236,84 @@
     {
       "timestamp": "2026-05-22T04:26:16.912Z",
       "feature": "board",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-23T15:14:08.721Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-23T15:14:44.824Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-23T15:14:54.225Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-23T15:15:02.378Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-23T15:15:30.115Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-23T15:22:49.309Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-23T15:34:01.116Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-23T15:34:39.230Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-23T15:46:06.240Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-24T07:45:47.546Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-24T07:46:00.802Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-24T08:12:14.159Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-24T09:05:57.835Z",
+      "feature": "nas-scan",
       "phase": "do",
       "action": "updated"
     }
