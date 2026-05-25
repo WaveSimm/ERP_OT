@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-05-25T23:16:57.393Z",
+  "lastUpdated": "2026-05-25T23:39:01.591Z",
   "activeFeatures": [
     "OCR-문서인식",
     "monorepo-dockerfile-정리",
@@ -1261,7 +1261,7 @@
       },
       "timestamps": {
         "started": "2026-05-19T09:26:30.447Z",
-        "lastUpdated": "2026-05-25T23:16:57.392Z"
+        "lastUpdated": "2026-05-25T23:39:01.591Z"
       },
       "progress": {
         "tier_0_percent": 58,
@@ -1392,7 +1392,7 @@
   "session": {
     "startedAt": "2026-02-26T10:52:05.428Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-05-25T23:16:57.393Z"
+    "lastActivity": "2026-05-25T23:39:01.591Z"
   },
   "history": [
     {
@@ -13337,6 +13337,42 @@
     },
     {
       "timestamp": "2026-05-25T23:16:57.392Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-25T23:38:19.054Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-25T23:38:24.356Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-25T23:38:54.130Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-25T23:38:56.732Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-25T23:38:59.369Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-25T23:39:01.591Z",
       "feature": "nas-scan",
       "phase": "do",
       "action": "updated"
