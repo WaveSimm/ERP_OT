@@ -37,6 +37,10 @@ function showCopyToast(msg: string) {
   document.body.appendChild(d);
   setTimeout(() => d.remove(), 2800);
 }
+function toFileUrl(nasPath: string): string {
+  const p = nasPath.replace(/\\/g, "/").replace(/^\/+/, "");
+  return "file://" + encodeURI(p);
+}
 function copyPath(p: string) {
   const ok = () => showCopyToast("경로 복사됨 — 탐색기 주소창(Ctrl+L)에 붙여넣기");
   if (navigator.clipboard && window.isSecureContext) {
@@ -242,7 +246,15 @@ export default function SearchPage() {
                           <div className="flex items-start gap-2">
                             <span className="mt-0.5 shrink-0 text-[11px] uppercase px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{r.ext || "?"}</span>
                             <div className="min-w-0 flex-1">
-                              <div className="text-sm font-medium text-gray-800 break-all">{r.fileName}</div>
+                              <a
+                                href={toFileUrl(r.nasPath)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-sm font-medium text-blue-700 hover:underline break-all"
+                                title="클릭하여 열기 (차단되면 '경로 복사' 사용)"
+                              >
+                                {r.fileName}
+                              </a>
                               <div className="text-xs text-gray-500 mt-0.5 truncate">
                                 {r.folderPath || r.folder}
                                 {r.agency ? ` · ${r.agency}` : ""}
