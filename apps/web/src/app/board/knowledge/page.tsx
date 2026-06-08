@@ -9,7 +9,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppLayout from "@/components/AppLayout";
 import UnifiedBoardSidebar from "@/components/board/UnifiedBoardSidebar";
-import { knowledgeApi, type KnowledgeResult, type KnowledgeSearchResponse, type KnowledgeAnswer } from "@/lib/api";
+import { knowledgeApi, type KnowledgeResult, type KnowledgeSearchResponse } from "@/lib/api";
 
 function copyPath(p: string) {
   navigator.clipboard?.writeText(p).catch(() => {});
@@ -23,10 +23,6 @@ export default function KnowledgeSearchPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [took, setTook] = useState<number | null>(null);
-  // RAG (AI 답변) — 로컬 LLM, 느림(수~수십초)
-  const [answer, setAnswer] = useState<KnowledgeAnswer | null>(null);
-  const [asking, setAsking] = useState(false);
-  const [askErr, setAskErr] = useState<string | null>(null);
 
   useEffect(() => {
     if (!localStorage.getItem("erp_user")) {
@@ -55,22 +51,6 @@ export default function KnowledgeSearchPage() {
       setData(null);
     } finally {
       setLoading(false);
-    }
-  }, [q]);
-
-  const runAsk = useCallback(async () => {
-    const query = q.trim();
-    if (query.length < 2) return;
-    setAsking(true);
-    setAskErr(null);
-    setAnswer(null);
-    try {
-      const res = await knowledgeApi.ask(query, 6);
-      setAnswer(res);
-    } catch (e: any) {
-      setAskErr(e?.message ?? "AI 답변 생성 실패");
-    } finally {
-      setAsking(false);
     }
   }, [q]);
 
@@ -110,14 +90,6 @@ export default function KnowledgeSearchPage() {
             >
               {loading ? "검색중…" : "검색"}
             </button>
-            <button
-              onClick={() => void runAsk()}
-              className="px-4 py-2.5 bg-violet-600 text-white rounded-lg text-sm font-medium hover:bg-violet-700 disabled:opacity-50 whitespace-nowrap"
-              disabled={asking || q.trim().length < 2}
-              title="사내 자료 기반 AI 답변 (로컬 LLM, 수~수십초 소요)"
-            >
-              {asking ? "🤖 생성중…" : "🤖 AI 답변"}
-            </button>
           </div>
           <p className="mt-1.5 text-xs text-gray-400">
             파일명·폴더는 전체 NAS, 본문은 추출 완료분 검색. 구체 주제어(모델명·사업명)일수록 정확합니다.
@@ -128,32 +100,6 @@ export default function KnowledgeSearchPage() {
           <UnifiedBoardSidebar />
 
           <div className="flex-1 min-w-0">
-            {/* AI 답변 (RAG) */}
-            {asking && (
-              <div className="bg-violet-50 border border-violet-200 rounded-xl px-4 py-3 mb-3 text-sm text-violet-700 flex items-center gap-2">
-                <div className="animate-spin w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full" />
-                AI가 사내 자료를 읽고 답변 생성 중… (로컬 LLM, 수~수십초)
-              </div>
-            )}
-            {askErr && (
-              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 mb-3">AI 답변: {askErr}</div>
-            )}
-            {answer && (
-              <div className="bg-violet-50 border border-violet-200 rounded-xl px-4 py-3 mb-4">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="text-xs font-semibold text-violet-700">🤖 AI 답변</span>
-                  <span className="text-[11px] text-violet-400">{answer.model} · {Math.round(answer.tookMs / 100) / 10}s · 사내 로컬</span>
-                </div>
-                <div className="text-sm text-gray-800 whitespace-pre-wrap">{answer.answer}</div>
-                {answer.sources?.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-violet-100 text-xs text-gray-500">
-                    출처: {answer.sources.map((s) => `[${s.n}] ${s.fileName}`).join("  ")}
-                  </div>
-                )}
-                <div className="mt-1 text-[11px] text-gray-400">※ AI 생성 답변 — 중요한 내용은 원문 확인 권장</div>
-              </div>
-            )}
-
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 mb-3">{error}</div>
             )}
