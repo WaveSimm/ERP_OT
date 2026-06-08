@@ -9,15 +9,17 @@ import AppLayout from "@/components/AppLayout";
 import UnifiedBoardSidebar from "@/components/board/UnifiedBoardSidebar";
 import SearchBar from "@/components/board/SearchBar";
 import SearchResultCard from "@/components/board/SearchResultCard";
-import { searchApi, type SearchResultItem } from "@/lib/api";
+import { searchApi, type SearchResultItem, knowledgeApi, type KnowledgeResult } from "@/lib/api";
 
-type Scope = "all" | "notice" | "wiki" | "worklogs";
+type Scope = "all" | "notice" | "wiki" | "worklogs" | "nas";
 
+const POST_SCOPES: Scope[] = ["all", "notice", "wiki", "worklogs"];
 const TAB_LABEL: Record<Scope, string> = {
   all: "전체",
   notice: "공지사항",
   wiki: "게시판",
   worklogs: "프로젝트",
+  nas: "NAS 파일",
 };
 
 function matchScope(item: SearchResultItem, s: Scope): boolean {
@@ -36,6 +38,12 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scope, setScope] = useState<Scope>("all");
+
+  // NAS 통합검색(파일) — 탭 선택 시 lazy 로드 (게시판 검색 속도에 영향 없음)
+  const [nasItems, setNasItems] = useState<KnowledgeResult[]>([]);
+  const [nasLoading, setNasLoading] = useState(false);
+  const [nasError, setNasError] = useState<string | null>(null);
+  const [nasQuery, setNasQuery] = useState<string | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("erp_user");
@@ -69,12 +77,47 @@ export default function SearchPage() {
     if (mounted) void runSearch();
   }, [mounted, runSearch]);
 
-  const counts: Record<Scope, number> = {
+  // 질의 변경 시 NAS 결과 리셋(탭 다시 누르면 재조회)
+  useEffect(() => {
+    setNasItems([]);
+    setNasQuery(null);
+    setNasError(null);
+  }, [q]);
+
+  // NAS 탭 선택 시에만 knowledge-api 호출 (lazy)
+  useEffect(() => {
+    if (!mounted || scope !== "nas") return;
+    const query = q.trim();
+    if (query.length < 2 || nasQuery === query) return;
+    let cancelled = false;
+    (async () => {
+      setNasLoading(true);
+      setNasError(null);
+      try {
+        const res = await knowledgeApi.searchDocuments(query, 20);
+        if (!cancelled) {
+          setNasItems(res.results ?? []);
+          setNasQuery(query);
+        }
+      } catch (e: any) {
+        if (!cancelled) {
+          setNasError(e?.message ?? "NAS 검색 실패");
+          setNasItems([]);
+        }
+      } finally {
+        if (!cancelled) setNasLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [scope, q, mounted, nasQuery]);
+
+  const counts: Record<string, number> = {
     all: items.length,
     notice: items.filter((i) => matchScope(i, "notice")).length,
     wiki: items.filter((i) => matchScope(i, "wiki")).length,
     worklogs: items.filter((i) => matchScope(i, "worklogs")).length,
   };
+  const nasFetched = nasQuery === q.trim();
 
   if (!mounted) {
     return (
@@ -115,46 +158,87 @@ export default function SearchPage() {
               <>
                 {/* 탭 + 메타 */}
                 <div className="flex items-center gap-1 mb-3 border-b border-gray-200">
-                  {(["all", "notice", "wiki", "worklogs"] as Scope[]).map((s) => {
-                    const label = TAB_LABEL[s];
-                    const count = counts[s];
-                    return (
-                      <button
-                        key={s}
-                        onClick={() => setScope(s)}
-                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                          scope === s
-                            ? "border-blue-600 text-blue-600"
-                            : "border-transparent text-gray-500 hover:text-gray-700"
-                        }`}
-                      >
-                        {label} ({count})
-                      </button>
-                    );
-                  })}
-                  {!loading && (
+                  {POST_SCOPES.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setScope(s)}
+                      className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                        scope === s
+                          ? "border-blue-600 text-blue-600"
+                          : "border-transparent text-gray-500 hover:text-gray-700"
+                      }`}
+                    >
+                      {TAB_LABEL[s]} ({counts[s]})
+                    </button>
+                  ))}
+                  {/* NAS 파일 탭 (별도 백엔드, lazy) */}
+                  <button
+                    onClick={() => setScope("nas")}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                      scope === "nas"
+                        ? "border-blue-600 text-blue-600"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}
+                    title="회사 NAS 파일 통합검색"
+                  >
+                    🔎 {TAB_LABEL.nas}{nasFetched ? ` (${nasItems.length})` : ""}
+                  </button>
+                  {scope !== "nas" && !loading && (
                     <span className="ml-auto text-xs text-gray-400 pb-2">
                       {items.length}건 · {took}ms
                     </span>
                   )}
                 </div>
 
-                {error && (
-                  <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 mb-4">
-                    {error}
-                  </div>
-                )}
-
-                {loading ? (
+                {/* ── NAS 파일 탭 ── */}
+                {scope === "nas" ? (
+                  nasLoading ? (
+                    <div className="flex items-center justify-center py-16">
+                      <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+                    </div>
+                  ) : nasError ? (
+                    <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{nasError}</div>
+                  ) : nasItems.length === 0 ? (
+                    <div className="bg-white border border-gray-200 rounded-xl py-16 text-center text-sm text-gray-400">
+                      NAS에서 관련 파일을 찾지 못했습니다.
+                    </div>
+                  ) : (
+                    <ul className="space-y-2">
+                      {nasItems.map((r) => (
+                        <li key={r.id} className="bg-white border border-gray-200 rounded-xl px-4 py-3 hover:border-blue-300 transition-colors">
+                          <div className="flex items-start gap-2">
+                            <span className="mt-0.5 shrink-0 text-[11px] uppercase px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{r.ext || "?"}</span>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-medium text-gray-800 break-all">{r.fileName}</div>
+                              <div className="text-xs text-gray-500 mt-0.5 truncate">
+                                {r.folderPath || r.folder}
+                                {r.agency ? ` · ${r.agency}` : ""}
+                                {r.copies > 1 ? ` · 사본 ${r.copies}` : ""}
+                              </div>
+                              {r.snippet && <div className="text-xs text-gray-400 mt-1 line-clamp-2">{r.snippet}</div>}
+                              <button
+                                onClick={() => navigator.clipboard?.writeText(r.nasPath).catch(() => {})}
+                                className="mt-1.5 text-[11px] text-blue-600 hover:underline"
+                                title={r.nasPath}
+                              >
+                                경로 복사
+                              </button>
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )
+                ) : error ? (
+                  <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 mb-4">{error}</div>
+                ) : loading ? (
                   <div className="flex items-center justify-center py-16">
                     <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
                   </div>
                 ) : items.length === 0 ? (
                   <div className="bg-white border border-gray-200 rounded-xl py-16 text-center text-sm text-gray-400">
                     <div className="mb-2">관련된 글이 없습니다.</div>
-                    <div className="text-xs text-gray-400">
-                      💡 다른 검색어를 시도하거나 더 일반적인 표현을 사용해보세요.
-                    </div>
+                    <div className="text-xs text-gray-400">💡 다른 검색어를 시도하거나 NAS 파일 탭을 확인해보세요.</div>
                   </div>
                 ) : (
                   <div className="space-y-3">
