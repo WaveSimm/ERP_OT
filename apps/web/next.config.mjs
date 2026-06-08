@@ -39,8 +39,12 @@ const nextConfig = {
     const appr = process.env.APPROVAL_SERVICE_URL || "http://localhost:3006";
     const ocr = process.env.OCR_SERVICE_URL || "http://localhost:3007";
     const exp = process.env.EXPENSE_SERVICE_URL || "http://localhost:3008";
+    // OT-Brain knowledge-api (NAS 통합검색) — 호스트 서비스(GPU reranker 동반). 컨테이너에선 host.docker.internal 경유.
+    const knowledge = process.env.KNOWLEDGE_SERVICE_URL || "http://ot-knowledge-api:3100";
 
     return [
+      // ── OT-Brain knowledge-api (NAS 통합검색) — /api/v1/knowledge/* → knowledge-api /api/v1/* ──
+      { source: "/api/v1/knowledge/:path*", destination: `${knowledge}/api/v1/:path*` },
       // ── expense-service (경비정산 V2) ──
       { source: "/api/v1/expense/:path*", destination: `${exp}/api/v1/expense/:path*` },
 

@@ -76,6 +76,16 @@ export default function UnifiedBoardSidebar() {
   return (
     <aside className="w-64 shrink-0">
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        {/* NAS 통합검색 (OT-Brain) — 고정 진입점 */}
+        <Link
+          href="/board/knowledge"
+          className={`flex items-center gap-2 px-4 py-3 border-b border-gray-100 ${
+            pathname === "/board/knowledge" ? "bg-blue-50" : "bg-gray-50 hover:bg-gray-100"
+          }`}
+        >
+          <span className="text-base">🔎</span>
+          <span className={`text-sm font-semibold ${pathname === "/board/knowledge" ? "text-blue-700" : "text-gray-700"}`}>NAS 통합검색</span>
+        </Link>
         {categories.map((cat) => (
           <div key={cat.code} className="border-b border-gray-100 last:border-b-0">
             <Link

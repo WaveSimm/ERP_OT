@@ -1943,6 +1943,35 @@ export const searchApi = {
   },
 };
 
+// ─── OT-Brain NAS 통합검색 (knowledge-api, 게시판 내장 시범) ──────────────────
+export type KnowledgeResult = {
+  id: string;
+  fileName: string;
+  ext: string | null;
+  agency: string | null;
+  nasPath: string;
+  folder: string | null;
+  folderPath: string;
+  copies: number;
+  otherLocations: number;
+  agencies: string[];
+  score: number;
+  snippet: string | null;
+};
+export type KnowledgeSearchResponse = {
+  query: string;
+  count: number;
+  hasExact: boolean;
+  tokenWeights?: { token: string; df: number; weight: number }[];
+  results: KnowledgeResult[];
+};
+export const knowledgeApi = {
+  searchDocuments: (q: string, topK = 20) =>
+    request<KnowledgeSearchResponse>(
+      `/knowledge/documents/search?q=${encodeURIComponent(q)}&topK=${topK}`,
+    ),
+};
+
 // ─── 회사 달력 ─────────────────────────────────────────────────────
 
 export const calendarApi = {
