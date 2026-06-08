@@ -189,9 +189,9 @@ export default function KnowledgeSearchPage() {
                               <button
                                 onClick={() => openInExplorer(r.nasPath)}
                                 className="text-[11px] text-blue-700 hover:underline font-medium"
-                                title={`탐색기에서 열기: ${r.nasPath}`}
+                                title={`기본 앱으로 열기: ${r.nasPath}`}
                               >
-                                📂 탐색기 열기
+                                📄 열기
                               </button>
                               <button
                                 onClick={() => copyPath(r.nasPath)}
