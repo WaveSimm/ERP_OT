@@ -2,12 +2,12 @@
   "version": "1.0",
   "enabled": false,
   "teamName": "",
-  "feature": "경비정산-ERP통합",
-  "pdcaPhase": "act",
+  "feature": "OT-Brain",
+  "pdcaPhase": "design",
   "orchestrationPattern": "leader",
   "ctoAgent": "opus",
-  "startedAt": "2026-05-19T23:42:16.532Z",
-  "lastUpdated": "2026-05-26T00:08:37.380Z",
+  "startedAt": "2026-06-07T23:42:37.063Z",
+  "lastUpdated": "2026-06-08T00:34:12.073Z",
   "teammates": [],
   "progress": {
     "totalTasks": 0,
@@ -17,5 +17,5 @@
     "pendingTasks": 0
   },
   "recentMessages": [],
-  "sessionId": "4cf629ae-a8f2-497f-a036-40980c752aab"
+  "sessionId": "fa88cfe2-19de-473b-b2e6-61ff4445ffa7"
 }

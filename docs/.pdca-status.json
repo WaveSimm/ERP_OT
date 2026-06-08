@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-05-25T23:51:42.993Z",
+  "lastUpdated": "2026-06-08T00:08:10.022Z",
   "activeFeatures": [
     "OCR-문서인식",
     "monorepo-dockerfile-정리",
@@ -92,9 +92,17 @@
     "board",
     "write",
     "[postId]",
-    "feature-requests"
+    "feature-requests",
+    "OT-Brain",
+    "loaders",
+    "jobs",
+    "knowledge-api",
+    "extractors",
+    "reranker",
+    "Temp",
+    "knowledge"
   ],
-  "primaryFeature": "nas-scan",
+  "primaryFeature": "OT-Brain",
   "features": {
     "프로젝트-관리": {
       "phase": "report",
@@ -523,9 +531,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-06T04:05:26.701Z",
-        "lastUpdated": "2026-05-18T11:27:41.083Z"
+        "lastUpdated": "2026-06-03T09:34:02.599Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\scripts\\import-ecount-inventory.py"
+      "lastFile": "C:\\Users\\yunsi\\.claude\\projects\\E--claude-ot-brain-services-knowledge-api\\fa88cfe2-19de-473b-b2e6-61ff4445ffa7\\workflows\\scripts\\otbrain-search-opt-wf_f5afe956-d5e.js"
     },
     "config": {
       "phase": "do",
@@ -601,9 +609,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-06T10:23:41.325Z",
-        "lastUpdated": "2026-05-22T03:05:39.532Z"
+        "lastUpdated": "2026-06-07T23:52:22.716Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\components\\AppLayout.tsx"
+      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\lib\\api.ts"
     },
     "domain": {
       "phase": "do",
@@ -1261,7 +1269,7 @@
       },
       "timestamps": {
         "started": "2026-05-19T09:26:30.447Z",
-        "lastUpdated": "2026-05-25T23:51:42.993Z"
+        "lastUpdated": "2026-05-26T01:14:00.179Z"
       },
       "progress": {
         "tier_0_percent": 58,
@@ -1271,7 +1279,7 @@
         "total_files_target": 7900000,
         "eta_hours": 33
       },
-      "lastFile": "E:\\claude\\ERP_OT\\scripts\\nas-scan\\05-report.py",
+      "lastFile": "E:\\claude\\ERP_OT\\scripts\\nas-scan\\make-ppt.py",
       "notes": "스캔 자동 진행 중. 완료 후 Enterprise Knowledge Platform CTO Lead 호출 예정."
     },
     "oceantech-knowledge": {
@@ -1340,9 +1348,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-05-22T02:53:47.941Z",
-        "lastUpdated": "2026-05-22T04:26:16.912Z"
+        "lastUpdated": "2026-06-07T23:53:07.022Z"
       },
-      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\components\\board\\PostEditor.tsx"
+      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\components\\board\\UnifiedBoardSidebar.tsx"
     },
     "write": {
       "phase": "do",
@@ -1382,6 +1390,113 @@
         "lastUpdated": "2026-05-22T03:26:44.362Z"
       },
       "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\admin\\feature-requests\\page.tsx"
+    },
+    "OT-Brain": {
+      "phase": "design",
+      "phaseNumber": 2,
+      "matchRate": 0,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {
+        "plan": "docs/01-plan/features/OT-Brain.plan.md",
+        "design": "docs/02-design/features/OT-Brain.design.md"
+      },
+      "timestamps": {
+        "started": "2026-06-01T09:03:00.000Z",
+        "lastUpdated": "2026-06-01T09:03:00.000Z"
+      },
+      "notes": "Council 패턴(enterprise/security/infra). 사용자 결정 필요 5건(D1~D5) 표면화. PoC P1 알고리즘 명세 완료."
+    },
+    "loaders": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-06-01T14:05:21.882Z",
+        "lastUpdated": "2026-06-02T00:32:28.902Z"
+      },
+      "lastFile": "E:\\claude\\ot-brain\\services\\ingestion\\loaders\\load_documents.py"
+    },
+    "jobs": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-06-01T14:21:24.826Z",
+        "lastUpdated": "2026-06-01T23:52:17.686Z"
+      },
+      "lastFile": "E:\\claude\\ot-brain\\services\\knowledge-api\\src\\jobs\\embed-assets.ts"
+    },
+    "knowledge-api": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-06-01T14:40:41.320Z",
+        "lastUpdated": "2026-06-08T00:08:10.021Z"
+      },
+      "lastFile": "E:\\claude\\ot-brain\\services\\knowledge-api\\src\\server.ts"
+    },
+    "extractors": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-06-02T00:34:10.432Z",
+        "lastUpdated": "2026-06-02T01:15:56.309Z"
+      },
+      "lastFile": "E:\\claude\\ot-brain\\services\\ingestion\\extractors\\extract_documents.py"
+    },
+    "reranker": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-06-02T04:19:33.655Z",
+        "lastUpdated": "2026-06-02T04:24:20.015Z"
+      },
+      "lastFile": "E:\\claude\\ot-brain\\services\\reranker\\server.py"
+    },
+    "Temp": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-06-03T09:35:10.066Z",
+        "lastUpdated": "2026-06-03T09:35:24.909Z"
+      },
+      "lastFile": "C:\\Users\\yunsi\\AppData\\Local\\Temp\\dump.py"
+    },
+    "knowledge": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-06-07T23:52:56.079Z",
+        "lastUpdated": "2026-06-07T23:52:56.079Z"
+      },
+      "lastFile": "E:\\claude\\ERP_OT\\apps\\web\\src\\app\\board\\knowledge\\page.tsx"
     }
   },
   "pipeline": {
@@ -1392,7 +1507,7 @@
   "session": {
     "startedAt": "2026-02-26T10:52:05.428Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-05-25T23:51:42.993Z"
+    "lastActivity": "2026-06-08T00:08:10.022Z"
   },
   "history": [
     {
@@ -13380,6 +13495,534 @@
     {
       "timestamp": "2026-05-25T23:51:42.993Z",
       "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-05-26T01:14:00.179Z",
+      "feature": "nas-scan",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-01T14:05:21.882Z",
+      "feature": "loaders",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-01T14:05:30.464Z",
+      "feature": "loaders",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-01T14:21:24.826Z",
+      "feature": "jobs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-01T14:23:14.639Z",
+      "feature": "jobs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-01T14:23:19.557Z",
+      "feature": "jobs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-01T14:40:41.320Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-01T14:41:15.550Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-01T22:45:33.721Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-01T23:51:57.889Z",
+      "feature": "jobs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-01T23:52:17.686Z",
+      "feature": "jobs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-01T23:52:54.579Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-01T23:53:09.576Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T00:32:28.902Z",
+      "feature": "loaders",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T00:34:10.432Z",
+      "feature": "extractors",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T00:35:21.648Z",
+      "feature": "extractors",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T00:36:02.167Z",
+      "feature": "extractors",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T00:38:09.752Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T00:50:35.387Z",
+      "feature": "extractors",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T00:51:28.689Z",
+      "feature": "extractors",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T00:51:38.840Z",
+      "feature": "extractors",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T00:56:43.568Z",
+      "feature": "extractors",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T00:56:49.868Z",
+      "feature": "extractors",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T01:04:17.413Z",
+      "feature": "extractors",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T01:04:32.622Z",
+      "feature": "extractors",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T01:04:41.079Z",
+      "feature": "extractors",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T01:15:56.309Z",
+      "feature": "extractors",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T01:55:54.552Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T02:00:02.364Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T02:00:23.277Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T02:23:23.598Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T02:23:37.734Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T02:45:12.995Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T02:47:01.722Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T02:51:31.393Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T03:46:30.077Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T04:00:51.454Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T04:19:33.655Z",
+      "feature": "reranker",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T04:19:59.669Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T04:20:21.976Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-02T04:24:20.015Z",
+      "feature": "reranker",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T06:06:31.326Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T06:06:49.089Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T06:06:57.495Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T06:14:56.120Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T06:21:10.837Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T06:41:57.784Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T06:42:03.952Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T06:42:08.662Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T06:42:14.771Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T06:42:27.349Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T06:42:32.234Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T07:02:22.718Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T07:02:31.233Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T07:02:40.403Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T07:06:32.046Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T08:15:03.046Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T08:15:12.816Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T08:15:27.439Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T08:16:56.152Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T08:17:05.180Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T08:22:37.468Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T08:23:44.044Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T08:23:50.743Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T08:28:21.283Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T08:28:31.335Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T08:28:39.070Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T08:38:34.436Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T08:38:43.796Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T08:38:50.669Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T08:39:08.451Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T08:39:20.297Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T08:39:45.100Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T08:43:34.877Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T09:34:02.599Z",
+      "feature": "scripts",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T09:35:10.066Z",
+      "feature": "Temp",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T09:35:24.909Z",
+      "feature": "Temp",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T09:36:38.497Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T09:37:07.727Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T09:37:21.877Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T09:47:01.941Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-03T09:47:19.874Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-07T23:49:20.034Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-07T23:49:36.807Z",
+      "feature": "knowledge-api",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-07T23:52:22.716Z",
+      "feature": "web",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-07T23:52:56.079Z",
+      "feature": "knowledge",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-07T23:53:07.022Z",
+      "feature": "board",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-08T00:08:10.021Z",
+      "feature": "knowledge-api",
       "phase": "do",
       "action": "updated"
     }
