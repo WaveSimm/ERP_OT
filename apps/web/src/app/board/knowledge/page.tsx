@@ -11,8 +11,37 @@ import AppLayout from "@/components/AppLayout";
 import UnifiedBoardSidebar from "@/components/board/UnifiedBoardSidebar";
 import { knowledgeApi, type KnowledgeResult, type KnowledgeSearchResponse } from "@/lib/api";
 
+// LAN http(비보안 컨텍스트)에서는 navigator.clipboard가 막혀 execCommand 폴백 필요.
+function showCopyToast(msg: string) {
+  const d = document.createElement("div");
+  d.textContent = msg;
+  d.style.cssText =
+    "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.3)";
+  document.body.appendChild(d);
+  setTimeout(() => d.remove(), 2800);
+}
 function copyPath(p: string) {
-  navigator.clipboard?.writeText(p).catch(() => {});
+  const ok = () => showCopyToast("경로 복사됨 — 탐색기 주소창(Ctrl+L)에 붙여넣기");
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(p).then(ok).catch(() => fallbackCopy(p, ok));
+  } else {
+    fallbackCopy(p, ok);
+  }
+}
+function fallbackCopy(p: string, cb: () => void) {
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = p;
+    ta.style.cssText = "position:fixed;top:-1000px;opacity:0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    cb();
+  } catch {
+    window.prompt("아래 경로를 복사하세요 (Ctrl+C):", p);
+  }
 }
 
 export default function KnowledgeSearchPage() {

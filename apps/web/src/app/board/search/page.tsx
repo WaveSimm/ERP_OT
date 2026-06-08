@@ -28,6 +28,39 @@ function matchScope(item: SearchResultItem, s: Scope): boolean {
   return item.type === "post" && item.url.startsWith(`/board/${s}/`);
 }
 
+// LAN http(비보안)에서 navigator.clipboard 차단 → execCommand 폴백.
+function showCopyToast(msg: string) {
+  const d = document.createElement("div");
+  d.textContent = msg;
+  d.style.cssText =
+    "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.3)";
+  document.body.appendChild(d);
+  setTimeout(() => d.remove(), 2800);
+}
+function copyPath(p: string) {
+  const ok = () => showCopyToast("경로 복사됨 — 탐색기 주소창(Ctrl+L)에 붙여넣기");
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(p).then(ok).catch(() => fallbackCopyPath(p, ok));
+  } else {
+    fallbackCopyPath(p, ok);
+  }
+}
+function fallbackCopyPath(p: string, cb: () => void) {
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = p;
+    ta.style.cssText = "position:fixed;top:-1000px;opacity:0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    cb();
+  } catch {
+    window.prompt("아래 경로를 복사하세요 (Ctrl+C):", p);
+  }
+}
+
 export default function SearchPage() {
   const router = useRouter();
   const params = useSearchParams();
@@ -217,7 +250,7 @@ export default function SearchPage() {
                               </div>
                               {r.snippet && <div className="text-xs text-gray-400 mt-1 line-clamp-2">{r.snippet}</div>}
                               <button
-                                onClick={() => navigator.clipboard?.writeText(r.nasPath).catch(() => {})}
+                                onClick={() => copyPath(r.nasPath)}
                                 className="mt-1.5 text-[11px] text-blue-600 hover:underline"
                                 title={r.nasPath}
                               >
