@@ -40,6 +40,10 @@ function showCopyToast(msg: string) {
 function toFileUrl(nasPath: string): string {
   return "otbrain://open?p=" + encodeURIComponent(nasPath);
 }
+function openInExplorer(p: string) {
+  // otbrain:// → 열기 도우미가 탐색기에서 파일 선택 (도우미 설치 + 크롬 재시작 필요)
+  window.location.href = toFileUrl(p);
+}
 function copyPath(p: string) {
   const ok = () => showCopyToast("경로 복사됨 — 탐색기 주소창(Ctrl+L)에 붙여넣기");
   if (navigator.clipboard && window.isSecureContext) {
@@ -258,13 +262,22 @@ export default function SearchPage() {
                                 {r.copies > 1 ? ` · 사본 ${r.copies}` : ""}
                               </div>
                               {r.snippet && <div className="text-xs text-gray-400 mt-1 line-clamp-2">{r.snippet}</div>}
-                              <button
-                                onClick={() => copyPath(r.nasPath)}
-                                className="mt-1.5 text-[11px] text-blue-600 hover:underline"
-                                title={r.nasPath}
-                              >
-                                경로 복사
-                              </button>
+                              <div className="mt-1.5 flex items-center gap-3">
+                                <button
+                                  onClick={() => openInExplorer(r.nasPath)}
+                                  className="text-[11px] text-blue-700 hover:underline font-medium"
+                                  title={`탐색기에서 열기: ${r.nasPath}`}
+                                >
+                                  📂 탐색기 열기
+                                </button>
+                                <button
+                                  onClick={() => copyPath(r.nasPath)}
+                                  className="text-[11px] text-gray-400 hover:underline"
+                                  title={r.nasPath}
+                                >
+                                  경로 복사
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </li>
