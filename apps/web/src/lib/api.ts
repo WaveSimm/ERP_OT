@@ -1965,11 +1965,24 @@ export type KnowledgeSearchResponse = {
   tokenWeights?: { token: string; df: number; weight: number }[];
   results: KnowledgeResult[];
 };
+export type KnowledgeAnswer = {
+  query: string;
+  model: string;
+  tookMs: number;
+  answer: string;
+  sources: { n: number; fileName: string; nasPath: string; score: number | null }[];
+};
 export const knowledgeApi = {
   searchDocuments: (q: string, topK = 20) =>
     request<KnowledgeSearchResponse>(
       `/knowledge/documents/search?q=${encodeURIComponent(q)}&topK=${topK}`,
     ),
+  // RAG: 로컬 LLM 답변 (느림 — 수~수십초). 사내 자료 기반, 외부 전송 없음.
+  ask: (q: string, topK = 6) =>
+    request<KnowledgeAnswer>(`/knowledge/ask`, {
+      method: "POST",
+      body: JSON.stringify({ q, topK }),
+    }),
 };
 
 // ─── 회사 달력 ─────────────────────────────────────────────────────
