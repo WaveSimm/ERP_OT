@@ -247,10 +247,8 @@ export default function SearchPage() {
                             <div className="min-w-0 flex-1">
                               <a
                                 href={toFileUrl(r.nasPath)}
-                                target="_blank"
-                                rel="noreferrer"
                                 className="text-sm font-medium text-blue-700 hover:underline break-all"
-                                title="클릭하여 열기 (차단되면 '경로 복사' 사용)"
+                                title="클릭하여 탐색기에서 열기 (열기 도우미 설치 필요. 안 되면 '경로 복사')"
                               >
                                 {r.fileName}
                               </a>
