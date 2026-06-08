@@ -20,10 +20,9 @@ function showCopyToast(msg: string) {
   document.body.appendChild(d);
   setTimeout(() => d.remove(), 2800);
 }
-// UNC 경로(\\host\share\..) → file:// URL. 클릭 시 브라우저/탐색기에서 열기 시도.
+// NAS 경로 → otbrain:// 프로토콜 (열기 도우미 설치 시 탐색기에서 열림). 미설치면 무반응 → '경로 복사' 사용.
 function toFileUrl(nasPath: string): string {
-  const p = nasPath.replace(/\\/g, "/").replace(/^\/+/, "");
-  return "file://" + encodeURI(p);
+  return "otbrain://open?p=" + encodeURIComponent(nasPath);
 }
 function copyPath(p: string) {
   const ok = () => showCopyToast("경로 복사됨 — 탐색기 주소창(Ctrl+L)에 붙여넣기");
