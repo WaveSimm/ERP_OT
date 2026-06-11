@@ -37,12 +37,17 @@ function showCopyToast(msg: string) {
   document.body.appendChild(d);
   setTimeout(() => d.remove(), 2800);
 }
-function toFileUrl(nasPath: string): string {
-  return "otbrain://open?p=" + encodeURIComponent(nasPath);
+// 파일명을 제거하고 상위 폴더 경로만 반환 (탐색기 주소창에 붙여넣어 폴더 열기).
+function folderOf(p: string) {
+  if (!p) return p;
+  const i = Math.max(p.lastIndexOf("\\"), p.lastIndexOf("/"));
+  return i > 0 ? p.slice(0, i) : p;
 }
-function openInExplorer(p: string) {
-  // otbrain:// → 열기 도우미가 탐색기에서 파일 선택 (도우미 설치 + 크롬 재시작 필요)
-  window.location.href = toFileUrl(p);
+// NAS 파일 서버(호스트측 nas-file, 127.0.0.1:3105). pdf·이미지·txt는 새 탭 미리보기, 그 외는 다운로드.
+const NAS_FILE_BASE = process.env.NEXT_PUBLIC_NAS_FILE_BASE || "http://127.0.0.1:3105";
+function openNasFile(p: string, dl = false) {
+  const url = `${NAS_FILE_BASE}/nas/open?path=${encodeURIComponent(p)}${dl ? "&dl=1" : ""}`;
+  window.open(url, "_blank", "noopener");
 }
 function copyPath(p: string) {
   const ok = () => showCopyToast("경로 복사됨 — 탐색기 주소창(Ctrl+L)에 붙여넣기");
@@ -249,13 +254,13 @@ export default function SearchPage() {
                           <div className="flex items-start gap-2">
                             <span className="mt-0.5 shrink-0 text-[11px] uppercase px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{r.ext || "?"}</span>
                             <div className="min-w-0 flex-1">
-                              <a
-                                href={toFileUrl(r.nasPath)}
-                                className="text-sm font-medium text-blue-700 hover:underline break-all"
-                                title="클릭하여 탐색기에서 열기 (열기 도우미 설치 필요. 안 되면 '경로 복사')"
+                              <button
+                                onClick={() => openNasFile(r.nasPath)}
+                                className="text-sm font-medium text-blue-700 hover:underline break-all text-left"
+                                title="클릭하면 파일이 열립니다 — PDF·이미지·텍스트는 브라우저 미리보기, 그 외는 다운로드"
                               >
                                 {r.fileName}
-                              </a>
+                              </button>
                               <div className="text-xs text-gray-500 mt-0.5 truncate">
                                 {r.folderPath || r.folder}
                                 {r.agency ? ` · ${r.agency}` : ""}
@@ -264,18 +269,25 @@ export default function SearchPage() {
                               {r.snippet && <div className="text-xs text-gray-400 mt-1 line-clamp-2">{r.snippet}</div>}
                               <div className="mt-1.5 flex items-center gap-3">
                                 <button
-                                  onClick={() => openInExplorer(r.nasPath)}
+                                  onClick={() => openNasFile(r.nasPath)}
                                   className="text-[11px] text-blue-700 hover:underline font-medium"
-                                  title={`기본 앱으로 열기: ${r.nasPath}`}
+                                  title="파일 열기 (미리보기/다운로드)"
                                 >
                                   📄 열기
                                 </button>
                                 <button
-                                  onClick={() => copyPath(r.nasPath)}
-                                  className="text-[11px] text-gray-400 hover:underline"
-                                  title={r.nasPath}
+                                  onClick={() => openNasFile(r.nasPath, true)}
+                                  className="text-[11px] text-gray-600 hover:underline"
+                                  title="파일 다운로드"
                                 >
-                                  경로 복사
+                                  ⬇ 다운로드
+                                </button>
+                                <button
+                                  onClick={() => copyPath(folderOf(r.nasPath))}
+                                  className="text-[11px] text-gray-600 hover:underline"
+                                  title={`폴더 경로 복사 — ${folderOf(r.nasPath)}`}
+                                >
+                                  📋 폴더 경로 복사
                                 </button>
                               </div>
                             </div>
