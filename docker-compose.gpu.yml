@@ -1,0 +1,24 @@
+# ─────────────────────────────────────────────────────────────────────────
+# GPU 머신 전용 override (예: NVIDIA GPU 있는 개발 PC)
+#
+# base(docker-compose.yml)는 GPU 없이도 뜨는 CPU-safe 기본값입니다.
+# 이 파일은 ollama 에 GPU 예약을 "다시 얹는" 역할만 합니다.
+#
+# 사용법 (GPU 머신에서만):
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+#
+# 사내 CPU 서버(Dell R730 등)는 이 파일 없이 그냥:
+#   docker compose up -d
+#
+# 전제: 호스트에 NVIDIA 드라이버 + NVIDIA Container Toolkit 설치 필요.
+# (가이드 docs/04-operation/사내서버-이관-가이드 4-3 참고)
+# ─────────────────────────────────────────────────────────────────────────
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
