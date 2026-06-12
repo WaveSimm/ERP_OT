@@ -38,3 +38,6 @@ docker-compose.override.yml
 
 # Office lock files (Excel/Word 잠금 파일)
 ~$*
+
+# 마이그레이션 산출물(import-contracts.py 등)
+tmp/

@@ -2,12 +2,12 @@
 #  - R2가 헤더(R0/R1은 메모). R3부터 데이터.
 #  - 연도마다 컬럼 위치가 달라 '헤더명 기반' 매핑.
 #  - contractNumber = #YY-{A열 연번}  (예 #25-1). 기존 DB와 동일 형식.
-# 실행: python scripts/import-contracts.py  →  E:/tmp/contracts_import.json
+# 실행: python scripts/import-contracts.py  →  tmp/contracts_import.json (CONTRACTS_OUT 로 변경 가능)
 import openpyxl, glob, os, json, re
 from datetime import datetime, date
 
 SRC = sorted(glob.glob("References/contracts/*계약파일리스트*.xlsx"))
-OUT = "E:/tmp/contracts_import.json"
+OUT = os.environ.get("CONTRACTS_OUT", "tmp/contracts_import.json")  # 리눅스/윈도 공통 상대경로
 
 def norm(s):
     return re.sub(r"\s+", "", str(s or "")).strip()
@@ -94,7 +94,7 @@ for f in SRC:
     per_year[base[:5]] = cnt
     wb.close()
 
-os.makedirs("E:/tmp", exist_ok=True)
+os.makedirs(os.path.dirname(OUT) or ".", exist_ok=True)
 json.dump(records, open(OUT, "w", encoding="utf-8"), ensure_ascii=False)
 print("연도별:", per_year)
 print("총 레코드:", len(records))
