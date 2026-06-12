@@ -329,7 +329,7 @@ async function main() {
   console.log("=== 재고 엑셀 마이그레이션 시작 ===\n");
 
   // 1. 엑셀 읽기
-  const xlsxPath = path.resolve(__dirname, "../../../References/합본_전체본.xlsx");
+  const xlsxPath = path.resolve(__dirname, "../../../References/inventory/합본_전체본.xlsx");
   const wb = XLSX.readFile(xlsxPath);
   const ws = wb.Sheets[wb.SheetNames[0]];
   const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });

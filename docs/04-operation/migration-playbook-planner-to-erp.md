@@ -59,19 +59,19 @@ Pass 9. Segment progressPercent 실제값으로 update (% 완료 적용)
 - [ ] **Auth 서비스 가동**: docker `auth-service` 정상 (port 3001)
 - [ ] **dev 계정 사용 가능**: `dev@oceant.com / dev1234`
 - [ ] **사용자 사전 등록**: Planner의 모든 담당자가 ERP `Resource` 테이블에 "성+이름" 형태로 존재 (확인 쿼리 §6.1)
-- [ ] **Excel 파일**: `References/` 폴더에 위치 (UTF-8 BOM 없는 .xlsx)
+- [ ] **Excel 파일**: `References/planner/` 폴더에 위치 (UTF-8 BOM 없는 .xlsx)
 
-### 3.2 새 파일 추가
+### 3.2 새 파일 추가 (스크립트 수정 불필요)
 
-`scripts/import-planner.py`의 `FILES` 리스트에 경로 추가:
+`import-planner.py`는 이제 `References/planner/*.xlsx` 를 **자동 인식**합니다.
+새 플랜은 **`[팀명] 프로젝트명.xlsx` 규칙으로 `References/planner/` 에 넣기만** 하면 됩니다 — `FILES` 리스트 수정 불필요.
 
 ```python
-FILES = [
-    "References/[기술팀] 선박-온바다호-2026.xlsx",
-    "References/[기술팀] KHOA 해양관측부이 차세대 데이터로거 물품 제작.xlsx",
-    "References/{새파일}.xlsx",   # ← 추가
-]
+# import-planner.py (자동 인식)
+FILES = sorted(glob.glob("References/planner/*.xlsx"))
 ```
+
+> 폴더 규칙은 `References/<스크립트별>/` (contracts·planner·phones·inventory) 입니다. 각 폴더 README 참고.
 
 ### 3.3 실행
 

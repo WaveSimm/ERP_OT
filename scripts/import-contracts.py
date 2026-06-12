@@ -1,4 +1,4 @@
-# 계약 마이그레이션 — References/YYYY년 계약파일리스트.xlsx → contracts 정규화 JSON
+# 계약 마이그레이션 — References/contracts/YYYY년 계약파일리스트.xlsx → contracts 정규화 JSON
 #  - R2가 헤더(R0/R1은 메모). R3부터 데이터.
 #  - 연도마다 컬럼 위치가 달라 '헤더명 기반' 매핑.
 #  - contractNumber = #YY-{A열 연번}  (예 #25-1). 기존 DB와 동일 형식.
@@ -6,7 +6,7 @@
 import openpyxl, glob, os, json, re
 from datetime import datetime, date
 
-SRC = sorted(glob.glob("References/*계약파일리스트*.xlsx"))
+SRC = sorted(glob.glob("References/contracts/*계약파일리스트*.xlsx"))
 OUT = "E:/tmp/contracts_import.json"
 
 def norm(s):

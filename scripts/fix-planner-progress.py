@@ -9,9 +9,9 @@ API = "http://localhost:3003/api/v1"
 
 # (project_id, excel_path)
 TARGETS = [
-    ("cmolmp0dr00ejzjt28yyztzxd", "References/[기술팀] 선박-온바다호-2026.xlsx"),
-    ("cmolmw4we00tszjt2jnu8099r", "References/[기술팀] KHOA 해양관측부이 차세대 데이터로거 물품 제작.xlsx"),
-    ("cmon0oxuf01gq4kz9o1pl5xsh", "References/[사업1팀] KHOA 2026년 해양관측부이 유지관리.xlsx"),
+    ("cmolmp0dr00ejzjt28yyztzxd", "References/planner/[기술팀] 선박-온바다호-2026.xlsx"),
+    ("cmolmw4we00tszjt2jnu8099r", "References/planner/[기술팀] KHOA 해양관측부이 차세대 데이터로거 물품 제작.xlsx"),
+    ("cmon0oxuf01gq4kz9o1pl5xsh", "References/planner/[사업1팀] KHOA 2026년 해양관측부이 유지관리.xlsx"),
 ]
 
 def login():

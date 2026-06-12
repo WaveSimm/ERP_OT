@@ -7,8 +7,8 @@ API = "http://localhost:3003/api/v1"
 EMAIL, PASSWORD = "dev@oceant.com", "dev1234"
 
 TARGETS = [
-    ("cmolmp0dr00ejzjt28yyztzxd", "References/[기술팀] 선박-온바다호-2026.xlsx"),
-    ("cmolmw4we00tszjt2jnu8099r", "References/[기술팀] KHOA 해양관측부이 차세대 데이터로거 물품 제작.xlsx"),
+    ("cmolmp0dr00ejzjt28yyztzxd", "References/planner/[기술팀] 선박-온바다호-2026.xlsx"),
+    ("cmolmw4we00tszjt2jnu8099r", "References/planner/[기술팀] KHOA 해양관측부이 차세대 데이터로거 물품 제작.xlsx"),
 ]
 
 def login():

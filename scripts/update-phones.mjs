@@ -1,4 +1,5 @@
-// References/26년5월 _내선번호 .pdf → 신규 5명 계정 생성 + 전체 61명 phone profile 업데이트
+// References/phones/26년5월 _내선번호 .pdf → 신규 5명 계정 생성 + 전체 61명 phone profile 업데이트
+//   (※ PDF는 출처 참고용. 실제 데이터는 아래 ENTRIES 에 하드코딩됨)
 //
 // 실행:
 //   docker exec -w /app erp-ot-auth node update-phones.mjs           # dry-run

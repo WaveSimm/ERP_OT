@@ -11,16 +11,16 @@ sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', line_bufferin
 
 import openpyxl
 import requests
+import glob
 
 AUTH_URL = "http://localhost:3001/api/v1/auth/login"
 API = "http://localhost:3003/api/v1"
 EMAIL = "dev@oceant.com"
 PASSWORD = "dev1234"
 
-FILES = [
-    "References/[기술팀] 선박-온바다호-2026.xlsx",
-    "References/[기술팀] KHOA 해양관측부이 차세대 데이터로거 물품 제작.xlsx",
-]
+# References/planner/ 의 모든 .xlsx 를 자동 인식. 새 팀 플랜은 파일을 넣기만 하면 됨.
+#   파일명의 [팀명]·프로젝트명으로 배정을 파싱하므로 '[팀명] 프로젝트.xlsx' 규칙을 지킬 것.
+FILES = sorted(glob.glob("References/planner/*.xlsx"))
 
 # ─── HTTP helpers (Session 사용 — keep-alive로 connection 재사용, ~80배 빠름) ──
 
