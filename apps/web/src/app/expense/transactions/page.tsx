@@ -18,8 +18,8 @@ function fmtLocalYmd(d: Date): string {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  PENDING: "미내역분류",
-  CATEGORIZED: "분류완료",
+  PENDING: "미정산분류",
+  CATEGORIZED: "정산분류완료",
   EXCLUDED: "제외",
   CANCELED: "취소",
   SETTLED: "정산됨",
@@ -34,24 +34,15 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 // v1.6.1 (2026-05-15): 구분 옵션 — 회계 분류용. 자유 입력도 허용.
+// 2026-06-12: 회계 계정 항목 20종 (목차 순서 — 사용자 지정)
 const DETAIL_OPTIONS = [
-  "교통비", "식비", "음료", "접대", "숙박", "주차", "통신", "사무용품", "도서", "회의비", "기타",
+  "출장여비", "여비교통비", "차량유지비", "복리후생비", "소모품비", "비품", "잡비",
+  "안전관리비", "사무용품비", "광고선전비", "운반비", "접대비", "통신비", "교육훈련비",
+  "도서인쇄비", "장비임차료", "특허권", "협회비", "지급수수료", "외주용역비",
 ];
 
-// v1.6.3 (2026-05-16): 구분별 상세내역 안내 placeholder
-const DETAIL_PLACEHOLDER: Record<string, string> = {
-  "교통비": "출발지 → 목적지 (예: 회사 → 본사)",
-  "식비": "참석자 / 메뉴 (예: 김철수·이영희 외 2명, 한식)",
-  "음료": "용도 / 대상자 (예: 회의 4인분, 거래처 미팅)",
-  "접대": "대상자 / 소속 (예: 해양수산부 김부장 외 2명)",
-  "숙박": "출장지 / 숙소명 (예: 부산 출장, ○○호텔)",
-  "주차": "장소 (예: 본사 주차장, 부산항)",
-  "통신": "용도 (예: 업무폰 요금, 인터넷 회선)",
-  "사무용품": "품목 (예: A4용지, 토너, 마우스)",
-  "도서": "도서명 / 사유",
-  "회의비": "참석자 / 안건",
-  "기타": "상세 내용",
-};
+// v1.6.3 (2026-05-16): 구분별 상세내역 안내 placeholder (구분 교체로 초기화 — 필요 시 추가)
+const DETAIL_PLACEHOLDER: Record<string, string> = {};
 
 function getDetailPlaceholder(detail?: string | null): string {
   const key = (detail ?? "").trim();
@@ -103,6 +94,10 @@ export default function TransactionsPage({ initialStatus = "TARGET", onChange }:
     // status 탭 필터 (미분류 + 전체에서 적용)
     if (statusFilter === "TARGET") {
       if (!(["PENDING", "CATEGORIZED"].includes(t.status) && !t.isCanceled)) return false;
+    } else if (statusFilter === "UNCLASSIFIED") {
+      // 미분류 — 정산분류가 '미설정'(정산묶음 미배정)인 정산대상 거래 (제외·정산완료 제외)
+      if (!(["PENDING", "CATEGORIZED"].includes(t.status) && !t.isCanceled)) return false;
+      if ((t.settlementItems?.length ?? 0) > 0) return false;
     } else if (statusFilter === "SETTLED") {
       if (t.status !== "SETTLED") return false;
     } else if (statusFilter === "EXCLUDED") {
@@ -213,25 +208,35 @@ export default function TransactionsPage({ initialStatus = "TARGET", onChange }:
     await load();
   };
 
-  // SearchableSelect용 옵션 로더 (계약 목록을 로컬에서 필터). 최상단에 "미설정" 옵션.
-  const loadContractOptions = (q: string) => {
-    const ql = q.trim().toLowerCase();
-    const filtered = ql
-      ? contracts.filter((c) =>
-          (c.contractNumber ?? "").toLowerCase().includes(ql) ||
-          (c.name ?? "").toLowerCase().includes(ql) ||
-          (c.client ?? "").toLowerCase().includes(ql),
+  // SearchableSelect용 옵션 로더 — 2026-06-12: 서버 검색으로 전환.
+  //   계약이 3천+ 건이라 클라이언트 500건 로컬 필터로는 최신 연도(#26-) 등이 누락됨.
+  //   검색어 있으면 서버에서 전체 계약(번호·명·고객·제작사·담당) 검색.
+  const mapContractOpt = (c: any) => ({
+    id: c.id,
+    name: `${c.contractNumber} - ${c.name}`,
+    ...(c.client && { sub: c.client }),
+  });
+  const loadContractOptions = async (q: string) => {
+    const ql = q.trim();
+    if (!ql) {
+      // 검색어 없을 때: "없음" + 로컬 로드분(기본 노출)
+      return [{ id: "__none__", name: "— 없음 —" }, ...contracts.slice(0, 50).map(mapContractOpt)];
+    }
+    try {
+      const res: any = await procurementApi.getContracts({ search: ql, limit: 50 });
+      return ((res.items ?? []) as any[]).map(mapContractOpt);
+    } catch {
+      // 폴백: 로컬 필터
+      const qll = ql.toLowerCase();
+      return contracts
+        .filter((c) =>
+          (c.contractNumber ?? "").toLowerCase().includes(qll) ||
+          (c.name ?? "").toLowerCase().includes(qll) ||
+          (c.client ?? "").toLowerCase().includes(qll),
         )
-      : contracts;
-    const contractOpts = filtered.slice(0, 50).map((c) => ({
-      id: c.id,
-      name: `${c.contractNumber} - ${c.name}`,
-      ...(c.client && { sub: c.client }),
-    }));
-    // v1.6.4 (2026-05-16): "없음" 옵션 prepend (검색어 없을 때만, placeholder와 동일 라벨)
-    return Promise.resolve(
-      ql ? contractOpts : [{ id: "__none__", name: "— 없음 —" }, ...contractOpts],
-    );
+        .slice(0, 50)
+        .map(mapContractOpt);
+    }
   };
 
   const updateMemo = async (id: string, memo: string) => {
@@ -348,11 +353,8 @@ export default function TransactionsPage({ initialStatus = "TARGET", onChange }:
         await expenseApi.setTransactionSettlement(tx.id, null);
         await expenseApi.updateTransaction(tx.id, { status: "EXCLUDED" });
       } else if (settlementId === "__clear__" || settlementId === "") {
+        // 정산묶음 해제 → 백엔드가 상태를 미정산분류(PENDING)로 자동 설정 (EXCLUDED였어도 해제 시 미정산분류)
         await expenseApi.setTransactionSettlement(tx.id, null);
-        // EXCLUDED 였다면 contractId 유무로 status 재계산 (백엔드는 contractId 변경 시에만 자동 재계산해서, 명시 호출)
-        if (tx.status === "EXCLUDED") {
-          await expenseApi.updateTransaction(tx.id, { status: tx.contractId ? "CATEGORIZED" : "PENDING" });
-        }
       } else {
         await expenseApi.setTransactionSettlement(tx.id, settlementId);
       }
@@ -367,13 +369,13 @@ export default function TransactionsPage({ initialStatus = "TARGET", onChange }:
     if (!confirm(`${sel.count}건의 거래를 삭제하시겠습니까?\n매칭된 영수증과 정산묶음 할당도 해제됩니다.`)) return;
     setBulkDeleting(true);
     try {
-      const results = await Promise.allSettled(
-        sel.ids.map((id) => expenseApi.deleteTransaction(id)),
-      );
-      const failed = results.filter((r) => r.status === "rejected").length;
-      if (failed > 0) alert(`${failed}건 삭제 실패`);
+      // 단일 일괄삭제 요청 — 거래마다 동시 DELETE를 쏘던 방식(rate-limit 폭주) 대체
+      const { deleted } = await expenseApi.bulkDeleteTransactions(sel.ids);
+      if (deleted < sel.count) alert(`${sel.count}건 중 ${deleted}건 삭제됨`);
       sel.clear();
       await load();
+    } catch (e: any) {
+      alert(`삭제 실패: ${e?.message ?? e}`);
     } finally {
       setBulkDeleting(false);
     }
@@ -494,6 +496,7 @@ export default function TransactionsPage({ initialStatus = "TARGET", onChange }:
         <span className="text-xs text-gray-500">상태:</span>
         {[
           { v: "TARGET", l: "정산대상" },
+          { v: "UNCLASSIFIED", l: "미분류" },
           { v: "SETTLED", l: "정산완료" },
           { v: "EXCLUDED", l: "제외" },
           { v: "", l: "전체" },

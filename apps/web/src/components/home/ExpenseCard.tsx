@@ -29,8 +29,7 @@ export default function ExpenseCard() {
         <div className="text-xs text-gray-400">불러오는 중...</div>
       ) : (
         <div className="space-y-1.5">
-          <Row label="미내역분류" count={s?.unclassified ?? 0} href={link} />
-          <Row label="미정산분류" count={s?.unsettled ?? 0}   href={link} />
+          <Row label="미정산분류" count={s?.unclassified ?? 0} href={link} />
           <Row label="미결재"     count={s?.unapproved ?? 0}  href={link} />
           <Row label="정산됨"     count={s?.settled ?? 0}     href={link} />
           <Row label="입금완료"   count={s?.paid ?? 0}        href={link} />

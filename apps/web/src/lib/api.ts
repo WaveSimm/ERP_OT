@@ -115,7 +115,7 @@ async function request<T>(path: string, init: RequestInit = {}, _isRetry = false
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }));
     // 새 에러 포맷 ({error: {code, message}}) + 기존 포맷 ({error: msg} 또는 {message}) 호환
-    const msg = err?.error?.message ?? (typeof err?.error === "string" ? err.error : null) ?? err?.message ?? "API Error";
+    const msg = err?.error?.message ?? err?.message ?? (typeof err?.error === "string" ? err.error : null) ?? "API Error";
     throw new Error(msg);
   }
 
@@ -2039,6 +2039,12 @@ export const expenseApi = {
     request<any>(`/expense/transactions/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteTransaction: (id: string) =>
     request<void>(`/expense/transactions/${id}`, { method: "DELETE" }),
+  // 일괄 삭제 — 단일 요청으로 N건 처리(개별 DELETE 동시발사 → rate-limit 폭주 방지)
+  bulkDeleteTransactions: (ids: string[]) =>
+    request<{ deleted: number }>("/expense/transactions/bulk-delete", {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    }),
 
   // Statements
   listStatements: (params: { page?: number; limit?: number } = {}) => {

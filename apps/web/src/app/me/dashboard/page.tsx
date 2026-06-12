@@ -1284,8 +1284,7 @@ function ExpenseView() {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {/* v1.6.4 (2026-05-16): 거래 페이지 탭 단순화에 따라 모두 TARGET/SETTLED로 통합 매핑.
             처리 단계 세분화는 후속 작업. */}
-        <ExpenseSummaryCard label="미내역분류" count={summary?.unclassified ?? 0} color="red"   onClick={() => openTxWithStatus("TARGET")} />
-        <ExpenseSummaryCard label="미정산분류" count={summary?.unsettled ?? 0}   color="amber" onClick={() => openTxWithStatus("TARGET")} />
+        <ExpenseSummaryCard label="미정산분류" count={summary?.unclassified ?? 0} color="red"   onClick={() => openTxWithStatus("TARGET")} />
         <ExpenseSummaryCard label="미결재"     count={summary?.unapproved ?? 0}  color="blue"  onClick={() => openTxWithStatus("TARGET")} />
         <ExpenseSummaryCard label="정산됨"     count={summary?.settled ?? 0}    color="teal"  onClick={() => openTxWithStatus("SETTLED")} />
         <ExpenseSummaryCard label="입금완료"   count={summary?.paid ?? 0}       color="green" onClick={() => openTxWithStatus("SETTLED")} />
