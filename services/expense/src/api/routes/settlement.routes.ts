@@ -1,6 +1,8 @@
 import type { FastifyInstance } from "fastify";
+import { promises as fs } from "fs";
 import { z } from "zod";
 import type { SettlementService } from "../../application/settlement.service";
+import type { LocalFsStorage } from "../../infrastructure/storage";
 import { buildSettlementWorkbook } from "../../infrastructure/excel/settlement-writer";
 
 const STATUSES = ["DRAFT", "SUBMITTED", "APPROVED", "RECEIVED", "PAID", "REJECTED"] as const;
@@ -19,8 +21,8 @@ const paySchema = z.object({
   paidNote: z.string().max(500).optional(),
 });
 
-export async function settlementRoutes(app: FastifyInstance, opts: { service: SettlementService }) {
-  const { service } = opts;
+export async function settlementRoutes(app: FastifyInstance, opts: { service: SettlementService; storage: LocalFsStorage }) {
+  const { service, storage } = opts;
 
   app.get("/", async (req) => {
     const q = req.query as { status?: string; page?: string; limit?: string };
@@ -70,8 +72,10 @@ export async function settlementRoutes(app: FastifyInstance, opts: { service: Se
   // Excel 다운로드
   app.get("/:id/excel", async (req, reply) => {
     const { id } = req.params as { id: string };
-    const s = await service.get(req.userId, id);
-    const buf = await buildSettlementWorkbook(s);
+    const s = await service.getForExport(req.userId, id);
+    const buf = await buildSettlementWorkbook(s, {
+      loadReceipt: (key) => fs.readFile(storage.resolveDiskPath(key)),
+    });
     const fname = encodeURIComponent(`${s.title.replace(/[\\/:*?"<>|]/g, "_")}.xlsx`);
     reply.header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     reply.header("Content-Disposition", `attachment; filename*=UTF-8''${fname}`);

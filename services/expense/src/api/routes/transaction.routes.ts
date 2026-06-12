@@ -20,6 +20,10 @@ const createSchema = z.object({
   isCanceled: z.boolean().optional(),
 });
 
+const bulkDeleteSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1).max(1000),
+});
+
 const updateSchema = z.object({
   contractId: z.string().nullable().optional(),
   contractNumber: z.string().max(50).nullable().optional(),
@@ -77,6 +81,14 @@ export async function transactionRoutes(app: FastifyInstance, opts: { service: T
     const { id } = req.params as { id: string };
     const body = updateSchema.parse(req.body);
     return service.update(req.userId, id, body);
+  });
+
+  // 일괄 삭제 — 전체선택 삭제 시 프런트가 거래마다 DELETE를 동시 발사해 rate-limit을 넘기던 문제 해결.
+  //   '/:id' DELETE와 경로가 겹치지 않게 별도 POST 경로 사용.
+  app.post("/bulk-delete", async (req, reply) => {
+    const { ids } = bulkDeleteSchema.parse(req.body);
+    const result = await service.deleteManyManual(req.userId, ids);
+    return reply.send(result);
   });
 
   app.delete("/:id", async (req, reply) => {

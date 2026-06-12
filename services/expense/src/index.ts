@@ -146,7 +146,7 @@ app.register(async (instance) => {
     prefix: "/receipts",
   });
   await instance.register(matchRoutes, { service: matchService, prefix: "/matches" });
-  await instance.register(settlementRoutes, { service: settlementService, prefix: "/settlements" });
+  await instance.register(settlementRoutes, { service: settlementService, storage, prefix: "/settlements" });
   await instance.register(financeRoutes, {
     service: settlementService,
     isFinanceTeam: (userId) => authClient.isFinanceTeam(userId),

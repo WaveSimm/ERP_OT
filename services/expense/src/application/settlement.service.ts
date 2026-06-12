@@ -73,6 +73,28 @@ export class SettlementService {
     return s;
   }
 
+  /** 엑셀 export 전용 — 매칭된 영수증을 확정 여부 무관하게 전부 로드(확정 우선 정렬). */
+  async getForExport(userId: string, id: string) {
+    const s = await this.prisma.expenseSettlement.findFirst({
+      where: { id, userId },
+      include: {
+        items: {
+          include: {
+            transaction: {
+              include: {
+                source: true,
+                matches: { include: { receipt: true }, orderBy: { confirmedAt: "desc" } },
+              },
+            },
+          },
+          orderBy: { sortOrder: "asc" },
+        },
+      },
+    });
+    if (!s) throw new Error("정산서를 찾을 수 없습니다.");
+    return s;
+  }
+
   /** 정산묶음 제목 수정 (PAID/APPROVED/RECEIVED 제외) */
   async updateTitle(userId: string, id: string, title: string) {
     const s = await this.get(userId, id);
@@ -200,6 +222,15 @@ export class SettlementService {
         data: { settlementId, transactionId, sortOrder: 0 },
       });
       affectedSettlementIds.add(settlementId);
+    }
+
+    // 2026-06-12: 상태 기준 = 정산분류(정산묶음 배정). 배정→정산분류완료(CATEGORIZED), 해제→미정산분류(PENDING).
+    //   CANCELED/SETTLED은 별도 흐름이라 건드리지 않음. (EXCLUDED는 호출측에서 별도 지정)
+    if (!["CANCELED", "SETTLED"].includes(tx.status)) {
+      await this.prisma.expenseTransaction.update({
+        where: { id: transactionId },
+        data: { status: settlementId ? "CATEGORIZED" : "PENDING" },
+      });
     }
 
     // 영향받은 정산 묶음들의 totalCount/totalAmount/period 재계산
