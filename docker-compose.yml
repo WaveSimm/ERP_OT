@@ -27,7 +27,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required - generate with openssl rand -hex 16}
       POSTGRES_DB: ${POSTGRES_DB:-erp_ot}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
@@ -40,7 +40,7 @@ services:
     restart: unless-stopped
     command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD required - generate with openssl rand -hex 16}
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -54,8 +54,8 @@ services:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-erp_user}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD required - generate with openssl rand -hex 16}
     ports:
-      - "5672:5672"
-      - "15672:15672"  # Management UI
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"  # Management UI
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
@@ -99,7 +99,7 @@ services:
       # 첨부 저장 (게시판/수리관리 점검 등 — LocalFsStorage)
       BOARD_ATTACHMENT_DIR: /app/uploads/board
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     volumes:
       - auth_uploads:/app/uploads
     depends_on:
@@ -126,7 +126,7 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?INTERNAL_API_TOKEN required - min 16 chars - openssl rand -hex 16}
     ports:
-      - "3002:3002"
+      - "127.0.0.1:3002:3002"
     depends_on:
       - postgres
       - redis
@@ -163,7 +163,7 @@ services:
       HIDE_LOAD_TEST: "${HIDE_LOAD_TEST:-true}"
       LOAD_TEST_DOMAIN: "${LOAD_TEST_DOMAIN:-@erp-ot.load}"
     ports:
-      - "3003:3003"
+      - "127.0.0.1:3003:3003"
     depends_on:
       - postgres
       - redis
@@ -193,7 +193,7 @@ services:
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?INTERNAL_API_TOKEN required - min 16 chars - openssl rand -hex 16}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
     ports:
-      - "3004:3004"
+      - "127.0.0.1:3004:3004"
     depends_on:
       - postgres
       - redis
@@ -217,7 +217,7 @@ services:
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?INTERNAL_API_TOKEN required - min 16 chars - openssl rand -hex 16}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
     ports:
-      - "3005:3005"
+      - "127.0.0.1:3005:3005"
     depends_on:
       - postgres
       - auth-service
@@ -242,7 +242,7 @@ services:
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?INTERNAL_API_TOKEN required - min 16 chars - openssl rand -hex 16}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
     ports:
-      - "3006:3006"
+      - "127.0.0.1:3006:3006"
     volumes:
       - approval_uploads:/app/uploads
     depends_on:
@@ -267,7 +267,7 @@ services:
       CLOVA_OCR_API_URL: ${CLOVA_OCR_API_URL:-}
       CLOVA_OCR_SECRET_KEY: ${CLOVA_OCR_SECRET_KEY:-}
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - ocr_models:/app/models
     # 메모리 제한: PaddleOCR/EasyOCR 다국어 모델 lazy-load 누적 방지 (개발 PC 메모리 15GB 압박 완화)
@@ -290,7 +290,7 @@ services:
     volumes:
       - ./services/ocr/test-ui:/usr/share/nginx/html:ro
     ports:
-      - "9090:80"
+      - "127.0.0.1:9090:80"
     networks:
       - erp-network
 
@@ -309,11 +309,11 @@ services:
       EQUIPMENT_SERVICE_URL: http://equipment-service:3005
       AUTH_SERVICE_URL: http://auth-service:3001
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?INTERNAL_API_TOKEN required - min 16 chars - openssl rand -hex 16}
-      CORS_ORIGIN: "*"
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
       UPLOAD_DIR: /app/uploads
       MAX_FILE_SIZE_MB: "10"
     ports:
-      - "3007:3007"
+      - "127.0.0.1:3007:3007"
     volumes:
       - ocr_uploads:/app/uploads
     depends_on:
@@ -347,7 +347,7 @@ services:
       EXPENSE_ATTACHMENT_DIR: /app/uploads
       EXPENSE_ATTACHMENT_MAX_SIZE: "10485760"
     ports:
-      - "3008:3008"
+      - "127.0.0.1:3008:3008"
     volumes:
       - expense_uploads:/app/uploads
     depends_on:
@@ -460,11 +460,12 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     environment:
       OLLAMA_KEEP_ALIVE: "30m"
       # 검색 회귀 진단 2026-05-02: 60 VU 부하에서 직렬 처리 병목 (요청당 embed 2회 호출)
-      OLLAMA_NUM_PARALLEL: "4"
+      # 2026-06-13: 주말 병렬 청킹 임베딩 처리량 위해 4→8 (24코어 CPU 포화 수준)
+      OLLAMA_NUM_PARALLEL: "8"
     networks:
       - erp-network
 
