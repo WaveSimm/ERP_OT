@@ -14,13 +14,14 @@ ecount → ERP 재고 마이그레이션 — Phase B-2 트랜잭션 import
 
 단일 트랜잭션, BEGIN/COMMIT.
 """
-import sys, openpyxl, psycopg2, re, uuid
+import sys, os, openpyxl, psycopg2, re, uuid
 from datetime import datetime
 from collections import defaultdict
 sys.stdout.reconfigure(encoding='utf-8')
 
+# 비밀번호는 환경변수에서만 읽음 (하드코딩 금지). 실행: ERP_DB_PASSWORD=... python ...
 DB = dict(host='localhost', port=5432, user='erp_user',
-          password='ae84373d75592d05d9f31e0210d5a542', dbname='erp_ot')
+          password=os.environ['ERP_DB_PASSWORD'], dbname='erp_ot')
 
 def make_id(prefix='ec'):
     return f'{prefix}_' + uuid.uuid4().hex[:23]

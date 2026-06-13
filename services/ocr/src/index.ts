@@ -95,15 +95,6 @@ async function buildApp() {
     };
   });
 
-  // Dev-only: 테스트용 JWT 발급 (운영에서는 제거)
-  app.get("/dev/token", async () => {
-    const token = app.jwt.sign(
-      { sub: "dev-admin-001", email: "dev@oceant.com", role: "ADMIN", name: "Dev Admin" },
-      { expiresIn: "8h" },
-    );
-    return { token };
-  });
-
   // Routes
   app.register(ocrRoutes, { prefix: "/api/v1/ocr" });
   app.register(templateRoutes, { prefix: "/api/v1/ocr/templates" });

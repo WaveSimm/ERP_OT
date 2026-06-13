@@ -16,7 +16,7 @@ export const authMiddleware = fp(async (fastify: FastifyInstance) => {
   fastify.decorateRequest("userRole", "VIEWER");
 
   fastify.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
-    if (request.url === "/health" || request.url === "/dev/token" || request.url === "/api/v1/ocr/engines") return;
+    if (request.url === "/health" || request.url === "/api/v1/ocr/engines") return;
 
     // 서비스 간 호출 — x-internal-token이 INTERNAL_API_TOKEN과 일치하면 JWT 검증 우회.
     // expense-service 등 다른 서비스가 /api/v1/ocr/scan/raw를 호출할 때 사용.
