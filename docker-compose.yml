@@ -438,6 +438,9 @@ services:
       APPROVAL_SERVICE_URL: http://approval-service:3006
       OCR_SERVICE_URL: http://ocr-service:3007
       EXPENSE_SERVICE_URL: http://expense-service:3008
+      # NAS 파일 서빙: 브라우저는 same-origin(/nas-file)로 호출 → web 이 ot-nas-file:3105 로 프록시
+      NEXT_PUBLIC_NAS_FILE_BASE: /nas-file
+      NAS_FILE_SERVICE_URL: http://ot-nas-file:3105
       JWT_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET required - min 32 chars - openssl rand -hex 32}
       WATCHPACK_POLLING: "true"
       CHOKIDAR_USEPOLLING: "true"

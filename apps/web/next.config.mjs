@@ -41,10 +41,14 @@ const nextConfig = {
     const exp = process.env.EXPENSE_SERVICE_URL || "http://localhost:3008";
     // OT-Brain knowledge-api (NAS 통합검색) — 호스트 서비스(GPU reranker 동반). 컨테이너에선 host.docker.internal 경유.
     const knowledge = process.env.KNOWLEDGE_SERVICE_URL || "http://ot-knowledge-api:3100";
+    const nasFile = process.env.NAS_FILE_SERVICE_URL || "http://ot-nas-file:3105";
 
     return [
       // ── OT-Brain knowledge-api (NAS 통합검색) — /api/v1/knowledge/* → knowledge-api /api/v1/* ──
       { source: "/api/v1/knowledge/:path*", destination: `${knowledge}/api/v1/:path*` },
+      // ── NAS 파일 서빙 (검색결과 파일 열기/다운로드) — /nas-file/* → ot-nas-file:3105 ──
+      //    브라우저는 same-origin(/nas-file)으로 호출 → web 이 프록시(3105 LAN 미노출).
+      { source: "/nas-file/:path*", destination: `${nasFile}/:path*` },
       // ── expense-service (경비정산 V2) ──
       { source: "/api/v1/expense/:path*", destination: `${exp}/api/v1/expense/:path*` },
 
