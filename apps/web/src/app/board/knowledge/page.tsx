@@ -133,7 +133,10 @@ export default function KnowledgeSearchPage() {
             </button>
           </div>
           <p className="mt-1.5 text-xs text-gray-400">
-            파일명·폴더는 전체 NAS, 본문은 추출 완료분 검색. 구체 주제어(모델명·사업명)일수록 정확합니다.
+            💡 <b className="font-medium text-gray-500">키워드</b>도 <b className="font-medium text-gray-500">문장(질문)</b>도 검색됩니다 — 구체 주제어(모델명·사업명)에 파일종류(&lsquo;사진&rsquo;·&lsquo;pdf&rsquo;·&lsquo;엑셀&rsquo;)·장소(&lsquo;포항&rsquo;·&lsquo;남해 서면&rsquo;)·시기(&lsquo;2022년&rsquo;)를 함께 넣을수록 정확합니다.
+          </p>
+          <p className="mt-1 text-xs text-gray-400">
+            예) <span className="text-gray-500">만성호 어선검사증서</span> · <span className="text-gray-500">냉수대 관측 절차는?</span> · <span className="text-gray-500">용역계약서 pdf</span> · <span className="text-gray-500">흥해 사진</span>
           </p>
         </div>
 
