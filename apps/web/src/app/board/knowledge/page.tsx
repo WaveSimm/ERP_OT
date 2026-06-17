@@ -133,10 +133,10 @@ export default function KnowledgeSearchPage() {
             </button>
           </div>
           <p className="mt-1.5 text-xs text-gray-400">
-            💡 <b className="font-medium text-gray-500">키워드</b>도 <b className="font-medium text-gray-500">문장(질문)</b>도 검색됩니다 — 구체 주제어(모델명·사업명)에 파일종류(&lsquo;사진&rsquo;·&lsquo;pdf&rsquo;·&lsquo;엑셀&rsquo;)·장소(&lsquo;포항&rsquo;·&lsquo;남해 서면&rsquo;)·시기(&lsquo;2022년&rsquo;)를 함께 넣을수록 정확합니다.
+            💡 <b className="font-medium text-gray-500">키워드</b>도 <b className="font-medium text-gray-500">문장(질문)</b>도 검색됩니다 — 구체 주제어(모델명·사업명)에 파일종류(&lsquo;사진&rsquo;·&lsquo;pdf&rsquo;·&lsquo;엑셀&rsquo;)·장소·항만(&lsquo;포항&rsquo;·&lsquo;축산항&rsquo;)·시기(&lsquo;2025년&rsquo;)를 함께 넣을수록 정확합니다.
           </p>
           <p className="mt-1 text-xs text-gray-400">
-            예) <span className="text-gray-500">만성호 어선검사증서</span> · <span className="text-gray-500">냉수대 관측 절차는?</span> · <span className="text-gray-500">용역계약서 pdf</span> · <span className="text-gray-500">흥해 사진</span>
+            예) <span className="text-gray-500">만성호 어선검사증서</span> · <span className="text-gray-500">냉수대 관측 절차는?</span> · <span className="text-gray-500">용역계약서 pdf</span> · <span className="text-gray-500">흥해 사진</span> · <span className="text-gray-500">축산항 2025년 작업 사진</span>
           </p>
         </div>
 
