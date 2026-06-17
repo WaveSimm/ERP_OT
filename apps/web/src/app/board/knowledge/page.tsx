@@ -84,7 +84,7 @@ export default function KnowledgeSearchPage() {
     setError(null);
     const t0 = performance.now();
     try {
-      const res = await knowledgeApi.searchDocuments(query, 20);
+      const res = await knowledgeApi.searchDocuments(query, 50);
       setData(res);
       setTook(Math.round(performance.now() - t0));
     } catch (e: any) {
@@ -187,7 +187,11 @@ export default function KnowledgeSearchPage() {
                             <div className="text-xs text-gray-500 mt-0.5 truncate">
                               {r.folderPath || r.folder}
                               {r.agency ? ` · ${r.agency}` : ""}
-                              {r.copies > 1 ? ` · 사본 ${r.copies}` : ""}
+                              {r.isPhotoFolder
+                                ? (r.folderFiles && r.folderFiles > 1 ? ` · 📷 이 폴더 ${r.folderFiles}장` : "")
+                                : (r.copies > 1 ? ` · 사본 ${r.copies}` : "")}
+                              {r.place ? ` · 📍 ${r.place}` : ""}
+                              {r.takenAt ? ` · ${String(r.takenAt).slice(0, 10)}` : ""}
                             </div>
                             {r.snippet && (
                               <div className="text-xs text-gray-400 mt-1 line-clamp-2">{r.snippet}</div>
