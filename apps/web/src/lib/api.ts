@@ -1957,6 +1957,11 @@ export type KnowledgeResult = {
   agencies: string[];
   score: number;
   snippet: string | null;
+  place?: string | null;
+  takenAt?: string | null;
+  isPhotoFolder?: boolean;
+  folderFiles?: number | null;   // 폴더(촬영 세션) 전체 사진/파일 수
+  photosMatched?: number | null; // 그중 검색 매칭 수
 };
 export type KnowledgeSearchResponse = {
   query: string;
