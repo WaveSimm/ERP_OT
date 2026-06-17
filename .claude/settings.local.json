@@ -739,7 +739,8 @@
       "Bash(env)",
       "Bash(crontab -l)",
       "Bash(grep -v '^$')",
-      "Bash(grep -iA2 -B1 'bkit\\\\|plugin\\\\|marketplace' ~/.claude/settings.json)"
+      "Bash(grep -iA2 -B1 'bkit\\\\|plugin\\\\|marketplace' ~/.claude/settings.json)",
+      "Bash(grep -nA20 'erp-ot-web:\\\\|web:' docker-compose.yml)"
     ]
   }
 }
