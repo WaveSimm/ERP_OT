@@ -1,6 +1,7 @@
 # NAS 미디어 검색 설계 — 사진 우선 / 영상 후속
 
-> 작성 2026-06-13 · 대상: ot-brain(NAS 통합검색) · 상태: 설계(미구현)
+> 작성 2026-06-13 · 갱신 2026-06-16(§7 NAS 변경반영 하이브리드 추가) · 대상: ot-brain(NAS 통합검색)
+> 상태: 설계 / §7 정합·신선도 스크립트 스캐폴드 완료(reconcile_nas.py·poll_changes.py)
 > 목적: 현재 텍스트 중심 검색에서 **동영상·사진·폴더**까지 찾도록 확장. 단계는 **① 사진 → ② 영상**.
 
 ---
@@ -102,3 +103,50 @@ ALTER TABLE knowledge.nas_document
 - GPS 미보유 사진은 날짜·폴더로만 검색(부분 커버리지).
 - VLM 캡션이 점검 영상에서 일반화될 수 있음 → 날짜·장소·폴더 메타로 보완.
 - 신규 파일은 스캔 시 EXIF/프레임 처리 자동 enqueue.
+
+---
+
+## 7. NAS 변경 반영 아키텍처 — 정합(reconcile) + 신선도(poll) 하이브리드
+> 추가 2026-06-16. 배경: 메타 임포트(2026-06-02) 후 NAS 대량 이동(KIOST `0. old` 아카이빙)으로
+> DB 경로가 죽어 EXIF FAILED 23.3만 발생. "시놀로지가 변경을 통보 → 준실시간 반영" 원안을 검토했으나
+> DSM 실측 결과 아래와 같이 **freshness(신선도)와 correctness(정합성)를 분리한 폴링 하이브리드**로 확정.
+
+### 7-1. 왜 push(통보)가 아니라 polling인가 — DSM 실측(2026-06-16)
+- DSM API 592개 조사 결과 **앱이 파일 변경을 구독하는 web API는 없음**. `SYNO.Core.Notification.*`/
+  `Push.Webhook`/`DSM.PushNotification` 은 전부 **시스템 경보**(디스크·로그인 등)용, 파일 단위 아님.
+  `SYNO.FileStation.Notify` 는 복사/이동 작업 토스트용.
+- 진짜 push 는 **NAS 측 코드**(`SYNO.Core.EventScheduler` + inotify → 웹훅)만 가능 → 읽기전용 최소권한
+  계정 방향과 충돌·운영 취약(이벤트 1건 누락 = 영구 drift). **비채택.**
+- **본질적 이유**: 우리가 겪은 문제는 **이동·삭제**. 이동·삭제는 mtime/이벤트 증분이 **가장 못 잡는** 케이스
+  (폴더 옮겨도 파일 mtime 불변, 삭제는 흔적 없음). "사라진 경로"는 **현재상태 전체 열거 vs DB 집합 차분**
+  으로만 신뢰성 있게 검출 → reconcile 이 구조적으로 필요.
+
+### 7-2. 두 축으로 분리
+| 축 | 도구 | 역할 | 주기 | PRUNE(삭제권위) |
+|----|------|------|------|------|
+| **정합(권위)** | `reconcile_nas.py` | 전체 열거 vs DB 차분 → INSERT/UPDATE/**PRUNE**. 멱등·자가치유 | 야간(전체) / 수시(scoped) | **O** |
+| **신선도** | `poll_changes.py` | 최근 N분 mtime 변경분만 **UPSERT-only** → 새 파일 수분 내 검색 노출 | 5~15분 | **X** |
+
+- 신선도 poll 은 **PRUNE 안 함**(추가/변경만 인지, 삭제 권위 아님) → 삭제·이동은 reconcile 이 교정.
+- 신규 INSERT 는 `exif_status=NULL`/`text_status=PENDING` 로 들어가 기존 워커가 자동 재추출(§1-1).
+
+### 7-3. 실측 성능 & 전제 (DSM API, CIFS 부하 0)
+- **열거 속도 ~234 파일/초** (KIOST `0. old` 252,160 파일 / 1,075초, 단일 스레드). CIFS stat-walk(867/s)
+  보다 느리나 **CIFS 마운트를 안 거쳐 6/15 행·서버동결 위험을 원천 제거**(채택 핵심 이유).
+  → 전체 NAS walk 은 **야간 배치** 성격, 기관 1곳 scoped 는 수 분.
+- `SYNO.FileStation.Search` 는 `mtime_greater` 필터를 **정확히 적용**(since=2010→전체, 미래→0 실측).
+- **단 전제**: `oceantech` 공유가 현재 **Universal Search 비색인**(`has_not_index_share=True`) →
+  Search 가 색인 즉답이 아니라 **라이브 재귀 스캔(=walk 비용)** 으로 동작. 비색인 스캔은 finished=True 가
+  완료 전 먼저 오는 **콜드스타트 레이스**도 있음(poll 스크립트가 연속 안정 확인으로 처리).
+
+### 7-4. 결정 / 로드맵
+- **[결정필요·관리자]** DSM 제어판에서 `oceantech` 공유 **Universal Search 색인 ON** →
+  그래야 `poll --mode search` 가 **전역·즉답**으로 동작해 진짜 "준실시간 freshness" 달성.
+  색인 OFF 동안에는 `poll --mode walk`(scoped 범위)로만 운용(=walk 비용, 좁은 폴더 한정).
+- **단계**:
+  1. (지금) `reconcile_nas.py` 로 KIOST 등 변경기관 1차 정합 → FAILED 23만 해소.
+  2. (지금) `poll_changes.py --mode walk` scoped 폴링으로 신규 사진 freshness PoC.
+  3. (관리자 후) 공유 색인 ON → `poll --mode search` 전역 5~15분 주기 cron 승격.
+  4. reconcile 전체 walk 은 야간 cron(주 1회~매일) 으로 정합 백본 유지.
+- 스크립트: `ot-brain/services/ingestion/loaders/{reconcile_nas.py, poll_changes.py}`
+  (DSM API urllib + Postgres, ot-extractor 컨테이너 실행, .env `SYNO_*` 자격증명).
