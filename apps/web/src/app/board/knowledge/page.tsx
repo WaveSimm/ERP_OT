@@ -166,6 +166,12 @@ export default function KnowledgeSearchPage() {
                   )}
                 </div>
 
+                {data.dateMatched === false && (
+                  <div className="mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
+                    🗓 <b>{data.dateLabel}</b>에 해당하는 결과가 없어 <b>전 기간</b> 결과를 표시합니다. (날짜가 기록된 사진·문서가 없거나 그 시기 자료가 없을 수 있습니다)
+                  </div>
+                )}
+
                 {data.results.length === 0 ? (
                   <div className="bg-white border border-gray-200 rounded-xl py-16 text-center text-gray-400">
                     결과가 없습니다.

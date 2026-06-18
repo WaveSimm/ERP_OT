@@ -1968,6 +1968,8 @@ export type KnowledgeSearchResponse = {
   query: string;
   count: number;
   hasExact: boolean;
+  dateLabel?: string | null;      // 인식한 시기 라벨 ("2026년" 등)
+  dateMatched?: boolean | null;   // 시기 지정 시 그 시기 매칭 결과 유무 (false면 전 기간 결과 표시 중)
   tokenWeights?: { token: string; df: number; weight: number }[];
   results: KnowledgeResult[];
 };
