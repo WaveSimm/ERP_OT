@@ -191,7 +191,7 @@ export default function KnowledgeSearchPage() {
                                 ? (r.folderFiles && r.folderFiles > 1 ? ` · 📷 이 폴더 ${r.folderFiles}장` : "")
                                 : (r.copies > 1 ? ` · 사본 ${r.copies}` : "")}
                               {r.place ? ` · 📍 ${r.place}` : ""}
-                              {r.takenAt ? ` · ${String(r.takenAt).slice(0, 10)}` : ""}
+                              {(r.takenAt || r.docDate) ? ` · 🗓 ${String(r.takenAt || r.docDate).slice(0, 10)}` : ""}
                             </div>
                             {r.snippet && (
                               <div className="text-xs text-gray-400 mt-1 line-clamp-2">{r.snippet}</div>
