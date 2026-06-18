@@ -1958,7 +1958,8 @@ export type KnowledgeResult = {
   score: number;
   snippet: string | null;
   place?: string | null;
-  takenAt?: string | null;
+  takenAt?: string | null;   // 사진 EXIF 촬영일
+  docDate?: string | null;   // 문서 본문에서 추출한 작업/작성일
   isPhotoFolder?: boolean;
   folderFiles?: number | null;   // 폴더(촬영 세션) 전체 사진/파일 수
   photosMatched?: number | null; // 그중 검색 매칭 수
