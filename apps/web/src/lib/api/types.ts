@@ -565,3 +565,89 @@ export interface ExpenseSettlement {
   updatedAt: string;
   items?: unknown[];
 }
+
+// ─── Approval (services/approval) ────────────────────────────────────────────
+export interface ApprovalTemplate {
+  id: string;
+  code: string;
+  name: string;
+  category: string;
+  description: string | null;
+  fields: unknown;
+  itemsTableConfig?: unknown;
+  defaultBody: string | null;
+  footer: string | null;
+  defaultApprovalLineRule: string;
+  postApprovalAction: string | null;
+  relatedService: string | null;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApprovalStep {
+  id: string;
+  documentId: string;
+  stepOrder: number;
+  roleName: string;
+  approverId: string;
+  approverName: string;
+  status: string;
+  comment: string | null;
+  actedAt: string | null;
+  createdAt: string;
+}
+
+export interface ApprovalAttachment {
+  id: string;
+  documentId: string | null;
+  referenceType: string | null;
+  referenceId: string | null;
+  fileName: string;
+  storagePath: string;
+  fileSize: number;
+  mimeType: string;
+  isScanned: boolean;
+  uploadedBy: string;
+  createdAt: string;
+}
+
+export interface ApprovalDocument {
+  id: string;
+  documentNumber: string;
+  templateId: string;
+  title: string;
+  requestedBy: string;
+  requesterName: string | null;
+  department: string;
+  approvalStepCount: number;
+  status: string;
+  content?: unknown;
+  richBody: string | null;
+  itemsData?: unknown[];
+  itemsTotal: string | number | null;
+  amount: string | number | null;
+  referenceType: string | null;
+  referenceId: string | null;
+  ccUsers: string[];
+  agreementUsers: string[];
+  referenceDepts: string[];
+  referencePersons: string[];
+  notes: string | null;
+  templateFooter: string | null;
+  pdfGeneratedAt: string | null;
+  submittedAt: string | null;
+  completedAt: string | null;
+  forwardedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  steps?: ApprovalStep[];
+  attachments?: ApprovalAttachment[];
+  template?: ApprovalTemplate | { code: string; name: string };
+  // getById 보강 + legacy 폼 별칭(caller가 richBody||body 식으로 방어적 접근)
+  allowedTransitions?: string[];
+  body?: string;
+  fields?: unknown;
+  items?: unknown[];
+}
