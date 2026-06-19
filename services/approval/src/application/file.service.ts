@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, AttachmentReferenceType } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { writeFile, mkdir, unlink } from "fs/promises";
 import { join, extname } from "path";
@@ -47,9 +47,9 @@ export class FileService {
   }
 
   async upload(data: {
-    documentId?: string;
-    referenceType?: string;
-    referenceId?: string;
+    documentId?: string | undefined;
+    referenceType?: string | undefined;
+    referenceId?: string | undefined;
     fileName: string;
     fileBuffer: Buffer;
     mimeType: string;
@@ -76,7 +76,7 @@ export class FileService {
     return this.prisma.attachment.create({
       data: {
         documentId: data.documentId ?? null,
-        referenceType: data.referenceType as any ?? null,
+        referenceType: (data.referenceType as AttachmentReferenceType) ?? null,
         referenceId: data.referenceId ?? null,
         fileName: data.fileName,
         storagePath,
@@ -96,7 +96,7 @@ export class FileService {
 
   async listByReference(referenceType: string, referenceId: string) {
     return this.prisma.attachment.findMany({
-      where: { referenceType: referenceType as any, referenceId },
+      where: { referenceType: referenceType as AttachmentReferenceType, referenceId },
       orderBy: { createdAt: "desc" },
     });
   }
