@@ -4,6 +4,7 @@ import { request } from "./client";
 import type {
   Project, ProjectListItem, Paginated,
   Folder, Dependency, Task, TaskSegment, SegmentAssignment, TaskComment,
+  WorkScheduleEntry, LeaveBalance, LeaveRequest, HolidayWorkRequest,
 } from "./types";
 
 
@@ -492,9 +493,9 @@ export const attendanceOverviewApi = {
   getWeekly: (start: string, end: string) =>
     request<any>(`/work-schedule?start=${start}&end=${end}`),
   createEntry: (data: { date: string; entryType: string; startTime?: string; endTime?: string; label?: string; groupId?: string }) =>
-    request<any>("/work-schedule", { method: "POST", body: JSON.stringify(data) }),
+    request<WorkScheduleEntry>("/work-schedule", { method: "POST", body: JSON.stringify(data) }),
   updateEntry: (id: string, data: { entryType?: string; startTime?: string; endTime?: string; label?: string }) =>
-    request<any>(`/work-schedule/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<WorkScheduleEntry>(`/work-schedule/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteEntry: (id: string) =>
     request<void>(`/work-schedule/${id}`, { method: "DELETE" }),
   updateGroup: (groupId: string, data: { entryType?: string; startTime?: string; endTime?: string; label?: string }) =>
@@ -506,31 +507,31 @@ export const attendanceOverviewApi = {
 // ─── Leave ────────────────────────────────────────────────────────────────────
 
 export const leaveApi = {
-  getBalance: () => request<any>("/leave/balance"),
+  getBalance: () => request<LeaveBalance>("/leave/balance"),
   // ADMIN
   adminGetBalance: (userId: string, year?: number) =>
-    request<any>(`/leave/balance/${userId}${year ? `?year=${year}` : ""}`),
+    request<LeaveBalance>(`/leave/balance/${userId}${year ? `?year=${year}` : ""}`),
   adminSetBalance: (userId: string, year: number, data: { totalDays?: number; longServiceDays?: number; adjustedDays?: number }) =>
-    request<any>(`/leave/balance/${userId}?year=${year}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<LeaveBalance>(`/leave/balance/${userId}?year=${year}`, { method: "PATCH", body: JSON.stringify(data) }),
   list: (params?: { status?: string; year?: number }) => {
     const q = params ? new URLSearchParams(params as Record<string, string>).toString() : "";
-    return request<any[]>(`/leave/requests${q ? `?${q}` : ""}`);
+    return request<LeaveRequest[]>(`/leave/requests${q ? `?${q}` : ""}`);
   },
   create: (data: { type: string; startDate: string; endDate: string; reason: string; approverId?: string }) =>
-    request<any>("/leave/requests", { method: "POST", body: JSON.stringify(data) }),
+    request<LeaveRequest>("/leave/requests", { method: "POST", body: JSON.stringify(data) }),
   cancel: (id: string) =>
-    request<any>(`/leave/requests/${id}/cancel`, { method: "PATCH", body: "{}" }),
+    request<LeaveRequest>(`/leave/requests/${id}/cancel`, { method: "PATCH", body: "{}" }),
 };
 
 // ─── Holiday Work (휴일근무 신청, 구 OT) ───────────────────────────────────────
 
 export const holidayWorkApi = {
   list: (status?: string) =>
-    request<any[]>(`/holiday-work/requests${status ? `?status=${status}` : ""}`),
+    request<HolidayWorkRequest[]>(`/holiday-work/requests${status ? `?status=${status}` : ""}`),
   create: (data: { date: string; reason: string; projectId?: string; taskId?: string; approverId?: string }) =>
-    request<any>("/holiday-work/requests", { method: "POST", body: JSON.stringify(data) }),
+    request<HolidayWorkRequest>("/holiday-work/requests", { method: "POST", body: JSON.stringify(data) }),
   cancel: (id: string) =>
-    request<any>(`/holiday-work/requests/${id}/cancel`, { method: "PATCH", body: "{}" }),
+    request<HolidayWorkRequest>(`/holiday-work/requests/${id}/cancel`, { method: "PATCH", body: "{}" }),
 };
 
 // ─── Team (Manager) ──────────────────────────────────────────────────────────
