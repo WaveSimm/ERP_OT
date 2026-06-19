@@ -20,7 +20,7 @@ interface Project {
   ownerName?: string | null;
   effectiveStartDate?: string | null;
   effectiveEndDate?: string | null;
-  overallProgress?: number;
+  overallProgress?: number | null;
 }
 
 interface Folder {
