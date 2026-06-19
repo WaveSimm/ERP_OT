@@ -1,7 +1,11 @@
 "use client";
 
 import { request } from "./client";
-import type { Paginated, Equipment, Sensor, EquipmentCategory2, Supplier } from "./types";
+import type {
+  Paginated, Equipment, Sensor, EquipmentCategory2, Supplier,
+  InventoryItem, StorageLocation, InventoryTransaction, AssetCostEvent,
+  ProductVariant, InboundRequest, BundleShipment,
+} from "./types";
 
 
 // ─── Equipment (장비 관리) ────────────────────────────────────────────────────
@@ -643,37 +647,37 @@ export const inventoryApi = {
     if (params?.limit) q.set("limit", String(params.limit));
     if (params?.sortBy) q.set("sortBy", params.sortBy);
     if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
-    return request<any>(`/inventory/items?${q.toString()}`);
+    return request<Paginated<InventoryItem>>(`/inventory/items?${q.toString()}`);
   },
   getFilterOptions: () => request<{ locations: string[]; projects: string[]; assignees: string[] }>("/inventory/items/filter-options"),
   getStats: () => request<any>("/inventory/items/stats"),
-  getByNo: (inventoryNo: string) => request<any>(`/inventory/items/by-no/${encodeURIComponent(inventoryNo)}`),
-  getById: (id: string) => request<any>(`/inventory/items/${id}`),
+  getByNo: (inventoryNo: string) => request<InventoryItem>(`/inventory/items/by-no/${encodeURIComponent(inventoryNo)}`),
+  getById: (id: string) => request<InventoryItem>(`/inventory/items/${id}`),
   create: (data: unknown) =>
-    request<any>("/inventory/items", { method: "POST", body: JSON.stringify(data) }),
+    request<InventoryItem>("/inventory/items", { method: "POST", body: JSON.stringify(data) }),
   createFromReceipt: (data: { orderItemId: string; serialNumber?: string; currentLocation?: string }) =>
-    request<any>("/inventory/items/from-receipt", { method: "POST", body: JSON.stringify(data) }),
+    request<InventoryItem>("/inventory/items/from-receipt", { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, data: unknown) =>
-    request<any>(`/inventory/items/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<InventoryItem>(`/inventory/items/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   // 운용 전 한정 — ADMIN만 (2026-05-13)
   delete: (id: string) =>
     request<void>(`/inventory/items/${id}`, { method: "DELETE" }),
 
   // 입출고 이력
-  getTransactions: (itemId: string) => request<any[]>(`/inventory/transactions/item/${itemId}`),
+  getTransactions: (itemId: string) => request<InventoryTransaction[]>(`/inventory/transactions/item/${itemId}`),
   getRecentTransactions: (params?: { type?: string; limit?: number }) => {
     const q = new URLSearchParams();
     if (params?.type) q.set("type", params.type);
     if (params?.limit) q.set("limit", String(params.limit));
-    return request<any[]>(`/inventory/transactions/recent?${q.toString()}`);
+    return request<InventoryTransaction[]>(`/inventory/transactions/recent?${q.toString()}`);
   },
   createTransaction: (data: unknown) =>
-    request<any>("/inventory/transactions", { method: "POST", body: JSON.stringify(data) }),
+    request<InventoryTransaction>("/inventory/transactions", { method: "POST", body: JSON.stringify(data) }),
 
   // 비용이력
-  getCostEvents: (itemId: string) => request<any[]>(`/inventory/costs/item/${itemId}`),
+  getCostEvents: (itemId: string) => request<AssetCostEvent[]>(`/inventory/costs/item/${itemId}`),
   addCostEvent: (data: unknown) =>
-    request<any>("/inventory/costs", { method: "POST", body: JSON.stringify(data) }),
+    request<AssetCostEvent>("/inventory/costs", { method: "POST", body: JSON.stringify(data) }),
   deleteCostEvent: (id: string) =>
     request<void>(`/inventory/costs/${id}`, { method: "DELETE" }),
 
@@ -687,12 +691,12 @@ export const inventoryApi = {
     if (params?.limit) q.set("limit", String(params.limit));
     if (params?.sortBy) q.set("sortBy", params.sortBy);
     if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
-    return request<{ items: unknown[]; total: number; page: number; limit: number; totalPages: number }>(`/inventory/locations?${q.toString()}`);
+    return request<{ items: StorageLocation[]; total: number; page: number; limit: number; totalPages: number }>(`/inventory/locations?${q.toString()}`);
   },
   createLocation: (data: unknown) =>
-    request<any>("/inventory/locations", { method: "POST", body: JSON.stringify(data) }),
+    request<StorageLocation>("/inventory/locations", { method: "POST", body: JSON.stringify(data) }),
   updateLocation: (id: string, data: unknown) =>
-    request<any>(`/inventory/locations/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<StorageLocation>(`/inventory/locations/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteLocation: (id: string) =>
     request<void>(`/inventory/locations/${id}`, { method: "DELETE" }),
 };
@@ -703,17 +707,17 @@ export const productVariantApi = {
   listByMaster: (productMasterId: string, includeInactive?: boolean) => {
     const q = new URLSearchParams({ productMasterId });
     if (includeInactive) q.set("includeInactive", "true");
-    return request<any[]>(`/product-variants?${q.toString()}`);
+    return request<ProductVariant[]>(`/product-variants?${q.toString()}`);
   },
-  getById: (id: string) => request<any>(`/product-variants/${id}`),
+  getById: (id: string) => request<ProductVariant>(`/product-variants/${id}`),
   create: (data: { productMasterId: string; skuCode?: string; variantSpecs?: unknown; isActive?: boolean }) =>
-    request<any>("/product-variants", { method: "POST", body: JSON.stringify(data) }),
+    request<ProductVariant>("/product-variants", { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, data: unknown) =>
-    request<any>(`/product-variants/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<ProductVariant>(`/product-variants/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   remove: (id: string) =>
     request<void>(`/product-variants/${id}`, { method: "DELETE" }),
   merge: (idA: string, idB: string) =>
-    request<any>(`/product-variants/${idA}/merge/${idB}`, { method: "POST" }),
+    request<ProductVariant>(`/product-variants/${idA}/merge/${idB}`, { method: "POST" }),
 };
 
 export const inboundRequestApi = {
@@ -725,18 +729,18 @@ export const inboundRequestApi = {
     if (params?.limit) q.set("limit", String(params.limit));
     if (params?.sortBy) q.set("sortBy", params.sortBy);
     if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
-    return request<any>(`/inbound-requests?${q.toString()}`);
+    return request<Paginated<InboundRequest>>(`/inbound-requests?${q.toString()}`);
   },
-  getById: (id: string) => request<any>(`/inbound-requests/${id}`),
+  getById: (id: string) => request<InboundRequest>(`/inbound-requests/${id}`),
   create: (data: unknown) =>
-    request<any>("/inbound-requests", { method: "POST", body: JSON.stringify(data) }),
+    request<InboundRequest>("/inbound-requests", { method: "POST", body: JSON.stringify(data) }),
   receive: (id: string, data: { receivedItems: unknown[] }) =>
-    request<any>(`/inbound-requests/${id}/receive`, { method: "POST", body: JSON.stringify(data) }),
+    request<InboundRequest>(`/inbound-requests/${id}/receive`, { method: "POST", body: JSON.stringify(data) }),
   cancel: (id: string, reason?: string) =>
-    request<any>(`/inbound-requests/${id}/cancel`, { method: "PATCH", body: JSON.stringify({ reason }) }),
+    request<InboundRequest>(`/inbound-requests/${id}/cancel`, { method: "PATCH", body: JSON.stringify({ reason }) }),
   // v1.6.1 (2026-05-15): 해외 발주에서 입고 큐 생성
   createFromOverseasOrder: (orderId: string) =>
-    request<any>(`/inbound-requests/from-overseas-order/${orderId}`, { method: "POST" }),
+    request<InboundRequest>(`/inbound-requests/from-overseas-order/${orderId}`, { method: "POST" }),
 };
 
 // bomDefinitionApi 폐기 (v1.6 B안, 2026-05-13):
@@ -753,13 +757,13 @@ export const bundleShipmentApi = {
     if (params?.limit) q.set("limit", String(params.limit));
     if (params?.sortBy) q.set("sortBy", params.sortBy);
     if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
-    return request<any>(`/bundle-shipments?${q.toString()}`);
+    return request<Paginated<BundleShipment>>(`/bundle-shipments?${q.toString()}`);
   },
-  getById: (id: string) => request<any>(`/bundle-shipments/${id}`),
+  getById: (id: string) => request<BundleShipment>(`/bundle-shipments/${id}`),
   getSiblingAssets: (id: string) =>
     request<any>(`/bundle-shipments/${id}/sibling-assets`),
   create: (data: unknown) =>
-    request<any>("/bundle-shipments", { method: "POST", body: JSON.stringify(data) }),
+    request<BundleShipment>("/bundle-shipments", { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, data: unknown) =>
     request<any>(`/bundle-shipments/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
 };
