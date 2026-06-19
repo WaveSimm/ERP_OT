@@ -1,5 +1,13 @@
 import { PrismaClient } from "@prisma/client";
 
+// 부서 트리 노드 (flat 레코드 + 계산필드 + 재귀 children)
+interface DeptTreeNode {
+  id: string;
+  parentId: string | null;
+  children: DeptTreeNode[];
+  [key: string]: unknown;
+}
+
 export class DepartmentService {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -17,8 +25,8 @@ export class DepartmentService {
     // 부서장 + 대표이사 이름 조회
     const relatedUserIds = [
       ...all.map((d) => d.headUserId),
-      ...all.map((d) => (d as any).soukwalUserId),
-      ...all.map((d) => (d as any).daepyoUserId),
+      ...all.map((d) => d.soukwalUserId),
+      ...all.map((d) => d.daepyoUserId),
     ].filter(Boolean) as string[];
     const relatedUsers =
       relatedUserIds.length > 0
@@ -30,19 +38,22 @@ export class DepartmentService {
     const nameMap = new Map(relatedUsers.map((u) => [u.id, u.name]));
 
     // flat → tree
-    const nodeMap = new Map(
-      all.map((d) => ({
-        ...d,
-        memberCount: d.members.length,
-        headName: d.headUserId ? (nameMap.get(d.headUserId) ?? null) : null,
-        soukwalName: (d as any).soukwalUserId ? (nameMap.get((d as any).soukwalUserId) ?? null) : null,
-        daepyoName: (d as any).daepyoUserId ? (nameMap.get((d as any).daepyoUserId) ?? null) : null,
-        children: [] as any[],
-        members: undefined,
-      })).map((n) => [n.id, n]),
+    const nodeMap = new Map<string, DeptTreeNode>(
+      all.map((d) => {
+        const node: DeptTreeNode = {
+          ...d,
+          memberCount: d.members.length,
+          headName: d.headUserId ? (nameMap.get(d.headUserId) ?? null) : null,
+          soukwalName: d.soukwalUserId ? (nameMap.get(d.soukwalUserId) ?? null) : null,
+          daepyoName: d.daepyoUserId ? (nameMap.get(d.daepyoUserId) ?? null) : null,
+          children: [],
+          members: undefined,
+        };
+        return [node.id, node] as [string, DeptTreeNode];
+      }),
     );
 
-    const roots: any[] = [];
+    const roots: DeptTreeNode[] = [];
     for (const [, node] of nodeMap) {
       if (node.parentId && nodeMap.has(node.parentId)) {
         nodeMap.get(node.parentId)!.children.push(node);

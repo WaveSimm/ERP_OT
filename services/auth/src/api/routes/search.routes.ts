@@ -1,5 +1,6 @@
-import type { FastifyInstance } from "fastify";
-import { z } from "zod";
+import type { FastifyInstance, FastifyRequest } from "fastify";
+import { z, ZodError } from "zod";
+import type { PrismaClient } from "@prisma/client";
 import type { SearchService } from "../../application/search.service";
 import { SearchError } from "../../application/search.service";
 import type { AuthService } from "../../application/auth.service";
@@ -15,7 +16,7 @@ const querySchema = z.object({
 
 export async function searchRoutes(
   app: FastifyInstance,
-  opts: { searchService: SearchService; authService: AuthService; prisma: any },
+  opts: { searchService: SearchService; authService: AuthService; prisma: PrismaClient },
 ) {
   const { searchService, authService, prisma } = opts;
   const authenticate = createAuthHook(authService);
@@ -26,11 +27,11 @@ export async function searchRoutes(
       // Layer 5 H1: 임베딩 비용 방어
       rateLimit: {
         ...rateLimitPolicies.search,
-        keyGenerator: (req: any) => req.userId || req.ip,
+        keyGenerator: (req: FastifyRequest) => req.userId || req.ip,
         errorResponseBuilder: rateLimitErrorResponseBuilder,
       },
     },
-  }, async (req: any, reply) => {
+  }, async (req, reply) => {
     try {
       const q = querySchema.parse(req.query);
       const profile = await prisma.userProfile.findUnique({
@@ -50,12 +51,12 @@ export async function searchRoutes(
         user,
       );
       return reply.send({ query: q.q, ...result });
-    } catch (err: any) {
+    } catch (err) {
       if (err instanceof SearchError) {
         return reply.code(err.statusCode).send({ error: { code: err.code, message: err.message } });
       }
-      if (err?.name === "ZodError") {
-        return reply.code(400).send({ error: { code: "INVALID_INPUT", message: err.issues?.[0]?.message } });
+      if (err instanceof ZodError) {
+        return reply.code(400).send({ error: { code: "INVALID_INPUT", message: err.issues[0]?.message } });
       }
       throw err;
     }

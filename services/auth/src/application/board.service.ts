@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 
 export class BoardService {
   constructor(private readonly prisma: PrismaClient) {}
@@ -17,7 +17,7 @@ export class BoardService {
   }
 
   async listBoards(filter?: { categoryCode?: string | undefined }) {
-    const where: any = { isActive: true };
+    const where: Prisma.BoardWhereInput = { isActive: true };
     if (filter?.categoryCode) {
       const cat = await this.prisma.boardCategory.findUnique({ where: { code: filter.categoryCode } });
       if (!cat) return [];

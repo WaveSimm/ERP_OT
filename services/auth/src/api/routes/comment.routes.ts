@@ -5,13 +5,14 @@ import type { AuthService } from "../../application/auth.service";
 import { createAuthHook } from "../middleware/auth.middleware";
 import { createCommentSchema, updateCommentSchema } from "../dtos/board.dto";
 import { errorResponse, ErrorCode } from "@erp-ot/shared";
+import { ZodError } from "zod";
 
-function handleError(reply: any, err: any) {
+function handleError(reply: FastifyReply, err: unknown) {
   if (err instanceof CommentError) {
     return reply.code(err.statusCode).send({ error: { code: err.code, message: err.message } });
   }
-  if (err?.name === "ZodError") {
-    return reply.code(400).send({ error: { code: "INVALID_INPUT", message: err.issues?.[0]?.message } });
+  if (err instanceof ZodError) {
+    return reply.code(400).send({ error: { code: "INVALID_INPUT", message: err.issues[0]?.message } });
   }
   throw err;
 }
@@ -24,8 +25,8 @@ async function requireCommentOwnerOrAdmin(
   reply: FastifyReply,
 ): Promise<boolean> {
   const { id } = req.params as { id: string };
-  const userId = (req as any).userId as string;
-  const userRole = (req as any).userRole as string;
+  const userId = req.userId as string;
+  const userRole = req.userRole as string;
 
   // ADMIN은 무조건 통과
   if (userRole === "ADMIN") return true;
@@ -65,7 +66,7 @@ export async function commentRoutes(
     try {
       const { id } = req.params as { id: string };
       const dto = createCommentSchema.parse(req.body);
-      const user = { id: (req as any).userId, role: (req as any).userRole };
+      const user = { id: req.userId, role: req.userRole };
       const created = await commentService.create(id, dto, user);
       return reply.code(201).send(created);
     } catch (err) {
@@ -81,7 +82,7 @@ export async function commentRoutes(
     try {
       const { id } = req.params as { id: string };
       const dto = updateCommentSchema.parse(req.body);
-      const user = { id: (req as any).userId, role: (req as any).userRole };
+      const user = { id: req.userId, role: req.userRole };
       const updated = await commentService.update(id, dto.content, user);
       return reply.send(updated);
     } catch (err) {
@@ -96,7 +97,7 @@ export async function commentRoutes(
     if (!allowed) return;
     try {
       const { id } = req.params as { id: string };
-      const user = { id: (req as any).userId, role: (req as any).userRole };
+      const user = { id: req.userId, role: req.userRole };
       await commentService.softDelete(id, user);
       return reply.code(204).send();
     } catch (err) {

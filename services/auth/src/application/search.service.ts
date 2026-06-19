@@ -2,7 +2,40 @@ import { PrismaClient, Prisma } from "@prisma/client";
 import type { FastifyBaseLogger } from "fastify";
 import type { EmbeddingService } from "./embedding.service";
 import { canRead } from "./board-permissions";
-import type { AuthUserContext } from "../domain/board.types";
+import type { AuthUserContext, BoardAudience } from "../domain/board.types";
+
+// 게시글 하이브리드 검색 raw SQL row
+interface PostSearchRow {
+  id: string;
+  title: string;
+  content: string;
+  publishedAt: string | Date;
+  isDeleted: boolean;
+  targetDepartmentId: string | null;
+  authorId: string;
+  authorName: string;
+  boardCode: string;
+  boardName: string;
+  writeRoles: string[];
+  readAudience: BoardAudience;
+  audienceTargetId: string | null;
+  allowComments: boolean;
+  catCode: string;
+  score: number | string;
+}
+
+// project-service work-log 검색 응답 row
+interface WorkLogRemoteRow {
+  id: string;
+  taskName?: string;
+  segmentName?: string;
+  content: string;
+  authorName?: string;
+  workedAt: string;
+  projectId: string;
+  projectName?: string;
+  score: number | string;
+}
 import { searchConfig } from "./search-config";
 
 // 부하테스트 — 일반 검색에서 부하 사용자 작성 글 자동 제외
@@ -102,7 +135,7 @@ export class SearchService {
     const literal = this.embeddingService.toSqlLiteral(queryVec);
     const cfg = searchConfig;
     const k3 = k * 3;
-    const rows = await this.prisma.$queryRaw<any[]>`
+    const rows = await this.prisma.$queryRaw<PostSearchRow[]>`
       WITH scored AS (
         SELECT p.id, p.title, p.content, p.published_at AS "publishedAt",
                p.is_deleted AS "isDeleted",
@@ -195,7 +228,7 @@ export class SearchService {
         this.logger.warn({ status: res.status }, "[search-worklogs] remote failed");
         return [];
       }
-      const data = (await res.json()) as any[];
+      const data = (await res.json()) as WorkLogRemoteRow[];
       return data.map((r) => ({
         type: "worklog" as const,
         id: r.id,
@@ -204,8 +237,8 @@ export class SearchService {
         author: r.authorName ?? "",
         publishedAt: r.workedAt,
         url: `/work-logs/${r.projectId}`,
-        projectName: r.projectName,
-        taskName: r.taskName,
+        ...(r.projectName !== undefined && { projectName: r.projectName }),
+        ...(r.taskName !== undefined && { taskName: r.taskName }),
         score: typeof r.score === "string" ? parseFloat(r.score) : Number(r.score),
       }));
     } catch (err) {

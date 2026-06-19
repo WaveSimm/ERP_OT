@@ -136,10 +136,10 @@ export class ApprovalLineService {
     if (!headUserId) throw new Error("부서장이 지정되지 않았습니다.");
 
     const parentHead = dept.parent?.headUserId ?? null;
-    const grandParentHead = (dept.parent as any)?.parent?.headUserId ?? null;
+    const grandParentHead = dept.parent?.parent?.headUserId ?? null;
     // soukwalUserId/daepyoUserId 우선, 없으면 계층 기반
-    const soukwalHead = (dept as any).soukwalUserId ?? parentHead;
-    const daepyoHead = (dept as any).daepyoUserId ?? grandParentHead;
+    const soukwalHead = dept.soukwalUserId ?? parentHead;
+    const daepyoHead = dept.daepyoUserId ?? grandParentHead;
 
     // 팀장 본인 결재라인: 1차=이사, 2차=대표이사
     if (soukwalHead) {
@@ -175,9 +175,9 @@ export class ApprovalLineService {
       if (!dept.headUserId) continue;
 
       const parentHead = dept.parent?.headUserId ?? null;
-      const grandParentHead = (dept.parent as any)?.parent?.headUserId ?? null;
-      const soukwalHead = (dept as any).soukwalUserId ?? parentHead;
-      const daepyoHead = (dept as any).daepyoUserId ?? grandParentHead;
+      const grandParentHead = dept.parent?.parent?.headUserId ?? null;
+      const soukwalHead = dept.soukwalUserId ?? parentHead;
+      const daepyoHead = dept.daepyoUserId ?? grandParentHead;
 
       // 부서장 본인 결재라인: 1차=이사, 2차=대표이사
       if (soukwalHead) {
