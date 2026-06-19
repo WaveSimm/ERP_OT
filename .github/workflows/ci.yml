@@ -60,9 +60,10 @@ jobs:
           #   Next PageProps 제약과 충돌하는 누적 타입부채 다수 → 큰 페이지를 component로 분리하는 별도 정합성 작업 필요.
           #   백엔드 8서비스 타입체크 게이트는 위에서 확보. web 정합성 복구 후 여기에 재추가.
 
-      # 테스트 0개 동안 vitest("No test files" exit 1) 폴백 — Phase 0 ⑤에서 실제 테스트 도입 시 자동으로 진짜 게이트화
+      # 테스트 0개 동안 vitest("No test files" exit 1) 폴백 — Phase 0 ⑤에서 실제 테스트 도입 시 자동으로 진짜 게이트화.
+      #   turbo 의 -- 뒤 인자는 각 task(vitest run)로 전달됨(pnpm test -- 는 turbo 플래그로 오해돼 실패).
       - name: Test
-        run: pnpm test -- --passWithNoTests
+        run: pnpm exec turbo run test -- --passWithNoTests
 
   # docker-build 잡 보류: auth/user Dockerfile이 erp-ot-build-base:latest(=docker-compose 정의)에 의존하는데
   #   CI 러너엔 그 base 이미지가 없어 항상 실패. 재도입하려면 base 이미지 선빌드 스텝(build-base/runtime-base)을
