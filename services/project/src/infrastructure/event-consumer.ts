@@ -1,5 +1,5 @@
-import amqplib from "amqplib";
-import { PrismaClient } from "@prisma/client";
+import amqplib, { type Channel, type ConsumeMessage } from "amqplib";
+import { PrismaClient, Prisma } from "@prisma/client";
 
 const EXCHANGE_NAME = "erp.activity";
 const QUEUE_NAME = "project.activity-logger";
@@ -15,8 +15,8 @@ interface ActivityEvent {
 }
 
 export class ActivityEventConsumer {
-  private connection: any = null;
-  private channel: any = null;
+  private connection: Awaited<ReturnType<typeof amqplib.connect>> | null = null;
+  private channel: Channel | null = null;
 
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -36,7 +36,7 @@ export class ActivityEventConsumer {
       await this.channel.bindQueue(QUEUE_NAME, EXCHANGE_NAME, "");
       await this.channel.prefetch(10);
 
-      this.channel.consume(QUEUE_NAME, async (msg: any) => {
+      this.channel.consume(QUEUE_NAME, async (msg: ConsumeMessage | null) => {
         if (!msg) return;
 
         try {
@@ -48,17 +48,17 @@ export class ActivityEventConsumer {
               entityType: event.entityType,
               entityId: event.entityId,
               description: event.description,
-              metadata: (event.metadata ?? null) as any,
+              metadata: (event.metadata ?? null) as Prisma.InputJsonValue,
             },
           });
           this.channel!.ack(msg);
-        } catch (err: any) {
-          console.error("[event-consumer] Failed to process message:", err?.message);
+        } catch (err) {
+          console.error("[event-consumer] Failed to process message:", (err as Error)?.message);
           this.channel!.nack(msg, false, false);
         }
       });
 
-      this.connection.on("error", (err: any) => {
+      this.connection.on("error", (err: Error) => {
         console.error("[event-consumer] Connection error:", err.message);
       });
       this.connection.on("close", () => {

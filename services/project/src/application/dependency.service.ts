@@ -6,8 +6,8 @@ import type { CpmService } from "./cpm.service.js";
 export interface CreateDependencyDto {
   predecessorTaskId: string;
   successorTaskId: string;
-  dependencyType?: DependencyType;
-  lag?: number;
+  dependencyType?: DependencyType | undefined;
+  lag?: number | undefined;
 }
 
 /**

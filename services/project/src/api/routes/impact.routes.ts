@@ -12,11 +12,11 @@ export async function impactRoutes(fastify: FastifyInstance) {
   const service: ImpactService = fastify.impactService;
 
   // GET /api/v1/projects/:projectId/impact?taskId=&delayDays=
-  fastify.get("/:projectId/impact", async (req, reply) => {
-    const { projectId } = req.params as { projectId: string };
-    const query = req.query as any;
+  fastify.get<{ Params: { projectId: string }; Querystring: { taskId?: string; delayDays?: string } }>("/:projectId/impact", async (req, reply) => {
+    const { projectId } = req.params;
+    const query = req.query;
     const taskId = query.taskId as string;
-    const delayDays = parseInt(query.delayDays, 10);
+    const delayDays = parseInt(query.delayDays ?? "", 10);
 
     if (!taskId || isNaN(delayDays)) {
       return reply.status(400).send({

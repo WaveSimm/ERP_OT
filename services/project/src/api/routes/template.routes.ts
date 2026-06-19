@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { TemplateService } from "../../application/template.service.js";
+import { TemplateService, CreateTemplateDto } from "../../application/template.service.js";
 import { requireRole } from "../middleware/auth.middleware.js";
 import { TemplateScope, AllocationMode } from "@prisma/client";
 
@@ -96,11 +96,11 @@ export async function templateRoutes(fastify: FastifyInstance) {
   // ─── Template CRUD ────────────────────────────────────────────────────────
 
   // GET /api/v1/templates
-  fastify.get("/templates", async (req, reply) => {
-    const q = req.query as any;
-    const filter: any = {};
+  fastify.get<{ Querystring: { category?: string; scope?: string; search?: string; isRecommended?: string } }>("/templates", async (req, reply) => {
+    const q = req.query;
+    const filter: { category?: string; scope?: TemplateScope; search?: string; isRecommended?: boolean } = {};
     if (q.category) filter.category = q.category;
-    if (q.scope) filter.scope = q.scope;
+    if (q.scope) filter.scope = q.scope as TemplateScope;
     if (q.search) filter.search = q.search;
     if (q.isRecommended === "true") filter.isRecommended = true;
     else if (q.isRecommended === "false") filter.isRecommended = false;
@@ -118,7 +118,7 @@ export async function templateRoutes(fastify: FastifyInstance) {
     preHandler: requireRole("ADMIN", "MANAGER"),
   }, async (req, reply) => {
     const dto = createTemplateSchema.parse(req.body);
-    const template = await service.createTemplate(dto as any, req.userId);
+    const template = await service.createTemplate(dto as CreateTemplateDto, req.userId);
     return reply.status(201).send(template);
   });
 
@@ -128,7 +128,7 @@ export async function templateRoutes(fastify: FastifyInstance) {
   }, async (req, reply) => {
     const { templateId } = req.params as { templateId: string };
     const dto = updateTemplateSchema.parse(req.body);
-    return reply.send(await service.updateTemplate(templateId, dto as any));
+    return reply.send(await service.updateTemplate(templateId, dto));
   });
 
   // DELETE /api/v1/templates/:templateId
@@ -155,7 +155,7 @@ export async function templateRoutes(fastify: FastifyInstance) {
   }, async (req, reply) => {
     const { templateId } = req.params as { templateId: string };
     const dto = instantiateSchema.parse(req.body);
-    const project = await service.instantiate(templateId, dto as any, req.userId);
+    const project = await service.instantiate(templateId, dto, req.userId);
     return reply.status(201).send(project);
   });
 
@@ -167,7 +167,7 @@ export async function templateRoutes(fastify: FastifyInstance) {
   }, async (req, reply) => {
     const { projectId } = req.params as { projectId: string };
     const dto = saveAsTemplateSchema.parse(req.body);
-    const template = await service.saveAsTemplate(projectId, dto as any, req.userId);
+    const template = await service.saveAsTemplate(projectId, dto, req.userId);
     return reply.status(201).send(template);
   });
 
@@ -179,7 +179,7 @@ export async function templateRoutes(fastify: FastifyInstance) {
   }, async (req, reply) => {
     const { taskId } = req.params as { projectId: string; taskId: string };
     const dto = copyTaskSchema.parse(req.body);
-    const task = await service.copyTask(taskId, dto.targetProjectId, dto as any, req.userId);
+    const task = await service.copyTask(taskId, dto.targetProjectId, dto, req.userId);
     return reply.status(201).send(task);
   });
 
@@ -208,7 +208,7 @@ export async function templateRoutes(fastify: FastifyInstance) {
   }, async (req, reply) => {
     const { milestoneId } = req.params as { projectId: string; milestoneId: string };
     const dto = copyMilestoneSchema.parse(req.body);
-    const ms = await service.copyMilestone(milestoneId, dto.targetProjectId, dto as any, req.userId);
+    const ms = await service.copyMilestone(milestoneId, dto.targetProjectId, dto, req.userId);
     return reply.status(201).send(ms);
   });
 }

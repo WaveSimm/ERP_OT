@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { CollabService } from "../../application/collab.service.js";
 import { requireRole } from "../middleware/auth.middleware.js";
 
@@ -33,7 +34,7 @@ export async function collabRoutes(fastify: FastifyInstance) {
   fastify.post("/tasks/:taskId/comments", async (req, reply) => {
     const { taskId } = req.params as { taskId: string };
     const dto = createCommentSchema.parse(req.body);
-    const comment = await service.createComment(taskId, dto as any, req.userId);
+    const comment = await service.createComment(taskId, dto, req.userId);
     return reply.status(201).send(comment);
   });
 
@@ -41,7 +42,7 @@ export async function collabRoutes(fastify: FastifyInstance) {
   fastify.patch("/tasks/:taskId/comments/:commentId", async (req, reply) => {
     const { commentId } = req.params as { taskId: string; commentId: string };
     const dto = updateCommentSchema.parse(req.body);
-    return reply.send(await service.updateComment(commentId, dto as any, req.userId));
+    return reply.send(await service.updateComment(commentId, dto, req.userId));
   });
 
   // DELETE /api/v1/tasks/:taskId/comments/:commentId
@@ -119,7 +120,7 @@ export async function collabRoutes(fastify: FastifyInstance) {
     const page = q.page ? parseInt(q.page, 10) : 1;
     const pageSize = q.pageSize ? Math.min(parseInt(q.pageSize, 10), 100) : 30;
 
-    const where: any = {};
+    const where: Prisma.ActivityLogWhereInput = {};
     if (q.action) where.action = q.action;
     if (q.userId) where.userId = q.userId;
     if (q.search) where.description = { contains: q.search, mode: "insensitive" };

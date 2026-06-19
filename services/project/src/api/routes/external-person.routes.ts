@@ -50,7 +50,7 @@ export async function externalPersonRoutes(app: FastifyInstance) {
   app.get("/", async (req, reply) => {
     const q = req.query as { status?: string; company?: string; search?: string };
     const filter: Parameters<typeof svc.list>[0] = {};
-    if (q.status) filter.status = q.status as any;
+    if (q.status) filter.status = q.status as NonNullable<typeof filter.status>;
     if (q.company) filter.company = q.company;
     if (q.search) filter.search = q.search;
     const items = await svc.list(filter);

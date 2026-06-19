@@ -33,7 +33,7 @@ export async function equipmentResourceRoutes(app: FastifyInstance) {
   app.get("/", async (req, reply) => {
     const q = req.query as { type?: string; isActive?: string; search?: string };
     const filter: Parameters<typeof svc.list>[0] = {};
-    if (q.type) filter.type = q.type as any;
+    if (q.type) filter.type = q.type as NonNullable<typeof filter.type>;
     if (q.isActive !== undefined) filter.isActive = q.isActive === "true";
     if (q.search) filter.search = q.search;
     const items = await svc.list(filter);

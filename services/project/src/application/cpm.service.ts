@@ -74,8 +74,8 @@ export class CpmService {
     let result: CpmResult;
     try {
       result = runCpm(cpmInputs, edges);
-    } catch (e: any) {
-      if (e.message?.includes("Circular dependency")) {
+    } catch (e) {
+      if (e instanceof Error && e.message.includes("Circular dependency")) {
         throw new AppError(422, "CIRCULAR_DEPENDENCY", "태스크 의존 관계에 순환이 있습니다.");
       }
       throw e;
@@ -145,8 +145,8 @@ export class CpmService {
     try {
       // 위상 정렬으로 순환 감지
       runCpm(tasks.map((t) => ({ taskId: t.id, duration: 1 })), tempEdges);
-    } catch (e: any) {
-      if (e.message?.includes("Circular dependency")) {
+    } catch (e) {
+      if (e instanceof Error && e.message.includes("Circular dependency")) {
         throw new AppError(422, "CIRCULAR_DEPENDENCY", "이 의존 관계를 추가하면 순환이 발생합니다.");
       }
       throw e;

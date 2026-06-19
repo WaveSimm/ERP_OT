@@ -1,5 +1,25 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { AllocationMode, ProjectStatus } from "@prisma/client";
+
+interface MyDayCard {
+  segmentId: string;
+  segmentName: string;
+  taskId: string;
+  taskName: string;
+  projectId: string;
+  projectName: string;
+  startDate: string;
+  endDate: string;
+  daysUntilEnd: number;
+  progressPercent: number;
+  myAllocationPercent: number;
+  myAllocationMode: AllocationMode;
+  isCriticalPath: boolean;
+  projectRagStatus: string;
+  lastUpdatedAt: string;
+  staleDays: number;
+}
 
 export async function meRoutes(fastify: FastifyInstance) {
   // ─── GET /api/v1/me/kanban ────────────────────────────────────────────────
@@ -27,7 +47,7 @@ export async function meRoutes(fastify: FastifyInstance) {
       },
     });
 
-    const columns: Record<string, any[]> = { UPCOMING: [], IN_PROGRESS: [], DUE_SOON: [], DONE: [] };
+    const columns: Record<string, MyDayCard[]> = { UPCOMING: [], IN_PROGRESS: [], DUE_SOON: [], DONE: [] };
     let staleCount = 0;
 
     for (const a of assignments) {
@@ -40,7 +60,7 @@ export async function meRoutes(fastify: FastifyInstance) {
       const daysUntilEnd = Math.floor((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       const staleDays = Math.floor((today.getTime() - new Date(seg.updatedAt).getTime()) / (1000 * 60 * 60 * 24));
 
-      const card: any = {
+      const card: MyDayCard = {
         segmentId: seg.id,
         segmentName: seg.name,
         taskId: task.id,
@@ -218,13 +238,13 @@ export async function meRoutes(fastify: FastifyInstance) {
     });
 
     // 본인 배정된 프로젝트 ID 수집 + 본인 segment count
-    const projectMap = new Map<string, any>();
-    for (const a of assignments as any[]) {
+    const projectMap = new Map<string, { id: string; name: string; status: ProjectStatus; segmentCount: number }>();
+    for (const a of assignments) {
       const proj = a.segment.task.project;
       if (!projectMap.has(proj.id)) {
         projectMap.set(proj.id, { id: proj.id, name: proj.name, status: proj.status, segmentCount: 0 });
       }
-      projectMap.get(proj.id).segmentCount++;
+      projectMap.get(proj.id)!.segmentCount++;
     }
 
     // 캐시 필드 직접 read — 프로젝트-진도율-캐시 PDCA로 도입된 Project.overallProgress
@@ -300,7 +320,7 @@ export async function meRoutes(fastify: FastifyInstance) {
   // ─── GET /api/v1/me/work-logs ─────────────────────────────────────────────
   fastify.get("/work-logs", async (req, reply) => {
     const q = req.query as { from?: string; to?: string; projectId?: string; limit?: string };
-    const params: any = {};
+    const params: { from?: string; to?: string; projectId?: string; limit?: number } = {};
     if (q.from) params.from = q.from;
     if (q.to) params.to = q.to;
     if (q.projectId) params.projectId = q.projectId;
