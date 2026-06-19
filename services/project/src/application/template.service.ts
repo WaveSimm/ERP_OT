@@ -1,4 +1,4 @@
-import { PrismaClient, ProjectTemplate, TemplateScope, AllocationMode } from "@prisma/client";
+import { PrismaClient, ProjectTemplate, TemplateScope, AllocationMode, DependencyType } from "@prisma/client";
 import { AppError } from "@erp-ot/shared";
 
 // ─── DTOs ────────────────────────────────────────────────────────────────────
@@ -190,7 +190,7 @@ export class TemplateService {
               data: {
                 predecessorTemplateTaskId: predId,
                 successorTemplateTaskId: succId,
-                type: (dep.type as any) ?? "FS",
+                type: (dep.type as DependencyType) ?? "FS",
                 lagDays: dep.lagDays ?? 0,
               },
             });

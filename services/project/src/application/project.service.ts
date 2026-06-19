@@ -1,4 +1,4 @@
-import { PrismaClient, Project, ProjectStatus } from "@prisma/client";
+import { PrismaClient, Project, ProjectStatus, Prisma } from "@prisma/client";
 import { AppError } from "@erp-ot/shared";
 import { resolveResourceNames } from "./shared/resource-name-resolver.js";
 import { ProjectListFilter } from "../domain/repositories/project.repository.js";
@@ -122,7 +122,7 @@ export class ProjectService {
         overallProgress    = segments.reduce((sum, s) => sum + s.progressPercent, 0) / segments.length;
       }
 
-      const { tasks: _tasks, ...rest } = p as any;
+      const { tasks: _tasks, ...rest } = p;
       const status = computeStatus(rest.status, overallProgress);
       return { ...rest, status, effectiveStartDate, effectiveEndDate, overallProgress, ownerName: ownerMap.get(p.ownerId) ?? null };
     });
@@ -525,7 +525,7 @@ export class ProjectService {
         name: project.name,
         status: computeStatus(project.status, overallProgress),
         ownerId: project.ownerId,
-        description: (project as any).description ?? null,
+        description: project.description ?? null,
         effectiveStartDate: allDates.length > 0 ? allDates.reduce((a, b) => (a < b ? a : b)) : "",
         effectiveEndDate: allDates.length > 0 ? allDates.reduce((a, b) => (a > b ? a : b)) : "",
         overallProgress,
@@ -552,7 +552,7 @@ export class ProjectService {
     metadata?: Record<string, unknown>,
   ): Promise<void> {
     await this.prisma.activityLog.create({
-      data: { projectId, userId, action, entityType, entityId, description, metadata: (metadata ?? undefined) as any },
+      data: { projectId, userId, action, entityType, entityId, description, ...(metadata !== undefined ? { metadata: metadata as Prisma.InputJsonValue } : {}) },
     });
   }
 }

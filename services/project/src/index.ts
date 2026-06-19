@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import { ZodError } from "zod";
 import fastifyCors from "@fastify/cors";
 import fastifyHelmet from "@fastify/helmet";
 import fastifyRateLimit from "@fastify/rate-limit";
@@ -188,19 +189,19 @@ async function buildApp() {
 
   // 에러 핸들러
   app.setErrorHandler((error, request, reply) => {
-    const isAppError = "code" in error && "statusCode" in error;
+    const isAppError = "code" in error && "statusCode" in error && typeof error.statusCode === "number";
     if (isAppError) {
-      return reply.status((error as any).statusCode).send({
-        code: (error as any).code,
+      return reply.status(error.statusCode!).send({
+        code: error.code,
         message: error.message,
       });
     }
 
-    if (error.name === "ZodError") {
+    if (error instanceof ZodError) {
       return reply.status(400).send({
         code: "VALIDATION_ERROR",
         message: "요청 데이터가 올바르지 않습니다.",
-        details: (error as any).errors,
+        details: error.errors,
       });
     }
 

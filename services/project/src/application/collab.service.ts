@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import fs from "node:fs";
 import path from "node:path";
 import { Transform } from "node:stream";
@@ -87,15 +87,12 @@ export class CollabService {
   async createComment(taskId: string, dto: CreateCommentDto, authorId: string) {
     const task = await this.requireTask(taskId);
 
+    const data: Prisma.CommentUncheckedCreateInput = { taskId, content: dto.content, authorId };
+    if (dto.mentionedUserIds && dto.mentionedUserIds.length > 0) {
+      data.mentions = { create: dto.mentionedUserIds.map((userId) => ({ userId })) };
+    }
     const comment = await this.prisma.comment.create({
-      data: {
-        taskId,
-        content: dto.content,
-        authorId,
-        ...(dto.mentionedUserIds && dto.mentionedUserIds.length > 0
-          ? { mentions: { create: dto.mentionedUserIds.map((userId) => ({ userId })) } }
-          : {}),
-      } as any,
+      data,
       include: { mentions: true },
     });
 
@@ -126,7 +123,7 @@ export class CollabService {
       comment: comment as unknown as Record<string, unknown>,
     });
 
-    const mentions = (comment as any).mentions as Array<{ userId: string }> | undefined;
+    const mentions = comment.mentions;
     for (const mention of mentions ?? []) {
       this.gateway.emitToUser(mention.userId, "mention:created", {
         commentId: comment.id,
@@ -422,8 +419,8 @@ export class CollabService {
         entityType,
         entityId,
         description,
-        ...(metadata !== undefined ? { metadata } : {}),
-      } as any,
+        ...(metadata !== undefined ? { metadata: metadata as Prisma.InputJsonValue } : {}),
+      },
     });
     this.gateway.emitToProject(projectId, "activity:created", {
       log: log as unknown as Record<string, unknown>,

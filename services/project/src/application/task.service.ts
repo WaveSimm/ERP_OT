@@ -1,4 +1,4 @@
-import { PrismaClient, Task, TaskStatus, TaskSegment, SegmentAssignment, AllocationMode } from "@prisma/client";
+import { PrismaClient, Task, TaskStatus, ProjectStatus, TaskSegment, SegmentAssignment, AllocationMode, Prisma } from "@prisma/client";
 import { AppError } from "@erp-ot/shared";
 import { TaskEntity } from "../domain/entities/task.entity.js";
 import { ProjectCacheService } from "../infrastructure/cache/project.cache.js";
@@ -248,7 +248,7 @@ export class TaskService {
       task.overallProgress,
       task.isCritical,
       task.createdBy,
-      task.segments as any,
+      task.segments,
     );
 
     if (entity.hasSegmentOverlap(newStart, newEnd)) {
@@ -352,7 +352,7 @@ export class TaskService {
         segment.task.overallProgress,
         segment.task.isCritical,
         segment.task.createdBy,
-        segment.task.segments as any,
+        segment.task.segments,
       );
       if (entity.hasSegmentOverlap(newStart, newEnd, segmentId)) {
         throw new AppError(409, "SEGMENT_DATE_OVERLAP", "같은 태스크 내 세그먼트 날짜가 중복됩니다.");
@@ -555,7 +555,7 @@ export class TaskService {
     metadata?: Record<string, unknown>,
   ): Promise<void> {
     await this.prisma.activityLog.create({
-      data: { projectId, userId, action, entityType, entityId, description, ...(metadata ? { metadata } : {}) } as any,
+      data: { projectId, userId, action, entityType, entityId, description, ...(metadata ? { metadata: metadata as Prisma.InputJsonValue } : {}) },
     });
     this.gateway.emitToProject(projectId, "activity:created", { projectId });
   }
@@ -586,7 +586,7 @@ export class TaskService {
       task.overallProgress,
       task.isCritical,
       task.createdBy,
-      task.segments as any,
+      task.segments,
     );
 
     const newProgress = entity.calculateAutoProgress();
@@ -604,7 +604,7 @@ export class TaskService {
       where: { id: taskId },
       data: {
         overallProgress: newProgress,
-        ...(newStatus !== undefined && { status: newStatus as any }),
+        ...(newStatus !== undefined && { status: newStatus as TaskStatus }),
       },
     });
 
@@ -643,7 +643,7 @@ export class TaskService {
     if (newStatus !== project.status) {
       await this.prisma.project.update({
         where: { id: projectId },
-        data: { status: newStatus as any },
+        data: { status: newStatus as ProjectStatus },
       });
     }
   }
