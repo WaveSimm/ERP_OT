@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, ApprovalStatus } from "@prisma/client";
 import type { AuthClient } from "../infrastructure/auth-client.js";
 
 export class HolidayWorkError extends Error {
@@ -76,7 +76,7 @@ export class HolidayWorkService {
         userId: input.userId,
         date: new Date(input.date),
         taskId: input.taskId ?? null,
-        status: { in: ["PENDING", "PENDING_2ND", "PENDING_3RD", "APPROVED"] as any[] },
+        status: { in: ["PENDING", "PENDING_2ND", "PENDING_3RD", "APPROVED"] as ApprovalStatus[] },
       },
     });
     if (dup) {
@@ -127,14 +127,14 @@ export class HolidayWorkService {
 
   async getRequests(userId: string, status?: string) {
     return this.prisma.holidayWorkRequest.findMany({
-      where: { userId, ...(status ? { status: status as any } : {}) },
+      where: { userId, ...(status ? { status: status as ApprovalStatus } : {}) },
       orderBy: { createdAt: "desc" },
     });
   }
 
   async cancel(id: string, userId: string) {
     const req = await this.prisma.holidayWorkRequest.findFirst({
-      where: { id, userId, status: { in: ["PENDING", "PENDING_2ND", "PENDING_3RD", "APPROVED"] as any[] } },
+      where: { id, userId, status: { in: ["PENDING", "PENDING_2ND", "PENDING_3RD", "APPROVED"] as ApprovalStatus[] } },
     });
     if (!req) throw new HolidayWorkError("CANNOT_CANCEL", "취소할 수 없는 신청입니다.", 400);
 
@@ -154,8 +154,8 @@ export class HolidayWorkService {
       where: {
         OR: [
           { approverId, status: "PENDING" },
-          { secondApproverId: approverId, status: "PENDING_2ND" as any },
-          { thirdApproverId: approverId, status: "PENDING_3RD" as any },
+          { secondApproverId: approverId, status: "PENDING_2ND" as ApprovalStatus },
+          { thirdApproverId: approverId, status: "PENDING_3RD" as ApprovalStatus },
         ],
       },
       orderBy: { createdAt: "asc" },
@@ -164,11 +164,11 @@ export class HolidayWorkService {
 
   async approve(id: string, _approverId: string) {
     const req = await this.prisma.holidayWorkRequest.findFirst({
-      where: { id, status: { in: ["PENDING", "PENDING_2ND", "PENDING_3RD"] as any[] } },
+      where: { id, status: { in: ["PENDING", "PENDING_2ND", "PENDING_3RD"] as ApprovalStatus[] } },
     });
     if (!req) throw new HolidayWorkError("CANNOT_APPROVE", "승인할 수 없는 신청입니다.", 400);
 
-    let nextStatus: string;
+    let nextStatus: ApprovalStatus;
     if (req.status === "PENDING") {
       nextStatus = req.secondApproverId ? "PENDING_2ND" : (req.thirdApproverId ? "PENDING_3RD" : "APPROVED");
     } else if (req.status === "PENDING_2ND") {
@@ -181,7 +181,7 @@ export class HolidayWorkService {
       return this.prisma.$transaction(async (tx) => {
         const updated = await tx.holidayWorkRequest.update({
           where: { id },
-          data: { status: "APPROVED" as any, approvedAt: new Date() },
+          data: { status: "APPROVED" as ApprovalStatus, approvedAt: new Date() },
         });
         // 근태현황 캘린더 자동 반영 (entryType=OT 의미 재해석으로 호환 유지)
         await tx.workScheduleEntry.upsert({
@@ -195,13 +195,13 @@ export class HolidayWorkService {
 
     return this.prisma.holidayWorkRequest.update({
       where: { id },
-      data: { status: nextStatus as any },
+      data: { status: nextStatus },
     });
   }
 
   async reject(id: string, approverId: string, rejectReason: string) {
     const req = await this.prisma.holidayWorkRequest.findFirst({
-      where: { id, status: { in: ["PENDING", "PENDING_2ND", "PENDING_3RD"] as any[] } },
+      where: { id, status: { in: ["PENDING", "PENDING_2ND", "PENDING_3RD"] as ApprovalStatus[] } },
     });
     if (!req) throw new HolidayWorkError("CANNOT_REJECT", "반려할 수 없는 신청입니다.", 400);
     return this.prisma.holidayWorkRequest.update({

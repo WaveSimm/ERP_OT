@@ -1,4 +1,4 @@
-import { PrismaClient, EntryType, EntrySource } from "@prisma/client";
+import { PrismaClient, Prisma, EntryType, EntrySource } from "@prisma/client";
 import { AuthClient } from "../infrastructure/auth-client.js";
 
 interface UserWithDept {
@@ -149,7 +149,7 @@ export class WorkScheduleService {
     const entries = await this.prisma.workScheduleEntry.findMany({ where: { groupId, userId, sourceType: "MANUAL" } });
     if (entries.length === 0) throw new Error("그룹을 찾을 수 없습니다.");
 
-    const updateData: any = {};
+    const updateData: Prisma.WorkScheduleEntryUncheckedUpdateInput = {};
     if (data.entryType != null) updateData.entryType = data.entryType as EntryType;
     if (data.startTime !== undefined) updateData.startTime = data.startTime;
     if (data.endTime !== undefined) updateData.endTime = data.endTime;
@@ -186,7 +186,7 @@ export class WorkScheduleService {
   async syncLeaveApproval(leaveRequest: {
     id: string; userId: string; type: string;
     startDate: Date; endDate: Date;
-  }, tx?: any) {
+  }, tx?: Prisma.TransactionClient) {
     const db = tx ?? this.prisma;
     const entryType = this.mapLeaveTypeToEntryType(leaveRequest.type);
     const dates = this.getDateRange(leaveRequest.startDate, leaveRequest.endDate);
@@ -214,7 +214,7 @@ export class WorkScheduleService {
   }
 
   // 취소 시 호출
-  async removeSyncedEntries(sourceId: string, tx?: any) {
+  async removeSyncedEntries(sourceId: string, tx?: Prisma.TransactionClient) {
     const db = tx ?? this.prisma;
     await db.workScheduleEntry.deleteMany({ where: { sourceId } });
   }

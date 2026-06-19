@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma, LeaveType, ApprovalStatus } from "@prisma/client";
 
 export class LeaveError extends Error {
   constructor(public readonly code: string, message: string, public readonly statusCode = 400) {
@@ -143,7 +143,7 @@ export class LeaveService {
   ) {
     // 행이 없으면 default 생성 후 update
     await this.getBalance(userId, year);
-    const data: any = {};
+    const data: Prisma.LeaveBalanceUncheckedUpdateInput = {};
     if (input.totalDays !== undefined) data.totalDays = input.totalDays;
     if (input.longServiceDays !== undefined) data.longServiceDays = input.longServiceDays;
     if (input.adjustedDays !== undefined) data.adjustedDays = input.adjustedDays;
@@ -173,7 +173,7 @@ export class LeaveService {
       this.prisma.leaveRequest.create({
         data: {
           userId,
-          type: data.type as any,
+          type: data.type as LeaveType,
           startDate: start,
           endDate: end,
           days,
@@ -193,7 +193,7 @@ export class LeaveService {
 
   async getRequests(userId: string, status?: string) {
     const rows = await this.prisma.leaveRequest.findMany({
-      where: { userId, ...(status ? { status: status as any } : {}) },
+      where: { userId, ...(status ? { status: status as ApprovalStatus } : {}) },
       orderBy: { createdAt: "desc" },
     });
     return this.attachNames(rows);
@@ -201,7 +201,7 @@ export class LeaveService {
 
   async cancelRequest(id: string, userId: string) {
     const req = await this.prisma.leaveRequest.findFirst({
-      where: { id, userId, status: { in: ["PENDING", "PENDING_2ND", "PENDING_3RD"] as any[] } },
+      where: { id, userId, status: { in: ["PENDING", "PENDING_2ND", "PENDING_3RD"] as ApprovalStatus[] } },
     });
     if (!req) throw new Error("취소할 수 없는 신청입니다.");
     const year = req.startDate.getFullYear();
@@ -224,8 +224,8 @@ export class LeaveService {
       where: {
         OR: [
           { approverId, status: "PENDING" },
-          { secondApproverId: approverId, status: "PENDING_2ND" as any },
-          { thirdApproverId: approverId, status: "PENDING_3RD" as any },
+          { secondApproverId: approverId, status: "PENDING_2ND" as ApprovalStatus },
+          { thirdApproverId: approverId, status: "PENDING_3RD" as ApprovalStatus },
         ],
       },
       orderBy: { createdAt: "asc" },
@@ -235,12 +235,12 @@ export class LeaveService {
 
   async approve(id: string, approverId: string) {
     const req = await this.prisma.leaveRequest.findFirst({
-      where: { id, status: { in: ["PENDING", "PENDING_2ND", "PENDING_3RD"] as any[] } },
+      where: { id, status: { in: ["PENDING", "PENDING_2ND", "PENDING_3RD"] as ApprovalStatus[] } },
     });
     if (!req) throw new Error("승인할 수 없는 신청입니다.");
 
     // 현재 단계에 따라 다음 단계로 전진
-    let nextStatus: string;
+    let nextStatus: ApprovalStatus;
     if (req.status === "PENDING") {
       nextStatus = req.secondApproverId ? "PENDING_2ND" : (req.thirdApproverId ? "PENDING_3RD" : "APPROVED");
     } else if (req.status === "PENDING_2ND") {
@@ -256,7 +256,7 @@ export class LeaveService {
       return this.prisma.$transaction(async (tx) => {
         const updated = await tx.leaveRequest.update({
           where: { id },
-          data: { status: "APPROVED" as any, approvedAt: new Date() },
+          data: { status: "APPROVED" as ApprovalStatus, approvedAt: new Date() },
         });
         await tx.leaveBalance.update({
           where: { userId_year: { userId: req.userId, year } },
@@ -278,13 +278,13 @@ export class LeaveService {
 
     return this.prisma.leaveRequest.update({
       where: { id },
-      data: { status: nextStatus as any },
+      data: { status: nextStatus },
     });
   }
 
   async reject(id: string, approverId: string, rejectReason: string) {
     const req = await this.prisma.leaveRequest.findFirst({
-      where: { id, status: { in: ["PENDING", "PENDING_2ND", "PENDING_3RD"] as any[] } },
+      where: { id, status: { in: ["PENDING", "PENDING_2ND", "PENDING_3RD"] as ApprovalStatus[] } },
     });
     if (!req) throw new Error("반려할 수 없는 신청입니다.");
     const year = req.startDate.getFullYear();
@@ -415,7 +415,7 @@ export class LeaveService {
       const created = await tx.leaveRequest.create({
         data: {
           userId: input.userId,
-          type: type as any,
+          type: type as LeaveType,
           startDate: start,
           endDate: end,
           days,
