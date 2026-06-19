@@ -1,5 +1,5 @@
 import { PrismaClient, RepairOrderStatus } from "@prisma/client";
-import { canTransition, getAllowedTransitions, getStatusesInGroup } from "../domain/state-machine/repair-order.fsm.js";
+import { canTransition, getAllowedTransitions, getStatusesInGroup } from "../../domain/state-machine/repair-order.fsm.js";
 
 export class RepairOrderService {
   constructor(private prisma: PrismaClient) {}
