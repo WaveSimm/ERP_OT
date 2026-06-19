@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { EquipmentReservationService } from "../../application/equipment-reservation.service.js";
+import { EquipmentReservationService, ReservationContext } from "../../application/equipment-reservation.service.js";
 import { AppError } from "@erp-ot/shared";
 import {
   createReservationSchema,
@@ -48,7 +48,7 @@ export async function equipmentReservationRoutes(app: FastifyInstance) {
   app.post("/", async (req, reply) => {
     requireOperatorOrAbove(req.userRole);
     const body = createReservationSchema.parse(req.body);
-    const created = await svc.create(body, { userId: req.userId, role: req.userRole as any });
+    const created = await svc.create(body, { userId: req.userId, role: req.userRole as ReservationContext["role"] });
     return reply.status(201).send(created);
   });
 
@@ -61,7 +61,7 @@ export async function equipmentReservationRoutes(app: FastifyInstance) {
     const updated = await svc.update(
       id,
       body,
-      { userId: req.userId, role: req.userRole as any },
+      { userId: req.userId, role: req.userRole as ReservationContext["role"] },
       scope ?? "series",
     );
     return reply.send(updated);
@@ -76,7 +76,7 @@ export async function equipmentReservationRoutes(app: FastifyInstance) {
     const body = req.body ? cancelReservationBodySchema.parse(req.body) : { cancelReason: undefined };
     const result = await svc.cancel(
       id,
-      { userId: req.userId, role: req.userRole as any },
+      { userId: req.userId, role: req.userRole as ReservationContext["role"] },
       scope ?? "series",
       body.cancelReason,
       q.instanceStartAt,

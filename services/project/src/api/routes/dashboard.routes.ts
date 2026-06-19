@@ -1,9 +1,12 @@
 import { FastifyInstance } from "fastify";
+import type Redis from "ioredis";
+import { Prisma } from "@prisma/client";
 import { DashboardService } from "../../application/dashboard/dashboard.service.js";
 import { requireManager } from "../middleware/auth.middleware.js";
 
 export async function dashboardRoutes(fastify: FastifyInstance) {
-  const service = new DashboardService(fastify.prisma, (fastify as any).redis);
+  const redis = (fastify as FastifyInstance & { redis: Redis }).redis;
+  const service = new DashboardService(fastify.prisma, redis);
 
   // ─── GET /api/v1/dashboard ─────────────────────────────────────────────────
   fastify.get("/", async (req, reply) => {
@@ -77,18 +80,18 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
 
   // ─── GET /api/v1/dashboard/thresholds ─────────────────────────────────────
   fastify.get("/thresholds", async (req, reply) => {
-    const thresholds = await (service as any).issueDetector.getThresholds();
+    const thresholds = await service.getThresholds();
     return reply.send(thresholds);
   });
 
   // ─── PUT /api/v1/dashboard/thresholds (Admin/Manager only) ────────────────
   fastify.put("/thresholds", { preHandler: requireManager() }, async (req, reply) => {
-    const data = req.body as Record<string, any>;
+    const data = req.body as Record<string, unknown>;
     const existing = await fastify.prisma.issueThresholdConfig.findFirst();
     const updated = existing
-      ? await fastify.prisma.issueThresholdConfig.update({ where: { id: existing.id }, data: { updatedBy: req.userId, ...data } })
-      : await fastify.prisma.issueThresholdConfig.create({ data: { updatedBy: req.userId, ...data } });
-    await (fastify as any).redis.del("dashboard:config:thresholds");
+      ? await fastify.prisma.issueThresholdConfig.update({ where: { id: existing.id }, data: { ...(data as Prisma.IssueThresholdConfigUncheckedUpdateInput), updatedBy: req.userId } })
+      : await fastify.prisma.issueThresholdConfig.create({ data: { ...(data as Prisma.IssueThresholdConfigUncheckedCreateInput), updatedBy: req.userId } });
+    await redis.del("dashboard:config:thresholds");
     return reply.send(updated);
   });
 

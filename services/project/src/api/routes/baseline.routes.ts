@@ -49,9 +49,9 @@ export async function baselineRoutes(fastify: FastifyInstance) {
   });
 
   // GET /api/v1/projects/:projectId/tasks/:taskId/history
-  fastify.get("/:projectId/tasks/:taskId/history", async (req, reply) => {
-    const { taskId } = req.params as { projectId: string; taskId: string };
-    const query = req.query as any;
+  fastify.get<{ Params: { projectId: string; taskId: string }; Querystring: { limit?: string } }>("/:projectId/tasks/:taskId/history", async (req, reply) => {
+    const { taskId } = req.params;
+    const query = req.query;
     const limit = query.limit ? parseInt(query.limit, 10) : 50;
     return reply.send(await service.getTaskHistory(taskId, limit));
   });

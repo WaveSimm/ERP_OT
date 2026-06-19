@@ -17,7 +17,7 @@ export interface DashboardIssue {
   metadata: Record<string, unknown>;
 }
 
-interface ThresholdConfig {
+export interface ThresholdConfig {
   delayCriticalDays: number;
   delayWarningDays: number;
   resourceOverloadWarning: number;

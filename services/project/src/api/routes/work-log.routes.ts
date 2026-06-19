@@ -1,4 +1,5 @@
-import { FastifyInstance } from "fastify";
+import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { ZodError } from "zod";
 import { WorkLogError } from "../../application/work-log.service.js";
 import {
   createWorkLogSchema,
@@ -6,11 +7,11 @@ import {
   listByTaskQuerySchema,
 } from "../dtos/work-log.dto.js";
 
-function handleError(reply: any, err: any) {
+function handleError(reply: FastifyReply, err: unknown) {
   if (err instanceof WorkLogError) {
     return reply.code(err.statusCode).send({ error: { code: err.code, message: err.message } });
   }
-  if (err?.name === "ZodError") {
+  if (err instanceof ZodError) {
     return reply.code(400).send({
       error: { code: "INVALID_INPUT", message: err.issues?.[0]?.message ?? "입력 오류" },
     });
@@ -18,7 +19,7 @@ function handleError(reply: any, err: any) {
   throw err;
 }
 
-function buildUser(req: any) {
+function buildUser(req: FastifyRequest) {
   return {
     id: req.userId,
     email: req.userEmail,

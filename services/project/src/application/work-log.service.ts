@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from "@prisma/client";
+import { PrismaClient, Prisma, WorkLog } from "@prisma/client";
 import type { FastifyBaseLogger } from "fastify";
 import {
   AuthUser,
@@ -19,6 +19,32 @@ export class WorkLogError extends Error {
     this.name = "WorkLogError";
   }
 }
+
+// 자연어 검색 raw SQL row (semanticSearch) — DB 컬럼 별칭과 1:1
+interface WorkLogSearchRawRow {
+  id: string;
+  taskId: string;
+  segmentId: string | null;
+  authorId: string;
+  authorName: string | null;
+  content: string;
+  workedAt: string;
+  taskName: string;
+  projectId: string;
+  projectName: string;
+  segmentName: string | null;
+  embed_score: number;
+  exact_bonus: number;
+  trgm_score: number;
+  score: number | string; // numeric → 드라이버에 따라 string 가능
+}
+
+export interface WorkLogSearchResult extends Omit<WorkLogSearchRawRow, "score"> {
+  score: number;
+}
+
+// toDto 입력: WorkLog 스칼라 + (선택) segment 관계
+type WorkLogWithOptionalSegment = WorkLog & { segment?: { name: string | null } | null };
 
 export class WorkLogService {
   private embeddingService?: EmbeddingService;
@@ -256,7 +282,7 @@ export class WorkLogService {
     q: string,
     user: { id: string; email: string; role: string },
     limit: number,
-  ): Promise<any[]> {
+  ): Promise<WorkLogSearchResult[]> {
     if (!queryVec || queryVec.length === 0) return [];
 
     // 권한 범위 결정: ADMIN/MANAGER는 전체, 일반은 본인 참여 프로젝트만
@@ -288,9 +314,9 @@ export class WorkLogService {
     const k3 = limit * 3;
     // 하이브리드 점수: embed_score * W_e + max(exact_bonus, trgm_score) * W_k
     // WorkLog는 title 없음 → content만 사용
-    let rows: any[];
+    let rows: WorkLogSearchRawRow[];
     if (projectIds === null) {
-      rows = await this.prisma.$queryRaw<any[]>`
+      rows = await this.prisma.$queryRaw<WorkLogSearchRawRow[]>`
         WITH scored AS (
           SELECT w.id, w.task_id AS "taskId", w.segment_id AS "segmentId",
                  w.author_id AS "authorId", w.author_name AS "authorName",
@@ -324,7 +350,7 @@ export class WorkLogService {
         LIMIT ${limit}
       `;
     } else {
-      rows = await this.prisma.$queryRaw<any[]>`
+      rows = await this.prisma.$queryRaw<WorkLogSearchRawRow[]>`
         WITH scored AS (
           SELECT w.id, w.task_id AS "taskId", w.segment_id AS "segmentId",
                  w.author_id AS "authorId", w.author_name AS "authorName",
@@ -536,7 +562,7 @@ export class WorkLogService {
     }));
   }
 
-  private toDto(w: any) {
+  private toDto(w: WorkLogWithOptionalSegment) {
     return {
       id: w.id,
       taskId: w.taskId,

@@ -68,6 +68,11 @@ export class DashboardService {
     this.timelineService = new TimelineService(prisma);
   }
 
+  /** 이슈 임계치 설정 조회 (라우트에서 직접 접근 대신 위임) */
+  getThresholds() {
+    return this.issueDetector.getThresholds();
+  }
+
   private async cacheGetOrSet<T>(key: string, ttl: number, fn: () => Promise<T>): Promise<T> {
     const cached = await this.redis.get(key);
     if (cached) return JSON.parse(cached) as T;
