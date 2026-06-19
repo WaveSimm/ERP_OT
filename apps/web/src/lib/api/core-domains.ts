@@ -1,22 +1,26 @@
 "use client";
 
 import { request } from "./client";
+import type {
+  Project, ProjectListItem, Paginated,
+  Folder, Dependency, Task, TaskSegment, SegmentAssignment, TaskComment,
+} from "./types";
 
 
 // ─── Projects ────────────────────────────────────────────────────────────────
 
 export const projectApi = {
   list: (params?: { search?: string; status?: string }) => {
-    const q = new URLSearchParams(params as any).toString();
-    return request<{ items: any[]; total: number; page: number; limit: number }>(
+    const q = new URLSearchParams(params as Record<string, string>).toString();
+    return request<Paginated<ProjectListItem>>(
       `/projects${q ? `?${q}` : ""}`,
     );
   },
-  get: (id: string) => request<any>(`/projects/${id}`),
+  get: (id: string) => request<Project>(`/projects/${id}`),
   create: (data: { name: string; description?: string }) =>
-    request<any>("/projects", { method: "POST", body: JSON.stringify(data) }),
-  update: (id: string, data: any) =>
-    request<any>(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<Project>("/projects", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: string, data: Record<string, unknown>) =>
+    request<Project>(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   delete: (id: string) => request<void>(`/projects/${id}`, { method: "DELETE" }),
   gantt: (id: string) => request<any>(`/projects/${id}/gantt`),
   runCpm: (id: string) => request<any>(`/projects/${id}/cpm`, { method: "POST", body: "{}" }),
@@ -27,11 +31,11 @@ export const projectApi = {
 // ─── Folders ─────────────────────────────────────────────────────────────────
 
 export const folderApi = {
-  list: () => request<any[]>("/folders"),
+  list: () => request<Folder[]>("/folders"),
   create: (data: { name: string; parentId?: string; sortOrder?: number }) =>
-    request<any>("/folders", { method: "POST", body: JSON.stringify(data) }),
+    request<Folder>("/folders", { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, data: { name?: string; parentId?: string; sortOrder?: number }) =>
-    request<any>(`/folders/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<Folder>(`/folders/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   remove: (id: string) => request<void>(`/folders/${id}`, { method: "DELETE" }),
   addProject: (folderId: string, projectId: string, sortOrder?: number) =>
     request<any>(`/folders/${folderId}/projects`, { method: "POST", body: JSON.stringify({ projectId, sortOrder }) }),
@@ -48,14 +52,14 @@ export const folderApi = {
 
 export const dependencyApi = {
   list: (projectId: string) =>
-    request<any[]>(`/projects/${projectId}/dependencies`),
+    request<Dependency[]>(`/projects/${projectId}/dependencies`),
   create: (projectId: string, data: {
     predecessorTaskId: string;
     successorTaskId: string;
     dependencyType?: "FS" | "SS" | "FF" | "SF";
     lag?: number;
   }) =>
-    request<any>(`/projects/${projectId}/dependencies`, {
+    request<Dependency>(`/projects/${projectId}/dependencies`, {
       method: "POST",
       body: JSON.stringify(data),
     }),
@@ -66,13 +70,13 @@ export const dependencyApi = {
 // ─── Tasks ───────────────────────────────────────────────────────────────────
 
 export const taskApi = {
-  list: (projectId: string) => request<any[]>(`/projects/${projectId}/tasks`),
+  list: (projectId: string) => request<Task[]>(`/projects/${projectId}/tasks`),
   get: (projectId: string, taskId: string) =>
-    request<any>(`/projects/${projectId}/tasks/${taskId}`),
-  create: (projectId: string, data: any) =>
-    request<any>(`/projects/${projectId}/tasks`, { method: "POST", body: JSON.stringify(data) }),
-  update: (projectId: string, taskId: string, data: any) =>
-    request<any>(`/projects/${projectId}/tasks/${taskId}`, {
+    request<Task>(`/projects/${projectId}/tasks/${taskId}`),
+  create: (projectId: string, data: unknown) =>
+    request<Task>(`/projects/${projectId}/tasks`, { method: "POST", body: JSON.stringify(data) }),
+  update: (projectId: string, taskId: string, data: unknown) =>
+    request<Task>(`/projects/${projectId}/tasks/${taskId}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
@@ -105,13 +109,13 @@ export const taskApi = {
     ),
 
   // Segments
-  createSegment: (projectId: string, taskId: string, data: any) =>
-    request<any>(`/projects/${projectId}/tasks/${taskId}/segments`, {
+  createSegment: (projectId: string, taskId: string, data: unknown) =>
+    request<TaskSegment>(`/projects/${projectId}/tasks/${taskId}/segments`, {
       method: "POST",
       body: JSON.stringify(data),
     }),
-  updateSegment: (projectId: string, taskId: string, segmentId: string, data: any) =>
-    request<any>(`/projects/${projectId}/tasks/${taskId}/segments/${segmentId}`, {
+  updateSegment: (projectId: string, taskId: string, segmentId: string, data: unknown) =>
+    request<TaskSegment>(`/projects/${projectId}/tasks/${taskId}/segments/${segmentId}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
@@ -122,14 +126,14 @@ export const taskApi = {
 
   // Assignments
   listAssignments: (projectId: string, taskId: string, segmentId: string) =>
-    request<any[]>(`/projects/${projectId}/tasks/${taskId}/segments/${segmentId}/assignments`),
+    request<SegmentAssignment[]>(`/projects/${projectId}/tasks/${taskId}/segments/${segmentId}/assignments`),
   upsertAssignment: (projectId: string, taskId: string, segmentId: string, data: {
     resourceId: string;
     allocationMode: "PERCENT" | "HOURS";
     allocationPercent?: number;
     allocationHoursPerDay?: number;
   }) =>
-    request<any>(`/projects/${projectId}/tasks/${taskId}/segments/${segmentId}/assignments`, {
+    request<SegmentAssignment>(`/projects/${projectId}/tasks/${taskId}/segments/${segmentId}/assignments`, {
       method: "PUT",
       body: JSON.stringify(data),
     }),
@@ -164,14 +168,14 @@ export const taskApi = {
 // ─── Comments ────────────────────────────────────────────────────────────────
 
 export const commentApi = {
-  list: (taskId: string) => request<any[]>(`/tasks/${taskId}/comments`),
+  list: (taskId: string) => request<TaskComment[]>(`/tasks/${taskId}/comments`),
   create: (taskId: string, content: string) =>
-    request<any>(`/tasks/${taskId}/comments`, {
+    request<TaskComment>(`/tasks/${taskId}/comments`, {
       method: "POST",
       body: JSON.stringify({ content }),
     }),
   update: (taskId: string, commentId: string, content: string) =>
-    request<any>(`/tasks/${taskId}/comments/${commentId}`, {
+    request<TaskComment>(`/tasks/${taskId}/comments/${commentId}`, {
       method: "PATCH",
       body: JSON.stringify({ content }),
     }),
@@ -209,7 +213,7 @@ export const resourceApi = {
 // 자원-모델-분리 PDCA Phase 3b-1: 비인력 자원 API
 export const equipmentResourceApi = {
   list: (params?: { type?: "EQUIPMENT" | "VEHICLE" | "FACILITY"; isActive?: boolean; search?: string }) => {
-    const q = params ? new URLSearchParams(params as any).toString() : "";
+    const q = params ? new URLSearchParams(params as Record<string, string>).toString() : "";
     return request<EquipmentResource[]>(`/equipment-resources${q ? `?${q}` : ""}`);
   },
   get: (id: string) => request<EquipmentResource>(`/equipment-resources/${id}`),
@@ -295,9 +299,9 @@ export const equipmentReservationApi = {
   },
   get: (id: string) => request<ReservationInstance>(`/equipment-reservations/${id}`),
   create: (data: ReservationCreateInput) =>
-    request<any>(`/equipment-reservations`, { method: "POST", body: JSON.stringify(data) }),
+    request<ReservationInstance>(`/equipment-reservations`, { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, data: ReservationUpdateInput, scope: "instance" | "series" = "series") =>
-    request<any>(`/equipment-reservations/${id}?scope=${scope}`, {
+    request<ReservationInstance>(`/equipment-reservations/${id}?scope=${scope}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
@@ -321,7 +325,7 @@ export const equipmentReservationApi = {
 // 자원-모델-분리 PDCA Phase 3b-1: 외부 자원 API
 export const externalPersonApi = {
   list: (params?: { status?: "ACTIVE" | "ARCHIVED"; company?: string; search?: string }) => {
-    const q = params ? new URLSearchParams(params as any).toString() : "";
+    const q = params ? new URLSearchParams(params as Record<string, string>).toString() : "";
     return request<ExternalPerson[]>(`/external-persons${q ? `?${q}` : ""}`);
   },
   get: (id: string) => request<ExternalPerson>(`/external-persons/${id}`),
@@ -387,7 +391,7 @@ export const baselineApi = {
 
 export const templateApi = {
   list: (params?: { category?: string; scope?: string }) => {
-    const q = params ? new URLSearchParams(params as any).toString() : "";
+    const q = params ? new URLSearchParams(params as Record<string, string>).toString() : "";
     return request<any[]>(`/templates${q ? `?${q}` : ""}`);
   },
   get: (id: string) => request<any>(`/templates/${id}`),
@@ -413,7 +417,7 @@ export const templateApi = {
 
 export const impactApi = {
   analyze: (projectId: string, params?: { taskId?: string; delayDays?: number }) => {
-    const q = params ? new URLSearchParams(params as any).toString() : "";
+    const q = params ? new URLSearchParams(params as Record<string, string>).toString() : "";
     return request<any>(`/projects/${projectId}/impact${q ? `?${q}` : ""}`);
   },
   whatIf: (projectId: string, data: { taskId: string; delayDays: number }) =>
@@ -424,7 +428,7 @@ export const impactApi = {
 
 export const notificationApi = {
   list: (params?: { unreadOnly?: boolean; page?: number; pageSize?: number }) => {
-    const q = params ? new URLSearchParams(params as any).toString() : "";
+    const q = params ? new URLSearchParams(params as Record<string, string>).toString() : "";
     return request<{ items: any[]; total: number; page: number; pageSize: number }>(
       `/notifications${q ? `?${q}` : ""}`,
     );
@@ -509,7 +513,7 @@ export const leaveApi = {
   adminSetBalance: (userId: string, year: number, data: { totalDays?: number; longServiceDays?: number; adjustedDays?: number }) =>
     request<any>(`/leave/balance/${userId}?year=${year}`, { method: "PATCH", body: JSON.stringify(data) }),
   list: (params?: { status?: string; year?: number }) => {
-    const q = params ? new URLSearchParams(params as any).toString() : "";
+    const q = params ? new URLSearchParams(params as Record<string, string>).toString() : "";
     return request<any[]>(`/leave/requests${q ? `?${q}` : ""}`);
   },
   create: (data: { type: string; startDate: string; endDate: string; reason: string; approverId?: string }) =>
@@ -676,7 +680,7 @@ export async function listAssignableResources(): Promise<AssignableResource[]> {
 
 export const dashboardApi = {
   get: (params?: { groupBy?: string; date?: string; issueFilter?: string }) => {
-    const q = params ? new URLSearchParams(params as any).toString() : "";
+    const q = params ? new URLSearchParams(params as Record<string, string>).toString() : "";
     return request<any>(`/dashboard${q ? `?${q}` : ""}`);
   },
   getSummary: (date?: string) =>
@@ -694,7 +698,7 @@ export const dashboardApi = {
   updateConfig: (data: { defaultGroupBy?: string; pinnedProjectIds?: string[]; issueFilter?: string; presentationMode?: boolean }) =>
     request<any>("/dashboard/config", { method: "PUT", body: JSON.stringify(data) }),
   getThresholds: () => request<any>("/dashboard/thresholds"),
-  updateThresholds: (data: any) =>
+  updateThresholds: (data: unknown) =>
     request<any>("/dashboard/thresholds", { method: "PUT", body: JSON.stringify(data) }),
   refreshProject: (projectId: string) =>
     request<any>(`/dashboard/projects/${projectId}/refresh`, { method: "POST", body: "{}" }),
