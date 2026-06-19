@@ -5,7 +5,7 @@ import { expenseApi } from "@/lib/api";
 import { fmtDate } from "@/lib/datetime";
 import { SettlementStatusBadge } from "../_components/settlement-status-badge";
 import { useTableSort } from "@/lib/hooks/useTableSort";
-import { SettlementDetail } from "./_components/settlement-detail";
+import { SettlementDetail } from "../_components/settlement-detail";
 
 export default function SettlementsPage({ statusFilter }: { statusFilter?: string } = {}) {
   const [items, setItems] = useState<any[]>([]);
