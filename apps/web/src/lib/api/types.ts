@@ -723,3 +723,131 @@ export interface Supplier {
   updatedAt: string;
   contacts?: unknown[];
 }
+
+// ─── Equipment: Inventory cluster ────────────────────────────────────────────
+export interface InventoryItem {
+  id: string;
+  inventoryNo: string;
+  itemName: string | null;
+  manufacturer: string | null;
+  productMasterId: string | null;
+  variantId: string | null;
+  serialNumber: string | null;
+  trackingMode: string;
+  quantity: number;
+  category: string;
+  currentLocation: string | null;
+  currentStatus: string;
+  unitPrice: string | number | null;
+  supplyAmount: string | number | null;
+  totalAmount: string | number | null;
+  totalAdditionalCost: string | number;
+  totalCostOfOwnership: string | number;
+  projectName: string | null;
+  assigneeName: string | null;
+  sourceType: string | null;
+  sourceId: string | null;
+  orderItemId: string | null;
+  costSettlementId: string | null;
+  supplierId: string | null;
+  inboundRequestId: string | null;
+  notes: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  // list/get 보강(관계)
+  productMaster?: { id?: string; name: string; itemType?: string } | null;
+  variant?: ProductVariant | null;
+  locations?: { locationId: string; quantity: number; location?: { id: string; name: string } }[];
+}
+
+export interface StorageLocation {
+  id: string;
+  name: string;
+  type: string;
+  description: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InventoryTransaction {
+  id: string;
+  inventoryItemId: string;
+  type: string;
+  date: string;
+  sequenceNo: string | null;
+  quantity: number;
+  fromLocation: string | null;
+  toLocation: string | null;
+  deliveryTo: string | null;
+  supplier: string | null;
+  projectName: string | null;
+  assigneeName: string | null;
+  costNumber: string | null;
+  notes: string | null;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface AssetCostEvent {
+  id: string;
+  inventoryItemId: string;
+  type: string;
+  title: string;
+  description: string | null;
+  vendor: string | null;
+  cost: string | number;
+  currency: string | null;
+  foreignAmount: string | number | null;
+  exchangeRate: string | number | null;
+  eventDate: string;
+  performedBy: string | null;
+  relatedOrderId: string | null;
+  notes: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProductVariant {
+  id: string;
+  productMasterId: string;
+  skuCode: string | null;
+  variantSpecs: unknown;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InboundRequest {
+  id: string;
+  code: string;
+  status: string;
+  sourceType: string;
+  sourceId: string | null;
+  sourceDocNumber: string | null;
+  requesterId: string;
+  requestedAt: string;
+  notes: string | null;
+  receivedAt: string | null;
+  receivedBy: string | null;
+  items?: unknown[];
+}
+
+export interface BundleShipment {
+  id: string;
+  code: string;
+  parentMasterId: string | null;
+  customerId: string;
+  projectId: string | null;
+  shippedAt: string;
+  shipTo: string | null;
+  warrantyUntil: string | null;
+  totalPrice: string | number | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  items?: unknown[];
+}
