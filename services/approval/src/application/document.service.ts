@@ -1,4 +1,4 @@
-import { PrismaClient, ApprovalDocumentStatus } from "@prisma/client";
+import { PrismaClient, ApprovalDocumentStatus, ApprovalDocument, Prisma } from "@prisma/client";
 import {
   assertTransition,
   getAllowedTransitions,
@@ -15,21 +15,21 @@ export class DocumentService {
     templateId: string;
     title: string;
     requestedBy: string;
-    requesterName?: string;
+    requesterName?: string | undefined;
     department: string;
     approvalStepCount: number;
-    content?: any;
-    richBody?: string;
-    itemsData?: any;
-    itemsTotal?: number;
-    amount?: number;
-    referenceType?: string;
-    referenceId?: string;
-    ccUsers?: string[];
-    agreementUsers?: string[];
-    referenceDepts?: string[];
-    referencePersons?: string[];
-    notes?: string;
+    content?: Prisma.InputJsonValue | undefined;
+    richBody?: string | undefined;
+    itemsData?: Prisma.InputJsonValue | undefined;
+    itemsTotal?: number | undefined;
+    amount?: number | undefined;
+    referenceType?: string | undefined;
+    referenceId?: string | undefined;
+    ccUsers?: string[] | undefined;
+    agreementUsers?: string[] | undefined;
+    referenceDepts?: string[] | undefined;
+    referencePersons?: string[] | undefined;
+    notes?: string | undefined;
     steps: Array<{ stepOrder: number; roleName: string; approverId: string; approverName: string }>;
   }) {
     const { steps, ...rest } = data;
@@ -41,7 +41,7 @@ export class DocumentService {
         documentNumber: docNumber,
         status: "DRAFT",
         steps: { create: steps },
-      } as any,
+      } as Prisma.ApprovalDocumentUncheckedCreateInput,
       include: { steps: true, template: { select: { code: true, name: true } } },
     });
 
@@ -67,8 +67,8 @@ export class DocumentService {
         const text = await res.text().catch(() => "");
         console.error(`[approval] link-approval failed ${res.status}: ${text.slice(0, 200)}`);
       }
-    } catch (e: any) {
-      console.error(`[approval] link-approval error: ${e.message}`);
+    } catch (e) {
+      console.error(`[approval] link-approval error: ${(e as Error).message}`);
     }
   }
 
@@ -85,8 +85,8 @@ export class DocumentService {
         const text = await res.text().catch(() => "");
         console.error(`[approval] unlink-approval failed ${res.status}: ${text.slice(0, 200)}`);
       }
-    } catch (e: any) {
-      console.error(`[approval] unlink-approval error: ${e.message}`);
+    } catch (e) {
+      console.error(`[approval] unlink-approval error: ${(e as Error).message}`);
     }
   }
 
@@ -127,7 +127,7 @@ export class DocumentService {
     });
   }
 
-  async update(id: string, data: any) {
+  async update(id: string, data: Prisma.ApprovalDocumentUncheckedUpdateInput) {
     const doc = await this.prisma.approvalDocument.findUnique({ where: { id } });
     if (!doc) throw new Error("결재 문서를 찾을 수 없습니다.");
     if (doc.status !== "DRAFT" && doc.status !== "RETURNED" && doc.status !== "REJECTED") {
@@ -220,7 +220,7 @@ export class DocumentService {
 
   // ─── Reject (반려) ──────────────────────────────────────────────────
 
-  async reject(id: string, approverId: string, comment: string) {
+  async reject(id: string, approverId: string, comment?: string) {
     const doc = await this.prisma.approvalDocument.findUnique({
       where: { id },
       include: { steps: { orderBy: { stepOrder: "asc" } } },
@@ -237,7 +237,7 @@ export class DocumentService {
     return this.prisma.$transaction(async (tx) => {
       await tx.approvalStep.update({
         where: { id: step.id },
-        data: { status: "REJECTED", comment, actedAt: new Date() },
+        data: { status: "REJECTED", comment: comment ?? null, actedAt: new Date() },
       });
 
       const updated = await tx.approvalDocument.update({
@@ -248,7 +248,7 @@ export class DocumentService {
 
       // Post-reject action (leave/overtime/expense settlement)
       if (doc.referenceId && updated.template) {
-        const postAction = (updated.template as any).postApprovalAction;
+        const postAction = updated.template.postApprovalAction;
         if (postAction === "LEAVE_APPROVE" || postAction === "OT_APPROVE") {
           await this.executePostReject(postAction, doc, comment);
         }
@@ -267,8 +267,8 @@ export class DocumentService {
                 reason: comment,
               }),
             });
-          } catch (err: any) {
-            console.error(`[approval-reject] expense sync failed: ${err.message}`);  
+          } catch (err) {
+            console.error(`[approval-reject] expense sync failed: ${(err as Error).message}`);
           }
         }
       }
@@ -321,7 +321,7 @@ export class DocumentService {
     });
   }
 
-  async disagree(id: string, userId: string, comment: string) {
+  async disagree(id: string, userId: string, comment?: string) {
     const doc = await this.prisma.approvalDocument.findUnique({ where: { id } });
     if (!doc) throw new Error("결재 문서를 찾을 수 없습니다.");
     if (doc.status !== "AGREEMENT_PENDING") throw new Error("합의 대기 상태가 아닙니다.");
@@ -335,7 +335,7 @@ export class DocumentService {
   // ─── Helpers ─────────────────────────────────────────────────────────
 
   /** 목록 조회 시 requesterName이 없는 문서에 이름 채워넣기 */
-  private async fillRequesterNames(items: any[]): Promise<any[]> {
+  private async fillRequesterNames<T extends { requesterName: string | null; requestedBy: string }>(items: T[]): Promise<T[]> {
     const needFill = items.filter((d) => !d.requesterName && d.requestedBy);
     if (needFill.length === 0) return items;
 
@@ -456,7 +456,7 @@ export class DocumentService {
         headers: { "X-Internal-Token": token },
       });
       if (resp.ok) {
-        const user = await resp.json() as any;
+        const user = await resp.json() as { name?: string; profile?: { name?: string } };
         return user.name || user.profile?.name || null;
       }
     } catch { /* ignore */ }
@@ -477,7 +477,7 @@ export class DocumentService {
     return `OT-${prefix}-${yearMonth}${dd}-${String(count + 1).padStart(4, "0")}`;
   }
 
-  private async executePostReject(action: string, doc: any, comment: string): Promise<void> {
+  private async executePostReject(action: string, doc: ApprovalDocument, comment?: string): Promise<void> {
     const attendanceUrl = process.env.ATTENDANCE_SERVICE_URL || "http://attendance-service:3004";
     // 보안 일괄패치 PDCA Layer 1 (C3): startup-time Zod env 검증으로 보장
     const token = process.env.INTERNAL_API_TOKEN as string;
@@ -491,7 +491,7 @@ export class DocumentService {
     }
   }
 
-  private async executePostAction(action: string, doc: any): Promise<void> {
+  private async executePostAction(action: string, doc: ApprovalDocument): Promise<void> {
     const equipmentUrl = process.env.EQUIPMENT_SERVICE_URL || "http://equipment-service:3005";
     const attendanceUrl = process.env.ATTENDANCE_SERVICE_URL || "http://attendance-service:3004";
     // 보안 일괄패치 PDCA Layer 1 (C3): startup-time Zod env 검증으로 보장
@@ -539,13 +539,16 @@ export class DocumentService {
           // v1.5: 시간 단위 휴가(반차/1/4연차/가정의날) 시 startTime/endTime도 전달
           // (※ ApprovalDocument 폼 데이터 컬럼은 `content`, `fields`는 ApprovalTemplate.fields 정의)
           {
-            const content = ((doc.content ?? doc.fields) as any) ?? {};
-            const leaveType: string | undefined = content.leaveType;
-            const startDate: string | undefined = content.startDate;
-            const endDate: string | undefined = content.endDate;
-            const reason: string | undefined = content.reason;
-            const startTime: string | undefined = content.startTime;
-            const endTime: string | undefined = content.endTime;
+            const content = (doc.content ?? {}) as {
+              leaveType?: string; startDate?: string; endDate?: string;
+              reason?: string; startTime?: string; endTime?: string;
+            };
+            const leaveType = content.leaveType;
+            const startDate = content.startDate;
+            const endDate = content.endDate;
+            const reason = content.reason;
+            const startTime = content.startTime;
+            const endTime = content.endTime;
             if (!leaveType || !startDate || !endDate) {
               console.error("LEAVE_APPROVE: doc.content 누락", { docId: doc.id, content });
               break;
@@ -570,13 +573,16 @@ export class DocumentService {
           // v1.3+ 휴일근무: workDates 배열에서 N개 HolidayWorkRequest 일괄 생성
           // (※ doc.content가 폼 데이터, doc.fields는 template 정의)
           {
-            const content = ((doc.content ?? doc.fields) as any) ?? {};
+            const content = (doc.content ?? {}) as {
+              workDates?: unknown; workDate?: string; reason?: string;
+              projectId?: string; project?: string; taskId?: string; task?: string;
+            };
             // workDates는 string[] 또는 단일 workDate(legacy fallback)
             const workDatesRaw = content.workDates ?? (content.workDate ? [content.workDate] : []);
             const workDates: string[] = Array.isArray(workDatesRaw)
-              ? workDatesRaw.filter((d: any) => typeof d === "string" && d.length > 0)
+              ? (workDatesRaw as unknown[]).filter((d): d is string => typeof d === "string" && d.length > 0)
               : [];
-            const reason: string | undefined = content.reason;
+            const reason = content.reason;
             if (workDates.length === 0 || !reason) {
               console.error("OT_APPROVE: doc.content.workDates / reason 누락", { docId: doc.id, content });
               break;

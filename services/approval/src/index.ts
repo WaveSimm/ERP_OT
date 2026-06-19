@@ -1,4 +1,4 @@
-import Fastify from "fastify";
+import Fastify, { FastifyRequest, FastifyReply } from "fastify";
 import fastifyCors from "@fastify/cors";
 import fastifyHelmet from "@fastify/helmet";
 import fastifyRateLimit from "@fastify/rate-limit";
@@ -6,8 +6,38 @@ import { rateLimitPolicies, rateLimitErrorResponseBuilder } from "@erp-ot/shared
 import fastifyJwt from "@fastify/jwt";
 import fastifyCookie from "@fastify/cookie";
 import fastifyMultipart from "@fastify/multipart";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, ApprovalDocumentStatus, Prisma } from "@prisma/client";
 import { z } from "zod";
+
+// auth-service /internal 응답 + 내부 결재 상신 본문 타입
+interface ApproverLineResponse {
+  approverId?: string; approverName?: string;
+  secondApproverId?: string; secondApproverName?: string;
+  thirdApproverId?: string; thirdApproverName?: string;
+}
+interface UserProfileResponse {
+  name?: string; departmentName?: string;
+  profile?: { name?: string; departmentName?: string };
+}
+interface InternalStepInput {
+  stepOrder?: number; roleName?: string; approverId: string; approverName?: string;
+}
+interface InternalCreateDocumentBody {
+  userId?: string;
+  templateId?: string;
+  templateCode?: string;
+  title?: string;
+  steps?: InternalStepInput[];
+  department?: string;
+  requesterName?: string;
+  fields?: Prisma.InputJsonValue;
+  richBody?: string;
+  items?: Prisma.InputJsonValue;
+  totalAmount?: number;
+  referenceType?: string;
+  referenceId?: string;
+  submitImmediately?: boolean;
+}
 
 import { authMiddleware } from "./api/middleware/auth.middleware.js";
 import { templateRoutes } from "./api/routes/template.routes.js";
@@ -102,7 +132,7 @@ async function buildApp() {
   app.register(fileRoutes, { prefix: "/api/v1/approval/files" });
 
   // Internal API (서비스 간 통신, 인증 미들웨어 우회)
-  const requireInternalToken = (request: any, reply: any) => {
+  const requireInternalToken = (request: FastifyRequest, reply: FastifyReply) => {
     const token = request.headers["x-internal-token"];
     if (token !== process.env.INTERNAL_API_TOKEN) {
       reply.status(403).send({ error: "Forbidden" });
@@ -113,7 +143,7 @@ async function buildApp() {
 
   app.get("/internal/documents/:id", async (request, reply) => {
     if (!requireInternalToken(request, reply)) return;
-    const { id } = request.params as any;
+    const { id } = request.params as { id: string };
     try {
       const doc = await prisma.approvalDocument.findUnique({
         where: { id },
@@ -130,7 +160,7 @@ async function buildApp() {
   // body에 명시적 userId 필요 (사용자 JWT 우회)
   app.post("/internal/documents", async (request, reply) => {
     if (!requireInternalToken(request, reply)) return;
-    const body = request.body as any;
+    const body = request.body as InternalCreateDocumentBody;
     if (!body.userId || (!body.templateId && !body.templateCode)) {
       return reply.status(400).send({ error: "userId + (templateId | templateCode) required" });
     }
@@ -144,9 +174,9 @@ async function buildApp() {
     }
 
     // approver: body.steps override > 자동 로드
-    let steps: any[] = [];
+    let steps: Array<{ stepOrder: number; roleName: string; approverId: string; approverName: string }> = [];
     if (Array.isArray(body.steps) && body.steps.length > 0) {
-      steps = body.steps.map((s: any, i: number) => ({
+      steps = body.steps.map((s, i) => ({
         stepOrder: typeof s.stepOrder === "number" ? s.stepOrder : i + 1,
         roleName: s.roleName || "결재",
         approverId: s.approverId,
@@ -160,7 +190,7 @@ async function buildApp() {
           headers: { "X-Internal-Token": token },
         });
         if (resp.ok) {
-          const line = (await resp.json()) as any;
+          const line = (await resp.json()) as ApproverLineResponse;
           if (line.approverId) steps.push({ stepOrder: 1, roleName: "결재", approverId: line.approverId, approverName: line.approverName || "—" });
           if (line.secondApproverId) steps.push({ stepOrder: 2, roleName: "결재", approverId: line.secondApproverId, approverName: line.secondApproverName || "—" });
           if (line.thirdApproverId) steps.push({ stepOrder: 3, roleName: "결재", approverId: line.thirdApproverId, approverName: line.thirdApproverName || "—" });
@@ -179,7 +209,7 @@ async function buildApp() {
           headers: { "X-Internal-Token": token },
         });
         if (resp.ok) {
-          const user = (await resp.json()) as any;
+          const user = (await resp.json()) as UserProfileResponse;
           if (!department) department = user.profile?.departmentName || user.departmentName || "미지정";
           if (!requesterName) requesterName = user.name || "";
         }
@@ -189,7 +219,7 @@ async function buildApp() {
     try {
       const result = await app.documentService.create({
         templateId: templateId!,
-        title: body.title,
+        title: body.title ?? "",
         requestedBy: body.userId,
         requesterName,
         department,
@@ -210,14 +240,14 @@ async function buildApp() {
         try {
           const submitted = await app.documentService.submit(result.id);
           return reply.status(201).send(submitted);
-        } catch (err: any) {
+        } catch (err) {
           // 상신 실패 시 문서는 DRAFT로 남고 에러만 응답
-          return reply.status(500).send({ error: `document created but submit failed: ${err.message}`, documentId: result.id });
+          return reply.status(500).send({ error: `document created but submit failed: ${(err as Error).message}`, documentId: result.id });
         }
       }
       return reply.status(201).send(result);
-    } catch (err: any) {
-      return reply.status(500).send({ error: err.message });
+    } catch (err) {
+      return reply.status(500).send({ error: (err as Error).message });
     }
   });
 
@@ -228,7 +258,7 @@ async function buildApp() {
     const data = await request.file();
     if (!data) return reply.status(400).send({ error: "file required" });
 
-    const fields = data.fields as Record<string, any>;
+    const fields = data.fields as Record<string, { value?: string } | undefined>;
     const documentId = fields.documentId?.value as string | undefined;
     const uploadedBy = fields.uploadedBy?.value as string | undefined;
     const referenceType = fields.referenceType?.value as string | undefined;
@@ -247,8 +277,8 @@ async function buildApp() {
         uploadedBy,
       });
       return reply.status(201).send(result);
-    } catch (err: any) {
-      return reply.status(500).send({ error: err.message });
+    } catch (err) {
+      return reply.status(500).send({ error: (err as Error).message });
     }
   });
 
@@ -261,8 +291,8 @@ async function buildApp() {
     try {
       const doc = await app.documentService.withdraw(id, body.requesterId);
       return reply.send(doc);
-    } catch (err: any) {
-      return reply.status(400).send({ error: err.message });
+    } catch (err) {
+      return reply.status(400).send({ error: (err as Error).message });
     }
   });
 
@@ -279,7 +309,7 @@ async function buildApp() {
         where: {
           referenceType: body.referenceType,
           referenceId: body.referenceId,
-          status: { in: ["DRAFT", "AGREEMENT_PENDING", "SUBMITTED", "STEP_1_PENDING", "STEP_2_PENDING", "STEP_3_PENDING"] as any },
+          status: { in: ["DRAFT", "AGREEMENT_PENDING", "SUBMITTED", "STEP_1_PENDING", "STEP_2_PENDING", "STEP_3_PENDING"] as ApprovalDocumentStatus[] },
         },
         select: { id: true },
       });
@@ -288,8 +318,8 @@ async function buildApp() {
         data: { status: "RETURNED" },
       });
       return reply.send({ withdrawn: updated.count });
-    } catch (err: any) {
-      return reply.status(500).send({ error: err.message });
+    } catch (err) {
+      return reply.status(500).send({ error: (err as Error).message });
     }
   });
 

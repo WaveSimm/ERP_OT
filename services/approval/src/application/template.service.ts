@@ -1,10 +1,10 @@
-import { PrismaClient, TemplateCategory } from "@prisma/client";
+import { PrismaClient, TemplateCategory, Prisma } from "@prisma/client";
 
 export class TemplateService {
   constructor(private prisma: PrismaClient) {}
 
-  async list(params: { category?: TemplateCategory; activeOnly?: boolean } = {}) {
-    const where: any = {};
+  async list(params: { category?: TemplateCategory | undefined; activeOnly?: boolean | undefined } = {}) {
+    const where: Prisma.ApprovalTemplateWhereInput = {};
     if (params.category) where.category = params.category;
     if (params.activeOnly !== false) where.isActive = true;
     return this.prisma.approvalTemplate.findMany({
@@ -27,15 +27,15 @@ export class TemplateService {
 
   async create(data: {
     code: string; name: string; category: TemplateCategory;
-    description?: string; fields: any; itemsTableConfig?: any;
-    defaultBody?: string; footer?: string;
-    defaultApprovalLineRule?: string; postApprovalAction?: string;
-    relatedService?: string; sortOrder?: number;
+    description?: string | undefined; fields: Prisma.InputJsonValue; itemsTableConfig?: Prisma.InputJsonValue | undefined;
+    defaultBody?: string | undefined; footer?: string | undefined;
+    defaultApprovalLineRule?: string | undefined; postApprovalAction?: string | undefined;
+    relatedService?: string | undefined; sortOrder?: number | undefined;
   }) {
-    return this.prisma.approvalTemplate.create({ data: data as any });
+    return this.prisma.approvalTemplate.create({ data: data as Prisma.ApprovalTemplateUncheckedCreateInput });
   }
 
-  async update(id: string, data: any) {
+  async update(id: string, data: Prisma.ApprovalTemplateUncheckedUpdateInput) {
     await this.getById(id);
     return this.prisma.approvalTemplate.update({ where: { id }, data });
   }
