@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { expenseApi } from "@/lib/api";
 import { fmtDate } from "@/lib/datetime";
+import { SettlementStatusBadge } from "./_components/settlement-status-badge";
 
 interface Summary { unmatched: number; pendingApproval: number; awaitingPayment: number }
 
@@ -95,17 +96,4 @@ function SummaryCard({ label, count, color, href }: { label: string; count: numb
       <div className="text-3xl font-bold mt-1 tabular-nums">{count}</div>
     </Link>
   );
-}
-
-export function SettlementStatusBadge({ status }: { status: string }) {
-  const config: Record<string, { label: string; cls: string }> = {
-    DRAFT:     { label: "작성중",   cls: "bg-gray-100 text-gray-700" },
-    SUBMITTED: { label: "결재중",   cls: "bg-blue-100 text-blue-700" },
-    APPROVED:  { label: "승인",     cls: "bg-emerald-100 text-emerald-700" },
-    RECEIVED:  { label: "재무팀접수", cls: "bg-cyan-100 text-cyan-700" },
-    PAID:      { label: "💰 입금",  cls: "bg-green-100 text-green-700" },
-    REJECTED:  { label: "반려",     cls: "bg-red-100 text-red-700" },
-  };
-  const c = config[status] ?? { label: status, cls: "bg-gray-100" };
-  return <span className={`px-2 py-0.5 text-xs font-medium rounded ${c.cls}`}>{c.label}</span>;
 }
