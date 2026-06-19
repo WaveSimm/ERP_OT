@@ -260,3 +260,38 @@ export interface ApprovalLine {
   delegateName?: string | null;
   isDelegated?: boolean;
 }
+
+// ─── Notification / ActivityLog / Dashboard ──────────────────────────────────
+export interface Notification {
+  id: string;
+  userId: string;
+  type: string;
+  source: string;
+  title: string;
+  body: string;
+  isRead: boolean;
+  priority: number;
+  linkUrl: string | null;
+  metadata?: unknown;
+  createdAt: string;
+}
+
+export interface ActivityLog {
+  id: string;
+  projectId: string | null;
+  userId: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  description: string;
+  metadata?: unknown;
+  createdAt: string;
+  project?: { id: string; name: string } | null;
+}
+
+export interface DashboardConfig {
+  defaultGroupBy?: string;
+  pinnedProjectIds?: string[];
+  issueFilter?: string;
+  presentationMode?: boolean;
+}
