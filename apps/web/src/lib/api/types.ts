@@ -447,3 +447,121 @@ export interface BoardFeedItem {
   boardName: string;
   authorName: string;
 }
+
+// ─── Expense (services/expense) ──────────────────────────────────────────────
+export interface ExpenseSource {
+  id: string;
+  userId: string;
+  name: string;
+  displayName: string | null;
+  type: string;
+  cardNumber: string | null;
+  ownership: string;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface ExpenseTransaction {
+  id: string;
+  userId: string;
+  statementId: string | null;
+  sourceId: string;
+  isManual: boolean;
+  transactedAt: string;
+  merchantName: string;
+  amount: string | number;
+  currency: string;
+  foreignAmount: string | number | null;
+  paymentType: string | null;
+  installmentMonths: number | null;
+  approvalNo: string | null;
+  contractId: string | null;
+  contractNumber: string | null;
+  contractName: string | null;
+  detail: string | null;
+  memo: string | null;
+  status: string;
+  isCanceled: boolean;
+  createdAt: string;
+  updatedAt: string;
+  matches?: ExpenseMatch[];
+  settlementItems?: { settlementId: string; settlement?: { id: string; title: string; status: string } }[];
+  source?: ExpenseSource | { id: string; name: string; displayName?: string | null; type?: string; ownership?: string };
+}
+
+export interface ExpenseStatement {
+  id: string;
+  userId: string;
+  sourceId: string;
+  originalFileName: string;
+  fileUrl: string;
+  parserVersion: string;
+  periodStart: string | null;
+  periodEnd: string | null;
+  totalRows: number;
+  parsedRows: number;
+  errorRows: number;
+  parsedAt: string;
+}
+
+export interface ExpenseReceipt {
+  id: string;
+  userId: string;
+  fileUrl: string;
+  storageKey: string;
+  originalFileName: string;
+  fileType: string;
+  fileSize: number;
+  ocrStatus: string;
+  ocrEngineUsed: string | null;
+  ocrRawJson?: unknown;
+  ocrText: string | null;
+  extractedAmount: string | number | null;
+  extractedMerchant: string | null;
+  extractedDate: string | null;
+  uploadedAt: string;
+  ocrCompletedAt: string | null;
+  matches?: ExpenseMatch[];
+}
+
+export interface ExpenseMatch {
+  id: string;
+  transactionId: string;
+  receiptId: string;
+  source: string;
+  confidence: number | null;
+  confirmedAt: string | null;
+  confirmedByUserId: string | null;
+  createdAt: string;
+  transaction?: Partial<ExpenseTransaction>;
+  receipt?: Partial<ExpenseReceipt>;
+}
+
+export interface ExpenseSettlement {
+  id: string;
+  userId: string;
+  periodStart: string | null;
+  periodEnd: string | null;
+  title: string;
+  status: string;
+  exportedFileUrl: string | null;
+  exportedAt: string | null;
+  approvalDocumentId: string | null;
+  submittedAt: string | null;
+  approvedAt: string | null;
+  rejectedAt: string | null;
+  rejectReason: string | null;
+  receivedAt: string | null;
+  receivedById: string | null;
+  paidAt: string | null;
+  paidById: string | null;
+  paidAmount: string | number | null;
+  paidNote: string | null;
+  totalCount: number | null;
+  totalAmount: string | number | null;
+  categoryStats?: unknown;
+  categoryCode: string | null;
+  createdAt: string;
+  updatedAt: string;
+  items?: unknown[];
+}
