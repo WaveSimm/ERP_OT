@@ -21,6 +21,9 @@ const TRANSITIONS: Record<RepairOrderStatus, RepairOrderStatus[]> = {
   CANCELLED:         [],
 };
 
+/** 전체 수리 상태 목록 (TRANSITIONS 키에서 도출 — prisma 런타임 enum 무의존). */
+export const ALL_REPAIR_STATUSES = Object.keys(TRANSITIONS) as RepairOrderStatus[];
+
 export function canTransition(from: RepairOrderStatus, to: RepairOrderStatus): boolean {
   return TRANSITIONS[from]?.includes(to) ?? false;
 }
