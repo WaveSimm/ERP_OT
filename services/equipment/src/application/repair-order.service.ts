@@ -1,5 +1,5 @@
 import { PrismaClient, RepairOrderStatus } from "@prisma/client";
-import { canTransition, getAllowedTransitions } from "../domain/state-machine/repair-order.fsm.js";
+import { canTransition, getAllowedTransitions, getStatusesInGroup } from "../domain/state-machine/repair-order.fsm.js";
 
 export class RepairOrderService {
   constructor(private prisma: PrismaClient) {}
@@ -42,15 +42,8 @@ export class RepairOrderService {
     if (status) {
       where.status = status;
     } else if (statusGroup) {
-      const groups: Record<string, string[]> = {
-        received: ["RECEIVED"],
-        inspecting: ["INSPECTING_1ST", "INSPECTING_2ND"],
-        repairing: ["QUOTED", "APPROVED", "REPAIRING"],
-        manufacturer: ["SHIPPED_TO_MFG"],
-        received_from_mfg: ["RECEIVED_FROM_MFG"],
-        completed: ["COMPLETED", "NO_FAULT", "NO_REPAIR", "CLOSED"],
-      };
-      if (groups[statusGroup]) where.status = { in: groups[statusGroup] };
+      const statuses = getStatusesInGroup(statusGroup);
+      if (statuses) where.status = { in: statuses };
     }
 
     if (customerId) where.customerId = customerId;
