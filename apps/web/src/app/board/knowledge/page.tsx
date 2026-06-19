@@ -84,7 +84,7 @@ export default function KnowledgeSearchPage() {
     setError(null);
     const t0 = performance.now();
     try {
-      const res = await knowledgeApi.searchDocuments(query, 20);
+      const res = await knowledgeApi.searchDocuments(query, 50);
       setData(res);
       setTook(Math.round(performance.now() - t0));
     } catch (e: any) {
@@ -133,10 +133,10 @@ export default function KnowledgeSearchPage() {
             </button>
           </div>
           <p className="mt-1.5 text-xs text-gray-400">
-            💡 <b className="font-medium text-gray-500">키워드</b>도 <b className="font-medium text-gray-500">문장(질문)</b>도 검색됩니다 — 구체 주제어(모델명·사업명)에 파일종류(&lsquo;사진&rsquo;·&lsquo;pdf&rsquo;·&lsquo;엑셀&rsquo;)·장소(&lsquo;포항&rsquo;·&lsquo;남해 서면&rsquo;)·시기(&lsquo;2022년&rsquo;)를 함께 넣을수록 정확합니다.
+            💡 <b className="font-medium text-gray-500">키워드</b>도 <b className="font-medium text-gray-500">문장(질문)</b>도 검색됩니다 — 구체 주제어(모델명·사업명)에 파일종류(&lsquo;사진&rsquo;·&lsquo;pdf&rsquo;·&lsquo;엑셀&rsquo;)·장소·항만(&lsquo;포항&rsquo;·&lsquo;축산항&rsquo;)·시기(&lsquo;2025년&rsquo;)를 함께 넣을수록 정확합니다.
           </p>
           <p className="mt-1 text-xs text-gray-400">
-            예) <span className="text-gray-500">만성호 어선검사증서</span> · <span className="text-gray-500">냉수대 관측 절차는?</span> · <span className="text-gray-500">용역계약서 pdf</span> · <span className="text-gray-500">흥해 사진</span>
+            예) <span className="text-gray-500">만성호 어선검사증서</span> · <span className="text-gray-500">냉수대 관측 절차는?</span> · <span className="text-gray-500">용역계약서 pdf</span> · <span className="text-gray-500">흥해 사진</span> · <span className="text-gray-500">축산항 2025년 작업 사진</span>
           </p>
         </div>
 
@@ -166,6 +166,12 @@ export default function KnowledgeSearchPage() {
                   )}
                 </div>
 
+                {data.dateMatched === false && (
+                  <div className="mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
+                    🗓 <b>{data.dateLabel}</b>에 해당하는 결과가 없어 <b>전 기간</b> 결과를 표시합니다. (날짜가 기록된 사진·문서가 없거나 그 시기 자료가 없을 수 있습니다)
+                  </div>
+                )}
+
                 {data.results.length === 0 ? (
                   <div className="bg-white border border-gray-200 rounded-xl py-16 text-center text-gray-400">
                     결과가 없습니다.
@@ -187,7 +193,11 @@ export default function KnowledgeSearchPage() {
                             <div className="text-xs text-gray-500 mt-0.5 truncate">
                               {r.folderPath || r.folder}
                               {r.agency ? ` · ${r.agency}` : ""}
-                              {r.copies > 1 ? ` · 사본 ${r.copies}` : ""}
+                              {r.isPhotoFolder
+                                ? (r.folderFiles && r.folderFiles > 1 ? ` · 📷 이 폴더 ${r.folderFiles}장` : "")
+                                : (r.copies > 1 ? ` · 사본 ${r.copies}` : "")}
+                              {r.place ? ` · 📍 ${r.place}` : ""}
+                              {(r.takenAt || r.docDate) ? ` · 🗓 ${String(r.takenAt || r.docDate).slice(0, 10)}` : ""}
                             </div>
                             {r.snippet && (
                               <div className="text-xs text-gray-400 mt-1 line-clamp-2">{r.snippet}</div>
