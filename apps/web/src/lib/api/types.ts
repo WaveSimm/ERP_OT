@@ -851,3 +851,154 @@ export interface BundleShipment {
   updatedAt: string;
   items?: unknown[];
 }
+
+// ─── Equipment: Procurement ──────────────────────────────────────────────────
+export interface ProductMaster {
+  id: string;
+  name: string;
+  manufacturer: string;
+  masterCode: string | null;
+  keyAttributes?: unknown;
+  unitOfMeasure: string | null;
+  defaultCurrency: string | null;
+  referencePrice: string | number | null;
+  specs?: unknown;
+  itemType: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Contract {
+  id: string;
+  contractNumber: string;
+  name: string;
+  client: string;
+  clientContact: string | null;
+  manufacturer: string | null;
+  category: string;
+  contractType: string;
+  contractDate: string | null;
+  deadline: string | null;
+  manager: string | null;
+  status: string;
+  notes: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OrderInvoice {
+  id: string;
+  orderId: string;
+  invoiceNumber: string;
+  invoiceDate: string;
+  amount: string | number;
+  initialAmount: string | number;
+  currency: string;
+  amountKRW: string | number | null;
+  dueDate: string | null;
+  paymentTerms: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OrderPayment {
+  id: string;
+  orderId: string;
+  paymentDate: string | null;
+  amount: string | number;
+  currency: string;
+  amountKRW: string | number | null;
+  exchangeRate: string | number | null;
+  paymentMethod: string | null;
+  bankReference: string | null;
+  notes: string | null;
+  status: string;
+  rejectReason: string | null;
+  requestedBy: string | null;
+  requestedAt: string | null;
+  completedBy: string | null;
+  completedAt: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OrderCustomsTax {
+  id: string;
+  orderId: string;
+  status: string;
+  customsDuty: string | number | null;
+  vat: string | number | null;
+  totalAmount: string | number | null;
+  startedAt: string;
+  startedBy: string | null;
+  paidAt: string | null;
+  paidBy: string | null;
+  paidByName: string | null;
+  notes: string | null;
+  rejectReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OverseasOrderItem {
+  id: string;
+  orderId: string;
+  productMasterId: string | null;
+  variantId: string | null;
+  name: string;
+  spec: string | null;
+  quantity: number;
+  receivedQuantity: number;
+  unitPrice: string | number;
+  amount: string | number;
+  receiptStatus: string;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  inventoryItems?: { id: string; inventoryNo: string }[];
+}
+
+export interface OverseasOrder {
+  id: string;
+  contractId: string;
+  orderNumber: string;
+  manufacturer: string;
+  currency: string;
+  orderType: string;
+  status: string;
+  orderDate: string | null;
+  approvedAt: string | null;
+  estimatedProductionEnd: string | null;
+  estimatedShipDate: string | null;
+  actualShipDate: string | null;
+  customsDate: string | null;
+  arrivalDate: string | null;
+  productionProgress: number;
+  productionNotes: string | null;
+  arrivalLocation: string | null;
+  orderedBy: string;
+  customsHandler: string | null;
+  invoiceNo: string | null;
+  paymentTerms: string | null;
+  customer: string | null;
+  approverId: string | null;
+  approverName: string | null;
+  secondApproverId: string | null;
+  secondApproverName: string | null;
+  thirdApproverId: string | null;
+  thirdApproverName: string | null;
+  totalAmount: string | number;
+  totalAmountKRW: string | number | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  items?: OverseasOrderItem[];
+  invoice?: OrderInvoice | null;
+  customsTax?: OrderCustomsTax | null;
+  payments?: OrderPayment[];
+  contract?: Contract;
+}

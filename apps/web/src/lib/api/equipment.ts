@@ -5,6 +5,7 @@ import type {
   Paginated, Equipment, Sensor, EquipmentCategory2, Supplier,
   InventoryItem, StorageLocation, InventoryTransaction, AssetCostEvent,
   ProductVariant, InboundRequest, BundleShipment,
+  ProductMaster, Contract, OverseasOrder, OrderInvoice, OrderPayment, OrderCustomsTax,
 } from "./types";
 
 
@@ -408,13 +409,13 @@ export const procurementApi = {
     if (params?.sortBy) q.set("sortBy", params.sortBy);
     if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
     const qs = q.toString();
-    return request<any>(`/procurement/products${qs ? `?${qs}` : ""}`);
+    return request<Paginated<ProductMaster>>(`/procurement/products${qs ? `?${qs}` : ""}`);
   },
-  getProduct: (id: string) => request<any>(`/procurement/products/${id}`),
+  getProduct: (id: string) => request<ProductMaster>(`/procurement/products/${id}`),
   createProduct: (data: unknown) =>
-    request<any>("/procurement/products", { method: "POST", body: JSON.stringify(data) }),
+    request<ProductMaster>("/procurement/products", { method: "POST", body: JSON.stringify(data) }),
   updateProduct: (id: string, data: unknown) =>
-    request<any>(`/procurement/products/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<ProductMaster>(`/procurement/products/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteProduct: (id: string) =>
     request<void>(`/procurement/products/${id}`, { method: "DELETE" }),
   getManufacturers: () => request<string[]>("/procurement/products/manufacturers"),
@@ -446,18 +447,18 @@ export const procurementApi = {
     if (params?.sortBy) q.set("sortBy", params.sortBy);
     if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
     const qs = q.toString();
-    return request<any>(`/procurement/contracts${qs ? `?${qs}` : ""}`);
+    return request<Paginated<Contract>>(`/procurement/contracts${qs ? `?${qs}` : ""}`);
   },
-  getContract: (id: string) => request<any>(`/procurement/contracts/${id}`),
+  getContract: (id: string) => request<Contract>(`/procurement/contracts/${id}`),
   createContract: (data: unknown) =>
-    request<any>("/procurement/contracts", { method: "POST", body: JSON.stringify(data) }),
+    request<Contract>("/procurement/contracts", { method: "POST", body: JSON.stringify(data) }),
   updateContract: (id: string, data: unknown) =>
-    request<any>(`/procurement/contracts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<Contract>(`/procurement/contracts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteContract: (id: string) =>
     request<void>(`/procurement/contracts/${id}`, { method: "DELETE" }),
   // v1.6.1 (2026-05-15): 계약 확정 — PROSPECTIVE → ACTIVE
   finalizeContract: (id: string, data: { contractNumber: string; contractDate?: string }) =>
-    request<any>(`/procurement/contracts/${id}/finalize`, { method: "POST", body: JSON.stringify(data) }),
+    request<Contract>(`/procurement/contracts/${id}/finalize`, { method: "POST", body: JSON.stringify(data) }),
 
   // 해외 발주
   getOrders: (params?: { search?: string; status?: string; currency?: string; orderType?: string; contractId?: string; page?: number; limit?: number; sortBy?: string; sortOrder?: "asc" | "desc"; hasPayment?: boolean }) => {
@@ -473,23 +474,23 @@ export const procurementApi = {
     if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
     if (params?.hasPayment) q.set("hasPayment", "true");
     const qs = q.toString();
-    return request<any>(`/procurement/orders${qs ? `?${qs}` : ""}`);
+    return request<Paginated<OverseasOrder>>(`/procurement/orders${qs ? `?${qs}` : ""}`);
   },
-  getOrder: (id: string) => request<any>(`/procurement/orders/${id}`),
+  getOrder: (id: string) => request<OverseasOrder>(`/procurement/orders/${id}`),
   createOrder: (data: unknown) =>
-    request<any>("/procurement/orders", { method: "POST", body: JSON.stringify(data) }),
+    request<OverseasOrder>("/procurement/orders", { method: "POST", body: JSON.stringify(data) }),
   updateOrder: (id: string, data: unknown) =>
-    request<any>(`/procurement/orders/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<OverseasOrder>(`/procurement/orders/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteOrder: (id: string) =>
     request<void>(`/procurement/orders/${id}`, { method: "DELETE" }),
   transitionOrder: (id: string, status: string, transitionDate?: string) =>
-    request<any>(`/procurement/orders/${id}/transition`, {
+    request<OverseasOrder>(`/procurement/orders/${id}/transition`, {
       method: "POST",
       body: JSON.stringify(transitionDate ? { status, transitionDate } : { status }),
     }),
   // v1.6 (2026-05-14): 결재 상신 취소
   cancelOrderSubmission: (id: string) =>
-    request<any>(`/procurement/orders/${id}/cancel-submission`, { method: "POST" }),
+    request<OverseasOrder>(`/procurement/orders/${id}/cancel-submission`, { method: "POST" }),
   getDashboard: () => request<any>("/procurement/orders/dashboard"),
 
   // 발주 품목
@@ -514,28 +515,28 @@ export const procurementApi = {
   getSettlement: (orderId: string) =>
     request<any>(`/procurement/orders/${orderId}/settlement`),
   getInvoice: (orderId: string) =>
-    request<any>(`/procurement/orders/${orderId}/invoice`),
+    request<OrderInvoice | null>(`/procurement/orders/${orderId}/invoice`),
   createInvoice: (orderId: string, data: unknown) =>
-    request<any>(`/procurement/orders/${orderId}/invoice`, { method: "POST", body: JSON.stringify(data) }),
+    request<OrderInvoice>(`/procurement/orders/${orderId}/invoice`, { method: "POST", body: JSON.stringify(data) }),
   updateInvoice: (orderId: string, data: unknown) =>
-    request<any>(`/procurement/orders/${orderId}/invoice`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<OrderInvoice>(`/procurement/orders/${orderId}/invoice`, { method: "PATCH", body: JSON.stringify(data) }),
   listPayments: (orderId: string) =>
-    request<any>(`/procurement/orders/${orderId}/payments`),
+    request<OrderPayment[]>(`/procurement/orders/${orderId}/payments`),
   createPayment: (orderId: string, data: unknown) =>
-    request<any>(`/procurement/orders/${orderId}/payments`, { method: "POST", body: JSON.stringify(data) }),
+    request<OrderPayment>(`/procurement/orders/${orderId}/payments`, { method: "POST", body: JSON.stringify(data) }),
   updatePayment: (paymentId: string, data: unknown) =>
-    request<any>(`/procurement/payments/${paymentId}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<OrderPayment>(`/procurement/payments/${paymentId}`, { method: "PATCH", body: JSON.stringify(data) }),
   deletePayment: (paymentId: string) =>
     request<void>(`/procurement/payments/${paymentId}`, { method: "DELETE" }),
   // v1.6 (2026-05-14): 송금 요청 워크플로우
   requestPayment: (orderId: string, data: unknown) =>
-    request<any>(`/procurement/orders/${orderId}/payment-requests`, { method: "POST", body: JSON.stringify(data) }),
+    request<OrderPayment>(`/procurement/orders/${orderId}/payment-requests`, { method: "POST", body: JSON.stringify(data) }),
   listPaymentRequests: (status?: "REQUESTED" | "COMPLETED" | "REJECTED") =>
-    request<any[]>(`/procurement/payment-requests${status ? `?status=${status}` : ""}`),
+    request<OrderPayment[]>(`/procurement/payment-requests${status ? `?status=${status}` : ""}`),
   completePaymentRequest: (paymentId: string, data: unknown) =>
-    request<any>(`/procurement/payments/${paymentId}/complete`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<OrderPayment>(`/procurement/payments/${paymentId}/complete`, { method: "PATCH", body: JSON.stringify(data) }),
   rejectPaymentRequest: (paymentId: string, reason: string) =>
-    request<any>(`/procurement/payments/${paymentId}/reject`, { method: "PATCH", body: JSON.stringify({ reason }) }),
+    request<OrderPayment>(`/procurement/payments/${paymentId}/reject`, { method: "PATCH", body: JSON.stringify({ reason }) }),
 
   // 진행 이력
   getProgress: (orderId: string) =>
@@ -547,15 +548,15 @@ export const procurementApi = {
 
   // v1.6.1 (2026-05-15): 관부가세 처리
   getCustomsTax: (orderId: string) =>
-    request<any>(`/procurement/orders/${orderId}/customs-tax`),
+    request<OrderCustomsTax | null>(`/procurement/orders/${orderId}/customs-tax`),
   listCustomsTaxes: (status?: "PENDING" | "PAID" | "REJECTED") =>
-    request<any[]>(`/procurement/customs-taxes${status ? `?status=${status}` : ""}`),
+    request<OrderCustomsTax[]>(`/procurement/customs-taxes${status ? `?status=${status}` : ""}`),
   correctCustomsTax: (id: string, data: { customsDuty?: number; vat?: number; totalAmount?: number; paidAt?: string; notes?: string }) =>
-    request<any>(`/customs-taxes/${id}/correct`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<OrderCustomsTax>(`/customs-taxes/${id}/correct`, { method: "PATCH", body: JSON.stringify(data) }),
   payCustomsTax: (id: string, data: { customsDuty?: number; vat?: number; totalAmount?: number; paidAt?: string; notes?: string }) =>
-    request<any>(`/procurement/customs-taxes/${id}/pay`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<OrderCustomsTax>(`/procurement/customs-taxes/${id}/pay`, { method: "PATCH", body: JSON.stringify(data) }),
   rejectCustomsTax: (id: string, reason: string) =>
-    request<any>(`/procurement/customs-taxes/${id}/reject`, { method: "PATCH", body: JSON.stringify({ reason }) }),
+    request<OrderCustomsTax>(`/procurement/customs-taxes/${id}/reject`, { method: "PATCH", body: JSON.stringify({ reason }) }),
 };
 
 // ── Inventory Audit (재고 실사) ──────────────────────────────────────
