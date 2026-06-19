@@ -85,7 +85,7 @@ export default function EditOrderPage() {
           customsHandler: order.customsHandler || "",
           invoiceNo: order.invoiceNo || "",
           paymentTerms: order.paymentTerms || "",
-          customer: order.customer || (typeof order.contract?.client === "string" ? order.contract.client : order.contract?.client?.name) || "",
+          customer: order.customer || order.contract?.client || "",
           totalAmount: Number(order.totalAmount) || 0,
           totalAmountKRW: order.totalAmountKRW ? String(order.totalAmountKRW) : "",
           notes: order.notes || "",
