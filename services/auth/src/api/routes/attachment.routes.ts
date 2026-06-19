@@ -1,10 +1,11 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
+import type { PrismaClient } from "@prisma/client";
 import type { AttachmentService } from "../../application/attachment.service";
 import { AttachmentError } from "../../application/attachment.service";
 import type { AuthService } from "../../application/auth.service";
 import { createAuthHook } from "../middleware/auth.middleware";
 
-function handleError(reply: any, err: any) {
+function handleError(reply: FastifyReply, err: unknown) {
   if (err instanceof AttachmentError) {
     return reply.code(err.statusCode).send({ error: { code: err.code, message: err.message } });
   }
@@ -13,20 +14,20 @@ function handleError(reply: any, err: any) {
 
 export async function attachmentRoutes(
   app: FastifyInstance,
-  opts: { attachmentService: AttachmentService; authService: AuthService; prisma: any },
+  opts: { attachmentService: AttachmentService; authService: AuthService; prisma: PrismaClient },
 ) {
   const { attachmentService, authService, prisma } = opts;
   const authenticate = createAuthHook(authService);
 
   // POST /api/v1/attachments/upload (multipart)
-  app.post("/attachments/upload", { preHandler: [authenticate] }, async (req: any, reply) => {
+  app.post("/attachments/upload", { preHandler: [authenticate] }, async (req, reply) => {
     try {
       const data = await req.file();
       if (!data) {
         return reply.code(400).send({ error: { code: "INVALID_INPUT", message: "파일이 없습니다." } });
       }
       const buffer = await data.toBuffer();
-      const isInline = ((req.query as any)?.isInline ?? "false") === "true";
+      const isInline = ((req.query as { isInline?: string })?.isInline ?? "false") === "true";
       const user = { id: req.userId, role: req.userRole };
       const att = await attachmentService.upload({
         buffer,
@@ -50,7 +51,7 @@ export async function attachmentRoutes(
   });
 
   // GET /api/v1/attachments/:id
-  app.get("/attachments/:id", { preHandler: [authenticate] }, async (req: any, reply) => {
+  app.get("/attachments/:id", { preHandler: [authenticate] }, async (req, reply) => {
     try {
       const { id } = req.params as { id: string };
       // 권한 검증을 위해 사용자 부서까지 조회

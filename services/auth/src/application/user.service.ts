@@ -1,15 +1,23 @@
 import bcrypt from "bcryptjs";
-import type { IUserRepository } from "../domain/repositories/user.repository";
+import type { IUserRepository, UpdateUserData, UserProfileData } from "../domain/repositories/user.repository";
 import type { User, EmployeeStatus } from "../domain/entities/user.entity";
 import type { CreateUserDto, UpdateUserDto, UpsertProfileDto } from "../api/dtos/user.dto";
 import { AuthError } from "./auth.service";
 
+type SanitizedUser = Omit<User, "passwordHash">;
+// findAll/Profile은 런타임에 profile·isOnline을 덧붙여 반환 (repo 구현이 include)
+type UserWithExtras = User & { profile?: UserProfileData | null; isOnline?: boolean };
+type UserListItem = SanitizedUser & { profile: UserProfileData | null; isOnline: boolean };
+
 export class UserService {
   constructor(private readonly userRepo: IUserRepository) {}
 
-  async findAll(opts?: { includeRetired?: boolean }): Promise<any[]> {
+  async findAll(opts?: { includeRetired?: boolean }): Promise<UserListItem[]> {
     const users = await this.userRepo.findAll(opts);
-    return users.map((u) => ({ ...this.sanitize(u), profile: (u as any).profile ?? null, isOnline: (u as any).isOnline ?? false }));
+    return users.map((u) => {
+      const ux = u as UserWithExtras;
+      return { ...this.sanitize(u), profile: ux.profile ?? null, isOnline: ux.isOnline ?? false };
+    });
   }
 
   async create(dto: CreateUserDto): Promise<Omit<User, "passwordHash">> {
@@ -78,7 +86,7 @@ export class UserService {
     const user = await this.userRepo.findById(id);
     if (!user) throw new AuthError(404, "사용자를 찾을 수 없습니다.");
     // RETIRED 변경 시 isActive=false + retirementDate 자동
-    const data: any = { status: dto.status };
+    const data: UpdateUserData = { status: dto.status };
     if (dto.status === "RETIRED") {
       data.isActive = false;
       data.retirementDate = dto.retirementDate ?? new Date();
@@ -100,14 +108,14 @@ export class UserService {
     await this.userRepo.update(id, { passwordHash });
   }
 
-  async getProfile(userId: string): Promise<any> {
+  async getProfile(userId: string): Promise<SanitizedUser & { profile: UserProfileData | null }> {
     const user = await this.userRepo.findById(userId);
     if (!user) throw new AuthError(404, "사용자를 찾을 수 없습니다.");
     const profile = await this.userRepo.findProfile(userId);
     return { ...this.sanitize(user), profile: profile ?? null };
   }
 
-  async upsertProfile(userId: string, dto: UpsertProfileDto): Promise<any> {
+  async upsertProfile(userId: string, dto: UpsertProfileDto): Promise<SanitizedUser & { profile: UserProfileData }> {
     const user = await this.userRepo.findById(userId);
     if (!user) throw new AuthError(404, "사용자를 찾을 수 없습니다.");
     const profile = await this.userRepo.upsertProfile(userId, dto);

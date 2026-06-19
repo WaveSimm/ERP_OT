@@ -1,4 +1,5 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import type { PrismaClient } from "@prisma/client";
 import type { PostService } from "../../application/post.service";
 import type { BoardService } from "../../application/board.service";
 import type { AuthService } from "../../application/auth.service";
@@ -14,12 +15,13 @@ import {
   feedQuerySchema,
 } from "../dtos/board.dto";
 import type { AuthUserContext } from "../../domain/board.types";
+import { ZodError } from "zod";
 
-function extractUser(req: any): AuthUserContext {
+function extractUser(req: FastifyRequest): AuthUserContext {
   return { id: req.userId, role: req.userRole };
 }
 
-async function extractUserWithDept(req: any, prisma: any): Promise<AuthUserContext> {
+async function extractUserWithDept(req: FastifyRequest, prisma: PrismaClient): Promise<AuthUserContext> {
   const profile = await prisma.userProfile.findUnique({
     where: { userId: req.userId },
     select: { departmentId: true },
@@ -27,7 +29,7 @@ async function extractUserWithDept(req: any, prisma: any): Promise<AuthUserConte
   return { id: req.userId, role: req.userRole, departmentId: profile?.departmentId ?? null };
 }
 
-function handleError(reply: any, err: any) {
+function handleError(reply: FastifyReply, err: unknown) {
   if (err instanceof PostError) {
     return reply.code(err.statusCode).send({ error: { code: err.code, message: err.message } });
   }
@@ -41,7 +43,7 @@ export async function postRoutes(
     boardService: BoardService;
     authService: AuthService;
     noticeNotifyHook: NoticeNotifyHook;
-    prisma: any;
+    prisma: PrismaClient;
   },
 ) {
   const { postService, boardService, authService, noticeNotifyHook, prisma } = opts;
@@ -126,16 +128,16 @@ export async function postRoutes(
           contentSummary: summary,
           priority: dto.priority ?? 0,
           publishingDepartmentId: created.publishingDepartment?.id ?? null,
-          readAudience: board.readAudience as any,
+          readAudience: board.readAudience,
           audienceTargetId: board.audienceTargetId,
           targetDepartmentId: dto.targetDepartmentId ?? null,
         });
       }
 
       return reply.code(201).send(created);
-    } catch (err: any) {
-      if (err?.name === "ZodError") {
-        return reply.code(400).send({ error: { code: "INVALID_INPUT", message: err.issues?.[0]?.message ?? "입력 오류" } });
+    } catch (err) {
+      if (err instanceof ZodError) {
+        return reply.code(400).send({ error: { code: "INVALID_INPUT", message: err.issues[0]?.message ?? "입력 오류" } });
       }
       return handleError(reply, err);
     }
@@ -149,9 +151,9 @@ export async function postRoutes(
       const user = extractUser(req);
       const updated = await postService.update(id, dto, user);
       return reply.send(updated);
-    } catch (err: any) {
-      if (err?.name === "ZodError") {
-        return reply.code(400).send({ error: { code: "INVALID_INPUT", message: err.issues?.[0]?.message } });
+    } catch (err) {
+      if (err instanceof ZodError) {
+        return reply.code(400).send({ error: { code: "INVALID_INPUT", message: err.issues[0]?.message } });
       }
       return handleError(reply, err);
     }
@@ -177,9 +179,9 @@ export async function postRoutes(
       const user = extractUser(req);
       const result = await postService.togglePin(id, dto.isPinned, user);
       return reply.send(result);
-    } catch (err: any) {
-      if (err?.name === "ZodError") {
-        return reply.code(400).send({ error: { code: "INVALID_INPUT", message: err.issues?.[0]?.message } });
+    } catch (err) {
+      if (err instanceof ZodError) {
+        return reply.code(400).send({ error: { code: "INVALID_INPUT", message: err.issues[0]?.message } });
       }
       return handleError(reply, err);
     }

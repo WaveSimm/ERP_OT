@@ -11,8 +11,8 @@ export function createAuthHook(authService: AuthService) {
     let token: string | undefined;
     if (auth && auth.startsWith("Bearer ")) {
       token = auth.slice(7);
-    } else if ((req as any).cookies?.accessToken) {
-      token = (req as any).cookies.accessToken;
+    } else if (req.cookies?.accessToken) {
+      token = req.cookies.accessToken;
     }
     if (!token) {
       return reply.code(401).send({ error: "인증이 필요합니다." });

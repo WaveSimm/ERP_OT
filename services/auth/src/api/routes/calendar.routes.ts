@@ -1,4 +1,5 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
+import { ZodError } from "zod";
 import type { CalendarService } from "../../application/calendar.service";
 import { CalendarError } from "../../application/calendar.service";
 import type { AuthService } from "../../application/auth.service";
@@ -13,16 +14,16 @@ import {
   syncHolidaysQuerySchema,
 } from "../dtos/calendar.dto";
 
-function handleError(reply: any, err: any) {
+function handleError(reply: FastifyReply, err: unknown) {
   if (err instanceof CalendarError) {
     return reply.code(err.statusCode).send({ error: { code: err.code, message: err.message } });
   }
   if (err instanceof KasiClientError) {
     return reply.code(err.statusCode).send({ error: { code: err.code, message: err.message } });
   }
-  if (err?.name === "ZodError") {
+  if (err instanceof ZodError) {
     return reply.code(400).send({
-      error: { code: "INVALID_INPUT", message: err.issues?.[0]?.message ?? "입력 오류" },
+      error: { code: "INVALID_INPUT", message: err.issues[0]?.message ?? "입력 오류" },
     });
   }
   throw err;
@@ -74,7 +75,7 @@ export async function calendarRoutes(
   });
 
   // POST /api/v1/calendar (ADMIN)
-  app.post("/", { preHandler: [authenticate, adminOnly] }, async (req: any, reply) => {
+  app.post("/", { preHandler: [authenticate, adminOnly] }, async (req, reply) => {
     try {
       const dto = createEntrySchema.parse(req.body);
       const created = await calendarService.create(dto, req.userId);
