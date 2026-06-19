@@ -110,3 +110,80 @@ export interface TaskComment {
   updatedAt: string;
   mentions?: { userId: string }[];
 }
+
+// ─── Attendance ──────────────────────────────────────────────────────────────
+// NOTE: 출퇴근 기록/캘린더(getToday·getCalendar·getSummary) 응답은 컴포넌트 로컬
+//   타입(AttendanceView의 TodayRecord·CalendarDay)과 필드가 달라 별도 정밀 대조 후 타이핑 예정.
+
+export interface WorkScheduleEntry {
+  id: string;
+  userId: string;
+  date: string;
+  entryType: string;
+  startTime: string | null;
+  endTime: string | null;
+  label: string | null;
+  groupId: string | null;
+  sourceType: string;
+  sourceId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Leave / Holiday Work ────────────────────────────────────────────────────
+export interface LeaveBalance {
+  id: string;
+  userId: string;
+  year: number;
+  totalDays: number;
+  longServiceDays: number;
+  usedDays: number;
+  pendingDays: number;
+  adjustedDays: number;
+  updatedAt: string;
+  remainingDays: number;
+}
+
+export interface LeaveRequest {
+  id: string;
+  userId: string;
+  type: string;
+  startDate: string;
+  endDate: string;
+  days: number;
+  reason: string;
+  status: string;
+  approverId: string | null;
+  secondApproverId: string | null;
+  thirdApproverId: string | null;
+  approvedAt: string | null;
+  rejectReason: string | null;
+  cancelledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  userName?: string | null;
+  approverName?: string | null;
+  secondApproverName?: string | null;
+  thirdApproverName?: string | null;
+}
+
+export interface HolidayWorkRequest {
+  id: string;
+  userId: string;
+  date: string;
+  reason: string;
+  status: string;
+  approverId: string | null;
+  secondApproverId: string | null;
+  thirdApproverId: string | null;
+  approvedAt: string | null;
+  rejectReason: string | null;
+  projectId: string | null;
+  taskId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  userName?: string | null;
+  approverName?: string | null;
+  secondApproverName?: string | null;
+  thirdApproverName?: string | null;
+}
