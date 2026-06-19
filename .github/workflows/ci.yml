@@ -38,6 +38,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # 각 서비스 schema.prisma → @prisma/client 타입(enum 등) 생성. build(tsc)가 이를 의존하지 않아 CI에서 선행 필요.
+      #   generate는 DB 불필요(스키마만). 이게 없으면 ApprovalDocumentStatus 등 enum import가 타입에러.
+      - name: Prisma generate
+        run: pnpm -r --if-present run db:generate
+
       # Lint 보류: eslint 가 monorepo 어디에도 설치돼 있지 않아(전 패키지 lint="eslint src/"인데 eslint 의존 0)
       #   turbo run lint 는 "eslint: not found"로 전부 실패. eslint+config+plugin 도입은 Phase 1 별도 작업 → 그때 재추가.
       # 고아 패키지 @erp-ot/ui·@erp-ot/api-client 제외: 둘 다 import 0(dead stub)인데 build="tsc"에 tsconfig가 없어 실패.
