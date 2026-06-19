@@ -4,6 +4,22 @@ export async function internalRoutes(fastify: FastifyInstance) {
   // 보안 일괄패치 iterate-1: inline hook 제거 — shared requireInternal이 글로벌 onRequest로 처리
   // (services/shared/src/middleware/require-internal.ts 참고)
 
+  // GET /internal/projects — 외부 사내서비스(photo-album 등)용 경량 프로젝트 목록
+  // X-Internal-Token 으로 인증(글로벌 requireInternal). id/name/status 만 반환.
+  fastify.get("/projects", async (req: any, reply) => {
+    const q = req.query as any;   // project.routes.ts 와 동일하게 any (exactOptionalPropertyTypes 회피)
+    const result = await fastify.projectService.listProjects({
+      status: q.status,
+      search: q.search,
+      page: 1,
+      limit: q.limit ? Math.min(500, parseInt(q.limit, 10)) : 300,
+    });
+    return reply.send({
+      items: (result.items ?? []).map((p: any) => ({ id: p.id, name: p.name, status: p.status })),
+      total: result.total,
+    });
+  });
+
   // POST /internal/work-logs/semantic-search — auth-service에서 호출 (하이브리드 검색)
   fastify.post("/work-logs/semantic-search", async (req: any, reply) => {
     const body = req.body as {
