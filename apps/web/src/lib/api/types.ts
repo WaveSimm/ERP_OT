@@ -1208,3 +1208,141 @@ export interface Shipment {
   createdAt: string;
   updatedAt: string;
 }
+
+// ─── Equipment: Deployment/Maintenance/Schedule/Audit/Followup ───────────────
+export interface Deployment {
+  id: string;
+  equipmentId: string | null;
+  projectId: string;
+  projectName: string;
+  taskId: string | null;
+  taskName: string | null;
+  status: string;
+  startDate: string;
+  endDate: string | null;
+  configParams?: unknown;
+  notes: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  sensors?: unknown[];
+}
+
+export interface MaintenanceRecord {
+  id: string;
+  equipmentId: string | null;
+  sensorId: string | null;
+  type: string;
+  title: string;
+  description: string | null;
+  performedBy: string | null;
+  performedAt: string;
+  completedAt: string | null;
+  cost: string | number | null;
+  durationHours: number | null;
+  replacedParts: string | null;
+  attachmentUrls?: unknown;
+  notes: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AssetSchedule {
+  id: string;
+  equipmentId: string | null;
+  sensorId: string | null;
+  type: string;
+  title: string;
+  description: string | null;
+  startDate: string;
+  endDate: string;
+  projectId: string | null;
+  projectName: string | null;
+  deploymentId: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DeploymentTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  categoryId: string | null;
+  sensorConfig: unknown;
+  isPublic: boolean;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SensorCompatibility {
+  id: string;
+  equipmentId: string;
+  sensorId: string;
+  notes: string | null;
+  createdAt: string;
+  equipment?: Equipment | { id: string; name: string };
+  sensor?: Sensor | { id: string; name: string };
+}
+
+export interface InventoryAudit {
+  id: string;
+  name: string;
+  status: string;
+  plannedDate: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  notes: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  items?: unknown[];
+}
+
+export interface ExpenseFollowUp {
+  id: string;
+  approvalDocumentId: string;
+  status: string;
+  receivedBy: string | null;
+  receivedAt: string | null;
+  isInventoryTarget: boolean | null;
+  inventoryDecisionBy: string | null;
+  inventoryDecisionAt: string | null;
+  inventoryDecisionNote: string | null;
+  arrivalDate: string | null;
+  arrivalLocation: string | null;
+  arrivalNote: string | null;
+  confirmedBy: string | null;
+  inventoryItemId: string | null;
+  paymentCompletedAt: string | null;
+  paymentAmount: string | number | null;
+  paymentNote: string | null;
+  paymentBy: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ImportCostSettlement {
+  id: string;
+  orderId: string | null;
+  contractId: string | null;
+  declarationNo: string;
+  supplier: string;
+  declarationDate: string;
+  currency: string;
+  totalImportCost: string | number;
+  totalExtraCost: string | number;
+  supplyAmount: string | number;
+  vat: string | number;
+  saleInfo: string | null;
+  notes: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  items?: unknown[];
+  extras?: unknown[];
+  remittances?: unknown[];
+}

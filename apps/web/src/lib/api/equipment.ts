@@ -8,6 +8,8 @@ import type {
   ProductMaster, Contract, OverseasOrder, OrderInvoice, OrderPayment, OrderCustomsTax,
   RepairCustomer, RepairCustomerContact, CustomerAsset, RepairOrder, InspectionReport,
   RepairCost, RepairQuote, Part, PartTransaction, RepairPurchaseOrder, Shipment,
+  Deployment, MaintenanceRecord, AssetSchedule, DeploymentTemplate, SensorCompatibility,
+  InventoryAudit, ExpenseFollowUp, ImportCostSettlement,
 } from "./types";
 
 
@@ -37,9 +39,9 @@ export const equipmentApi = {
     return request<any[]>(`/schedules/equipment/${id}${q.toString() ? `?${q}` : ""}`);
   },
   getCompatibleSensors: (id: string) =>
-    request<any[]>(`/compatibility/equipment/${id}`),
+    request<SensorCompatibility[]>(`/compatibility/equipment/${id}`),
   getDeployments: (id: string) =>
-    request<any>(`/deployments?equipmentId=${id}`),
+    request<Paginated<Deployment>>(`/deployments?equipmentId=${id}`),
   // 구성요소
   getComponents: (id: string) => request<any[]>(`/equipment/${id}/components`),
   addComponent: (id: string, data: { name: string; spec?: string; notes?: string }) =>
@@ -75,9 +77,9 @@ export const sensorApi = {
   remove: (id: string) => request<void>(`/sensors/${id}`, { method: "DELETE" }),
   getDeploymentHistory: (id: string) => request<any[]>(`/sensors/${id}/deployment-history`),
   getCompatibleEquipment: (id: string) =>
-    request<any[]>(`/compatibility/sensor/${id}`),
+    request<SensorCompatibility[]>(`/compatibility/sensor/${id}`),
   getDeployments: (id: string) =>
-    request<any>(`/deployments?sensorId=${id}`),
+    request<Paginated<Deployment>>(`/deployments?sensorId=${id}`),
   getMaintenance: (id: string, page = 1) =>
     request<any>(`/sensors/${id}/maintenance?page=${page}`),
   getSchedules: (id: string, startDate?: string, endDate?: string) => {
@@ -100,9 +102,9 @@ export const equipmentCategoryApi = {
 
 export const maintenanceApi = {
   create: (data: unknown) =>
-    request<any>("/maintenance", { method: "POST", body: JSON.stringify(data) }),
+    request<MaintenanceRecord>("/maintenance", { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, data: unknown) =>
-    request<any>(`/maintenance/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    request<MaintenanceRecord>(`/maintenance/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   remove: (id: string) => request<void>(`/maintenance/${id}`, { method: "DELETE" }),
 };
 
@@ -116,9 +118,9 @@ export const equipmentScheduleApi = {
     return request<any>(`/schedules/timeline?${q}`);
   },
   create: (data: unknown) =>
-    request<any>("/schedules", { method: "POST", body: JSON.stringify(data) }),
+    request<AssetSchedule>("/schedules", { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, data: unknown) =>
-    request<any>(`/schedules/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    request<AssetSchedule>(`/schedules/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   remove: (id: string) => request<void>(`/schedules/${id}`, { method: "DELETE" }),
 };
 
@@ -127,16 +129,16 @@ export const deploymentApi = {
     const q = params ? new URLSearchParams(params as Record<string, string>).toString() : "";
     return request<any>(`/deployments${q ? `?${q}` : ""}`);
   },
-  listByTask: (taskId: string) => request<any[]>(`/deployments/by-task/${taskId}`),
-  get: (id: string) => request<any>(`/deployments/${id}`),
+  listByTask: (taskId: string) => request<Deployment[]>(`/deployments/by-task/${taskId}`),
+  get: (id: string) => request<Deployment>(`/deployments/${id}`),
   create: (data: unknown) =>
-    request<any>("/deployments", { method: "POST", body: JSON.stringify(data) }),
+    request<Deployment>("/deployments", { method: "POST", body: JSON.stringify(data) }),
   activate: (id: string) =>
-    request<any>(`/deployments/${id}/activate`, { method: "POST", body: "{}" }),
+    request<Deployment>(`/deployments/${id}/activate`, { method: "POST", body: "{}" }),
   complete: (id: string) =>
-    request<any>(`/deployments/${id}/complete`, { method: "POST", body: "{}" }),
+    request<Deployment>(`/deployments/${id}/complete`, { method: "POST", body: "{}" }),
   cancel: (id: string) =>
-    request<any>(`/deployments/${id}/cancel`, { method: "POST", body: "{}" }),
+    request<Deployment>(`/deployments/${id}/cancel`, { method: "POST", body: "{}" }),
   remove: (id: string) =>
     request<void>(`/deployments/${id}`, { method: "DELETE" }),
 };
@@ -162,17 +164,17 @@ export const deploymentTemplateApi = {
     const q = params ? new URLSearchParams(params as Record<string, string>).toString() : "";
     return request<any[]>(`/deployment-templates${q ? `?${q}` : ""}`);
   },
-  get: (id: string) => request<any>(`/deployment-templates/${id}`),
+  get: (id: string) => request<DeploymentTemplate>(`/deployment-templates/${id}`),
   create: (data: { name: string; description?: string; categoryId?: string; sensorConfig: unknown; isPublic?: boolean }) =>
-    request<any>("/deployment-templates", { method: "POST", body: JSON.stringify(data) }),
+    request<DeploymentTemplate>("/deployment-templates", { method: "POST", body: JSON.stringify(data) }),
   saveFromDeployment: (deploymentId: string, data: { name: string; description?: string; isPublic?: boolean }) =>
-    request<any>(`/deployment-templates/from-deployment/${deploymentId}`, { method: "POST", body: JSON.stringify(data) }),
+    request<DeploymentTemplate>(`/deployment-templates/from-deployment/${deploymentId}`, { method: "POST", body: JSON.stringify(data) }),
   remove: (id: string) => request<void>(`/deployment-templates/${id}`, { method: "DELETE" }),
 };
 
 export const compatibilityApi = {
   create: (data: { equipmentId: string; sensorId: string; notes?: string }) =>
-    request<any>("/compatibility", { method: "POST", body: JSON.stringify(data) }),
+    request<SensorCompatibility>("/compatibility", { method: "POST", body: JSON.stringify(data) }),
   remove: (id: string) => request<void>(`/compatibility/${id}`, { method: "DELETE" }),
 };
 
@@ -568,21 +570,21 @@ export const auditApi = {
     if (params?.sortBy) q.set("sortBy", params.sortBy);
     if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
     const qs = q.toString();
-    return request<any[]>(`/inventory/audits${qs ? `?${qs}` : ""}`);
+    return request<InventoryAudit[]>(`/inventory/audits${qs ? `?${qs}` : ""}`);
   },
-  getById: (id: string) => request<any>(`/inventory/audits/${id}`),
+  getById: (id: string) => request<InventoryAudit>(`/inventory/audits/${id}`),
   create: (data: { name: string; plannedDate: string; notes?: string }) =>
-    request<any>("/inventory/audits", { method: "POST", body: JSON.stringify(data) }),
+    request<InventoryAudit>("/inventory/audits", { method: "POST", body: JSON.stringify(data) }),
   start: (id: string) =>
-    request<any>(`/inventory/audits/${id}/start`, { method: "POST" }),
+    request<InventoryAudit>(`/inventory/audits/${id}/start`, { method: "POST" }),
   pause: (id: string) =>
-    request<any>(`/inventory/audits/${id}/pause`, { method: "POST" }),
+    request<InventoryAudit>(`/inventory/audits/${id}/pause`, { method: "POST" }),
   resume: (id: string) =>
-    request<any>(`/inventory/audits/${id}/resume`, { method: "POST" }),
+    request<InventoryAudit>(`/inventory/audits/${id}/resume`, { method: "POST" }),
   cancel: (id: string) =>
-    request<any>(`/inventory/audits/${id}/cancel`, { method: "POST" }),
+    request<InventoryAudit>(`/inventory/audits/${id}/cancel`, { method: "POST" }),
   complete: (id: string) =>
-    request<any>(`/inventory/audits/${id}/complete`, { method: "POST" }),
+    request<InventoryAudit>(`/inventory/audits/${id}/complete`, { method: "POST" }),
   checkItem: (itemId: string, data: { actualQuantity: number; actualLocation?: string; notes?: string }) =>
     request<any>(`/inventory/audits/items/${itemId}/check`, { method: "POST", body: JSON.stringify(data) }),
   resetItem: (itemId: string) =>
@@ -599,17 +601,17 @@ export const expenseFollowupApi = {
     if (p.sortBy) q.set("sortBy", p.sortBy);
     if (p.sortOrder) q.set("sortOrder", p.sortOrder);
     const qs = q.toString();
-    return request<any[]>(`/procurement/expenses${qs ? `?${qs}` : ""}`);
+    return request<ExpenseFollowUp[]>(`/procurement/expenses${qs ? `?${qs}` : ""}`);
   },
-  getById: (id: string) => request<any>(`/procurement/expenses/${id}`),
+  getById: (id: string) => request<ExpenseFollowUp>(`/procurement/expenses/${id}`),
   decide: (id: string, data: { isInventoryTarget: boolean; note?: string; inventoryItems?: number[] }) =>
-    request<any>(`/procurement/expenses/${id}/decide`, { method: "POST", body: JSON.stringify(data) }),
+    request<ExpenseFollowUp>(`/procurement/expenses/${id}/decide`, { method: "POST", body: JSON.stringify(data) }),
   // confirmArrival 폐기 (v1.6, 2026-05-13): 재고 판정 시 자동으로 InboundRequest 큐 생성 → /procurement/inbound에서 receive 처리.
   // 기존 호출처는 모두 제거됨. 410 응답으로 안전망 유지.
   markPayment: (id: string, data: { paidAt: string; paidAmount?: number; paidNote?: string }) =>
-    request<any>(`/procurement/expenses/${id}/payment`, { method: "POST", body: JSON.stringify(data) }),
+    request<ExpenseFollowUp>(`/procurement/expenses/${id}/payment`, { method: "POST", body: JSON.stringify(data) }),
   clearPayment: (id: string) =>
-    request<any>(`/procurement/expenses/${id}/payment`, { method: "DELETE" }),
+    request<ExpenseFollowUp>(`/procurement/expenses/${id}/payment`, { method: "DELETE" }),
 };
 
 // ── Import Cost Settlement (수입원가정산) ────────────────────────────
@@ -619,17 +621,17 @@ export const settlementApi = {
     if (params?.sortBy) q.set("sortBy", params.sortBy);
     if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
     const qs = q.toString();
-    return request<any[]>(`/procurement/settlements${qs ? `?${qs}` : ""}`);
+    return request<ImportCostSettlement[]>(`/procurement/settlements${qs ? `?${qs}` : ""}`);
   },
-  getById: (id: string) => request<any>(`/procurement/settlements/${id}`),
+  getById: (id: string) => request<ImportCostSettlement>(`/procurement/settlements/${id}`),
   create: (data: unknown) =>
-    request<any>("/procurement/settlements", { method: "POST", body: JSON.stringify(data) }),
+    request<ImportCostSettlement>("/procurement/settlements", { method: "POST", body: JSON.stringify(data) }),
   addExtra: (id: string, data: unknown) =>
-    request<any>(`/procurement/settlements/${id}/extras`, { method: "POST", body: JSON.stringify(data) }),
+    request<ImportCostSettlement>(`/procurement/settlements/${id}/extras`, { method: "POST", body: JSON.stringify(data) }),
   updateContract: (id: string, contractId: string | null) =>
-    request<any>(`/procurement/settlements/${id}/contract`, { method: "PATCH", body: JSON.stringify({ contractId }) }),
+    request<ImportCostSettlement>(`/procurement/settlements/${id}/contract`, { method: "PATCH", body: JSON.stringify({ contractId }) }),
   addRemittance: (id: string, data: unknown) =>
-    request<any>(`/procurement/settlements/${id}/remittances`, { method: "POST", body: JSON.stringify(data) }),
+    request<ImportCostSettlement>(`/procurement/settlements/${id}/remittances`, { method: "POST", body: JSON.stringify(data) }),
   removeRemittance: (remittanceId: string) =>
     request<void>(`/procurement/settlements/remittances/${remittanceId}`, { method: "DELETE" }),
   remove: (id: string) =>
