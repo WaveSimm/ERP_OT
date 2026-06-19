@@ -79,7 +79,7 @@ export async function internalRoutes(fastify: FastifyInstance) {
     try {
       const created = await holidayWorkSvc.createFromApproval(body);
       return reply.status(201).send(created);
-    } catch (err: any) {
+    } catch (err) {
       if (err instanceof HolidayWorkError) {
         return reply.status(err.statusCode).send({ error: { code: err.code, message: err.message } });
       }
@@ -105,7 +105,7 @@ export async function internalRoutes(fastify: FastifyInstance) {
     try {
       const created = await leaveSvc.createFromApproval(body);
       return reply.status(201).send(created);
-    } catch (err: any) {
+    } catch (err) {
       if (err instanceof LeaveError) {
         return reply.status(err.statusCode).send({ error: { code: err.code, message: err.message } });
       }
@@ -143,7 +143,7 @@ export async function internalRoutes(fastify: FastifyInstance) {
     let createdCount = 0;
     for (const userId of body.userIds) {
       try {
-        const payload: any = {
+        const payload: Parameters<typeof notifSvc.create>[0] = {
           userId,
           type: body.type,
           source: body.source ?? "internal",

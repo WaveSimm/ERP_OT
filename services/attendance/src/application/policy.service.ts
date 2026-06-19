@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 
 export class PolicyService {
   constructor(private readonly prisma: PrismaClient) {}
@@ -25,7 +25,7 @@ export class PolicyService {
   }) {
     const policy = await this.prisma.attendancePolicy.findFirst();
     if (!policy) {
-      return this.prisma.attendancePolicy.create({ data: data as any });
+      return this.prisma.attendancePolicy.create({ data: data as Prisma.AttendancePolicyUncheckedCreateInput });
     }
     return this.prisma.attendancePolicy.update({ where: { id: policy.id }, data });
   }

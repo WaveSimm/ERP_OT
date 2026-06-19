@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import Redis from "ioredis";
 
 export class NotificationService {
@@ -26,7 +26,7 @@ export class NotificationService {
         body: data.body,
         priority: data.priority ?? 2,
         linkUrl: data.linkUrl ?? null,
-        metadata: data.metadata as any ?? null,
+        metadata: (data.metadata as Prisma.InputJsonValue) ?? null,
       },
     });
 

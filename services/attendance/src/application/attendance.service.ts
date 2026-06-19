@@ -1,4 +1,14 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma, WorkType } from "@prisma/client";
+
+interface MonthDayCell {
+  date: string;
+  status?: string;
+  holidayName?: string;
+  checkIn?: string | undefined;
+  checkOut?: string | undefined;
+  netWorkHours?: number;
+  isLate?: boolean;
+}
 import { transition, CheckState } from "../domain/state-machine/attendance.fsm.js";
 
 export class AttendanceService {
@@ -36,7 +46,7 @@ export class AttendanceService {
       data: {
         checkIn: now,
         checkState: newState,
-        workType: workType as any,
+        workType: workType as WorkType,
         isLate,
         lateMinutes,
         status: isLate ? "LATE" : "NORMAL",
@@ -147,7 +157,7 @@ export class AttendanceService {
 
       if (!isWeekend && !holidayName) workDays++;
 
-      const day: any = { date: dateStr };
+      const day: MonthDayCell = { date: dateStr };
       if (isWeekend) {
         day.status = "WEEKEND";
       } else if (holidayName) {
@@ -236,8 +246,8 @@ export class AttendanceService {
     };
   }
 
-  private formatTodayResponse(record: any) {
-    const activeBreak = record.breakRecords?.find((b: any) => !b.breakIn);
+  private formatTodayResponse(record: Prisma.AttendanceRecordGetPayload<{ include: { breakRecords: true } }>) {
+    const activeBreak = record.breakRecords?.find((b) => !b.breakIn);
     return {
       date: this.formatDate(record.date),
       checkState: record.checkState,

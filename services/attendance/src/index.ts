@@ -1,4 +1,4 @@
-import Fastify from "fastify";
+import Fastify, { type FastifyBaseLogger } from "fastify";
 import fastifyCors from "@fastify/cors";
 import fastifyHelmet from "@fastify/helmet";
 import fastifyRateLimit from "@fastify/rate-limit";
@@ -186,7 +186,15 @@ async function start() {
   process.on("SIGINT", shutdown);
 }
 
-async function notifyDueSoonAndStale(log: any) {
+interface StaleSegment {
+  userId: string;
+  projectId: string;
+  projectName: string;
+  segmentName: string;
+  staleDays: number;
+}
+
+async function notifyDueSoonAndStale(log: FastifyBaseLogger) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const dueSoon = new Date(today);
@@ -199,7 +207,7 @@ async function notifyDueSoonAndStale(log: any) {
       { headers: { "X-Internal-Token": env.INTERNAL_API_TOKEN } },
     );
     if (resp.ok) {
-      const stale = await resp.json() as any[];
+      const stale = await resp.json() as StaleSegment[];
       for (const seg of stale) {
         await notificationService.create({
           userId: seg.userId,
