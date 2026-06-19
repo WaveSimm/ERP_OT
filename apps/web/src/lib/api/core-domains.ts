@@ -584,7 +584,7 @@ export const authApi = {
       const msg = data?.error?.message ?? (typeof data?.error === "string" ? data.error : null) ?? "로그인 실패";
       throw new Error(msg);
     }
-    return data as { user: { id: string; email: string; name: string; role: string } };
+    return data as { user: { id: string; email: string; name: string; role: string; isTeamLeader?: boolean } };
   },
   logout: () => request<void>("/auth/logout", { method: "POST" }),
   me: () => request<User>("/auth/me"),

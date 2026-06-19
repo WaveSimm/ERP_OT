@@ -8,7 +8,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { equipmentResourceApi, type EquipmentResource } from "@/lib/api";
 
-const TYPE_LABEL: Record<EquipmentResource["type"], string> = {
+// EQUIPMENT는 폐기된 레거시 타입(2026-05-05) — 신규는 VEHICLE/FACILITY만이라 Partial.
+const TYPE_LABEL: Partial<Record<EquipmentResource["type"], string>> = {
   VEHICLE: "🚗 차량",
   FACILITY: "🏭 시설",
 };
@@ -182,7 +183,7 @@ export function EquipmentResourcesPanel({ isAdmin }: { isAdmin: boolean }) {
               {sortedItems.map((r) => (
                 <tr key={r.id} className="border-t border-gray-100 hover:bg-gray-50">
                   <td className="px-4 py-2 font-medium">{r.name}</td>
-                  <td className="px-4 py-2 text-xs text-gray-600">{TYPE_LABEL[r.type]}</td>
+                  <td className="px-4 py-2 text-xs text-gray-600">{TYPE_LABEL[r.type] ?? r.type}</td>
                   <td className="px-4 py-2">
                     <span className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[11px] font-medium ${
                       r.isActive
