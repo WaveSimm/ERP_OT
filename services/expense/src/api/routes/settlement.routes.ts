@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import type { SettlementStatus } from "@prisma/client";
 import { promises as fs } from "fs";
 import { z } from "zod";
 import type { SettlementService } from "../../application/settlement.service";
@@ -27,7 +28,7 @@ export async function settlementRoutes(app: FastifyInstance, opts: { service: Se
   app.get("/", async (req) => {
     const q = req.query as { status?: string; page?: string; limit?: string };
     return service.list(req.userId, {
-      ...(q.status && { status: q.status as any }),
+      ...(q.status && { status: q.status as SettlementStatus }),
       ...(q.page && { page: parseInt(q.page, 10) }),
       ...(q.limit && { limit: parseInt(q.limit, 10) }),
     });
@@ -104,7 +105,7 @@ export async function financeRoutes(
   app.get("/queue", async (req) => {
     const q = req.query as { status?: string; page?: string; limit?: string };
     return service.listFinanceQueue({
-      ...(q.status && { status: q.status as any }),
+      ...(q.status && { status: q.status as SettlementStatus }),
       ...(q.page && { page: parseInt(q.page, 10) }),
       ...(q.limit && { limit: parseInt(q.limit, 10) }),
     });
@@ -145,8 +146,8 @@ export async function settlementInternalRoutes(app: FastifyInstance, opts: { ser
     try {
       const updated = await service.linkApproval(id, body.approvalDocumentId);
       return updated;
-    } catch (e: any) {
-      return reply.code(400).send({ error: e.message ?? "link failed" });
+    } catch (e) {
+      return reply.code(400).send({ error: (e as Error).message ?? "link failed" });
     }
   });
 

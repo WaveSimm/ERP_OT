@@ -26,6 +26,24 @@ export interface CreateExpenseClaimInput {
   approvers?: Array<{ stepOrder?: number; roleName?: string; approverId: string; approverName?: string }>;
 }
 
+// approval-service /internal/documents 요청 본문
+interface ApprovalCreateBody {
+  templateCode: string;
+  title: string;
+  requestedBy: string;
+  fields: Record<string, unknown>;
+  richBody?: string | undefined;
+  submitImmediately: boolean;
+  items: Array<{
+    description: string; unitPrice: number; quantity: number;
+    subtotal: number; vat: number; evidence: string | null; receiptId: string | null;
+  }>;
+  totalAmount: number;
+  referenceType: string;
+  referenceId: string;
+  steps?: Array<{ stepOrder: number; roleName: string; approverId: string; approverName: string }>;
+}
+
 export class ApprovalClient {
   constructor(
     private readonly approvalServiceUrl: string,
@@ -40,7 +58,7 @@ export class ApprovalClient {
   async createExpenseClaimDocument(input: CreateExpenseClaimInput): Promise<string> {
     // 양식 통합 (2026-05-11) — EXPENSE_CLAIM → EXPENSE 양식 일원화
     // 경비정산 결재를 지출결의서 양식으로 통합 처리
-    const body: any = {
+    const body: ApprovalCreateBody = {
       templateCode: "EXPENSE",
       title: input.title,
       requestedBy: input.userId,

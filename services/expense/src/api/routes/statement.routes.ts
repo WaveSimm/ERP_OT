@@ -37,8 +37,8 @@ export async function statementRoutes(app: FastifyInstance, opts: { service: Sta
         ...(sourceId && { sourceId }),
       });
       return reply.code(200).send(result);
-    } catch (err: any) {
-      return reply.code(400).send({ error: { code: "IMPORT_FAILED", message: err.message } });
+    } catch (err) {
+      return reply.code(400).send({ error: { code: "IMPORT_FAILED", message: (err as Error).message } });
     }
   });
 }

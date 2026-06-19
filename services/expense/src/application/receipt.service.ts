@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient, Prisma, OcrStatus } from "@prisma/client";
 import sharp from "sharp";
 import path from "path";
 import { promises as fs } from "fs";
@@ -37,8 +37,8 @@ export class ReceiptService {
 
   async list(userId: string, params: { page?: number; limit?: number; ocrStatus?: string } = {}) {
     const { page = 1, limit = 50, ocrStatus } = params;
-    const where: any = { userId };
-    if (ocrStatus) where.ocrStatus = ocrStatus;
+    const where: Prisma.ExpenseReceiptWhereInput = { userId };
+    if (ocrStatus) where.ocrStatus = ocrStatus as OcrStatus;
 
     const [items, total] = await Promise.all([
       this.prisma.expenseReceipt.findMany({
@@ -108,7 +108,7 @@ export class ReceiptService {
     const r = await this.prisma.expenseReceipt.findFirst({ where: { id, userId } });
     if (!r) throw new Error("영수증을 찾을 수 없습니다.");
 
-    const updateData: any = {};
+    const updateData: Prisma.ExpenseReceiptUncheckedUpdateInput = {};
     if (data.extractedAmount !== undefined) updateData.extractedAmount = data.extractedAmount;
     if (data.extractedMerchant !== undefined) updateData.extractedMerchant = data.extractedMerchant;
     if (data.extractedDate !== undefined) updateData.extractedDate = data.extractedDate;
@@ -173,11 +173,15 @@ export class ReceiptService {
 
       // 첫 분할 영수증 + 원본 매칭이 있으면 거래 정보로 extracted 채우기
       const isFirst = i === 0;
-      const dataExtra: any = {};
+      const dataExtra: {
+        extractedMerchant?: string | null;
+        extractedAmount?: Prisma.Decimal | number | null;
+        extractedDate?: Date | null;
+      } = {};
       if (isFirst && originalMatch?.transaction) {
         const tx = originalMatch.transaction;
         dataExtra.extractedMerchant = tx.merchantName ?? null;
-        dataExtra.extractedAmount = tx.amount as any;
+        dataExtra.extractedAmount = tx.amount;
         dataExtra.extractedDate = tx.transactedAt ?? null;
       }
 
@@ -215,8 +219,8 @@ export class ReceiptService {
             confirmedAt: new Date(),
           },
         });
-      } catch (err: any) {
-        console.error(`[split] 매칭 이관 실패: ${err.message}`);
+      } catch (err) {
+        console.error(`[split] 매칭 이관 실패: ${(err as Error).message}`);
       }
     }
 
@@ -277,8 +281,8 @@ export class ReceiptService {
         const result = await preprocessForOcr(originalBuffer);
         preBuffer = result.buffer;
         preInfo = result.applied.join(",");
-      } catch (e: any) {
-        console.log(`[ocr-pipeline] ${receiptId} preprocess skipped: ${e.message}`);
+      } catch (e) {
+        console.log(`[ocr-pipeline] ${receiptId} preprocess skipped: ${(e as Error).message}`);
       }
 
       // Step 2: clova-ocr 시도 (전처리된 이미지) — claude-vision fallback 제거 (ERP 전체에서 미사용)
@@ -297,7 +301,7 @@ export class ReceiptService {
         data: {
           ocrStatus: "DONE",
           ocrEngineUsed: preInfo ? `${engineUsed} [pre:${preInfo}]` : engineUsed,
-          ocrRawJson: raw as any,
+          ocrRawJson: raw as unknown as Prisma.InputJsonValue,
           ocrText: norm.fullText,
           extractedAmount: current?.extractedAmount ?? norm.amount ?? null,
           extractedMerchant: current?.extractedMerchant ?? norm.merchantName ?? null,
@@ -307,7 +311,7 @@ export class ReceiptService {
       });
 
       // 자동 매칭 후보 생성 비활성 (2026-05-12) — 사용자가 모달에서 직접 매칭
-    } catch (err: any) {
+    } catch (err) {
       await this.prisma.expenseReceipt.update({
         where: { id: receiptId },
         data: { ocrStatus: "FAILED" },

@@ -1,4 +1,4 @@
-import type { PrismaClient, TransactionStatus } from "@prisma/client";
+import type { PrismaClient, TransactionStatus, Prisma } from "@prisma/client";
 
 export interface CreateTransactionInput {
   userId: string;
@@ -32,7 +32,7 @@ export class TransactionService {
 
   async list(userId: string, params: ListTransactionParams = {}) {
     const { status, contractId, sourceId, from, to, page = 1, limit = 100 } = params;
-    const where: any = { userId };
+    const where: Prisma.ExpenseTransactionWhereInput = { userId };
     if (status) where.status = status;
     if (contractId) where.contractId = contractId;
     if (sourceId) where.sourceId = sourceId;
@@ -118,7 +118,7 @@ export class TransactionService {
     },
   ) {
     await this.get(userId, id);
-    const updateData: any = {};
+    const updateData: Prisma.ExpenseTransactionUncheckedUpdateInput = {};
     if (data.contractId !== undefined) {
       // 사업(계약)은 메타데이터 — 상태(정산분류)와 무관. status는 정산묶음 배정으로만 결정.
       updateData.contractId = data.contractId;

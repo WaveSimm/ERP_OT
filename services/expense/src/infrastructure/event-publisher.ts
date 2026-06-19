@@ -1,4 +1,4 @@
-import amqplib from "amqplib";
+import amqplib, { type Channel } from "amqplib";
 
 const EXCHANGE_NAME = "erp.activity";
 
@@ -12,11 +12,11 @@ export interface ActivityEvent {
   metadata?: Record<string, unknown>;
 }
 
-let connection: any = null;
-let channel: any = null;
+let connection: Awaited<ReturnType<typeof amqplib.connect>> | null = null;
+let channel: Channel | null = null;
 let connecting = false;
 
-async function ensureChannel(): Promise<any> {
+async function ensureChannel(): Promise<Channel | null> {
   if (channel) return channel;
   if (connecting) return null;
 
