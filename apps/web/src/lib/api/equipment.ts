@@ -6,6 +6,8 @@ import type {
   InventoryItem, StorageLocation, InventoryTransaction, AssetCostEvent,
   ProductVariant, InboundRequest, BundleShipment,
   ProductMaster, Contract, OverseasOrder, OrderInvoice, OrderPayment, OrderCustomsTax,
+  RepairCustomer, RepairCustomerContact, CustomerAsset, RepairOrder, InspectionReport,
+  RepairCost, RepairQuote, Part, PartTransaction, RepairPurchaseOrder, Shipment,
 } from "./types";
 
 
@@ -186,23 +188,23 @@ export const repairApi = {
     if (params?.sortBy) q.set("sortBy", params.sortBy);
     if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
     const qs = q.toString();
-    return request<any>(`/customers${qs ? `?${qs}` : ""}`);
+    return request<Paginated<RepairCustomer>>(`/customers${qs ? `?${qs}` : ""}`);
   },
   createCustomer: (data: unknown) =>
-    request<any>("/customers", { method: "POST", body: JSON.stringify(data) }),
-  getCustomer: (id: string) => request<any>(`/customers/${id}`),
+    request<RepairCustomer>("/customers", { method: "POST", body: JSON.stringify(data) }),
+  getCustomer: (id: string) => request<RepairCustomer>(`/customers/${id}`),
   updateCustomer: (id: string, data: unknown) =>
-    request<any>(`/customers/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<RepairCustomer>(`/customers/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteCustomer: (id: string) =>
     request<void>(`/customers/${id}`, { method: "DELETE" }),
 
   // 고객 담당자
   getContacts: (customerId: string) =>
-    request<any[]>(`/customers/${customerId}/contacts`),
+    request<RepairCustomerContact[]>(`/customers/${customerId}/contacts`),
   createContact: (customerId: string, data: unknown) =>
-    request<any>(`/customers/${customerId}/contacts`, { method: "POST", body: JSON.stringify(data) }),
+    request<RepairCustomerContact>(`/customers/${customerId}/contacts`, { method: "POST", body: JSON.stringify(data) }),
   updateContact: (contactId: string, data: unknown) =>
-    request<any>(`/customers/contacts/${contactId}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<RepairCustomerContact>(`/customers/contacts/${contactId}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteContact: (contactId: string) =>
     request<void>(`/customers/contacts/${contactId}`, { method: "DELETE" }),
 
@@ -213,13 +215,13 @@ export const repairApi = {
     if (params?.search) q.set("search", params.search);
     if (params?.limit) q.set("limit", String(params.limit));
     const qs = q.toString();
-    return request<any>(`/customer-assets${qs ? `?${qs}` : ""}`);
+    return request<Paginated<CustomerAsset>>(`/customer-assets${qs ? `?${qs}` : ""}`);
   },
-  getCustomerAsset: (id: string) => request<any>(`/customer-assets/${id}`),
+  getCustomerAsset: (id: string) => request<CustomerAsset>(`/customer-assets/${id}`),
   createCustomerAsset: (data: unknown) =>
-    request<any>("/customer-assets", { method: "POST", body: JSON.stringify(data) }),
+    request<CustomerAsset>("/customer-assets", { method: "POST", body: JSON.stringify(data) }),
   updateCustomerAsset: (id: string, data: unknown) =>
-    request<any>(`/customer-assets/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<CustomerAsset>(`/customer-assets/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteCustomerAsset: (id: string) =>
     request<void>(`/customer-assets/${id}`, { method: "DELETE" }),
 
@@ -236,52 +238,52 @@ export const repairApi = {
     if (params?.sortBy) q.set("sortBy", params.sortBy);
     if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
     const qs = q.toString();
-    return request<any>(`/repair-orders${qs ? `?${qs}` : ""}`);
+    return request<Paginated<RepairOrder>>(`/repair-orders${qs ? `?${qs}` : ""}`);
   },
   createRepairOrder: (data: unknown) =>
-    request<any>("/repair-orders", { method: "POST", body: JSON.stringify(data) }),
-  getRepairOrder: (id: string) => request<any>(`/repair-orders/${id}`),
+    request<RepairOrder>("/repair-orders", { method: "POST", body: JSON.stringify(data) }),
+  getRepairOrder: (id: string) => request<RepairOrder>(`/repair-orders/${id}`),
   updateRepairOrder: (id: string, data: unknown) =>
-    request<any>(`/repair-orders/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<RepairOrder>(`/repair-orders/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   changeStatus: (id: string, data: { status: string }) =>
-    request<any>(`/repair-orders/${id}/status`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<RepairOrder>(`/repair-orders/${id}/status`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteRepairOrder: (id: string) =>
     request<void>(`/repair-orders/${id}`, { method: "DELETE" }),
   restoreRepairOrder: (id: string) =>
-    request<any>(`/repair-orders/${id}/restore`, { method: "POST" }),
+    request<RepairOrder>(`/repair-orders/${id}/restore`, { method: "POST" }),
   getTransitions: (id: string) => request<any>(`/repair-orders/${id}/transitions`),
 
   // 점검보고서
   getInspectionReport: (repairOrderId: string) =>
-    request<any>(`/inspection-reports?repairOrderId=${repairOrderId}`),
+    request<InspectionReport | null>(`/inspection-reports?repairOrderId=${repairOrderId}`),
   createInspectionReport: (data: unknown) =>
-    request<any>("/inspection-reports", { method: "POST", body: JSON.stringify(data) }),
+    request<InspectionReport>("/inspection-reports", { method: "POST", body: JSON.stringify(data) }),
   updateInspectionReport: (id: string, data: unknown) =>
-    request<any>(`/inspection-reports/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<InspectionReport>(`/inspection-reports/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
 
   // 비용
   getRepairCosts: (repairOrderId: string) =>
-    request<any>(`/repair-costs?repairOrderId=${repairOrderId}`),
+    request<RepairCost[]>(`/repair-costs?repairOrderId=${repairOrderId}`),
   createRepairCost: (data: unknown) =>
-    request<any>("/repair-costs", { method: "POST", body: JSON.stringify(data) }),
+    request<RepairCost>("/repair-costs", { method: "POST", body: JSON.stringify(data) }),
   updateRepairCost: (id: string, data: unknown) =>
-    request<any>(`/repair-costs/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<RepairCost>(`/repair-costs/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteRepairCost: (id: string) =>
     request<void>(`/repair-costs/${id}`, { method: "DELETE" }),
 
   // 견적
   getRepairQuotes: (repairOrderId: string) =>
-    request<any>(`/repair-quotes?repairOrderId=${repairOrderId}`),
+    request<RepairQuote[]>(`/repair-quotes?repairOrderId=${repairOrderId}`),
   createRepairQuote: (data: unknown) =>
-    request<any>("/repair-quotes", { method: "POST", body: JSON.stringify(data) }),
+    request<RepairQuote>("/repair-quotes", { method: "POST", body: JSON.stringify(data) }),
   updateRepairQuote: (id: string, data: unknown) =>
-    request<any>(`/repair-quotes/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<RepairQuote>(`/repair-quotes/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   changeQuoteStatus: (id: string, data: { status: string }) =>
-    request<any>(`/repair-quotes/${id}/status`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<RepairQuote>(`/repair-quotes/${id}/status`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteRepairQuote: (id: string) =>
     request<void>(`/repair-quotes/${id}`, { method: "DELETE" }),
   addQuoteItem: (quoteId: string, data: unknown) =>
-    request<any>(`/repair-quotes/${quoteId}/items`, { method: "POST", body: JSON.stringify(data) }),
+    request<RepairQuote>(`/repair-quotes/${quoteId}/items`, { method: "POST", body: JSON.stringify(data) }),
   deleteQuoteItem: (itemId: string) =>
     request<void>(`/repair-quotes/items/${itemId}`, { method: "DELETE" }),
 
@@ -292,13 +294,13 @@ export const repairApi = {
     if (params?.lowStock) q.set("lowStock", "true");
     if (params?.page) q.set("page", String(params.page));
     const qs = q.toString();
-    return request<any>(`/parts${qs ? `?${qs}` : ""}`);
+    return request<Paginated<Part>>(`/parts${qs ? `?${qs}` : ""}`);
   },
-  getPart: (id: string) => request<any>(`/parts/${id}`),
+  getPart: (id: string) => request<Part>(`/parts/${id}`),
   createPart: (data: unknown) =>
-    request<any>("/parts", { method: "POST", body: JSON.stringify(data) }),
+    request<Part>("/parts", { method: "POST", body: JSON.stringify(data) }),
   updatePart: (id: string, data: unknown) =>
-    request<any>(`/parts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<Part>(`/parts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deletePart: (id: string) =>
     request<void>(`/parts/${id}`, { method: "DELETE" }),
 
@@ -308,10 +310,10 @@ export const repairApi = {
     if (params?.partId) q.set("partId", params.partId);
     if (params?.repairOrderId) q.set("repairOrderId", params.repairOrderId);
     const qs = q.toString();
-    return request<any>(`/part-transactions${qs ? `?${qs}` : ""}`);
+    return request<PartTransaction[]>(`/part-transactions${qs ? `?${qs}` : ""}`);
   },
   createPartTransaction: (data: unknown) =>
-    request<any>("/part-transactions", { method: "POST", body: JSON.stringify(data) }),
+    request<PartTransaction>("/part-transactions", { method: "POST", body: JSON.stringify(data) }),
 
   // 발주
   getPurchaseOrders: (params?: { status?: string; page?: number }) => {
@@ -319,24 +321,24 @@ export const repairApi = {
     if (params?.status) q.set("status", params.status);
     if (params?.page) q.set("page", String(params.page));
     const qs = q.toString();
-    return request<any>(`/purchase-orders${qs ? `?${qs}` : ""}`);
+    return request<Paginated<RepairPurchaseOrder>>(`/purchase-orders${qs ? `?${qs}` : ""}`);
   },
   createPurchaseOrder: (data: unknown) =>
-    request<any>("/purchase-orders", { method: "POST", body: JSON.stringify(data) }),
+    request<RepairPurchaseOrder>("/purchase-orders", { method: "POST", body: JSON.stringify(data) }),
   updatePurchaseOrder: (id: string, data: unknown) =>
-    request<any>(`/purchase-orders/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<RepairPurchaseOrder>(`/purchase-orders/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   receivePurchaseOrder: (id: string, data: { items: { itemId: string; receivedQuantity: number }[] }) =>
-    request<any>(`/purchase-orders/${id}/receive`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<RepairPurchaseOrder>(`/purchase-orders/${id}/receive`, { method: "PATCH", body: JSON.stringify(data) }),
 
   // 발송/입고
   getShipments: (repairOrderId: string) =>
-    request<any>(`/shipments?repairOrderId=${repairOrderId}`),
+    request<Shipment[]>(`/shipments?repairOrderId=${repairOrderId}`),
   createShipment: (data: unknown) =>
-    request<any>("/shipments", { method: "POST", body: JSON.stringify(data) }),
+    request<Shipment>("/shipments", { method: "POST", body: JSON.stringify(data) }),
   updateShipment: (id: string, data: unknown) =>
-    request<any>(`/shipments/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<Shipment>(`/shipments/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   changeShipmentStatus: (id: string, data: { status: string }) =>
-    request<any>(`/shipments/${id}/status`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<Shipment>(`/shipments/${id}/status`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteShipment: (id: string) =>
     request<void>(`/shipments/${id}`, { method: "DELETE" }),
 
