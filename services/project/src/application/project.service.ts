@@ -5,22 +5,23 @@ import { ProjectListFilter } from "../domain/repositories/project.repository.js"
 import { ProjectCacheService } from "../infrastructure/cache/project.cache.js";
 import { ProjectGateway } from "../infrastructure/websocket/project.gateway.js";
 
+// 옵셔널 필드는 Zod `.optional()`이 산출하는 `T | undefined`와 정합 (exactOptionalPropertyTypes: true)
 export interface CreateProjectDto {
   name: string;
-  description?: string;
-  plannedBudget?: number;
-  templateId?: string;
-  templateStartDate?: string;
-  ownerId?: string; // 미지정 시 요청자
+  description?: string | undefined;
+  plannedBudget?: number | undefined;
+  templateId?: string | undefined;
+  templateStartDate?: string | undefined;
+  ownerId?: string | undefined; // 미지정 시 요청자
 }
 
 export interface UpdateProjectDto {
-  name?: string;
-  description?: string;
-  status?: ProjectStatus;
-  plannedBudget?: number;
-  actualBudget?: number;
-  ownerId?: string;
+  name?: string | undefined;
+  description?: string | null | undefined;
+  status?: ProjectStatus | undefined;
+  plannedBudget?: number | null | undefined;
+  actualBudget?: number | null | undefined;
+  ownerId?: string | undefined;
 }
 
 export interface ProjectListItem extends Omit<Project, "effectiveStartDate" | "effectiveEndDate" | "overallProgress"> {

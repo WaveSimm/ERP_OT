@@ -29,7 +29,7 @@ export async function dependencyRoutes(fastify: FastifyInstance) {
     preHandler: requireManager(),
   }, async (req, reply) => {
     const dto = createSchema.parse(req.body);
-    const dep = await service.create(dto as any, req.userId);
+    const dep = await service.create(dto, req.userId);
     return reply.status(201).send(dep);
   });
 

@@ -33,9 +33,8 @@ export async function groupRoutes(fastify: FastifyInstance) {
   const service: GroupService = fastify.groupService;
 
   // GET /api/v1/groups
-  fastify.get("/", async (req, reply) => {
-    const query = req.query as any;
-    const type = query.type as GroupType | undefined;
+  fastify.get<{ Querystring: { type?: string } }>("/", async (req, reply) => {
+    const type = req.query.type as GroupType | undefined;
     return reply.send(await service.listGroups(type));
   });
 
@@ -50,7 +49,7 @@ export async function groupRoutes(fastify: FastifyInstance) {
     preHandler: requireRole("ADMIN", "MANAGER"),
   }, async (req, reply) => {
     const dto = createGroupSchema.parse(req.body);
-    const group = await service.createGroup(dto as any, req.userId);
+    const group = await service.createGroup(dto, req.userId);
     return reply.status(201).send(group);
   });
 
@@ -60,7 +59,7 @@ export async function groupRoutes(fastify: FastifyInstance) {
   }, async (req, reply) => {
     const { groupId } = req.params as { groupId: string };
     const dto = updateGroupSchema.parse(req.body);
-    return reply.send(await service.updateGroup(groupId, dto as any));
+    return reply.send(await service.updateGroup(groupId, dto));
   });
 
   // DELETE /api/v1/groups/:groupId
@@ -80,7 +79,7 @@ export async function groupRoutes(fastify: FastifyInstance) {
   }, async (req, reply) => {
     const { groupId } = req.params as { groupId: string };
     const dto = addMembershipSchema.parse(req.body);
-    const membership = await service.addMembership(groupId, dto as any, req.userId);
+    const membership = await service.addMembership(groupId, dto, req.userId);
     return reply.status(201).send(membership);
   });
 

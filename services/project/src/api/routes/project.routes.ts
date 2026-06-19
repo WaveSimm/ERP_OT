@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { ProjectService } from "../../application/project.service.js";
+import { WorkLogError } from "../../application/work-log.service.js";
 import { requireRole, requireManager } from "../middleware/auth.middleware.js";
 import { ProjectStatus } from "@prisma/client";
 
@@ -34,10 +35,10 @@ export async function projectRoutes(fastify: FastifyInstance) {
   const service: ProjectService = fastify.projectService;
 
   // GET /api/v1/projects
-  fastify.get("/", async (req, reply) => {
-    const query = req.query as any;
+  fastify.get<{ Querystring: { status?: string; groupId?: string; ownerId?: string; search?: string; page?: string; limit?: string } }>("/", async (req, reply) => {
+    const query = req.query;
     const result = await service.listProjects({
-      status: query.status,
+      status: query.status as ProjectStatus | undefined,
       groupId: query.groupId,
       ownerId: query.ownerId,
       search: query.search,
@@ -52,7 +53,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     preHandler: requireRole("ADMIN", "MANAGER"),
   }, async (req, reply) => {
     const dto = createProjectSchema.parse(req.body);
-    const project = await service.createProject(dto as any, req.userId);
+    const project = await service.createProject(dto, req.userId);
     return reply.status(201).send(project);
   });
 
@@ -69,7 +70,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
   }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const dto = updateProjectSchema.parse(req.body);
-    const project = await service.updateProject(id, dto as any, req.userId);
+    const project = await service.updateProject(id, dto, req.userId);
     return reply.send(project);
   });
 
@@ -104,7 +105,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
   fastify.get("/:projectId/work-logs", async (req, reply) => {
     const { projectId } = req.params as { projectId: string };
     const q = req.query as { from?: string; to?: string; authorId?: string; taskId?: string; limit?: string; cursor?: string };
-    const params: any = {};
+    const params: { from?: string; to?: string; authorId?: string; taskId?: string; limit?: number; cursor?: string } = {};
     if (q.from) params.from = q.from;
     if (q.to) params.to = q.to;
     if (q.authorId) params.authorId = q.authorId;
@@ -118,8 +119,8 @@ export async function projectRoutes(fastify: FastifyInstance) {
         role: req.userRole,
       });
       return reply.send(result);
-    } catch (err: any) {
-      if (err?.name === "WorkLogError") {
+    } catch (err) {
+      if (err instanceof WorkLogError) {
         return reply.code(err.statusCode).send({ error: { code: err.code, message: err.message } });
       }
       throw err;

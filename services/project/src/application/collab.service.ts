@@ -28,12 +28,12 @@ const ALLOWED_MIME_TYPES = new Set([
 
 export interface CreateCommentDto {
   content: string;
-  mentionedUserIds?: string[];
+  mentionedUserIds?: string[] | undefined;
 }
 
 export interface UpdateCommentDto {
   content: string;
-  mentionedUserIds?: string[];
+  mentionedUserIds?: string[] | undefined;
 }
 
 export interface UploadFileDto {

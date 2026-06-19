@@ -3,25 +3,26 @@ import { AppError } from "@erp-ot/shared";
 import { ProjectCacheService } from "../infrastructure/cache/project.cache.js";
 import { ProjectGateway } from "../infrastructure/websocket/project.gateway.js";
 
+// 옵셔널 필드는 Zod `.optional()`이 산출하는 `T | undefined`와 정합 (exactOptionalPropertyTypes: true)
 export interface CreateGroupDto {
   name: string;
-  type?: GroupType;
-  parentGroupId?: string;
-  color?: string;
-  sortOrder?: number;
-  description?: string;
+  type?: GroupType | undefined;
+  parentGroupId?: string | undefined;
+  color?: string | undefined;
+  sortOrder?: number | undefined;
+  description?: string | undefined;
 }
 
 export interface UpdateGroupDto {
-  name?: string;
-  color?: string;
-  sortOrder?: number;
-  description?: string | null;
+  name?: string | undefined;
+  color?: string | undefined;
+  sortOrder?: number | undefined;
+  description?: string | null | undefined;
 }
 
 export interface AddMembershipDto {
   projectId: string;
-  displayOrder?: number;
+  displayOrder?: number | undefined;
 }
 
 export interface GroupRollup {

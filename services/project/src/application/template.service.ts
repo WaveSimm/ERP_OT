@@ -35,32 +35,33 @@ export interface CreateTemplateSegmentDto {
   }[];
 }
 
+// 옵셔널 필드는 Zod `.optional()`이 산출하는 `T | undefined`와 정합 (exactOptionalPropertyTypes: true)
 export interface UpdateTemplateDto {
-  name?: string;
-  description?: string | null;
-  category?: string;
-  tags?: string[];
-  scope?: TemplateScope;
-  isRecommended?: boolean;
+  name?: string | undefined;
+  description?: string | null | undefined;
+  category?: string | undefined;
+  tags?: string[] | undefined;
+  scope?: TemplateScope | undefined;
+  isRecommended?: boolean | undefined;
 }
 
 export interface InstantiateTemplateDto {
   projectName: string;
   startDate: string; // YYYY-MM-DD
   includeAssignments: boolean;
-  taskIds?: string[]; // 부분 선택: TemplateTask IDs
+  taskIds?: string[] | undefined; // 부분 선택: TemplateTask IDs
   dateAdjustments?: {
     templateSegmentId: string;
     startDate: string;
     endDate: string;
-  }[];
+  }[] | undefined;
 }
 
 export interface SaveAsTemplateDto {
   name: string;
   category: string;
-  tags?: string[];
-  scope?: TemplateScope;
+  tags?: string[] | undefined;
+  scope?: TemplateScope | undefined;
   includeAssignments: boolean;
 }
 
