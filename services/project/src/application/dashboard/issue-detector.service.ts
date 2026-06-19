@@ -1,4 +1,8 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
+
+type TaskWithSegments = Prisma.TaskGetPayload<{
+  include: { segments: { include: { assignments: true } } };
+}>;
 
 export interface DashboardIssue {
   id: string;
@@ -68,9 +72,9 @@ export class IssueDetectorService {
     const detectedAt = new Date().toISOString();
 
     // ─── CRITICAL: 크리티컬 패스 지연 ─────────────────────────────────────────
-    const delayedCriticalTasks = (project as any).tasks.filter((t: any) => {
+    const delayedCriticalTasks = project.tasks.filter((t) => {
       if (!t.isCritical || t.status === "DONE") return false;
-      const latestEnd = t.segments.reduce((max: Date | null, s: any) => {
+      const latestEnd = t.segments.reduce((max: Date | null, s) => {
         const d = new Date(s.endDate);
         return !max || d > max ? d : max;
       }, null);
@@ -79,8 +83,8 @@ export class IssueDetectorService {
     });
 
     if (delayedCriticalTasks.length > 0) {
-      const maxDelay = Math.max(...delayedCriticalTasks.map((t: any) => {
-        const latestEnd = t.segments.reduce((max: Date | null, s: any) => {
+      const maxDelay = Math.max(...delayedCriticalTasks.map((t) => {
+        const latestEnd = t.segments.reduce((max: Date | null, s) => {
           const d = new Date(s.endDate); return !max || d > max ? d : max;
         }, null) as Date;
         return dateDiffDays(latestEnd, today);
@@ -96,7 +100,7 @@ export class IssueDetectorService {
         metadata: {
           delayedCount: delayedCriticalTasks.length,
           maxDelayDays: maxDelay,
-          tasks: delayedCriticalTasks.slice(0, 3).map((t: any) => ({ id: t.id, name: t.name })),
+          tasks: delayedCriticalTasks.slice(0, 3).map((t) => ({ id: t.id, name: t.name })),
         },
       });
     }
@@ -139,7 +143,7 @@ export class IssueDetectorService {
     }
 
     // ─── CRITICAL: 자원 과부하 ──────────────────────────────────────────────────
-    const overloaded = this.detectResourceOverload((project as any).tasks, today, windowEnd, thresholds.resourceOverloadWarning * 1.2);
+    const overloaded = this.detectResourceOverload(project.tasks, today, windowEnd, thresholds.resourceOverloadWarning * 1.2);
     if (overloaded.length > 0) {
       issues.push({
         id: `RESOURCE_CRITICAL:${projectId}`,
@@ -154,9 +158,9 @@ export class IssueDetectorService {
     }
 
     // ─── WARNING: 비크리티컬 태스크 지연 ───────────────────────────────────────
-    const delayedNonCritical = (project as any).tasks.filter((t: any) => {
+    const delayedNonCritical = project.tasks.filter((t) => {
       if (t.isCritical || t.status === "DONE") return false;
-      const latestEnd = t.segments.reduce((max: Date | null, s: any) => {
+      const latestEnd = t.segments.reduce((max: Date | null, s) => {
         const d = new Date(s.endDate); return !max || d > max ? d : max;
       }, null);
       if (!latestEnd) return false;
@@ -173,13 +177,13 @@ export class IssueDetectorService {
         detectedAt,
         metadata: {
           delayedCount: delayedNonCritical.length,
-          tasks: delayedNonCritical.slice(0, 3).map((t: any) => ({ id: t.id, name: t.name })),
+          tasks: delayedNonCritical.slice(0, 3).map((t) => ({ id: t.id, name: t.name })),
         },
       });
     }
 
     // ─── WARNING: 자원 경고 (resourceOverloadWarning%) ─────────────────────────
-    const overloadedWarn = this.detectResourceOverload((project as any).tasks, today, windowEnd, thresholds.resourceOverloadWarning);
+    const overloadedWarn = this.detectResourceOverload(project.tasks, today, windowEnd, thresholds.resourceOverloadWarning);
     const criticalIds = new Set(overloaded.map((r) => r.resourceId));
     const warnOnly = overloadedWarn.filter((r) => !criticalIds.has(r.resourceId));
     if (warnOnly.length > 0) {
@@ -198,7 +202,7 @@ export class IssueDetectorService {
     // ─── WARNING: 진행률 미업데이트 (7일 이상) ─────────────────────────────────
     const staleThreshold = new Date(today);
     staleThreshold.setDate(today.getDate() - 7);
-    const staleTasks = (project as any).tasks.filter((t: any) =>
+    const staleTasks = project.tasks.filter((t) =>
       t.status === "IN_PROGRESS" && new Date(t.updatedAt) < staleThreshold,
     );
     if (staleTasks.length > 0) {
@@ -212,7 +216,7 @@ export class IssueDetectorService {
         detectedAt,
         metadata: {
           staleCount: staleTasks.length,
-          tasks: staleTasks.slice(0, 3).map((t: any) => ({
+          tasks: staleTasks.slice(0, 3).map((t) => ({
             id: t.id, name: t.name,
             staleDays: dateDiffDays(new Date(t.updatedAt), today),
           })),
@@ -222,7 +226,7 @@ export class IssueDetectorService {
 
     // ─── INFO: 시점 task 임박 (3일 이내) ────────────────────────────────────────
     // 마일스톤은 Task isMilestone=true로 회귀
-    const milestoneTasks = (project as any).tasks.filter((t: any) =>
+    const milestoneTasks = project.tasks.filter((t) =>
       t.isMilestone && t.status !== "DONE"
     );
     for (const m of milestoneTasks) {
@@ -247,11 +251,11 @@ export class IssueDetectorService {
     }
 
     // ─── INFO: 이번 주 완료 예정 ────────────────────────────────────────────────
-    const endingThisWeek = (project as any).tasks.flatMap((t: any) =>
-      t.segments.filter((s: any) => {
+    const endingThisWeek = project.tasks.flatMap((t) =>
+      t.segments.filter((s) => {
         const end = new Date(s.endDate);
         return end >= today && end <= windowEnd && s.progressPercent < 100;
-      }).map((s: any) => ({ taskName: t.name, segmentName: s.name, endDate: s.endDate })),
+      }).map((s) => ({ taskName: t.name, segmentName: s.name, endDate: s.endDate })),
     );
     if (endingThisWeek.length > 0) {
       issues.push({
@@ -274,7 +278,7 @@ export class IssueDetectorService {
   }
 
   private detectResourceOverload(
-    tasks: any[],
+    tasks: TaskWithSegments[],
     windowStart: Date,
     windowEnd: Date,
     threshold: number,
