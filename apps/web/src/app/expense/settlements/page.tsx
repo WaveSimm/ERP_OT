@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { expenseApi } from "@/lib/api";
 import { fmtDate } from "@/lib/datetime";
-import { SettlementStatusBadge } from "../page";
+import { SettlementStatusBadge } from "../_components/settlement-status-badge";
 import { useTableSort } from "@/lib/hooks/useTableSort";
 import { SettlementDetail } from "./[id]/page";
 

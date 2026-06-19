@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { expenseApi } from "@/lib/api";
 import { fmtDate, fmtDateTime24 } from "@/lib/datetime";
-import { SettlementStatusBadge } from "../page";
+import { SettlementStatusBadge } from "../_components/settlement-status-badge";
 import { useTableSort } from "@/lib/hooks/useTableSort";
 import { useBulkSelect } from "@/lib/hooks/useBulkSelect";
 

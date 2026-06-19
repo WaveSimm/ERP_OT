@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { expenseApi } from "@/lib/api";
 import { fmtDate, fmtDateTime24 } from "@/lib/datetime";
-import { SettlementStatusBadge } from "../../page";
+import { SettlementStatusBadge } from "../../_components/settlement-status-badge";
 
 export default function SettlementDetailPage() {
   const { id } = useParams<{ id: string }>();
