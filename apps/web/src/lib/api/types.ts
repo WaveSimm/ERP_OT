@@ -651,3 +651,75 @@ export interface ApprovalDocument {
   fields?: unknown;
   items?: unknown[];
 }
+
+// ─── Equipment (services/equipment) ──────────────────────────────────────────
+export interface EquipmentCategory2 {
+  id: string;
+  name: string;
+  type: string;
+  description: string | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Equipment {
+  id: string;
+  categoryId: string;
+  name: string;
+  serialNumber: string;
+  manufacturer: string | null;
+  model: string | null;
+  acquiredAt: string | null;
+  status: string;
+  description: string | null;
+  imageUrl: string | null;
+  metadata?: unknown;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  // get 보강(관계)
+  category?: EquipmentCategory2 | { id: string; name: string };
+  components?: unknown[];
+  sensors?: Sensor[];
+  deployments?: unknown[];
+}
+
+export interface Sensor {
+  id: string;
+  categoryId: string;
+  name: string;
+  serialNumber: string;
+  manufacturer: string | null;
+  model: string | null;
+  acquiredAt: string | null;
+  status: string;
+  description: string | null;
+  calibrationIntervalDays: number | null;
+  lastCalibratedAt: string | null;
+  nextCalibrationDue: string | null;
+  currentLocation: string | null;
+  currentEquipmentId: string | null;
+  currentDeploymentId: string | null;
+  metadata?: unknown;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  category?: EquipmentCategory2 | { id: string; name: string };
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  country: string | null;
+  contactName: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  address: string | null;
+  businessNumber: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  contacts?: unknown[];
+}
