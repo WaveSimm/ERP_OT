@@ -38,12 +38,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Lint: 루트 flat config(eslint.config.js)로 모노레포 전체. 도입 베이스라인 = 부채 룰(no-explicit-any 등)은
+      #   off/warn, 신규 위반만 점진 강화(ratchet). prisma generate 불필요(타입미인지).
+      - name: Lint
+        run: pnpm lint
+
       # 타입체크(서비스별 순차 generate→build). 이 monorepo는 7개 서비스가 각자 schema.prisma를 갖지만
       #   generator output 미지정이라 전부 공유 @prisma/client 한 곳에 생성 → 병렬 generate가 서로 덮어씀(clobber).
       #   그래서 서비스마다 "자기 client 생성 → 즉시 build" 를 순차로 수행해 덮어쓰기 전에 타입체크를 끝낸다.
       #   (Docker 빌드는 서비스별 격리라 운영은 정상. per-schema output 정식화는 Phase 2.)
-      # 보류/제외: Lint(eslint 미설치, Phase 1), user-service(schema 없는 스텁 → generate 제외, build만), web(타입정합성 Phase 1).
-      #   (고아 @erp-ot/ui·api-client 는 Phase 1 에서 삭제 완료)
+      # 제외: user-service(schema 없는 스텁 → generate 제외, build만), web(타입정합성 Phase 1).
+      #   (고아 @erp-ot/ui·api-client 삭제 완료, eslint 도입 완료)
       - name: Type check (per-service generate then build)
         run: |
           set -e

@@ -315,10 +315,10 @@ export class OverseasOrderService {
         }),
       });
       if (!resp.ok) {
-        console.warn(`[overseas-order] approval withdraw responded ${resp.status}`); // eslint-disable-line no-console
+        console.warn(`[overseas-order] approval withdraw responded ${resp.status}`);  
       }
     } catch (err: any) {
-      console.warn(`[overseas-order] approval withdraw failed: ${err.message}`); // eslint-disable-line no-console
+      console.warn(`[overseas-order] approval withdraw failed: ${err.message}`);  
     }
 
     return this.prisma.overseasOrder.update({

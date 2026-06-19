@@ -292,7 +292,7 @@ function normalizeCustomerName(raw: string): string {
   if (CUSTOMER_NAME_MAP[raw]) return CUSTOMER_NAME_MAP[raw];
 
   // (주), ㈜, 주식회사 제거
-  let name = raw
+  const name = raw
     .replace(/^\(주\)\s*/g, "")
     .replace(/\s*\(주\)$/g, "")
     .replace(/^㈜\s*/g, "")

@@ -9,7 +9,7 @@ export async function documentRoutes(fastify: FastifyInstance) {
     const approvalLine: any[] = body.approvalLine || [];
 
     // 결재선이 비어 있으면 auth-service에서 부서 기본선 로드
-    let steps = approvalLine.map((a: any, i: number) => ({
+    const steps = approvalLine.map((a: any, i: number) => ({
       stepOrder: a.stepOrder ?? i + 1,
       roleName: a.role === "AGREEER" ? "합의" : "결재",
       approverId: a.userId,
