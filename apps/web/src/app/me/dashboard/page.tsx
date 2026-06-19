@@ -1254,7 +1254,7 @@ function ExpenseView() {
   const refreshSummary = async () => {
     try {
       const sum = await expenseApi.meSummary();
-      setSummary(sum as ExpenseSummary);
+      setSummary(sum);
     } catch {
       // 무시 — 기존 값 유지
     }

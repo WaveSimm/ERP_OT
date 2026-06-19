@@ -582,7 +582,7 @@ export const expenseApi = {
   updateSettlementTitle: (id: string, title: string) =>
     request<ExpenseSettlement>(`/expense/settlements/${id}/title`, { method: "PATCH", body: JSON.stringify({ title }) }),
   excelDownloadUrl: (id: string) => `${API_PREFIX}/expense/settlements/${id}/excel`,
-  meSummary: () => request<{ unmatched: number; pendingApproval: number; awaitingPayment: number }>(
+  meSummary: () => request<{ unclassified: number; unsettled: number; unapproved: number; settled: number; paid: number }>(
     "/expense/settlements/me/summary",
   ),
 
