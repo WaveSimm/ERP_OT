@@ -38,9 +38,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        run: pnpm lint
-
+      # Lint 보류: eslint 가 monorepo 어디에도 설치돼 있지 않아(전 패키지 lint="eslint src/"인데 eslint 의존 0)
+      #   turbo run lint 는 "eslint: not found"로 전부 실패. eslint+config+plugin 도입은 Phase 1 별도 작업 → 그때 재추가.
       - name: Type check
         run: pnpm build
 
