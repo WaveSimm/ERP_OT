@@ -87,7 +87,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
   }, async (req, reply) => {
     const { projectId } = req.params as { projectId: string };
     const dto = createTaskSchema.parse(req.body);
-    const task = await taskService.createTask(projectId, dto as any, req.userId);
+    const task = await taskService.createTask(projectId, dto, req.userId);
     return reply.status(201).send(task);
   });
 
@@ -119,7 +119,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     const dto = updateTaskSchema.parse(req.body);
 
     if (req.userRole === "ADMIN" || req.userRole === "MANAGER") {
-      const task = await taskService.updateTask(taskId, dto as any, req.userId);
+      const task = await taskService.updateTask(taskId, dto, req.userId);
       return reply.send(task);
     }
 
@@ -129,7 +129,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       return reply.status(403).send({ code: "FORBIDDEN", message: "본인이 배정된 태스크만 수정할 수 있습니다." });
     }
 
-    const task = await taskService.updateTask(taskId, dto as any, req.userId);
+    const task = await taskService.updateTask(taskId, dto, req.userId);
     return reply.send(task);
   });
 
@@ -159,7 +159,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     }
 
     const dto = createSegmentSchema.parse(req.body);
-    const segment = await taskService.createSegment(taskId, dto as any, req.userId);
+    const segment = await taskService.createSegment(taskId, dto, req.userId);
     return reply.status(201).send(segment);
   });
 
@@ -179,7 +179,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
     const { segmentId } = req.params as { projectId: string; taskId: string; segmentId: string };
     const dto = updateSegmentSchema.parse(req.body);
-    const segment = await taskService.updateSegment(segmentId, dto as any, req.userId);
+    const segment = await taskService.updateSegment(segmentId, dto, req.userId);
     return reply.send(segment);
   });
 
@@ -187,7 +187,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
   fastify.delete("/:taskId/segments/:segmentId", {
     preHandler: requireRole("ADMIN", "MANAGER"),
   }, async (req, reply) => {
-    const { segmentId } = req.params as any;
+    const { segmentId } = req.params as { projectId: string; taskId: string; segmentId: string };
     await taskService.deleteSegment(segmentId, req.userId);
     return reply.status(204).send();
   });
@@ -221,7 +221,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
   // GET /api/v1/projects/:projectId/tasks/:taskId/segments/:segmentId/assignments
   fastify.get("/:taskId/segments/:segmentId/assignments", async (req, reply) => {
-    const { segmentId } = req.params as any;
+    const { segmentId } = req.params as { projectId: string; taskId: string; segmentId: string };
     const assignments = await fastify.prisma.segmentAssignment.findMany({
       where: { segmentId },
     });
@@ -242,7 +242,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
   // PUT /api/v1/projects/:projectId/tasks/:taskId/segments/:segmentId/assignments
   fastify.put("/:taskId/segments/:segmentId/assignments", async (req, reply) => {
-    const { taskId, segmentId } = req.params as any;
+    const { taskId, segmentId } = req.params as { projectId: string; taskId: string; segmentId: string };
     const dto = upsertAssignmentSchema.parse(req.body);
 
     // OPERATOR: 본인이 생성했거나 배정된 태스크면 다른 인력도 배정 가능
@@ -253,7 +253,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       }
     }
 
-    const assignment = await taskService.upsertAssignment(segmentId, dto as any, req.userId);
+    const assignment = await taskService.upsertAssignment(segmentId, dto, req.userId);
     return reply.send(assignment);
   });
 
@@ -261,7 +261,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
   fastify.delete("/:taskId/segments/:segmentId/assignments/:resourceId", {
     preHandler: requireRole("ADMIN", "MANAGER"),
   }, async (req, reply) => {
-    const { segmentId, resourceId } = req.params as any;
+    const { segmentId, resourceId } = req.params as { projectId: string; taskId: string; segmentId: string; resourceId: string };
     await taskService.removeAssignment(segmentId, resourceId, req.userId);
     return reply.status(204).send();
   });
@@ -304,7 +304,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
   fastify.delete("/:taskId/dependencies/:predecessorId", {
     preHandler: requireRole("ADMIN", "MANAGER"),
   }, async (req, reply) => {
-    const { taskId, predecessorId } = req.params as any;
+    const { taskId, predecessorId } = req.params as { projectId: string; taskId: string; predecessorId: string };
     await fastify.prisma.dependency.deleteMany({
       where: { predecessorTaskId: predecessorId, successorTaskId: taskId },
     });
@@ -314,8 +314,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
   // POST /api/v1/projects/:projectId/cpm — CPM 재계산
   fastify.post("/cpm", {
     preHandler: requireRole("ADMIN", "MANAGER"),
-    url: "/cpm", // 이 경로는 prefix 외부에서 별도 등록 필요
-  } as any, async (req, reply) => {
+  }, async (req, reply) => {
     const { projectId } = req.params as { projectId: string };
     const result = await cpmService.runProjectCpm(projectId);
     return reply.send(result);

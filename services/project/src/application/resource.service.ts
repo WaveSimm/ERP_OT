@@ -8,36 +8,38 @@ import { ProjectCacheService } from "../infrastructure/cache/project.cache.js";
 
 // ─── DTOs ────────────────────────────────────────────────────────────────────
 
+// 옵셔널 필드는 Zod `.optional()`이 산출하는 `T | undefined`와 정합하도록 명시
+// (tsconfig exactOptionalPropertyTypes: true 환경)
 export interface CreateResourceGroupDto {
   name: string;
-  description?: string;
-  parentId?: string;
-  sortOrder?: number;
-  type?: "PERSON" | "EXTERNAL" | "EQUIPMENT";
+  description?: string | undefined;
+  parentId?: string | undefined;
+  sortOrder?: number | undefined;
+  type?: "PERSON" | "EXTERNAL" | "EQUIPMENT" | undefined;
 }
 
 export interface UpdateResourceGroupDto {
-  name?: string;
-  description?: string;
-  parentId?: string | null;
-  sortOrder?: number;
+  name?: string | undefined;
+  description?: string | undefined;
+  parentId?: string | null | undefined;
+  sortOrder?: number | undefined;
 }
 
 // ⚠️ deprecated — Phase 4에서 Resource 폐기와 함께 제거.
 //   직원: auth-service /api/v1/users / 외부: external-person.service / 비인력: equipment-resource.service 사용
 export interface CreateResourceDto {
   name: string;
-  type?: ResourceType;
-  userId?: string;
-  dailyCapacityHours?: number;
+  type?: ResourceType | undefined;
+  userId?: string | undefined;
+  dailyCapacityHours?: number | undefined;
 }
 
 export interface UpdateResourceDto {
-  name?: string;
-  type?: ResourceType;
-  userId?: string | null;
-  dailyCapacityHours?: number;
-  isActive?: boolean;
+  name?: string | undefined;
+  type?: ResourceType | undefined;
+  userId?: string | null | undefined;
+  dailyCapacityHours?: number | undefined;
+  isActive?: boolean | undefined;
 }
 
 // ─── 응답 타입 ────────────────────────────────────────────────────────────────

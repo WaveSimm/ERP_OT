@@ -9,46 +9,48 @@ const STATUS_KO: Record<string, string> = {
   TODO: "예정", IN_PROGRESS: "진행중", DONE: "완료", BLOCKED: "차단",
 };
 
+// 옵셔널 필드는 Zod `.optional()`이 산출하는 `T | undefined`와 정합하도록 명시
+// (tsconfig exactOptionalPropertyTypes: true 환경)
 export interface CreateTaskDto {
-  parentId?: string;
+  parentId?: string | undefined;
   name: string;
-  description?: string;
-  sortOrder?: number;
-  isMilestone?: boolean;
+  description?: string | undefined;
+  sortOrder?: number | undefined;
+  isMilestone?: boolean | undefined;
 }
 
 export interface UpdateTaskDto {
-  name?: string;
-  description?: string;
-  status?: TaskStatus;
-  parentId?: string | null;
-  sortOrder?: number;
-  overallProgress?: number;
-  isManualProgress?: boolean;
-  isMilestone?: boolean;
+  name?: string | undefined;
+  description?: string | null | undefined;
+  status?: TaskStatus | undefined;
+  parentId?: string | null | undefined;
+  sortOrder?: number | undefined;
+  overallProgress?: number | undefined;
+  isManualProgress?: boolean | undefined;
+  isMilestone?: boolean | undefined;
 }
 
 export interface CreateSegmentDto {
   name: string;
   startDate: string; // ISO date
   endDate: string;
-  sortOrder?: number;
+  sortOrder?: number | undefined;
 }
 
 export interface UpdateSegmentDto {
-  name?: string;
-  startDate?: string;
-  endDate?: string;
-  progressPercent?: number;
-  sortOrder?: number;
-  changeReason?: string;
+  name?: string | undefined;
+  startDate?: string | undefined;
+  endDate?: string | undefined;
+  progressPercent?: number | undefined;
+  sortOrder?: number | undefined;
+  changeReason?: string | undefined;
 }
 
 export interface UpsertAssignmentDto {
   resourceId: string;
   allocationMode: AllocationMode;
-  allocationPercent?: number;
-  allocationHoursPerDay?: number;
+  allocationPercent?: number | undefined;
+  allocationHoursPerDay?: number | undefined;
 }
 
 export class TaskService {

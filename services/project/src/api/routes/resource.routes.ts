@@ -5,6 +5,7 @@ import { requireRole } from "../middleware/auth.middleware.js";
 
 // Phase 5 (2026-05-13): legacy ResourceType enum 폐기. zod stub만 유지
 const ResourceType = { PERSON: "PERSON", EQUIPMENT: "EQUIPMENT", VEHICLE: "VEHICLE", FACILITY: "FACILITY" } as const;
+type ResourceTypeValue = (typeof ResourceType)[keyof typeof ResourceType];
 
 const createGroupSchema = z.object({
   name: z.string().min(1).max(100),
@@ -55,7 +56,7 @@ export async function resourceRoutes(fastify: FastifyInstance) {
     preHandler: requireRole("ADMIN", "MANAGER"),
   }, async (req, reply) => {
     const dto = createGroupSchema.parse(req.body);
-    return reply.status(201).send(await service.createResourceGroup(dto as any));
+    return reply.status(201).send(await service.createResourceGroup(dto));
   });
 
   // PATCH /api/v1/resources/groups/:groupId
@@ -64,7 +65,7 @@ export async function resourceRoutes(fastify: FastifyInstance) {
   }, async (req, reply) => {
     const { groupId } = req.params as { groupId: string };
     const dto = updateGroupSchema.parse(req.body);
-    return reply.send(await service.updateResourceGroup(groupId, dto as any));
+    return reply.send(await service.updateResourceGroup(groupId, dto));
   });
 
   // DELETE /api/v1/resources/groups/:groupId
@@ -89,10 +90,10 @@ export async function resourceRoutes(fastify: FastifyInstance) {
   // ─── CRUD ─────────────────────────────────────────────────────────────────
 
   // GET /api/v1/resources
-  fastify.get("/", async (req, reply) => {
-    const q = req.query as any;
-    const filter: any = {};
-    if (q.type) filter.type = q.type;
+  fastify.get<{ Querystring: { type?: string; isActive?: string } }>("/", async (req, reply) => {
+    const q = req.query;
+    const filter: { type?: ResourceTypeValue; isActive?: boolean } = {};
+    if (q.type) filter.type = q.type as ResourceTypeValue;
     if (q.isActive !== undefined) filter.isActive = q.isActive === "true";
     return reply.send(await service.listResources(filter));
   });
@@ -102,7 +103,7 @@ export async function resourceRoutes(fastify: FastifyInstance) {
     preHandler: requireRole("ADMIN", "MANAGER"),
   }, async (req, reply) => {
     const dto = createResourceSchema.parse(req.body);
-    return reply.status(201).send(await service.createResource(dto as any));
+    return reply.status(201).send(await service.createResource(dto));
   });
 
   // PATCH /api/v1/resources/:resourceId
@@ -111,7 +112,7 @@ export async function resourceRoutes(fastify: FastifyInstance) {
   }, async (req, reply) => {
     const { resourceId } = req.params as { resourceId: string };
     const dto = updateResourceSchema.parse(req.body);
-    return reply.send(await service.updateResource(resourceId, dto as any));
+    return reply.send(await service.updateResource(resourceId, dto));
   });
 
   // ─── 마이그레이션 ─────────────────────────────────────────────────────────
@@ -141,17 +142,16 @@ export async function resourceRoutes(fastify: FastifyInstance) {
   // 주의: /dashboard는 /:resourceId보다 먼저 등록
 
   // GET /api/v1/resources/dashboard?startDate=&endDate=
-  fastify.get("/dashboard", async (req, reply) => {
-    const q = req.query as any;
-    const { startDate, endDate } = dateRangeSchema.parse(q);
+  fastify.get<{ Querystring: { startDate?: string; endDate?: string } }>("/dashboard", async (req, reply) => {
+    const { startDate, endDate } = dateRangeSchema.parse(req.query);
     return reply.send(await service.getDashboard(startDate, endDate));
   });
 
   // ─── #28 히트맵 ───────────────────────────────────────────────────────────
 
   // GET /api/v1/resources/heatmap?startDate=&endDate=&granularity=week|month
-  fastify.get("/heatmap", async (req, reply) => {
-    const q = req.query as any;
+  fastify.get<{ Querystring: { startDate?: string; endDate?: string; granularity?: string } }>("/heatmap", async (req, reply) => {
+    const q = req.query;
     const { startDate, endDate } = dateRangeSchema.parse(q);
     const granularity = q.granularity === "month" ? "month" : "week";
     return reply.send(await service.getHeatmap(startDate, endDate, granularity));
@@ -160,10 +160,9 @@ export async function resourceRoutes(fastify: FastifyInstance) {
   // ─── #26 유틸리제이션 ─────────────────────────────────────────────────────
 
   // GET /api/v1/resources/:resourceId/utilization?startDate=&endDate=
-  fastify.get("/:resourceId/utilization", async (req, reply) => {
-    const { resourceId } = req.params as { resourceId: string };
-    const q = req.query as any;
-    const { startDate, endDate } = dateRangeSchema.parse(q);
+  fastify.get<{ Params: { resourceId: string }; Querystring: { startDate?: string; endDate?: string } }>("/:resourceId/utilization", async (req, reply) => {
+    const { resourceId } = req.params;
+    const { startDate, endDate } = dateRangeSchema.parse(req.query);
     return reply.send(await service.getUtilization(resourceId, startDate, endDate));
   });
 }
