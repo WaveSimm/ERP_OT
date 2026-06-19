@@ -2,7 +2,7 @@
 //   DRAFT → SUBMITTED → APPROVED → RECEIVED → PAID
 //                    └→ REJECTED
 
-import type { PrismaClient, SettlementStatus } from "@prisma/client";
+import type { PrismaClient, SettlementStatus, Prisma } from "@prisma/client";
 import type { ApprovalClient } from "../infrastructure/approval-client";
 import { publishActivity } from "../infrastructure/event-publisher";
 
@@ -37,7 +37,7 @@ export class SettlementService {
 
   async list(userId: string, params: ListSettlementParams = {}) {
     const { status, page = 1, limit = 50 } = params;
-    const where: any = { userId };
+    const where: Prisma.ExpenseSettlementWhereInput = { userId };
     if (status) where.status = status;
 
     const [items, total] = await Promise.all([
@@ -128,8 +128,8 @@ export class SettlementService {
     if (s.approvalDocumentId) {
       try {
         await this.approvalClient.withdrawDocument(s.approvalDocumentId, userId);
-      } catch (err: any) {
-        console.error(`[settlement] approval withdraw failed: ${err.message}`);
+      } catch (err) {
+        console.error(`[settlement] approval withdraw failed: ${(err as Error).message}`);
       }
     }
 
@@ -535,7 +535,7 @@ export class SettlementService {
   /** 재무팀 큐: APPROVED + RECEIVED 정산 목록 (전사) */
   async listFinanceQueue(params: { status?: SettlementStatus; page?: number; limit?: number } = {}) {
     const { status, page = 1, limit = 50 } = params;
-    const where: any = {};
+    const where: Prisma.ExpenseSettlementWhereInput = {};
     if (status) where.status = status;
     else where.status = { in: ["APPROVED", "RECEIVED"] };
 

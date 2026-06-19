@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import type { TransactionStatus } from "@prisma/client";
 import { z } from "zod";
 import type { TransactionService } from "../../application/transaction.service";
 
@@ -41,7 +42,7 @@ export async function transactionRoutes(app: FastifyInstance, opts: { service: T
   app.get("/", async (req) => {
     const q = req.query as Record<string, string | undefined>;
     return service.list(req.userId, {
-      ...(q.status && { status: q.status as any }),
+      ...(q.status && { status: q.status as TransactionStatus }),
       ...(q.contractId && { contractId: q.contractId }),
       ...(q.sourceId && { sourceId: q.sourceId }),
       ...(q.from && { from: new Date(q.from) }),

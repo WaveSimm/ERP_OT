@@ -55,7 +55,7 @@ export async function receiptRoutes(
       return reply.code(400).send({ error: { code: "INVALID_BODY", message: parse.error.message } });
     }
     const body = parse.data;
-    const data: any = {};
+    const data: Parameters<typeof service.update>[2] = {};
     if (body.extractedAmount !== undefined) data.extractedAmount = body.extractedAmount;
     if (body.extractedMerchant !== undefined) data.extractedMerchant = body.extractedMerchant;
     if (body.extractedDate !== undefined) {
@@ -96,8 +96,8 @@ export async function receiptRoutes(
     try {
       const created = await service.splitByRegions(req.userId, id, parse.data.regions);
       return reply.code(201).send({ created });
-    } catch (e: any) {
-      return reply.code(400).send({ error: { code: "SPLIT_FAILED", message: String(e.message ?? e) } });
+    } catch (e) {
+      return reply.code(400).send({ error: { code: "SPLIT_FAILED", message: String((e as Error).message ?? e) } });
     }
   });
 
@@ -107,8 +107,8 @@ export async function receiptRoutes(
     try {
       const result = await service.reprocess(req.userId, id);
       return reply.code(202).send(result);
-    } catch (e: any) {
-      return reply.code(400).send({ error: { code: "REPROCESS_FAILED", message: String(e.message ?? e) } });
+    } catch (e) {
+      return reply.code(400).send({ error: { code: "REPROCESS_FAILED", message: String((e as Error).message ?? e) } });
     }
   });
 

@@ -1,6 +1,6 @@
 // 거래 ↔ 영수증 매칭 (V1 알고리즘 이식)
 
-import type { PrismaClient, ExpenseTransaction, ExpenseReceipt, MatchSource } from "@prisma/client";
+import type { PrismaClient, ExpenseTransaction, ExpenseReceipt, MatchSource, Prisma } from "@prisma/client";
 
 const MATCH_THRESHOLD = 0.7;
 const DAY_MS = 86_400_000;
@@ -124,7 +124,7 @@ export class MatchService {
 
   /** 사용자 본인의 매칭만 — receiptId/transactionId로 필터 */
   async listMatches(userId: string, params: { transactionId?: string; receiptId?: string; confirmed?: boolean }) {
-    const where: any = {
+    const where: Prisma.TransactionReceiptMatchWhereInput = {
       OR: [
         { transaction: { userId } },
         { receipt: { userId } },
