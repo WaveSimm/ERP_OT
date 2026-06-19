@@ -38,17 +38,24 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # 각 서비스 schema.prisma → @prisma/client 타입(enum 등) 생성. build(tsc)가 이를 의존하지 않아 CI에서 선행 필요.
-      #   generate는 DB 불필요(스키마만). 이게 없으면 ApprovalDocumentStatus 등 enum import가 타입에러.
-      - name: Prisma generate
-        run: pnpm -r --if-present run db:generate
-
-      # Lint 보류: eslint 가 monorepo 어디에도 설치돼 있지 않아(전 패키지 lint="eslint src/"인데 eslint 의존 0)
-      #   turbo run lint 는 "eslint: not found"로 전부 실패. eslint+config+plugin 도입은 Phase 1 별도 작업 → 그때 재추가.
-      # 고아 패키지 @erp-ot/ui·@erp-ot/api-client 제외: 둘 다 import 0(dead stub)인데 build="tsc"에 tsconfig가 없어 실패.
-      #   Phase 1에서 정식 삭제 예정. 그때까진 live 코드만 타입체크(이게 리팩토링 회귀 게이트의 핵심).
-      - name: Type check
-        run: pnpm exec turbo run build --filter=!@erp-ot/ui --filter=!@erp-ot/api-client
+      # 타입체크(서비스별 순차 generate→build). 이 monorepo는 7개 서비스가 각자 schema.prisma를 갖지만
+      #   generator output 미지정이라 전부 공유 @prisma/client 한 곳에 생성 → 병렬 generate가 서로 덮어씀(clobber).
+      #   그래서 서비스마다 "자기 client 생성 → 즉시 build" 를 순차로 수행해 덮어쓰기 전에 타입체크를 끝낸다.
+      #   (Docker 빌드는 서비스별 격리라 운영은 정상. per-schema output 정식화는 Phase 2.)
+      # 보류/제외: Lint(eslint 미설치, Phase 1), 고아 @erp-ot/ui·api-client(import 0 dead, Phase 1 삭제),
+      #   user-service(schema 없는 스텁 → generate 제외, build만).
+      - name: Type check (per-service generate then build)
+        run: |
+          set -e
+          for s in auth approval attendance equipment expense ocr project; do
+            echo "::group::typecheck @erp-ot/${s}-service"
+            pnpm --filter "@erp-ot/${s}-service" run db:generate
+            pnpm exec turbo run build --filter="@erp-ot/${s}-service"
+            echo "::endgroup::"
+          done
+          echo "::group::typecheck user-service + web (no prisma)"
+          pnpm exec turbo run build --filter=@erp-ot/user-service --filter=@erp-ot/web
+          echo "::endgroup::"
 
       # 테스트 0개 동안 vitest("No test files" exit 1) 폴백 — Phase 0 ⑤에서 실제 테스트 도입 시 자동으로 진짜 게이트화
       - name: Test
