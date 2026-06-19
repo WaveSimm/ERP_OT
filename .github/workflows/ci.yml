@@ -19,10 +19,9 @@ jobs:
         with:
           node-version: "20"
 
+      # version 미지정: package.json "packageManager": "pnpm@9.0.0" 를 따름 (둘 다 지정 시 ERR_PNPM_BAD_PM_VERSION)
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - name: Get pnpm store directory
         id: pnpm-cache
