@@ -1002,3 +1002,209 @@ export interface OverseasOrder {
   payments?: OrderPayment[];
   contract?: Contract;
 }
+
+// ─── Equipment: Repair/AS ────────────────────────────────────────────────────
+export interface RepairCustomer {
+  id: string;
+  name: string;
+  businessNo: string | null;
+  contactPerson: string | null;
+  department: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  address2: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  contacts?: RepairCustomerContact[];
+}
+
+export interface RepairCustomerContact {
+  id: string;
+  customerId: string;
+  name: string;
+  department: string | null;
+  position: string | null;
+  phone: string | null;
+  email: string | null;
+  isPrimary: boolean;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CustomerAsset {
+  id: string;
+  customerId: string;
+  assetType: string;
+  name: string;
+  serialNumber: string | null;
+  manufacturer: string | null;
+  model: string | null;
+  manufacturedAt: string | null;
+  soldAt: string | null;
+  warrantyExpiry: string | null;
+  otInventoryNo: string | null;
+  bundleShipmentId: string | null;
+  bundleRole: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  customer?: RepairCustomer | { id: string; name: string };
+}
+
+// RepairOrder: 필드가 매우 많아 핵심만 명시 + 나머지(타임스탬프/검수 단계 등)는 인덱스 허용
+export interface RepairOrder {
+  id: string;
+  orderNumber: string;
+  orderType: string;
+  status: string;
+  priority: string;
+  customerId: string | null;
+  customerAssetId: string | null;
+  equipmentId: string | null;
+  sensorId: string | null;
+  productName: string | null;
+  productMaker: string | null;
+  productSerial: string | null;
+  symptom: string | null;
+  otInventoryNo: string | null;
+  assigneeId: string | null;
+  assigneeName: string | null;
+  isWarranty: boolean;
+  receivedAt: string;
+  completedAt: string | null;
+  closedAt: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  customer?: RepairCustomer | { id: string; name: string } | null;
+  customerAsset?: CustomerAsset | null;
+  inspectionReport?: InspectionReport | null;
+  [key: string]: unknown;
+}
+
+export interface InspectionReport {
+  id: string;
+  repairOrderId: string;
+  reportNumber: string | null;
+  equipmentHistory?: unknown;
+  customerInfo?: unknown;
+  inspectorId: string | null;
+  inspectorName: string | null;
+  symptom: string | null;
+  inspectionSteps?: unknown;
+  phaseAttachments?: unknown;
+  result: string | null;
+  decision: string | null;
+  decisionReason: string | null;
+  needsMfgRepair: boolean;
+  mfgRepairReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RepairCost {
+  id: string;
+  repairOrderId: string;
+  costType: string;
+  description: string | null;
+  amount: string | number;
+  currency: string;
+  exchangeRate: string | number | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QuoteItem {
+  id: string;
+  quoteId: string;
+  description: string;
+  quantity: number;
+  unitPrice: string | number;
+  amount: string | number;
+  partId: string | null;
+}
+
+export interface RepairQuote {
+  id: string;
+  repairOrderId: string;
+  quoteNumber: string | null;
+  laborCost: string | number | null;
+  partsCost: string | number | null;
+  shippingCost: string | number | null;
+  totalAmount: string | number;
+  currency: string;
+  exchangeRate: string | number | null;
+  status: string;
+  validUntil: string | null;
+  approvedAt: string | null;
+  approvedBy: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  items?: QuoteItem[];
+}
+
+export interface Part {
+  id: string;
+  partNumber: string;
+  name: string;
+  manufacturer: string | null;
+  category: string | null;
+  unitPrice: string | number | null;
+  currency: string;
+  stockQuantity: number;
+  minStockLevel: number;
+  leadTimeDays: number | null;
+  location: string | null;
+  compatibleAssets?: unknown;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PartTransaction {
+  id: string;
+  partId: string;
+  type: string;
+  quantity: number;
+  reason: string | null;
+  repairOrderId: string | null;
+  purchaseOrderId: string | null;
+  performedBy: string | null;
+  performedAt: string;
+}
+
+export interface RepairPurchaseOrder {
+  id: string;
+  orderNumber: string;
+  supplier: string;
+  status: string;
+  orderedAt: string | null;
+  expectedDelivery: string | null;
+  totalAmount: string | number | null;
+  currency: string;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  items?: unknown[];
+}
+
+export interface Shipment {
+  id: string;
+  repairOrderId: string;
+  direction: string;
+  rmaNumber: string | null;
+  carrier: string | null;
+  trackingNumber: string | null;
+  shippedAt: string | null;
+  receivedAt: string | null;
+  shippingCost: string | number | null;
+  status: string;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
