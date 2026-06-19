@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, ProjectStatus } from "@prisma/client";
 import Redis from "ioredis";
 import { IssueDetectorService, DashboardIssue } from "./issue-detector.service.js";
 import { TimelineService, TimelineEvent } from "./timeline.service.js";
@@ -216,7 +216,14 @@ export class DashboardService {
         select: { id: true, name: true, status: true, updatedAt: true },
         orderBy: { name: "asc" },
       });
-      const results: any[] = [];
+      const results: {
+        id: string;
+        name: string;
+        status: ProjectStatus;
+        ragStatus: "GREEN" | "AMBER" | "RED";
+        overallProgress: number;
+        issueCount: { critical: number; warning: number; info: number };
+      }[] = [];
       for (const p of projects) {
         const summary = await this.getProjectSummary(p.id, date);
         const issues = await this.getProjectIssues(p.id);
@@ -251,7 +258,7 @@ export class DashboardService {
     }
 
     if (type === "starting") {
-      const segments: any[] = await this.prisma.taskSegment.findMany({
+      const segments = await this.prisma.taskSegment.findMany({
         where: { startDate: { gte: today, lte: weekEnd } },
         include: {
           task: { include: { project: { select: { id: true, name: true } } } },
@@ -259,9 +266,9 @@ export class DashboardService {
         },
         orderBy: { startDate: "asc" },
       });
-      const resourceIds = segments.flatMap((s: any) => s.assignments.map((a: any) => a.resourceId));
+      const resourceIds = segments.flatMap((s) => s.assignments.map((a) => a.resourceId));
       const resMap = await resolveResourceNames(this.prisma, resourceIds);
-      return segments.map((s: any) => ({
+      return segments.map((s) => ({
         segmentId: s.id,
         segmentName: s.name,
         startDate: s.startDate.toISOString().slice(0, 10),
@@ -271,12 +278,12 @@ export class DashboardService {
         taskName: s.task.name,
         projectId: s.task.project.id,
         projectName: s.task.project.name,
-        assignees: s.assignments.map((a: any) => resMap.get(a.resourceId) ?? "-"),
+        assignees: s.assignments.map((a) => resMap.get(a.resourceId) ?? "-"),
       }));
     }
 
     if (type === "ending") {
-      const segments: any[] = await this.prisma.taskSegment.findMany({
+      const segments = await this.prisma.taskSegment.findMany({
         where: { endDate: { gte: today, lte: weekEnd }, progressPercent: { lt: 100 } },
         include: {
           task: { include: { project: { select: { id: true, name: true } } } },
@@ -284,9 +291,9 @@ export class DashboardService {
         },
         orderBy: { endDate: "asc" },
       });
-      const resourceIds = segments.flatMap((s: any) => s.assignments.map((a: any) => a.resourceId));
+      const resourceIds = segments.flatMap((s) => s.assignments.map((a) => a.resourceId));
       const resMap = await resolveResourceNames(this.prisma, resourceIds);
-      const milestones: any[] = await this.prisma.task.findMany({
+      const milestones = await this.prisma.task.findMany({
         where: {
           isMilestone: true,
           status: { not: "DONE" },
@@ -298,7 +305,7 @@ export class DashboardService {
         },
       });
       return {
-        endingSegments: segments.map((s: any) => ({
+        endingSegments: segments.map((s) => ({
           segmentId: s.id,
           segmentName: s.name,
           startDate: s.startDate.toISOString().slice(0, 10),
@@ -308,9 +315,9 @@ export class DashboardService {
           taskName: s.task.name,
           projectId: s.task.project.id,
           projectName: s.task.project.name,
-          assignees: s.assignments.map((a: any) => resMap.get(a.resourceId) ?? "-"),
+          assignees: s.assignments.map((a) => resMap.get(a.resourceId) ?? "-"),
         })),
-        milestones: milestones.map((m: any) => ({
+        milestones: milestones.map((m) => ({
           taskId: m.id,
           taskName: m.name,
           projectId: m.project.id,
@@ -378,7 +385,7 @@ export class DashboardService {
         include: { group: true },
       });
 
-      const groupMap = new Map<string, { group: any; projectIds: Set<string> }>();
+      const groupMap = new Map<string, { group: (typeof memberships)[number]["group"]; projectIds: Set<string> }>();
       for (const m of memberships) {
         if (m.group.type !== groupBy) continue;
         if (!groupMap.has(m.groupId)) {

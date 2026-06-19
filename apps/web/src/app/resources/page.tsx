@@ -266,7 +266,7 @@ export default function ResourcesPage() {
         resourceGroupApi.list(),
         resourceApi.list(),
       ]);
-      let resources: Resource[] = initialResources as Resource[];
+      const resources: Resource[] = initialResources as Resource[];
       const groups: Group[] = rawGroups as Group[];
 
       // ── 2. 유저 + 프로필 로드 (ADMIN 전용, 실패 허용) ─────────────────────

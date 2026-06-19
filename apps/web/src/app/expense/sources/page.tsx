@@ -49,7 +49,7 @@ export default function SourcesPage() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [includeInactive]);
+  useEffect(() => { load();   }, [includeInactive]);
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-6 space-y-4">

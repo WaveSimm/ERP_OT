@@ -169,7 +169,7 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
   // 출근 시간 선택지: 07:00 ~ 11:00, 30분 단위
   const startOptions: string[] = [];
   for (let h = 7; h <= 11; h++)
-    for (let m of [0, 30])
+    for (const m of [0, 30])
       startOptions.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
 
   const openProfile = async (user: User) => {
@@ -781,7 +781,7 @@ function LeaveBalanceModal({ userId, userName, onClose }: { userId: string; user
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { load(year); /* eslint-disable-next-line */ }, [year]);
+  useEffect(() => { load(year);   }, [year]);
 
   const save = async () => {
     setSaving(true); setError("");

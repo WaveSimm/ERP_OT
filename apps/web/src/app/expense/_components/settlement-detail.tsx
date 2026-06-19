@@ -22,7 +22,7 @@ export function SettlementDetail({ id, onBack }: { id: string; onBack?: () => vo
       setLoading(false);
     }
   };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
+  useEffect(() => { load();   }, [id]);
 
   const remove = async () => {
     if (!confirm("정산묶음을 삭제하시겠습니까?")) return;

@@ -268,7 +268,7 @@ export class DocumentService {
               }),
             });
           } catch (err: any) {
-            console.error(`[approval-reject] expense sync failed: ${err.message}`); // eslint-disable-line no-console
+            console.error(`[approval-reject] expense sync failed: ${err.message}`);  
           }
         }
       }
@@ -487,7 +487,7 @@ export class DocumentService {
       if (action === "OT_APPROVE" || action === "LEAVE_APPROVE") return;
     } catch (err) {
       // TODO: inject logger — DocumentService에 FastifyBaseLogger 주입 후 this.log.error로 교체
-      console.error(`Post-reject action failed: ${action}`, err); // eslint-disable-line no-console
+      console.error(`Post-reject action failed: ${action}`, err);  
     }
   }
 
@@ -607,7 +607,7 @@ export class DocumentService {
       }
     } catch (err) {
       // TODO: inject logger — DocumentService에 FastifyBaseLogger 주입 후 this.log.error로 교체
-      console.error(`Post-approval action failed: ${action}`, err); // eslint-disable-line no-console
+      console.error(`Post-approval action failed: ${action}`, err);  
     }
   }
 }

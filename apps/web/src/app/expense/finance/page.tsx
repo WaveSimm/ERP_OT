@@ -45,7 +45,7 @@ export default function FinanceQueuePage() {
       setLoading(false);
     }
   };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [tab]);
+  useEffect(() => { load();   }, [tab]);
 
   const receive = async (id: string) => {
     if (!confirm("정산서를 접수하시겠습니까?")) return;

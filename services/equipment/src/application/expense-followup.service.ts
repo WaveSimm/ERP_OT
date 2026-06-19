@@ -253,7 +253,7 @@ export class ExpenseFollowUpService {
         });
       }
     } catch (err: any) {
-      console.error(`[expense-followup] settlement sync failed: ${err.message}`); // eslint-disable-line no-console
+      console.error(`[expense-followup] settlement sync failed: ${err.message}`);  
     }
   }
 

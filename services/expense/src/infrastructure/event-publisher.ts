@@ -35,7 +35,7 @@ async function ensureChannel(): Promise<any> {
     return channel;
   } catch (err) {
     // TODO: inject logger — startup phase에서는 fastify logger 미접근. pino standalone 고려.
-    console.error("[event-publisher] RabbitMQ connection failed:", (err as Error).message); // eslint-disable-line no-console
+    console.error("[event-publisher] RabbitMQ connection failed:", (err as Error).message);  
     return null;
   } finally {
     connecting = false;
@@ -55,7 +55,7 @@ export async function publishActivity(event: ActivityEvent): Promise<void> {
     );
   } catch (err) {
     // TODO: inject logger — channel은 ensureChannel 후 불안정 상태 가능. logger 주입 시 제거.
-    console.error("[event-publisher] publish failed:", (err as Error).message); // eslint-disable-line no-console
+    console.error("[event-publisher] publish failed:", (err as Error).message);  
     channel = null;
   }
 }

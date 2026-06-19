@@ -221,7 +221,7 @@ export class TaskService {
     });
     if (!task) throw new AppError(404, "TASK_NOT_FOUND", "태스크를 찾을 수 없습니다.");
 
-    let newStart = new Date(dto.startDate);
+    const newStart = new Date(dto.startDate);
     let newEnd = new Date(dto.endDate);
 
     // 시점 task 검증: segment 1개만 허용 + start=end 강제
