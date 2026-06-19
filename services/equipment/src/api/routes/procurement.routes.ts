@@ -41,6 +41,27 @@ export async function internalOrderRoutes(fastify: FastifyInstance) {
     });
     return result;
   });
+
+  // GET /internal/contracts — 외부 사내서비스(photo-album)용 경량 계약 목록
+  // 인증: 글로벌 requireInternal(X-Internal-Token). id/contractNumber/name/status 만 반환.
+  fastify.get("/internal/contracts", async (request) => {
+    const q = request.query as any;
+    const result = await fastify.contractService.list({
+      search: q.search || undefined,
+      status: q.status || undefined,
+      page: 1,
+      limit: q.limit ? Math.min(500, Number(q.limit)) : 300,
+    });
+    return {
+      items: (result.items ?? []).map((c: any) => ({
+        id: c.id,
+        contractNumber: c.contractNumber,
+        name: c.name,
+        status: c.status,
+      })),
+      total: result.total,
+    };
+  });
 }
 
 export async function productMasterRoutes(fastify: FastifyInstance) {
