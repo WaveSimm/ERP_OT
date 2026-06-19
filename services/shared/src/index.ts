@@ -2,8 +2,8 @@
 
 export * from "./types/common";
 export * from "./types/errors";
-// utils/response의 errorResponse는 ApiResponse<never> 형식 (legacy)
-// errors/error-format의 errorResponse가 신규 표준 — Layer 2부터 사용
+// 에러 응답 표준 = errors/error-format 의 errorResponse({error:{code,message}}) 단일.
+//   (utils/response 의 legacy errorResponse 는 제거됨 — successResponse/ApiResponse 만 유지)
 export {
   successResponse,
   type ApiResponse,
