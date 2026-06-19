@@ -1,20 +1,5 @@
 import { PrismaClient, RepairOrderStatus } from "@prisma/client";
-
-const TRANSITIONS: Record<string, string[]> = {
-  RECEIVED:          ["INSPECTING_1ST", "CANCELLED"],
-  INSPECTING_1ST:    ["QUOTED", "REPAIRING", "SHIPPED_TO_MFG", "COMPLETED", "NO_FAULT", "NO_REPAIR", "CANCELLED"],
-  QUOTED:            ["APPROVED", "CANCELLED"],
-  APPROVED:          ["REPAIRING", "SHIPPED_TO_MFG", "CANCELLED"],
-  REPAIRING:         ["COMPLETED", "CANCELLED"],
-  SHIPPED_TO_MFG:    ["RECEIVED_FROM_MFG", "CANCELLED"],
-  RECEIVED_FROM_MFG: ["INSPECTING_2ND", "COMPLETED", "NO_FAULT", "NO_REPAIR", "CANCELLED"],
-  INSPECTING_2ND:    ["COMPLETED", "NO_FAULT", "NO_REPAIR", "CANCELLED"],
-  COMPLETED:         ["CLOSED"],
-  NO_FAULT:          ["CLOSED"],
-  NO_REPAIR:         ["CLOSED"],
-  CLOSED:            [],
-  CANCELLED:         [],
-};
+import { canTransition, getAllowedTransitions } from "../domain/state-machine/repair-order.fsm.js";
 
 export class RepairOrderService {
   constructor(private prisma: PrismaClient) {}
@@ -257,8 +242,7 @@ export class RepairOrderService {
     const order = await this.prisma.repairOrder.findUnique({ where: { id } });
     if (!order) throw new Error("AS 접수를 찾을 수 없습니다.");
 
-    const allowed = TRANSITIONS[order.status] || [];
-    if (!allowed.includes(newStatus)) {
+    if (!canTransition(order.status, newStatus as RepairOrderStatus)) {
       throw new Error(`상태 전이가 허용되지 않습니다: ${order.status} → ${newStatus}`);
     }
 
@@ -387,6 +371,6 @@ export class RepairOrderService {
   async getStatusTransitions(id: string) {
     const order = await this.prisma.repairOrder.findUnique({ where: { id } });
     if (!order) throw new Error("AS 접수를 찾을 수 없습니다.");
-    return { currentStatus: order.status, allowedTransitions: TRANSITIONS[order.status] || [] };
+    return { currentStatus: order.status, allowedTransitions: getAllowedTransitions(order.status) };
   }
 }
