@@ -1,5 +1,7 @@
-import { Project, ProjectStatus } from "@prisma/client";
+import { ProjectStatus } from "@prisma/client";
 
+// 死 repository 인터페이스(IProjectRepository 등 7종, implements 0) 제거 — application→Prisma 직접 방식 공식화.
+//   살아있는 쿼리 필터 타입만 유지(project.service.ts 사용).
 export interface ProjectListFilter {
   status?: ProjectStatus;
   groupId?: string;
@@ -7,12 +9,4 @@ export interface ProjectListFilter {
   search?: string;
   page?: number;
   limit?: number;
-}
-
-export interface IProjectRepository {
-  findById(id: string): Promise<Project | null>;
-  findAll(filter: ProjectListFilter): Promise<{ items: Project[]; total: number }>;
-  create(data: Omit<Project, "id" | "createdAt" | "updatedAt">): Promise<Project>;
-  update(id: string, data: Partial<Project>): Promise<Project>;
-  delete(id: string): Promise<void>;
 }
