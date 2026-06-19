@@ -295,3 +295,155 @@ export interface DashboardConfig {
   issueFilter?: string;
   presentationMode?: boolean;
 }
+
+// ─── Board / WorkLog / Calendar (collab) ─────────────────────────────────────
+export interface BoardCategory {
+  id: string;
+  code: string;
+  name: string;
+  icon: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  isVisible: boolean;
+  createdAt: string;
+  updatedAt: string;
+  boards?: Board[];
+}
+
+export interface Board {
+  id: string;
+  categoryId: string;
+  code: string;
+  name: string;
+  description: string | null;
+  writeRoles: string[];
+  readAudience: string;
+  audienceTargetId: string | null;
+  allowComments: boolean;
+  allowAttachments: boolean;
+  postPinnable: boolean;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  category?: BoardCategory;
+}
+
+export interface BoardComment {
+  id: string;
+  postId: string;
+  authorId: string;
+  parentId: string | null;
+  content: string;
+  isDeleted: boolean;
+  createdAt: string;
+  updatedAt: string;
+  authorName?: string | null;
+  replies?: BoardComment[];
+}
+
+export interface BoardPost {
+  id: string;
+  boardId: string;
+  authorId: string;
+  publishingDepartmentId: string | null;
+  publishingDepartmentName: string | null;
+  targetDepartmentId: string | null;
+  targetDepartmentName: string | null;
+  title: string;
+  content: string;
+  isPinned: boolean;
+  priority: number;
+  publishedAt: string;
+  expiresAt: string | null;
+  isDeleted: boolean;
+  viewCount: number;
+  requestStatus: string | null;
+  requestType: string | null;
+  assigneeId: string | null;
+  moduleArea: string | null;
+  releaseVersion: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  // 목록/상세 보강 필드
+  authorName?: string | null;
+  assigneeName?: string | null;
+  boardCode?: string;
+  boardName?: string;
+  categoryCode?: string;
+  isRead?: boolean;
+  commentCount?: number;
+  attachments?: unknown[];
+  comments?: BoardComment[];
+  canEdit?: boolean;
+  canDelete?: boolean;
+}
+
+export interface WorkLog {
+  id: string;
+  taskId: string;
+  segmentId: string | null;
+  authorId: string;
+  authorName: string;
+  content: string;
+  workedAt: string;
+  isDeleted: boolean;
+  createdAt: string;
+  updatedAt: string;
+  segmentName?: string | null;
+}
+
+export interface CalendarEntry {
+  id: string;
+  type: string;
+  title: string;
+  description: string | null;
+  startDate: string;
+  endDate: string;
+  isAllDay: boolean;
+  color: string | null;
+  recurrence: string | null;
+  targetDepartmentId: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  source: string;
+  externalId: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 게시글 목록/피드 뷰 DTO (post.service가 가공해 반환 — raw Post와 다름)
+export interface BoardPostListItem {
+  id: string;
+  title: string;
+  summary: string;
+  isPinned: boolean;
+  priority: number;
+  publishedAt: string;
+  viewCount: number;
+  commentCount: number;
+  attachmentCount: number;
+  isRead: boolean;
+  author: { id: string; name: string };
+  publishingDepartment: { id: string; name: string } | null;
+  board: { code: string; name: string };
+  requestStatus?: string | null;
+  requestType?: string | null;
+  boardCode?: string;
+}
+
+// 게시글 피드 뷰 DTO (getFeed — 평탄 board/author 필드)
+export interface BoardFeedItem {
+  id: string;
+  title: string;
+  summary: string;
+  isPinned: boolean;
+  priority: number;
+  publishedAt: string;
+  isRead: boolean;
+  boardCode: string;
+  boardName: string;
+  authorName: string;
+}

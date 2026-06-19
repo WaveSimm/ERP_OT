@@ -1,6 +1,9 @@
 "use client";
 
 import { request, getToken, getCsrfToken, API_PREFIX } from "./client";
+import type {
+  BoardCategory, Board, BoardPost, BoardPostListItem, BoardFeedItem, BoardComment, WorkLog, CalendarEntry,
+} from "./types";
 
 
 // ── Approval (결재) ──────────────────────────────────────────────────────
@@ -157,10 +160,10 @@ export const ocrApi = {
 // ─── 게시판 ────────────────────────────────────────────────────────────────
 
 export const boardApi = {
-  listCategories: () => request<any[]>("/board-categories"),
+  listCategories: () => request<BoardCategory[]>("/board-categories"),
   listBoards: (categoryCode?: string) =>
-    request<any[]>(`/boards${categoryCode ? `?categoryCode=${encodeURIComponent(categoryCode)}` : ""}`),
-  getBoard: (code: string) => request<any>(`/boards/${encodeURIComponent(code)}`),
+    request<Board[]>(`/boards${categoryCode ? `?categoryCode=${encodeURIComponent(categoryCode)}` : ""}`),
+  getBoard: (code: string) => request<Board>(`/boards/${encodeURIComponent(code)}`),
 };
 
 export const postApi = {
@@ -175,7 +178,7 @@ export const postApi = {
     if (params?.publishingDeptId) q.set("publishingDeptId", params.publishingDeptId);
     if (typeof params?.priority === "number") q.set("priority", String(params.priority));
     const qs = q.toString();
-    return request<{ items: any[]; total: number; page: number; pageSize: number }>(
+    return request<{ items: BoardPostListItem[]; total: number; page: number; pageSize: number }>(
       `/boards/${encodeURIComponent(boardCode)}/posts${qs ? `?${qs}` : ""}`,
     );
   },
@@ -184,7 +187,7 @@ export const postApi = {
     if (params?.categoryCode) q.set("categoryCode", params.categoryCode);
     if (params?.limit) q.set("limit", String(params.limit));
     const qs = q.toString();
-    return request<{ items: any[] }>(`/posts/feed${qs ? `?${qs}` : ""}`);
+    return request<{ items: BoardFeedItem[] }>(`/posts/feed${qs ? `?${qs}` : ""}`);
   },
   unreadCount: (categoryCode?: string) => {
     const qs = categoryCode ? `?categoryCode=${encodeURIComponent(categoryCode)}` : "";
@@ -192,7 +195,7 @@ export const postApi = {
       `/posts/me/unread-count${qs}`,
     );
   },
-  get: (id: string) => request<any>(`/posts/${id}`),
+  get: (id: string) => request<BoardPost>(`/posts/${id}`),
   create: (
     boardCode: string,
     data: {
@@ -202,7 +205,7 @@ export const postApi = {
       requestType?: string; moduleArea?: string;
     },
   ) =>
-    request<any>(`/boards/${encodeURIComponent(boardCode)}/posts`, {
+    request<BoardPost>(`/boards/${encodeURIComponent(boardCode)}/posts`, {
       method: "POST",
       body: JSON.stringify(data),
     }),
@@ -210,7 +213,7 @@ export const postApi = {
     id: string,
     data: { title?: string; content?: string; priority?: number; expiresAt?: string | null },
   ) =>
-    request<any>(`/posts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<BoardPost>(`/posts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   remove: (id: string) => request<void>(`/posts/${id}`, { method: "DELETE" }),
   togglePin: (id: string, isPinned: boolean) =>
     request<{ id: string; isPinned: boolean }>(`/posts/${id}/pin`, {
@@ -225,9 +228,9 @@ export const postApi = {
       releaseVersion?: string | null;
     },
   ) =>
-    request<any>(`/posts/${id}/feature-status`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<BoardPost>(`/posts/${id}/feature-status`, { method: "PATCH", body: JSON.stringify(data) }),
   assignFeature: (id: string, assigneeId: string | null) =>
-    request<any>(`/posts/${id}/feature-assign`, { method: "PATCH", body: JSON.stringify({ assigneeId }) }),
+    request<BoardPost>(`/posts/${id}/feature-assign`, { method: "PATCH", body: JSON.stringify({ assigneeId }) }),
   featureRequestStats: () =>
     request<{ total: number; byStatus: Record<string, number>; byType: Record<string, number>; byModule: Record<string, number> }>(
       `/feature-requests/stats`,
@@ -235,11 +238,11 @@ export const postApi = {
 };
 
 export const boardCommentApi = {
-  list: (postId: string) => request<any[]>(`/posts/${postId}/comments`),
+  list: (postId: string) => request<BoardComment[]>(`/posts/${postId}/comments`),
   create: (postId: string, data: { content: string; parentId?: string }) =>
-    request<any>(`/posts/${postId}/comments`, { method: "POST", body: JSON.stringify(data) }),
+    request<BoardComment>(`/posts/${postId}/comments`, { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, content: string) =>
-    request<any>(`/comments/${id}`, { method: "PATCH", body: JSON.stringify({ content }) }),
+    request<BoardComment>(`/comments/${id}`, { method: "PATCH", body: JSON.stringify({ content }) }),
   remove: (id: string) => request<void>(`/comments/${id}`, { method: "DELETE" }),
 };
 
@@ -273,18 +276,18 @@ export const workLogApi = {
     if (params?.segmentId) q.set("segmentId", params.segmentId);
     if (params?.limit) q.set("limit", String(params.limit));
     const qs = q.toString();
-    return request<any[]>(`/tasks/${taskId}/work-logs${qs ? `?${qs}` : ""}`);
+    return request<WorkLog[]>(`/tasks/${taskId}/work-logs${qs ? `?${qs}` : ""}`);
   },
   create: (
     taskId: string,
     data: { content: string; workedAt: string; segmentId?: string },
   ) =>
-    request<any>(`/tasks/${taskId}/work-logs`, {
+    request<WorkLog>(`/tasks/${taskId}/work-logs`, {
       method: "POST",
       body: JSON.stringify(data),
     }),
   update: (id: string, data: { content?: string; workedAt?: string }) =>
-    request<any>(`/work-logs/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<WorkLog>(`/work-logs/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   remove: (id: string) => request<void>(`/work-logs/${id}`, { method: "DELETE" }),
 
   listByProject: (
@@ -410,14 +413,14 @@ export const calendarApi = {
     if (params?.to) q.set("to", params.to);
     if (params?.type) q.set("type", params.type);
     const qs = q.toString();
-    return request<any[]>(`/calendar${qs ? `?${qs}` : ""}`);
+    return request<CalendarEntry[]>(`/calendar${qs ? `?${qs}` : ""}`);
   },
-  upcoming: (days = 14) => request<any[]>(`/calendar/upcoming?days=${days}`),
-  get: (id: string) => request<any>(`/calendar/${id}`),
+  upcoming: (days = 14) => request<CalendarEntry[]>(`/calendar/upcoming?days=${days}`),
+  get: (id: string) => request<CalendarEntry>(`/calendar/${id}`),
   create: (data: { type: string; title: string; description?: string | null; startDate: string; endDate: string; color?: string | null }) =>
-    request<any>("/calendar", { method: "POST", body: JSON.stringify(data) }),
+    request<CalendarEntry>("/calendar", { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, data: { type?: string; title?: string; description?: string | null; startDate?: string; endDate?: string; color?: string | null }) =>
-    request<any>(`/calendar/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<CalendarEntry>(`/calendar/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   remove: (id: string) => request<void>(`/calendar/${id}`, { method: "DELETE" }),
   // v1.2 — KASI 한국 공휴일 동기화 (year 미지정 시 현재 연도)
   syncHolidays: (year?: number) =>
