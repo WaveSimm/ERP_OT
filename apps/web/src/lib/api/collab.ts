@@ -4,45 +4,46 @@ import { request, getToken, getCsrfToken, API_PREFIX } from "./client";
 import type {
   BoardCategory, Board, BoardPost, BoardPostListItem, BoardFeedItem, BoardComment, WorkLog, CalendarEntry,
   ExpenseSource, ExpenseTransaction, ExpenseStatement, ExpenseReceipt, ExpenseMatch, ExpenseSettlement,
+  ApprovalTemplate, ApprovalDocument, ApprovalAttachment, Paginated,
 } from "./types";
 
 
 // ── Approval (결재) ──────────────────────────────────────────────────────
 export const approvalApi = {
   // 템플릿
-  getTemplates: () => request<any[]>("/approval/templates"),
-  getTemplate: (id: string) => request<any>(`/approval/templates/${id}`),
+  getTemplates: () => request<ApprovalTemplate[]>("/approval/templates"),
+  getTemplate: (id: string) => request<ApprovalTemplate>(`/approval/templates/${id}`),
 
   // 문서 CRUD
-  createDocument: (data: any) =>
-    request<any>("/approval/documents", { method: "POST", body: JSON.stringify(data) }),
-  getDocument: (id: string) => request<any>(`/approval/documents/${id}`),
+  createDocument: (data: unknown) =>
+    request<ApprovalDocument>("/approval/documents", { method: "POST", body: JSON.stringify(data) }),
+  getDocument: (id: string) => request<ApprovalDocument>(`/approval/documents/${id}`),
   getDocumentByReference: (referenceType: string, referenceId: string) =>
-    request<any>(`/approval/documents/by-reference/${referenceType}/${referenceId}`),
-  updateDocument: (id: string, data: any) =>
-    request<any>(`/approval/documents/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    request<ApprovalDocument>(`/approval/documents/by-reference/${referenceType}/${referenceId}`),
+  updateDocument: (id: string, data: unknown) =>
+    request<ApprovalDocument>(`/approval/documents/${id}`, { method: "PUT", body: JSON.stringify(data) }),
 
   // 결재 액션
   submitDocument: (id: string) =>
-    request<any>(`/approval/documents/${id}/submit`, { method: "PATCH" }),
+    request<ApprovalDocument>(`/approval/documents/${id}/submit`, { method: "PATCH" }),
   withdrawDocument: (id: string) =>
-    request<any>(`/approval/documents/${id}/withdraw`, { method: "PATCH" }),
+    request<ApprovalDocument>(`/approval/documents/${id}/withdraw`, { method: "PATCH" }),
   approveDocument: (id: string, comment?: string) =>
-    request<any>(`/approval/documents/${id}/approve`, { method: "PATCH", body: JSON.stringify({ comment: comment || "" }) }),
+    request<ApprovalDocument>(`/approval/documents/${id}/approve`, { method: "PATCH", body: JSON.stringify({ comment: comment || "" }) }),
   rejectDocument: (id: string, comment: string) =>
-    request<any>(`/approval/documents/${id}/reject`, { method: "PATCH", body: JSON.stringify({ comment }) }),
+    request<ApprovalDocument>(`/approval/documents/${id}/reject`, { method: "PATCH", body: JSON.stringify({ comment }) }),
   agreeDocument: (id: string, comment?: string) =>
-    request<any>(`/approval/documents/${id}/agree`, { method: "PATCH", body: JSON.stringify({ comment: comment || "" }) }),
+    request<ApprovalDocument>(`/approval/documents/${id}/agree`, { method: "PATCH", body: JSON.stringify({ comment: comment || "" }) }),
 
   // 수신함
   getPendingDocuments: (page = 1, limit = 20) =>
-    request<any>(`/approval/documents/pending?page=${page}&limit=${limit}`),
+    request<Paginated<ApprovalDocument>>(`/approval/documents/pending?page=${page}&limit=${limit}`),
   getSentDocuments: (page = 1, limit = 20) =>
-    request<any>(`/approval/documents/sent?page=${page}&limit=${limit}`),
+    request<Paginated<ApprovalDocument>>(`/approval/documents/sent?page=${page}&limit=${limit}`),
   getCcDocuments: (page = 1, limit = 20) =>
-    request<any>(`/approval/documents/cc?page=${page}&limit=${limit}`),
+    request<Paginated<ApprovalDocument>>(`/approval/documents/cc?page=${page}&limit=${limit}`),
   getCompletedDocuments: (page = 1, limit = 20) =>
-    request<any>(`/approval/documents/completed?page=${page}&limit=${limit}`),
+    request<Paginated<ApprovalDocument>>(`/approval/documents/completed?page=${page}&limit=${limit}`),
 
   // 파일
   uploadFile: (documentId: string, file: File) => {
@@ -59,7 +60,7 @@ export const approvalApi = {
     }).then(r => { if (!r.ok) throw new Error("Upload failed"); return r.json(); });
   },
   getDocumentFiles: (documentId: string) =>
-    request<any[]>(`/approval/files/document/${documentId}`),
+    request<ApprovalAttachment[]>(`/approval/files/document/${documentId}`),
   deleteFile: (id: string) =>
     request<void>(`/approval/files/${id}`, { method: "DELETE" }),
 };
@@ -80,7 +81,7 @@ export const fileApi = {
     }).then(r => { if (!r.ok) throw new Error("Upload failed"); return r.json(); });
   },
   list: (referenceType: string, referenceId: string) =>
-    request<any[]>(`/approval/files/reference/${referenceType}/${referenceId}`),
+    request<ApprovalAttachment[]>(`/approval/files/reference/${referenceType}/${referenceId}`),
   download: (id: string) => {
     const token = getToken();
     return fetch(`${API_PREFIX}/approval/files/${id}/download`, {
