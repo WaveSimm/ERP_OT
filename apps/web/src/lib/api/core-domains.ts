@@ -5,6 +5,7 @@ import type {
   Project, ProjectListItem, Paginated,
   Folder, Dependency, Task, TaskSegment, SegmentAssignment, TaskComment,
   WorkScheduleEntry, LeaveBalance, LeaveRequest, HolidayWorkRequest,
+  User, Department, ApprovalLine,
 } from "./types";
 
 
@@ -539,29 +540,29 @@ export const holidayWorkApi = {
 export const teamApi = {
   getAttendance: (year: number, month: number) =>
     request<any[]>(`/team/attendance?year=${year}&month=${month}`),
-  getPendingLeave: () => request<any[]>("/leave/pending"),
-  getPendingHolidayWork: () => request<any[]>("/holiday-work/pending"),
+  getPendingLeave: () => request<LeaveRequest[]>("/leave/pending"),
+  getPendingHolidayWork: () => request<HolidayWorkRequest[]>("/holiday-work/pending"),
   approveLeave: (id: string) =>
-    request<any>(`/leave/requests/${id}/approve`, { method: "POST", body: "{}" }),
+    request<LeaveRequest>(`/leave/requests/${id}/approve`, { method: "POST", body: "{}" }),
   rejectLeave: (id: string, rejectReason: string) =>
-    request<any>(`/leave/requests/${id}/reject`, { method: "POST", body: JSON.stringify({ rejectReason }) }),
+    request<LeaveRequest>(`/leave/requests/${id}/reject`, { method: "POST", body: JSON.stringify({ rejectReason }) }),
   approveHolidayWork: (id: string) =>
-    request<any>(`/holiday-work/requests/${id}/approve`, { method: "POST", body: "{}" }),
+    request<HolidayWorkRequest>(`/holiday-work/requests/${id}/approve`, { method: "POST", body: "{}" }),
   rejectHolidayWork: (id: string, rejectReason: string) =>
-    request<any>(`/holiday-work/requests/${id}/reject`, { method: "POST", body: JSON.stringify({ rejectReason }) }),
+    request<HolidayWorkRequest>(`/holiday-work/requests/${id}/reject`, { method: "POST", body: JSON.stringify({ rejectReason }) }),
 };
 
 // ─── My Profile ──────────────────────────────────────────────────────────────
 
 export const myProfileApi = {
-  get: () => request<any>("/auth/me"),
-  getProfile: (id: string) => request<any>(`/users/${id}/profile`),
+  get: () => request<User>("/auth/me"),
+  getProfile: (id: string) => request<User>(`/users/${id}/profile`),
   updateProfile: (id: string, data: {
     phoneOffice?: string | null;
     phoneMobile?: string | null;
-  }) => request<any>(`/users/${id}/profile`, { method: "PATCH", body: JSON.stringify(data) }),
+  }) => request<User>(`/users/${id}/profile`, { method: "PATCH", body: JSON.stringify(data) }),
   changeName: (name: string) =>
-    request<any>("/auth/me", { method: "PATCH", body: JSON.stringify({ name }) }),
+    request<User>("/auth/me", { method: "PATCH", body: JSON.stringify({ name }) }),
   changePassword: (currentPassword: string, newPassword: string) =>
     request<void>("/auth/me/password", { method: "PATCH", body: JSON.stringify({ currentPassword, newPassword }) }),
 };
@@ -585,25 +586,25 @@ export const authApi = {
     return data as { user: { id: string; email: string; name: string; role: string } };
   },
   logout: () => request<void>("/auth/logout", { method: "POST" }),
-  me: () => request<any>("/auth/me"),
+  me: () => request<User>("/auth/me"),
 };
 
 export const departmentApi = {
-  list: () => request<any[]>("/departments"),
+  list: () => request<Department[]>("/departments"),
   create: (data: { name: string; code: string; level?: number; sortOrder?: number }) =>
-    request<any>("/departments", { method: "POST", body: JSON.stringify(data) }),
+    request<Department>("/departments", { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, data: { name?: string; headUserId?: string | null; parentId?: string | null; soukwalUserId?: string | null; daepyoUserId?: string | null; sortOrder?: number }) =>
-    request<any>(`/departments/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<Department>(`/departments/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   delete: (id: string) => request<void>(`/departments/${id}`, { method: "DELETE" }),
-  getById: (id: string) => request<any>(`/departments/${id}`),
+  getById: (id: string) => request<Department>(`/departments/${id}`),
 };
 
 export const approvalLineApi = {
-  list: () => request<any[]>("/approval-lines"),
-  getMe: () => request<any>("/approval-lines/me"),
-  getByUser: (userId: string) => request<any>(`/approval-lines/${userId}`),
+  list: () => request<ApprovalLine[]>("/approval-lines"),
+  getMe: () => request<ApprovalLine | null>("/approval-lines/me"),
+  getByUser: (userId: string) => request<ApprovalLine | null>(`/approval-lines/${userId}`),
   upsert: (data: { userId: string; approverId: string; secondApproverId?: string | null; thirdApproverId?: string | null }) =>
-    request<any>("/approval-lines", { method: "POST", body: JSON.stringify(data) }),
+    request<ApprovalLine>("/approval-lines", { method: "POST", body: JSON.stringify(data) }),
   remove: (userId: string) => request<void>(`/approval-lines/${userId}`, { method: "DELETE" }),
   bulkByDepartment: (departmentId: string) =>
     request<void>("/approval-lines/bulk-by-department", { method: "POST", body: JSON.stringify({ departmentId }) }),
@@ -614,34 +615,34 @@ export const approvalLineApi = {
 export const userManagementApi = {
   list: (opts?: { includeRetired?: boolean }) => {
     const q = opts?.includeRetired ? "?includeRetired=true" : "";
-    return request<{ items: any[]; total: number }>(`/users${q}`);
+    return request<{ items: User[]; total: number }>(`/users${q}`);
   },
   members: (all?: boolean) => request<{ id: string; name: string }[]>(`/users/members${all ? "?all=true" : ""}`),
   create: (data: { email: string; name: string; password: string; role: string }) =>
-    request<any>("/users", { method: "POST", body: JSON.stringify(data) }),
+    request<User>("/users", { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, data: { name?: string; role?: string; isActive?: boolean }) =>
-    request<any>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<User>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   resetPassword: (id: string, newPassword: string) =>
     request<void>(`/users/${id}/reset-password`, { method: "POST", body: JSON.stringify({ newPassword }) }),
-  getProfile: (id: string) => request<any>(`/users/${id}/profile`),
+  getProfile: (id: string) => request<User>(`/users/${id}/profile`),
   upsertProfile: (id: string, data: {
     phoneOffice?: string | null;
     phoneMobile?: string | null;
     address?: string | null;
     departmentId?: string | null;
     departmentName?: string | null;
-  }) => request<any>(`/users/${id}/profile`, { method: "PATCH", body: JSON.stringify(data) }),
+  }) => request<User>(`/users/${id}/profile`, { method: "PATCH", body: JSON.stringify(data) }),
   delete: (id: string) => request<void>(`/users/${id}`, { method: "DELETE" }),
   // 자원-모델-분리 PDCA Phase 3b-1: 직원 라이프사이클
   retire: (id: string, retirementDate?: string) =>
-    request<any>(`/users/${id}/retire`, {
+    request<User>(`/users/${id}/retire`, {
       method: "POST",
       body: JSON.stringify(retirementDate ? { retirementDate } : {}),
     }),
   reactivate: (id: string) =>
-    request<any>(`/users/${id}/reactivate`, { method: "POST" }),
+    request<User>(`/users/${id}/reactivate`, { method: "POST" }),
   updateStatus: (id: string, data: { status: "ACTIVE" | "RETIRED" | "SUSPENDED"; retirementDate?: string | null }) =>
-    request<any>(`/users/${id}/status`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<User>(`/users/${id}/status`, { method: "PATCH", body: JSON.stringify(data) }),
 };
 
 // ─── 자원-모델-분리 PDCA Phase 3b-6: 통합 자원 picker용 ────────────────────
