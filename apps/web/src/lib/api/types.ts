@@ -187,3 +187,76 @@ export interface HolidayWorkRequest {
   secondApproverName?: string | null;
   thirdApproverName?: string | null;
 }
+
+// ─── User / Org ──────────────────────────────────────────────────────────────
+export interface UserProfile {
+  phoneOffice?: string | null;
+  phoneMobile?: string | null;
+  address?: string | null;
+  departmentId?: string | null;
+  departmentName?: string | null;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  isActive: boolean;
+  status: string;
+  retirementDate: string | null;
+  lastLoginAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  profile?: UserProfile | null;
+  isOnline?: boolean;
+  // 일부 응답/caller가 프로필 필드를 평탄하게 접근 (호환용 옵셔널)
+  phoneOffice?: string | null;
+  phoneMobile?: string | null;
+  address?: string | null;
+}
+
+export interface Department {
+  id: string;
+  name: string;
+  code: string;
+  parentId: string | null;
+  headUserId: string | null;
+  soukwalUserId: string | null;
+  daepyoUserId: string | null;
+  level: number;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  // getTree/getById 계산·관계 필드
+  memberCount?: number;
+  headName?: string | null;
+  soukwalName?: string | null;
+  daepyoName?: string | null;
+  children?: Department[];
+  members?: {
+    userId: string;
+    departmentName?: string | null;
+    user?: { id: string; name: string; email: string; role: string };
+  }[];
+}
+
+export interface ApprovalLine {
+  id: string;
+  userId: string;
+  approverId: string;
+  secondApproverId: string | null;
+  thirdApproverId: string | null;
+  delegateId: string | null;
+  delegateUntil: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  // 백엔드 보강 필드 (이름 lookup / 위임 상태)
+  approverName?: string | null;
+  secondApproverName?: string | null;
+  thirdApproverName?: string | null;
+  delegateName?: string | null;
+  isDelegated?: boolean;
+}
