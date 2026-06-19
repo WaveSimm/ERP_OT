@@ -6,6 +6,7 @@ import type {
   Folder, Dependency, Task, TaskSegment, SegmentAssignment, TaskComment,
   WorkScheduleEntry, LeaveBalance, LeaveRequest, HolidayWorkRequest,
   User, Department, ApprovalLine,
+  Notification, ActivityLog, DashboardConfig,
 } from "./types";
 
 
@@ -431,7 +432,7 @@ export const impactApi = {
 export const notificationApi = {
   list: (params?: { unreadOnly?: boolean; page?: number; pageSize?: number }) => {
     const q = params ? new URLSearchParams(params as Record<string, string>).toString() : "";
-    return request<{ items: any[]; total: number; page: number; pageSize: number }>(
+    return request<{ items: Notification[]; total: number; page: number; pageSize: number }>(
       `/notifications${q ? `?${q}` : ""}`,
     );
   },
@@ -459,7 +460,7 @@ export const meApi = {
   getStaleSegments: (staleDays = 3) =>
     request<any[]>(`/me/stale-segments?staleDays=${staleDays}`),
   updateSegmentProgress: (segmentId: string, data: { progressPercent: number; changeReason?: string }) =>
-    request<any>(`/me/segments/${segmentId}/progress`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<TaskSegment>(`/me/segments/${segmentId}/progress`, { method: "PATCH", body: JSON.stringify(data) }),
 };
 
 // ─── Attendance ───────────────────────────────────────────────────────────────
@@ -696,9 +697,9 @@ export const dashboardApi = {
     request<any[]>(`/dashboard/projects/${projectId}/issues`),
   getProjectTimeline: (projectId: string, date?: string) =>
     request<any[]>(`/dashboard/projects/${projectId}/timeline${date ? `?date=${date}` : ""}`),
-  getConfig: () => request<any>("/dashboard/config"),
+  getConfig: () => request<DashboardConfig>("/dashboard/config"),
   updateConfig: (data: { defaultGroupBy?: string; pinnedProjectIds?: string[]; issueFilter?: string; presentationMode?: boolean }) =>
-    request<any>("/dashboard/config", { method: "PUT", body: JSON.stringify(data) }),
+    request<DashboardConfig>("/dashboard/config", { method: "PUT", body: JSON.stringify(data) }),
   getThresholds: () => request<any>("/dashboard/thresholds"),
   updateThresholds: (data: unknown) =>
     request<any>("/dashboard/thresholds", { method: "PUT", body: JSON.stringify(data) }),
@@ -715,7 +716,7 @@ export const activityLogApi = {
     const q = params ? new URLSearchParams(
       Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== "").map(([k, v]) => [k, String(v)]))
     ).toString() : "";
-    return request<{ items: any[]; total: number; page: number; pageSize: number; totalPages: number }>(
+    return request<{ items: ActivityLog[]; total: number; page: number; pageSize: number; totalPages: number }>(
       `/activities${q ? `?${q}` : ""}`,
     );
   },
