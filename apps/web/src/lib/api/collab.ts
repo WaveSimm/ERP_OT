@@ -3,6 +3,7 @@
 import { request, getToken, getCsrfToken, API_PREFIX } from "./client";
 import type {
   BoardCategory, Board, BoardPost, BoardPostListItem, BoardFeedItem, BoardComment, WorkLog, CalendarEntry,
+  ExpenseSource, ExpenseTransaction, ExpenseStatement, ExpenseReceipt, ExpenseMatch, ExpenseSettlement,
 } from "./types";
 
 
@@ -435,11 +436,11 @@ export const calendarApi = {
 export const expenseApi = {
   // Sources (카드 관리)
   listSources: (includeInactive = false) =>
-    request<any[]>(`/expense/sources${includeInactive ? "?includeInactive=true" : ""}`),
+    request<ExpenseSource[]>(`/expense/sources${includeInactive ? "?includeInactive=true" : ""}`),
   createSource: (data: { name: string; displayName?: string; type: string; cardNumber?: string; ownership?: "PERSONAL" | "CORPORATE" }) =>
-    request<any>("/expense/sources", { method: "POST", body: JSON.stringify(data) }),
+    request<ExpenseSource>("/expense/sources", { method: "POST", body: JSON.stringify(data) }),
   updateSource: (id: string, data: { name?: string; displayName?: string | null; type?: string; cardNumber?: string | null; ownership?: "PERSONAL" | "CORPORATE"; active?: boolean }) =>
-    request<any>(`/expense/sources/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<ExpenseSource>(`/expense/sources/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteSource: (id: string) => request<void>(`/expense/sources/${id}`, { method: "DELETE" }),
 
   // Transactions (data: detail/memo 등 임의 필드)
@@ -447,15 +448,15 @@ export const expenseApi = {
   listTransactions: (params: { status?: string; contractId?: string; sourceId?: string; from?: string; to?: string; page?: number; limit?: number } = {}) => {
     const q = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => v != null && q.set(k, String(v)));
-    return request<{ items: any[]; total: number; page: number; limit: number }>(
+    return request<{ items: ExpenseTransaction[]; total: number; page: number; limit: number }>(
       `/expense/transactions${q.toString() ? `?${q}` : ""}`,
     );
   },
-  getTransaction: (id: string) => request<any>(`/expense/transactions/${id}`),
-  createTransaction: (data: any) =>
-    request<any>("/expense/transactions", { method: "POST", body: JSON.stringify(data) }),
-  updateTransaction: (id: string, data: any) =>
-    request<any>(`/expense/transactions/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  getTransaction: (id: string) => request<ExpenseTransaction>(`/expense/transactions/${id}`),
+  createTransaction: (data: unknown) =>
+    request<ExpenseTransaction>("/expense/transactions", { method: "POST", body: JSON.stringify(data) }),
+  updateTransaction: (id: string, data: unknown) =>
+    request<ExpenseTransaction>(`/expense/transactions/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteTransaction: (id: string) =>
     request<void>(`/expense/transactions/${id}`, { method: "DELETE" }),
   // 일괄 삭제 — 단일 요청으로 N건 처리(개별 DELETE 동시발사 → rate-limit 폭주 방지)
@@ -469,7 +470,7 @@ export const expenseApi = {
   listStatements: (params: { page?: number; limit?: number } = {}) => {
     const q = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => v != null && q.set(k, String(v)));
-    return request<{ items: any[]; total: number; page: number; limit: number }>(
+    return request<{ items: ExpenseStatement[]; total: number; page: number; limit: number }>(
       `/expense/statements${q.toString() ? `?${q}` : ""}`,
     );
   },
@@ -497,7 +498,7 @@ export const expenseApi = {
   listReceipts: (params: { page?: number; limit?: number; ocrStatus?: string } = {}) => {
     const q = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => v != null && q.set(k, String(v)));
-    return request<{ items: any[]; total: number; page: number; limit: number }>(
+    return request<{ items: ExpenseReceipt[]; total: number; page: number; limit: number }>(
       `/expense/receipts${q.toString() ? `?${q}` : ""}`,
     );
   },
@@ -521,11 +522,11 @@ export const expenseApi = {
   },
   receiptDownloadUrl: (id: string) => `${API_PREFIX}/expense/receipts/${id}/download`,
   deleteReceipt: (id: string) => request<void>(`/expense/receipts/${id}`, { method: "DELETE" }),
-  getReceipt: (id: string) => request<any>(`/expense/receipts/${id}`),
+  getReceipt: (id: string) => request<ExpenseReceipt>(`/expense/receipts/${id}`),
   updateReceipt: (
     id: string,
     data: { extractedAmount?: number | null; extractedMerchant?: string | null; extractedDate?: string | null },
-  ) => request<any>(`/expense/receipts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  ) => request<ExpenseReceipt>(`/expense/receipts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   splitReceipt: (
     id: string,
     regions: Array<{ x: number; y: number; width: number; height: number }>,
@@ -541,23 +542,23 @@ export const expenseApi = {
   listMatches: (params: { transactionId?: string; receiptId?: string; confirmed?: boolean } = {}) => {
     const q = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => v != null && q.set(k, String(v)));
-    return request<any[]>(`/expense/matches${q.toString() ? `?${q}` : ""}`);
+    return request<ExpenseMatch[]>(`/expense/matches${q.toString() ? `?${q}` : ""}`);
   },
   createMatch: (transactionId: string, receiptId: string) =>
-    request<any>("/expense/matches", { method: "POST", body: JSON.stringify({ transactionId, receiptId }) }),
+    request<ExpenseMatch>("/expense/matches", { method: "POST", body: JSON.stringify({ transactionId, receiptId }) }),
   confirmMatch: (id: string) =>
-    request<any>(`/expense/matches/${id}/confirm`, { method: "PATCH" }),
+    request<ExpenseMatch>(`/expense/matches/${id}/confirm`, { method: "PATCH" }),
   removeMatch: (id: string) => request<void>(`/expense/matches/${id}`, { method: "DELETE" }),
 
   // Settlements
   listSettlements: (params: { status?: string; page?: number; limit?: number } = {}) => {
     const q = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => v != null && q.set(k, String(v)));
-    return request<{ items: any[]; total: number; page: number; limit: number }>(
+    return request<{ items: ExpenseSettlement[]; total: number; page: number; limit: number }>(
       `/expense/settlements${q.toString() ? `?${q}` : ""}`,
     );
   },
-  getSettlement: (id: string) => request<any>(`/expense/settlements/${id}`),
+  getSettlement: (id: string) => request<ExpenseSettlement>(`/expense/settlements/${id}`),
   // 카테고리별 N개 자동 생성 — legacy
   createSettlement: (data: { periodStart: string; periodEnd: string }) =>
     request<{ created: any[]; updated: any[]; skipped: any[]; message: string | null }>(
@@ -566,7 +567,7 @@ export const expenseApi = {
     ),
   // 빈 정산 묶음 생성 (수동 워크플로우)
   createEmptySettlement: (data: { title: string }) =>
-    request<any>("/expense/settlements/empty", { method: "POST", body: JSON.stringify(data) }),
+    request<ExpenseSettlement>("/expense/settlements/empty", { method: "POST", body: JSON.stringify(data) }),
   // 거래의 정산 묶음 할당/해제
   setTransactionSettlement: (transactionId: string, settlementId: string | null) =>
     request<{ success: boolean }>(`/expense/settlements/transactions/${transactionId}`, {
@@ -578,7 +579,7 @@ export const expenseApi = {
   // v1.6.4 (2026-05-16): 결재 분리 — submitSettlement/cancelSettlement 폐기.
   // 결재 작성·취소는 /approval/new 또는 결재 상세에서 수행. expense-service는 webhook으로 연결됨.
   updateSettlementTitle: (id: string, title: string) =>
-    request<any>(`/expense/settlements/${id}/title`, { method: "PATCH", body: JSON.stringify({ title }) }),
+    request<ExpenseSettlement>(`/expense/settlements/${id}/title`, { method: "PATCH", body: JSON.stringify({ title }) }),
   excelDownloadUrl: (id: string) => `${API_PREFIX}/expense/settlements/${id}/excel`,
   meSummary: () => request<{ unmatched: number; pendingApproval: number; awaitingPayment: number }>(
     "/expense/settlements/me/summary",
@@ -586,13 +587,13 @@ export const expenseApi = {
 
   // Finance
   financeQueue: (status?: string) =>
-    request<{ items: any[]; total: number; page: number; limit: number }>(
+    request<{ items: ExpenseSettlement[]; total: number; page: number; limit: number }>(
       `/expense/finance/queue${status ? `?status=${status}` : ""}`,
     ),
   receive: (id: string) =>
-    request<any>(`/expense/finance/settlements/${id}/receive`, { method: "POST", body: "{}" }),
+    request<ExpenseSettlement>(`/expense/finance/settlements/${id}/receive`, { method: "POST", body: "{}" }),
   pay: (id: string, data: { paidAt?: string; paidAmount?: number; paidNote?: string }) =>
-    request<any>(`/expense/finance/settlements/${id}/pay`, { method: "POST", body: JSON.stringify(data) }),
+    request<ExpenseSettlement>(`/expense/finance/settlements/${id}/pay`, { method: "POST", body: JSON.stringify(data) }),
 };
 
 /** @deprecated Use authApi.login instead */
