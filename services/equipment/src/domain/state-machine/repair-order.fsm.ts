@@ -21,12 +21,34 @@ const TRANSITIONS: Record<RepairOrderStatus, RepairOrderStatus[]> = {
   CANCELLED:         [],
 };
 
+/** 전체 수리 상태 목록 (TRANSITIONS 키에서 도출 — prisma 런타임 enum 무의존). */
+export const ALL_REPAIR_STATUSES = Object.keys(TRANSITIONS) as RepairOrderStatus[];
+
 export function canTransition(from: RepairOrderStatus, to: RepairOrderStatus): boolean {
   return TRANSITIONS[from]?.includes(to) ?? false;
 }
 
 export function getAllowedTransitions(from: RepairOrderStatus): RepairOrderStatus[] {
   return TRANSITIONS[from] ?? [];
+}
+
+/**
+ * UI 탭(상태 그룹) → 해당 그룹에 속한 상태들.
+ * (repair-order.service.ts list() 인라인 groups를 도메인 계층으로 추출)
+ * CANCELLED는 어느 탭에도 안 들어가는 별도 필터 — 의도적 제외.
+ */
+export const STATUS_GROUPS: Record<string, RepairOrderStatus[]> = {
+  received:          ["RECEIVED"],
+  inspecting:        ["INSPECTING_1ST", "INSPECTING_2ND"],
+  repairing:         ["QUOTED", "APPROVED", "REPAIRING"],
+  manufacturer:      ["SHIPPED_TO_MFG"],
+  received_from_mfg: ["RECEIVED_FROM_MFG"],
+  completed:         ["COMPLETED", "NO_FAULT", "NO_REPAIR", "CLOSED"],
+};
+
+/** 그룹명 → 상태 목록 (없는 그룹이면 undefined) */
+export function getStatusesInGroup(group: string): RepairOrderStatus[] | undefined {
+  return STATUS_GROUPS[group];
 }
 
 export function assertTransition(from: RepairOrderStatus, to: RepairOrderStatus): void {
