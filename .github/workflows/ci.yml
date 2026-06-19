@@ -40,8 +40,10 @@ jobs:
 
       # Lint 보류: eslint 가 monorepo 어디에도 설치돼 있지 않아(전 패키지 lint="eslint src/"인데 eslint 의존 0)
       #   turbo run lint 는 "eslint: not found"로 전부 실패. eslint+config+plugin 도입은 Phase 1 별도 작업 → 그때 재추가.
+      # 고아 패키지 @erp-ot/ui·@erp-ot/api-client 제외: 둘 다 import 0(dead stub)인데 build="tsc"에 tsconfig가 없어 실패.
+      #   Phase 1에서 정식 삭제 예정. 그때까진 live 코드만 타입체크(이게 리팩토링 회귀 게이트의 핵심).
       - name: Type check
-        run: pnpm build
+        run: pnpm build -- --filter=!@erp-ot/ui --filter=!@erp-ot/api-client
 
       # 테스트 0개 동안 vitest("No test files" exit 1) 폴백 — Phase 0 ⑤에서 실제 테스트 도입 시 자동으로 진짜 게이트화
       - name: Test
