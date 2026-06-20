@@ -465,7 +465,9 @@ services:
     ports:
       - "127.0.0.1:11434:11434"
     environment:
-      OLLAMA_KEEP_ALIVE: "30m"
+      # 2026-06-20: bge-m3 영구 상주(-1) — 콜드스타트 4.7s 제거(웜 0.5s 유지). RAM 1.16GB 상주
+      #   (서버 RAM 24Gi 여유). 임베딩=사내 문서/자산 시맨틱 검색용(사진 아님). vram=0=CPU.
+      OLLAMA_KEEP_ALIVE: "-1"
       # 검색 회귀 진단 2026-05-02: 60 VU 부하에서 직렬 처리 병목 (요청당 embed 2회 호출)
       # 2026-06-13: 주말 병렬 청킹 임베딩 처리량 위해 4→8 (24코어 CPU 포화 수준)
       OLLAMA_NUM_PARALLEL: "8"
