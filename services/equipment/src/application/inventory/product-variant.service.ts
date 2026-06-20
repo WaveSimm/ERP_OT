@@ -1,4 +1,5 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
+import type { IProductVariantRepository } from "../../domain/repositories/product-variant.repository.js";
 
 /**
  * ProductVariant — SKU (옵션 조합) 단위 (v1.6 신규, 2026-05-13)
@@ -11,12 +12,17 @@ import { PrismaClient } from "@prisma/client";
  * Plan v1.6 / Design v1.1 §19.1.2 참고
  */
 export class ProductVariantService {
-  constructor(private prisma: PrismaClient) {}
+  // repo: ProductVariant aggregate CRUD(Clean Arch). prisma: 복잡 read(listByMaster·getById include·
+  //   aggregate)·SKU생성·중복검사·merge($transaction)·remove 가드.
+  constructor(
+    private readonly repo: IProductVariantRepository,
+    private readonly prisma: PrismaClient,
+  ) {}
 
   /** ProductMaster 기준 Variant 목록 + 재고 합산 */
   async listByMaster(productMasterId: string, params: { includeInactive?: boolean } = {}) {
     const { includeInactive = false } = params;
-    const where: any = { productMasterId };
+    const where: Prisma.ProductVariantWhereInput = { productMasterId };
     if (!includeInactive) where.isActive = true;
 
     return this.prisma.productVariant.findMany({
@@ -67,7 +73,7 @@ export class ProductVariantService {
    *
    *   값이 하나도 없으면 시퀀스 ({prefix}-001) 사용.
    */
-  private async generateSkuCode(productMasterId: string, variantSpecs: Record<string, any>): Promise<string | null> {
+  private async generateSkuCode(productMasterId: string, variantSpecs: Record<string, unknown>): Promise<string | null> {
     const master = await this.prisma.productMaster.findUnique({ where: { id: productMasterId } });
     if (!master) return null;
 
@@ -109,7 +115,7 @@ export class ProductVariantService {
   async create(data: {
     productMasterId: string;
     skuCode?: string;
-    variantSpecs?: Record<string, any>;
+    variantSpecs?: Record<string, unknown>;
     isActive?: boolean;
   }) {
     const variantSpecs = data.variantSpecs ?? {};
@@ -124,34 +130,31 @@ export class ProductVariantService {
     const existing = await this.prisma.productVariant.findFirst({
       where: {
         productMasterId: data.productMasterId,
-        variantSpecs: { equals: variantSpecs },
+        variantSpecs: { equals: variantSpecs as Prisma.InputJsonValue },
       },
     });
     if (existing) {
       throw new Error(`이미 동일한 옵션의 Variant가 존재합니다 (id=${existing.id}, sku_code=${existing.skuCode ?? "—"}).`);
     }
 
-    return this.prisma.productVariant.create({
-      data: {
-        productMasterId: data.productMasterId,
-        skuCode: skuCode ?? null,
-        variantSpecs: variantSpecs as any,
-        isActive: data.isActive ?? true,
-      },
-      include: { productMaster: true },
+    return this.repo.create({
+      productMasterId: data.productMasterId,
+      skuCode: skuCode ?? null,
+      variantSpecs: variantSpecs as Prisma.InputJsonValue,
+      isActive: data.isActive ?? true,
     });
   }
 
   /** Variant 수정 (specs 변경 시 SKU code 재발급 가능) */
   async update(id: string, data: {
     skuCode?: string | null;
-    variantSpecs?: Record<string, any>;
+    variantSpecs?: Record<string, unknown>;
     isActive?: boolean;
   }) {
-    const existing = await this.prisma.productVariant.findUnique({ where: { id } });
+    const existing = await this.repo.findById(id);
     if (!existing) throw new Error("Variant를 찾을 수 없습니다.");
 
-    const updateData: any = {};
+    const updateData: Prisma.ProductVariantUncheckedUpdateInput = {};
     if (data.skuCode !== undefined) updateData.skuCode = data.skuCode;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
     if (data.variantSpecs !== undefined) {
@@ -159,19 +162,15 @@ export class ProductVariantService {
       const dup = await this.prisma.productVariant.findFirst({
         where: {
           productMasterId: existing.productMasterId,
-          variantSpecs: { equals: data.variantSpecs },
+          variantSpecs: { equals: data.variantSpecs as Prisma.InputJsonValue },
           NOT: { id },
         },
       });
       if (dup) throw new Error(`동일 옵션 Variant 이미 존재 (id=${dup.id}).`);
-      updateData.variantSpecs = data.variantSpecs as any;
+      updateData.variantSpecs = data.variantSpecs as Prisma.InputJsonValue;
     }
 
-    return this.prisma.productVariant.update({
-      where: { id },
-      data: updateData,
-      include: { productMaster: true },
-    });
+    return this.repo.update(id, updateData);
   }
 
   /**
@@ -226,6 +225,6 @@ export class ProductVariantService {
     if (variant._count.inventoryItems > 0 || variant._count.bomItems > 0) {
       throw new Error("참조(inventory·BomItem)가 있는 Variant는 삭제 불가. merge 또는 isActive=false 사용");
     }
-    return this.prisma.productVariant.delete({ where: { id } });
+    await this.repo.delete(id);
   }
 }

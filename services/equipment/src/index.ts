@@ -54,6 +54,7 @@ import { RepairStatsService } from "./application/repair/repair-stats.service.js
 import { ProductMasterService } from "./application/inventory/product-master.service.js";
 import { PrismaProductMasterRepository } from "./infrastructure/repositories/product-master.repository.js";
 import { ProductVariantService } from "./application/inventory/product-variant.service.js";
+import { PrismaProductVariantRepository } from "./infrastructure/repositories/product-variant.repository.js";
 import { productVariantRoutes } from "./api/routes/product-variant.routes.js";
 import { InboundRequestService } from "./application/inventory/inbound-request.service.js";
 import { inboundRequestRoutes, inboundRequestInternalRoutes } from "./api/routes/inbound-request.routes.js";
@@ -143,7 +144,7 @@ const purchaseOrderService = new PurchaseOrderService(prisma);
 const shipmentService = new ShipmentService(new PrismaShipmentRepository(prisma), prisma);
 const repairStatsService = new RepairStatsService(prisma);
 const productMasterService = new ProductMasterService(new PrismaProductMasterRepository(prisma), prisma);
-const productVariantService = new ProductVariantService(prisma);
+const productVariantService = new ProductVariantService(new PrismaProductVariantRepository(prisma), prisma);
 const contractService = new ContractService(new PrismaContractRepository(prisma), prisma);
 const overseasOrderService = new OverseasOrderService(prisma);
 const orderProgressService = new OrderProgressService(prisma);
