@@ -81,6 +81,7 @@ export async function collabRoutes(fastify: FastifyInstance) {
     const { attachment, stream } = await service.getAttachmentForDownload(attachmentId);
     return reply
       .header("Content-Type", attachment.mimeType)
+      .header("X-Content-Type-Options", "nosniff")
       .header("Content-Disposition", `attachment; filename="${encodeURIComponent(attachment.fileName)}"`)
       .header("Content-Length", attachment.fileSize)
       .send(stream);

@@ -61,9 +61,13 @@ export async function attachmentRoutes(
       });
       const user = { id: req.userId, role: req.userRole, departmentId: profile?.departmentId ?? null };
       const { stream, fileName, mimeType, fileSize } = await attachmentService.getDownload(id, user);
+      // 보안(V-16): nosniff + 안전 타입만 inline, 그 외 attachment(저장형 XSS 방지)
+      const INLINE_SAFE = new Set(["image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"]);
+      const disposition = INLINE_SAFE.has(mimeType) ? "inline" : "attachment";
       reply.header("Content-Type", mimeType);
+      reply.header("X-Content-Type-Options", "nosniff");
       reply.header("Content-Length", String(fileSize));
-      reply.header("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+      reply.header("Content-Disposition", `${disposition}; filename*=UTF-8''${encodeURIComponent(fileName)}`);
       return reply.send(stream);
     } catch (err) {
       return handleError(reply, err);
