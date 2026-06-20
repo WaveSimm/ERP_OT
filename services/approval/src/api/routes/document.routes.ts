@@ -124,12 +124,20 @@ export async function documentRoutes(fastify: FastifyInstance) {
     return fastify.documentService.getByReference(referenceType, referenceId);
   });
 
-  fastify.get<{ Params: { id: string } }>("/:id", async (request) => {
+  fastify.get<{ Params: { id: string } }>("/:id", async (request, reply) => {
+    // IDOR 방지: 관계자(기안자·결재자·참조)·ADMIN만 조회
+    if (!(await fastify.documentService.canAccess(request.params.id, request.userId, request.userRole))) {
+      return reply.code(403).send({ error: "이 결재 문서에 접근할 권한이 없습니다." });
+    }
     return fastify.documentService.getById(request.params.id);
   });
 
-  fastify.put<{ Params: { id: string }; Body: Prisma.ApprovalDocumentUncheckedUpdateInput }>("/:id", async (request) => {
+  fastify.put<{ Params: { id: string }; Body: Prisma.ApprovalDocumentUncheckedUpdateInput }>("/:id", async (request, reply) => {
     const { id } = request.params;
+    // IDOR 방지: 기안자 본인·ADMIN만 수정
+    if (!(await fastify.documentService.isOwner(id, request.userId, request.userRole))) {
+      return reply.code(403).send({ error: "이 결재 문서를 수정할 권한이 없습니다." });
+    }
     return fastify.documentService.update(id, request.body);
   });
 
@@ -140,7 +148,11 @@ export async function documentRoutes(fastify: FastifyInstance) {
 
   // ─── Actions ────────────────────────────────────────────────────────
 
-  fastify.patch<{ Params: { id: string } }>("/:id/submit", async (request) => {
+  fastify.patch<{ Params: { id: string } }>("/:id/submit", async (request, reply) => {
+    // IDOR 방지: 기안자 본인·ADMIN만 상신
+    if (!(await fastify.documentService.isOwner(request.params.id, request.userId, request.userRole))) {
+      return reply.code(403).send({ error: "이 결재 문서를 상신할 권한이 없습니다." });
+    }
     return fastify.documentService.submit(request.params.id);
   });
 

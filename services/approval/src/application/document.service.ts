@@ -613,7 +613,33 @@ export class DocumentService {
       }
     } catch (err) {
       // TODO: inject logger — DocumentService에 FastifyBaseLogger 주입 후 this.log.error로 교체
-      console.error(`Post-approval action failed: ${action}`, err);  
+      console.error(`Post-approval action failed: ${action}`, err);
     }
+  }
+
+  // ─── 권한 검증 (IDOR 방지) ────────────────────────────────────────────
+  /** 조회 권한: ADMIN 또는 관계자(기안자·결재자·참조). */
+  async canAccess(id: string, userId: string, role: string): Promise<boolean> {
+    if (role === "ADMIN") return true;
+    const doc = await this.prisma.approvalDocument.findUnique({
+      where: { id },
+      select: { requestedBy: true, ccUsers: true, steps: { select: { approverId: true } } },
+    });
+    if (!doc) return false;
+    return (
+      doc.requestedBy === userId ||
+      doc.ccUsers.includes(userId) ||
+      doc.steps.some((s) => s.approverId === userId)
+    );
+  }
+
+  /** 수정/상신 권한: ADMIN 또는 기안자 본인. */
+  async isOwner(id: string, userId: string, role: string): Promise<boolean> {
+    if (role === "ADMIN") return true;
+    const doc = await this.prisma.approvalDocument.findUnique({
+      where: { id },
+      select: { requestedBy: true },
+    });
+    return !!doc && doc.requestedBy === userId;
   }
 }
