@@ -1,5 +1,5 @@
 import { PrismaClient, OrderStatus, OrderItemReceiptStatus } from "@prisma/client";
-import { assertTransition, getAllowedTransitions } from "../domain/state-machine/order.fsm.js";
+import { assertTransition, getAllowedTransitions } from "../../domain/state-machine/order.fsm.js";
 
 export class OverseasOrderService {
   constructor(private prisma: PrismaClient) {}

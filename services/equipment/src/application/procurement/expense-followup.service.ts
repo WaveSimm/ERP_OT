@@ -1,5 +1,5 @@
 import { PrismaClient, ExpenseFollowUpStatus } from "@prisma/client";
-import { InboundRequestService } from "./inventory/inbound-request.service.js";
+import { InboundRequestService } from "../inventory/inbound-request.service.js";
 
 export class ExpenseFollowUpService {
   constructor(
