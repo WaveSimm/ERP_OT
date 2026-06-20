@@ -1,13 +1,11 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import type { IRepairCostRepository } from "../../domain/repositories/repair-cost.repository.js";
 
 export class RepairCostService {
-  constructor(private prisma: PrismaClient) {}
+  constructor(private readonly repo: IRepairCostRepository) {}
 
   async listByRepairOrder(repairOrderId: string) {
-    return this.prisma.repairCost.findMany({
-      where: { repairOrderId },
-      orderBy: { createdAt: "desc" },
-    });
+    return this.repo.findByRepairOrder(repairOrderId);
   }
 
   async create(data: {
@@ -19,7 +17,7 @@ export class RepairCostService {
     exchangeRate?: number;
     notes?: string;
   }) {
-    return this.prisma.repairCost.create({ data: data as any });
+    return this.repo.create(data as Prisma.RepairCostUncheckedCreateInput);
   }
 
   async update(id: string, data: {
@@ -30,10 +28,10 @@ export class RepairCostService {
     exchangeRate?: number;
     notes?: string;
   }) {
-    return this.prisma.repairCost.update({ where: { id }, data: data as any });
+    return this.repo.update(id, data as Prisma.RepairCostUncheckedUpdateInput);
   }
 
   async remove(id: string) {
-    return this.prisma.repairCost.delete({ where: { id } });
+    await this.repo.delete(id);
   }
 }

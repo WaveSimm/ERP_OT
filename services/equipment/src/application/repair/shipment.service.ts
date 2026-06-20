@@ -1,13 +1,15 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma, ShipmentStatus } from "@prisma/client";
+import type { IShipmentRepository } from "../../domain/repositories/shipment.repository.js";
 
 export class ShipmentService {
-  constructor(private prisma: PrismaClient) {}
+  // repo: Shipment aggregate CRUD(Clean Arch). prisma: getById의 cross-aggregate include(repairOrder).
+  constructor(
+    private readonly repo: IShipmentRepository,
+    private readonly prisma: PrismaClient,
+  ) {}
 
   async listByRepairOrder(repairOrderId: string) {
-    return this.prisma.shipment.findMany({
-      where: { repairOrderId },
-      orderBy: { createdAt: "asc" },
-    });
+    return this.repo.findByRepairOrder(repairOrderId);
   }
 
   async getById(id: string) {
@@ -31,13 +33,11 @@ export class ShipmentService {
     notes?: string;
   }) {
     const { shippedAt, receivedAt, ...rest } = data;
-    return this.prisma.shipment.create({
-      data: {
-        ...rest,
-        shippedAt: shippedAt ? new Date(shippedAt) : undefined,
-        receivedAt: receivedAt ? new Date(receivedAt) : undefined,
-      } as any,
-    });
+    return this.repo.create({
+      ...rest,
+      shippedAt: shippedAt ? new Date(shippedAt) : undefined,
+      receivedAt: receivedAt ? new Date(receivedAt) : undefined,
+    } as Prisma.ShipmentUncheckedCreateInput);
   }
 
   async update(id: string, data: {
@@ -50,24 +50,21 @@ export class ShipmentService {
     notes?: string;
   }) {
     const { shippedAt, receivedAt, ...rest } = data;
-    return this.prisma.shipment.update({
-      where: { id },
-      data: {
-        ...rest,
-        ...(shippedAt !== undefined ? { shippedAt: shippedAt ? new Date(shippedAt) : null } : {}),
-        ...(receivedAt !== undefined ? { receivedAt: receivedAt ? new Date(receivedAt) : null } : {}),
-      } as any,
-    });
+    return this.repo.update(id, {
+      ...rest,
+      ...(shippedAt !== undefined ? { shippedAt: shippedAt ? new Date(shippedAt) : null } : {}),
+      ...(receivedAt !== undefined ? { receivedAt: receivedAt ? new Date(receivedAt) : null } : {}),
+    } as Prisma.ShipmentUncheckedUpdateInput);
   }
 
   async delete(id: string) {
-    const shipment = await this.prisma.shipment.findUnique({ where: { id } });
+    const shipment = await this.repo.findById(id);
     if (!shipment) throw new Error("발송/입고 기록을 찾을 수 없습니다.");
-    await this.prisma.shipment.delete({ where: { id } });
+    await this.repo.delete(id);
   }
 
   async changeStatus(id: string, status: string) {
-    const shipment = await this.prisma.shipment.findUnique({ where: { id } });
+    const shipment = await this.repo.findById(id);
     if (!shipment) throw new Error("발송/입고 기록을 찾을 수 없습니다.");
 
     const allowed: Record<string, string[]> = {
@@ -81,10 +78,10 @@ export class ShipmentService {
       throw new Error(`상태 전이가 허용되지 않습니다: ${shipment.status} → ${status}`);
     }
 
-    const updateData: any = { status };
+    const updateData: Prisma.ShipmentUncheckedUpdateInput = { status: status as ShipmentStatus };
     if (status === "SHIPPED") updateData.shippedAt = new Date();
     if (status === "DELIVERED") updateData.receivedAt = new Date();
 
-    return this.prisma.shipment.update({ where: { id }, data: updateData });
+    return this.repo.update(id, updateData);
   }
 }
