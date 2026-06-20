@@ -1,7 +1,12 @@
-import { PrismaClient, ScheduleType } from "@prisma/client";
+import { PrismaClient, Prisma, ScheduleType } from "@prisma/client";
+import type { IAssetScheduleRepository } from "../../domain/repositories/asset-schedule.repository.js";
 
 export class ScheduleService {
-  constructor(private prisma: PrismaClient) {}
+  // repo: AssetSchedule CRUD(Clean Arch). prisma: 복잡 read(목록·timeline·충돌검사).
+  constructor(
+    private readonly repo: IAssetScheduleRepository,
+    private readonly prisma: PrismaClient,
+  ) {}
 
   async listByEquipment(equipmentId: string, startDate?: string, endDate?: string) {
     const where: any = { equipmentId };
@@ -105,36 +110,34 @@ export class ScheduleService {
       throw new Error(`일정 충돌: ${names.join(", ")}`);
     }
 
-    return this.prisma.assetSchedule.create({
-      data: {
-        type: (data.type as ScheduleType) ?? "MAINTENANCE",
-        title: data.title,
-        startDate: new Date(data.startDate),
-        endDate: new Date(data.endDate),
-        createdBy: userId,
-        ...(data.equipmentId != null && { equipmentId: data.equipmentId }),
-        ...(data.sensorId != null && { sensorId: data.sensorId }),
-        ...(data.description != null && { description: data.description }),
-        ...(data.projectId != null && { projectId: data.projectId }),
-        ...(data.projectName != null && { projectName: data.projectName }),
-        ...(data.deploymentId != null && { deploymentId: data.deploymentId }),
-      },
+    return this.repo.create({
+      type: (data.type as ScheduleType) ?? "MAINTENANCE",
+      title: data.title,
+      startDate: new Date(data.startDate),
+      endDate: new Date(data.endDate),
+      createdBy: userId,
+      ...(data.equipmentId != null && { equipmentId: data.equipmentId }),
+      ...(data.sensorId != null && { sensorId: data.sensorId }),
+      ...(data.description != null && { description: data.description }),
+      ...(data.projectId != null && { projectId: data.projectId }),
+      ...(data.projectName != null && { projectName: data.projectName }),
+      ...(data.deploymentId != null && { deploymentId: data.deploymentId }),
     });
   }
 
-  async update(id: string, data: any) {
-    if (data.startDate) data.startDate = new Date(data.startDate);
-    if (data.endDate) data.endDate = new Date(data.endDate);
+  async update(id: string, data: Prisma.AssetScheduleUncheckedUpdateInput & { startDate?: string | Date; endDate?: string | Date }) {
+    if (data.startDate) data.startDate = new Date(data.startDate as string);
+    if (data.endDate) data.endDate = new Date(data.endDate as string);
 
     // 날짜 변경 시 충돌 재검사
     if (data.startDate || data.endDate) {
-      const existing = await this.prisma.assetSchedule.findUnique({ where: { id } });
+      const existing = await this.repo.findById(id);
       if (existing) {
         const conflicts = await this.checkConflicts(
           existing.equipmentId,
           existing.sensorId,
-          (data.startDate ?? existing.startDate).toISOString(),
-          (data.endDate ?? existing.endDate).toISOString(),
+          ((data.startDate ?? existing.startDate) as Date).toISOString(),
+          ((data.endDate ?? existing.endDate) as Date).toISOString(),
           id,
         );
         if (conflicts.length > 0) {
@@ -144,11 +147,11 @@ export class ScheduleService {
       }
     }
 
-    return this.prisma.assetSchedule.update({ where: { id }, data });
+    return this.repo.update(id, data as Prisma.AssetScheduleUncheckedUpdateInput);
   }
 
   async remove(id: string) {
-    return this.prisma.assetSchedule.delete({ where: { id } });
+    await this.repo.delete(id);
   }
 
   private async checkConflicts(

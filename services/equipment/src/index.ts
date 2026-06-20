@@ -24,6 +24,7 @@ import { PrismaCategoryRepository } from "./infrastructure/repositories/category
 import { MaintenanceService } from "./application/asset/maintenance.service.js";
 import { PrismaMaintenanceRecordRepository } from "./infrastructure/repositories/maintenance-record.repository.js";
 import { ScheduleService } from "./application/asset/schedule.service.js";
+import { PrismaAssetScheduleRepository } from "./infrastructure/repositories/asset-schedule.repository.js";
 import { DeploymentService } from "./application/asset/deployment.service.js";
 import { CompatibilityService } from "./application/asset/compatibility.service.js";
 import { PrismaSensorCompatibilityRepository } from "./infrastructure/repositories/sensor-compatibility.repository.js";
@@ -120,7 +121,7 @@ const equipmentService = new EquipmentService(prisma);
 const sensorService = new SensorService(prisma);
 const categoryService = new CategoryService(new PrismaCategoryRepository(prisma), prisma);
 const maintenanceService = new MaintenanceService(new PrismaMaintenanceRecordRepository(prisma), prisma);
-const scheduleService = new ScheduleService(prisma);
+const scheduleService = new ScheduleService(new PrismaAssetScheduleRepository(prisma), prisma);
 const deploymentService = new DeploymentService(prisma);
 const compatibilityService = new CompatibilityService(new PrismaSensorCompatibilityRepository(prisma), prisma);
 const statsService = new StatsService(prisma);
