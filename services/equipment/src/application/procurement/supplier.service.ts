@@ -1,7 +1,13 @@
 import { PrismaClient } from "@prisma/client";
+import type { ISupplierRepository } from "../../domain/repositories/supplier.repository.js";
 
 export class SupplierService {
-  constructor(private prisma: PrismaClient) {}
+  // repo: Supplier aggregate(+contacts) CRUD(Clean Arch). prisma: 복잡 list + getDetail의
+  //   cross-aggregate read(overseasOrder·contract).
+  constructor(
+    private readonly repo: ISupplierRepository,
+    private readonly prisma: PrismaClient,
+  ) {}
 
   async list(params: { search?: string; page?: number; limit?: number; sortBy?: string; sortOrder?: "asc" | "desc" } = {}) {
     const { search, page = 1, limit = 100, sortBy, sortOrder = "asc" } = params;
@@ -33,7 +39,7 @@ export class SupplierService {
   }
 
   async getById(id: string) {
-    const s = await this.prisma.supplier.findUnique({ where: { id } });
+    const s = await this.repo.findById(id);
     if (!s) throw new Error("제조사를 찾을 수 없습니다.");
     return s;
   }
@@ -69,38 +75,35 @@ export class SupplierService {
   }
 
   async findByName(name: string) {
-    return this.prisma.supplier.findFirst({
-      where: { name: { equals: name, mode: "insensitive" } },
-      select: { id: true, name: true },
-    });
+    return this.repo.findFirstByName(name);
   }
 
   async create(data: { name: string; country?: string; contactName?: string; phone?: string; email?: string; website?: string; notes?: string }) {
-    return this.prisma.supplier.create({ data });
+    return this.repo.create(data);
   }
 
   async update(id: string, data: Partial<{ name: string; country: string; contactName: string; phone: string; email: string; website: string; notes: string }>) {
     await this.getById(id);
-    return this.prisma.supplier.update({ where: { id }, data });
+    return this.repo.update(id, data);
   }
 
   async remove(id: string) {
     await this.getById(id);
-    return this.prisma.supplier.delete({ where: { id } });
+    await this.repo.delete(id);
   }
 
   // ─── Contacts ──────────────────────────────────────────────────────────────
 
   async addContact(supplierId: string, data: { name: string; position?: string; phone?: string; email?: string; notes?: string }) {
     await this.getById(supplierId);
-    return this.prisma.supplierContact.create({ data: { ...data, supplierId } });
+    return this.repo.addContact(supplierId, data);
   }
 
   async updateContact(contactId: string, data: Partial<{ name: string; position: string; phone: string; email: string; notes: string }>) {
-    return this.prisma.supplierContact.update({ where: { id: contactId }, data });
+    return this.repo.updateContact(contactId, data);
   }
 
   async removeContact(contactId: string) {
-    return this.prisma.supplierContact.delete({ where: { id: contactId } });
+    await this.repo.deleteContact(contactId);
   }
 }
