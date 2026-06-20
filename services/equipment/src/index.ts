@@ -35,6 +35,7 @@ import { InspectionReportService } from "./application/repair/inspection-report.
 import { RepairCostService } from "./application/repair/repair-cost.service.js";
 import { RepairQuoteService } from "./application/repair/repair-quote.service.js";
 import { PartService } from "./application/repair/part.service.js";
+import { PrismaPartRepository } from "./infrastructure/repositories/part.repository.js";
 import { PurchaseOrderService } from "./application/procurement/purchase-order.service.js";
 import { ShipmentService } from "./application/repair/shipment.service.js";
 import { RepairStatsService } from "./application/repair/repair-stats.service.js";
@@ -123,7 +124,7 @@ const repairOrderService = new RepairOrderService(new PrismaRepairOrderRepositor
 const inspectionReportService = new InspectionReportService(prisma);
 const repairCostService = new RepairCostService(prisma);
 const repairQuoteService = new RepairQuoteService(prisma);
-const partService = new PartService(prisma);
+const partService = new PartService(new PrismaPartRepository(prisma), prisma);
 const purchaseOrderService = new PurchaseOrderService(prisma);
 const shipmentService = new ShipmentService(prisma);
 const repairStatsService = new RepairStatsService(prisma);
