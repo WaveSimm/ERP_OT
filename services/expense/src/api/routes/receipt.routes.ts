@@ -68,8 +68,12 @@ export async function receiptRoutes(
   app.get("/:id/download", async (req, reply) => {
     const { id } = req.params as { id: string };
     const r = await service.get(req.userId, id);
+    // 보안(V-16): nosniff + 안전 타입만 inline, 그 외 attachment(저장형 XSS 방지)
+    const INLINE_SAFE = new Set(["image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"]);
+    const disposition = INLINE_SAFE.has(r.fileType) ? "inline" : "attachment";
     reply.header("Content-Type", r.fileType);
-    reply.header("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(r.originalFileName)}`);
+    reply.header("X-Content-Type-Options", "nosniff");
+    reply.header("Content-Disposition", `${disposition}; filename*=UTF-8''${encodeURIComponent(r.originalFileName)}`);
     return reply.send(storage.read(r.storageKey));
   });
 

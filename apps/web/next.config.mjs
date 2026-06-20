@@ -8,9 +8,9 @@ const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-  // CSP Report-Only — 2-3일 콘솔 monitoring 후 Content-Security-Policy로 전환
+  // CSP enforce (2026-06-20 강제 전환, 배치B V-17). unsafe-inline/eval은 web dev 모드 호환 위해 유지
   {
-    key: "Content-Security-Policy-Report-Only",
+    key: "Content-Security-Policy",
     value:
       "default-src 'self'; " +
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
