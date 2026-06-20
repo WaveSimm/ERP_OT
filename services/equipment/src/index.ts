@@ -79,6 +79,7 @@ import { inventoryAuditRoutes } from "./api/routes/inventory-audit.routes.js";
 import { SupplierService } from "./application/procurement/supplier.service.js";
 import { supplierRoutes } from "./api/routes/supplier.routes.js";
 import { StorageLocationService } from "./application/inventory/storage-location.service.js";
+import { PrismaStorageLocationRepository } from "./infrastructure/repositories/storage-location.repository.js";
 import { storageLocationRoutes } from "./api/routes/storage-location.routes.js";
 
 // ─── Env 검증 ──────────────────────────────────────────────────────────────
@@ -138,7 +139,7 @@ const assetCostService = new AssetCostService(prisma);
 const importCostService = new ImportCostService(prisma);
 const inventoryAuditService = new InventoryAuditService(prisma);
 const supplierService = new SupplierService(prisma);
-const storageLocationService = new StorageLocationService(prisma);
+const storageLocationService = new StorageLocationService(new PrismaStorageLocationRepository(prisma), prisma);
 const inboundRequestService = new InboundRequestService(prisma, inventoryService);
 const bundleShipmentService = new BundleShipmentService(prisma);
 const expenseFollowUpService = new ExpenseFollowUpService(prisma, inboundRequestService);
