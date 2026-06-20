@@ -357,31 +357,10 @@ services:
     networks:
       - erp-network
 
-  # ─── DB Backup (매일 02:00 자동 백업) ────────────────────────────────────────
-  db-backup:
-    image: postgres:16-alpine
-    container_name: erp-ot-backup
-    restart: unless-stopped
-    entrypoint: /bin/sh
-    # sleep-루프 자체 스케줄 제거 → 백업은 호스트 systemd timer(erp-backup.timer)가 절대시각
-    #   03:00 KST·Persistent(누락보정)로 트리거. 이 컨테이너는 백업 "도구"로 idle 상주
-    #   (pg_dump/tar 환경 + 볼륨 유지). 트리거: docker exec erp-ot-backup sh /scripts/backup-run.sh
-    command: ["-c", "echo 'backup tool idle — triggered by host systemd erp-backup.timer'; exec tail -f /dev/null"]
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-erp_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required - generate with openssl rand -hex 16}
-      POSTGRES_DB: ${POSTGRES_DB:-erp_ot}
-    volumes:
-      - ./backups:/backups
-      - ./scripts:/scripts:ro
-      - approval_uploads:/uploads_approval:ro
-      - expense_uploads:/uploads_expense:ro
-      - auth_uploads:/uploads_auth:ro
-      - ocr_uploads:/uploads_ocr:ro
-    depends_on:
-      - postgres
-    networks:
-      - erp-network
+  # ─── 백업 ────────────────────────────────────────────────────────────────────
+  # 로컬 db-backup 컨테이너 제거(2026-06-20): 홈 crontab `erp-nas-backup.sh`(daily erp_ot
+  # DB+uploads→NAS, weekly otbrain→NAS)와 중복이라 NAS 백업으로 일원화. NAS가 오프사이트라
+  # 디스크 장애와 분리. (이전 로컬 백업은 ./backups에 30일분 잔존 — 자연 정리)
 
   # ─── Frontend Apps ──────────────────────────────────────────────────────────
   # web은 dev 모드 유지 (이번 PDCA 1번 선택 — standalone은 후속 `web-standalone-fix` PDCA)
