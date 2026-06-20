@@ -1,4 +1,4 @@
-import Fastify, { FastifyRequest, FastifyReply } from "fastify";
+import Fastify from "fastify";
 import fastifyCors from "@fastify/cors";
 import fastifyHelmet from "@fastify/helmet";
 import fastifyRateLimit from "@fastify/rate-limit";
@@ -131,18 +131,9 @@ async function buildApp() {
   app.register(documentRoutes, { prefix: "/api/v1/approval/documents" });
   app.register(fileRoutes, { prefix: "/api/v1/approval/files" });
 
-  // Internal API (서비스 간 통신, 인증 미들웨어 우회)
-  const requireInternalToken = (request: FastifyRequest, reply: FastifyReply) => {
-    const token = request.headers["x-internal-token"];
-    if (token !== process.env.INTERNAL_API_TOKEN) {
-      reply.status(403).send({ error: "Forbidden" });
-      return false;
-    }
-    return true;
-  };
-
+  // Internal API (서비스 간 통신) — /internal/* 인증은 shared requireInternal(authMiddleware)이
+  // 글로벌 onRequest로 검증(토큰 일치 + 길이검증). V-12: 약한 커스텀 requireInternalToken 제거·일원화.
   app.get("/internal/documents/:id", async (request, reply) => {
-    if (!requireInternalToken(request, reply)) return;
     const { id } = request.params as { id: string };
     try {
       const doc = await prisma.approvalDocument.findUnique({
@@ -159,7 +150,6 @@ async function buildApp() {
   // 다른 서비스가 자동 결재 상신할 때 사용 (expense-service의 경비정산 결재 등 — EXPENSE 양식 + referenceType)
   // body에 명시적 userId 필요 (사용자 JWT 우회)
   app.post("/internal/documents", async (request, reply) => {
-    if (!requireInternalToken(request, reply)) return;
     const body = request.body as InternalCreateDocumentBody;
     if (!body.userId || (!body.templateId && !body.templateCode)) {
       return reply.status(400).send({ error: "userId + (templateId | templateCode) required" });
@@ -254,7 +244,6 @@ async function buildApp() {
   // 서비스 간 파일 업로드 (expense-service가 영수증을 결재 첨부로 추가할 때 사용)
   // multipart/form-data: file + form fields(documentId, uploadedBy, referenceType?, referenceId?)
   app.post("/internal/files/upload", async (request, reply) => {
-    if (!requireInternalToken(request, reply)) return;
     const data = await request.file();
     if (!data) return reply.status(400).send({ error: "file required" });
 
@@ -284,7 +273,6 @@ async function buildApp() {
 
   // 서비스 간 결재 상신 취소 (expense-service의 정산 취소 흐름에서 호출)
   app.post("/internal/documents/:id/withdraw", async (request, reply) => {
-    if (!requireInternalToken(request, reply)) return;
     const { id } = request.params as { id: string };
     const body = request.body as { requesterId: string };
     if (!body.requesterId) return reply.status(400).send({ error: "requesterId required" });
@@ -299,7 +287,6 @@ async function buildApp() {
   // v1.6 (2026-05-14): referenceType/referenceId로 진행중인 결재 문서들 일괄 withdraw
   //   발주 상신 취소 등에서 사용. 진행중(DRAFT/SUBMITTED/STEP_*)인 모든 문서를 RETURNED 처리.
   app.post("/internal/documents/withdraw-by-reference", async (request, reply) => {
-    if (!requireInternalToken(request, reply)) return;
     const body = request.body as { referenceType?: string; referenceId?: string };
     if (!body.referenceType || !body.referenceId) {
       return reply.status(400).send({ error: "referenceType, referenceId required" });
