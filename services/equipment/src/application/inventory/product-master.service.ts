@@ -1,4 +1,5 @@
-import { PrismaClient, ProductItemType } from "@prisma/client";
+import { PrismaClient, Prisma, ProductItemType } from "@prisma/client";
+import type { IProductMasterRepository } from "../../domain/repositories/product-master.repository.js";
 
 type BomItemInput = {
   productMasterId: string;
@@ -9,7 +10,12 @@ type BomItemInput = {
 };
 
 export class ProductMasterService {
-  constructor(private prisma: PrismaClient) {}
+  // repo: ProductMaster aggregate CRUD(Clean Arch). prisma: 복잡 read(stock groupBy·include·
+  //   distinct)·번들 BOM/조립($transaction 사가)·remove 가드.
+  constructor(
+    private readonly repo: IProductMasterRepository,
+    private readonly prisma: PrismaClient,
+  ) {}
 
   async list(params: {
     search?: string;
@@ -123,14 +129,14 @@ export class ProductMasterService {
     manufacturer: string;
     defaultCurrency?: string;
     referencePrice?: number;
-    specs?: any;
+    specs?: Prisma.InputJsonValue;
     itemType?: ProductItemType;
     isActive?: boolean;
     masterCode?: string;
-    keyAttributes?: any;
+    keyAttributes?: Prisma.InputJsonValue;
     unitOfMeasure?: string;
   }) {
-    return this.prisma.productMaster.create({ data: data as any });
+    return this.repo.create(data as Prisma.ProductMasterUncheckedCreateInput);
   }
 
   async update(id: string, data: {
@@ -138,15 +144,15 @@ export class ProductMasterService {
     manufacturer?: string;
     defaultCurrency?: string;
     referencePrice?: number;
-    specs?: any;
+    specs?: Prisma.InputJsonValue;
     itemType?: ProductItemType;
     isActive?: boolean;
     masterCode?: string;
-    keyAttributes?: any;
+    keyAttributes?: Prisma.InputJsonValue;
     unitOfMeasure?: string;
   }) {
     await this.getById(id);
-    return this.prisma.productMaster.update({ where: { id }, data: data as any });
+    return this.repo.update(id, data as Prisma.ProductMasterUncheckedUpdateInput);
   }
 
   async remove(id: string) {
@@ -158,7 +164,7 @@ export class ProductMasterService {
     if (pm._count.orderItems > 0) {
       throw new Error("발주 품목이 있어 삭제할 수 없습니다.");
     }
-    return this.prisma.productMaster.delete({ where: { id } });
+    await this.repo.delete(id);
   }
 
   async getManufacturers() {
