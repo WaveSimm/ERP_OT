@@ -7,7 +7,13 @@ const STANDARD_WRITE_ROLES = ["OPERATOR", "MANAGER", "ADMIN"];
 
 async function seedAdmin() {
   const adminEmail = process.env.ADMIN_EMAIL ?? "admin@erp-ot.local";
-  const adminPassword = process.env.ADMIN_INITIAL_PASSWORD ?? "Admin1234!";
+  // V-13: 약한 기본 비밀번호 폴백("Admin1234!") 제거 — env 미설정 시 throw(12자 이상 강제)
+  const adminPassword = process.env.ADMIN_INITIAL_PASSWORD;
+  if (!adminPassword || adminPassword.length < 12) {
+    throw new Error(
+      "ADMIN_INITIAL_PASSWORD 환경변수가 필요합니다(12자 이상). 보안: 기본 비밀번호 폴백 제거(V-13).",
+    );
+  }
 
   const existing = await prisma.user.findUnique({ where: { email: adminEmail } });
   if (!existing) {
