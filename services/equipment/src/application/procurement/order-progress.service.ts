@@ -1,19 +1,19 @@
 import { PrismaClient } from "@prisma/client";
+import type { IOrderProgressLogRepository } from "../../domain/repositories/order-progress-log.repository.js";
 
 export class OrderProgressService {
-  constructor(private prisma: PrismaClient) {}
+  // repo: OrderProgressLog aggregate CRUD(Clean Arch). prisma: create의 overseasOrder 진행률 갱신(cross).
+  constructor(
+    private readonly repo: IOrderProgressLogRepository,
+    private readonly prisma: PrismaClient,
+  ) {}
 
   async list(orderId: string, params: { page?: number; limit?: number } = {}) {
     const { page = 1, limit = 50 } = params;
 
     const [items, total] = await Promise.all([
-      this.prisma.orderProgressLog.findMany({
-        where: { orderId },
-        orderBy: { createdAt: "desc" },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      this.prisma.orderProgressLog.count({ where: { orderId } }),
+      this.repo.listByOrder(orderId, (page - 1) * limit, limit),
+      this.repo.countByOrder(orderId),
     ]);
 
     return { items, total, page, limit };
@@ -28,9 +28,7 @@ export class OrderProgressService {
     }
 
     const [log] = await Promise.all([
-      this.prisma.orderProgressLog.create({
-        data: { orderId, progress: data.progress, note: data.note ?? null, updatedBy: data.updatedBy },
-      }),
+      this.repo.create({ orderId, progress: data.progress, note: data.note ?? null, updatedBy: data.updatedBy }),
       this.prisma.overseasOrder.update({
         where: { id: orderId },
         data: { productionProgress: data.progress, productionNotes: data.note ?? null },
@@ -41,8 +39,8 @@ export class OrderProgressService {
   }
 
   async remove(logId: string) {
-    const log = await this.prisma.orderProgressLog.findUnique({ where: { id: logId } });
+    const log = await this.repo.findById(logId);
     if (!log) throw new Error("진행 이력을 찾을 수 없습니다.");
-    return this.prisma.orderProgressLog.delete({ where: { id: logId } });
+    await this.repo.delete(logId);
   }
 }
