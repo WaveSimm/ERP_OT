@@ -33,9 +33,11 @@ import { CustomerAssetService } from "./application/repair/customer-asset.servic
 import { RepairOrderService } from "./application/repair/repair-order.service.js";
 import { PrismaRepairOrderRepository } from "./infrastructure/repositories/repair-order.repository.js";
 import { InspectionReportService } from "./application/repair/inspection-report.service.js";
+import { PrismaInspectionReportRepository } from "./infrastructure/repositories/inspection-report.repository.js";
 import { RepairCostService } from "./application/repair/repair-cost.service.js";
 import { PrismaRepairCostRepository } from "./infrastructure/repositories/repair-cost.repository.js";
 import { RepairQuoteService } from "./application/repair/repair-quote.service.js";
+import { PrismaRepairQuoteRepository } from "./infrastructure/repositories/repair-quote.repository.js";
 import { PartService } from "./application/repair/part.service.js";
 import { PrismaPartRepository } from "./infrastructure/repositories/part.repository.js";
 import { PurchaseOrderService } from "./application/procurement/purchase-order.service.js";
@@ -124,9 +126,9 @@ const templateService = new TemplateService(new PrismaDeploymentTemplateReposito
 const customerService = new CustomerService(prisma);
 const customerAssetService = new CustomerAssetService(prisma);
 const repairOrderService = new RepairOrderService(new PrismaRepairOrderRepository(prisma), prisma);
-const inspectionReportService = new InspectionReportService(prisma);
+const inspectionReportService = new InspectionReportService(new PrismaInspectionReportRepository(prisma), prisma);
 const repairCostService = new RepairCostService(new PrismaRepairCostRepository(prisma));
-const repairQuoteService = new RepairQuoteService(prisma);
+const repairQuoteService = new RepairQuoteService(new PrismaRepairQuoteRepository(prisma), prisma);
 const partService = new PartService(new PrismaPartRepository(prisma), prisma);
 const purchaseOrderService = new PurchaseOrderService(prisma);
 const shipmentService = new ShipmentService(new PrismaShipmentRepository(prisma), prisma);

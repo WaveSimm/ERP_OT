@@ -1,31 +1,34 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma, InspectionDecision } from "@prisma/client";
+import type { IInspectionReportRepository } from "../../domain/repositories/inspection-report.repository.js";
 
 export class InspectionReportService {
-  constructor(private prisma: PrismaClient) {}
+  // repo: InspectionReport aggregate. prisma: decision → RepairOrder sync(cross-aggregate).
+  constructor(
+    private readonly repo: IInspectionReportRepository,
+    private readonly prisma: PrismaClient,
+  ) {}
 
   async getByRepairOrder(repairOrderId: string) {
-    return this.prisma.inspectionReport.findUnique({
-      where: { repairOrderId },
-    });
+    return this.repo.findByRepairOrder(repairOrderId);
   }
 
   async create(data: {
     repairOrderId: string;
     reportNumber?: string;
-    equipmentHistory?: any;
-    customerInfo?: any;
+    equipmentHistory?: Prisma.InputJsonValue;
+    customerInfo?: Prisma.InputJsonValue;
     inspectorId?: string;
     inspectorName?: string;
     symptom?: string;
-    inspectionSteps?: any;
-    phaseAttachments?: any;     // 2026-05-06 v1.2 — phase별 첨부 ({first,inHouse,mfg,second})
+    inspectionSteps?: Prisma.InputJsonValue;
+    phaseAttachments?: Prisma.InputJsonValue;     // 2026-05-06 v1.2 — phase별 첨부 ({first,inHouse,mfg,second})
     result?: string;
     decision?: string;
     decisionReason?: string;
     needsMfgRepair?: boolean;
     mfgRepairReason?: string;
   }) {
-    const report = await this.prisma.inspectionReport.create({ data: data as any });
+    const report = await this.repo.create(data as Prisma.InspectionReportUncheckedCreateInput);
     if (data.decision) {
       await this.syncDecisionToOrder(data.repairOrderId, data.decision, data.decisionReason, 1);
     }
@@ -34,21 +37,21 @@ export class InspectionReportService {
 
   async update(id: string, data: {
     reportNumber?: string;
-    equipmentHistory?: any;
-    customerInfo?: any;
+    equipmentHistory?: Prisma.InputJsonValue;
+    customerInfo?: Prisma.InputJsonValue;
     inspectorId?: string;
     inspectorName?: string;
     symptom?: string;
-    inspectionSteps?: any;
-    phaseAttachments?: any;     // 2026-05-06 v1.2 — phase별 첨부
+    inspectionSteps?: Prisma.InputJsonValue;
+    phaseAttachments?: Prisma.InputJsonValue;     // 2026-05-06 v1.2 — phase별 첨부
     result?: string;
     decision?: string;
     decisionReason?: string;
     needsMfgRepair?: boolean;
     mfgRepairReason?: string;
   }) {
-    const before = await this.prisma.inspectionReport.findUnique({ where: { id } });
-    const report = await this.prisma.inspectionReport.update({ where: { id }, data: data as any });
+    const before = await this.repo.findById(id);
+    const report = await this.repo.update(id, data as Prisma.InspectionReportUncheckedUpdateInput);
     if (before && data.decision !== undefined) {
       // 현재 AS 상태에 따라 1차/2차 decision을 구분 저장
       const order = await this.prisma.repairOrder.findUnique({ where: { id: before.repairOrderId } });
@@ -59,9 +62,9 @@ export class InspectionReportService {
   }
 
   private async syncDecisionToOrder(repairOrderId: string, decision: string, reason: string | null | undefined, phase: 1 | 2) {
-    const field = phase === 2
-      ? { decision2nd: decision as any, decision2ndReason: reason ?? null }
-      : { decision1st: decision as any, decision1stReason: reason ?? null };
-    await this.prisma.repairOrder.update({ where: { id: repairOrderId }, data: field as any });
+    const field: Prisma.RepairOrderUncheckedUpdateInput = phase === 2
+      ? { decision2nd: decision as InspectionDecision, decision2ndReason: reason ?? null }
+      : { decision1st: decision as InspectionDecision, decision1stReason: reason ?? null };
+    await this.prisma.repairOrder.update({ where: { id: repairOrderId }, data: field });
   }
 }

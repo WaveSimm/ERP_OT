@@ -1,7 +1,12 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma, QuoteStatus } from "@prisma/client";
+import type { IRepairQuoteRepository } from "../../domain/repositories/repair-quote.repository.js";
 
 export class RepairQuoteService {
-  constructor(private prisma: PrismaClient) {}
+  // repo: RepairQuote aggregate(+items) CRUD. prisma: 복잡 read(listByRepairOrder/getById include).
+  constructor(
+    private readonly repo: IRepairQuoteRepository,
+    private readonly prisma: PrismaClient,
+  ) {}
 
   async listByRepairOrder(repairOrderId: string) {
     return this.prisma.repairQuote.findMany({
@@ -34,14 +39,11 @@ export class RepairQuoteService {
     items?: { description: string; quantity: number; unitPrice: number; amount: number; partId?: string }[];
   }) {
     const { items, validUntil, ...rest } = data;
-    return this.prisma.repairQuote.create({
-      data: {
-        ...rest,
-        validUntil: validUntil ? new Date(validUntil) : undefined,
-        items: items ? { create: items } : undefined,
-      } as any,
-      include: { items: true },
-    });
+    return this.repo.create({
+      ...rest,
+      validUntil: validUntil ? new Date(validUntil) : undefined,
+      items: items ? { create: items } : undefined,
+    } as Prisma.RepairQuoteUncheckedCreateInput);
   }
 
   async update(id: string, data: {
@@ -56,17 +58,14 @@ export class RepairQuoteService {
     notes?: string;
   }) {
     const { validUntil, ...rest } = data;
-    return this.prisma.repairQuote.update({
-      where: { id },
-      data: {
-        ...rest,
-        ...(validUntil !== undefined ? { validUntil: validUntil ? new Date(validUntil) : null } : {}),
-      } as any,
-    });
+    return this.repo.update(id, {
+      ...rest,
+      ...(validUntil !== undefined ? { validUntil: validUntil ? new Date(validUntil) : null } : {}),
+    } as Prisma.RepairQuoteUncheckedUpdateInput);
   }
 
   async changeStatus(id: string, status: string, userId?: string) {
-    const quote = await this.prisma.repairQuote.findUnique({ where: { id } });
+    const quote = await this.repo.findById(id);
     if (!quote) throw new Error("견적을 찾을 수 없습니다.");
 
     const allowed: Record<string, string[]> = {
@@ -79,38 +78,38 @@ export class RepairQuoteService {
       throw new Error(`견적 상태 전이가 허용되지 않습니다: ${quote.status} → ${status}`);
     }
 
-    const updateData: any = { status };
+    const updateData: Prisma.RepairQuoteUncheckedUpdateInput = { status: status as QuoteStatus };
     if (status === "APPROVED") {
       updateData.approvedAt = new Date();
-      updateData.approvedBy = userId;
+      updateData.approvedBy = userId ?? null;
     }
 
-    return this.prisma.repairQuote.update({ where: { id }, data: updateData });
+    return this.repo.update(id, updateData);
   }
 
   async remove(id: string) {
-    const quote = await this.prisma.repairQuote.findUnique({ where: { id } });
+    const quote = await this.repo.findById(id);
     if (!quote) throw new Error("견적을 찾을 수 없습니다.");
     if (quote.status !== "DRAFT") throw new Error("DRAFT 상태의 견적만 삭제할 수 있습니다.");
-    await this.prisma.quoteItem.deleteMany({ where: { quoteId: id } });
-    return this.prisma.repairQuote.delete({ where: { id } });
+    await this.repo.deleteItemsByQuote(id);
+    await this.repo.delete(id);
   }
 
   // ─── 견적 항목 ──────────────────────────────────────────────────────────
 
   async addItem(quoteId: string, data: { description: string; quantity: number; unitPrice: number; amount: number; partId?: string }) {
-    return this.prisma.quoteItem.create({ data: { quoteId, ...data } as any });
+    return this.repo.addItem(quoteId, data);
   }
 
   async updateItem(itemId: string, data: { description?: string; quantity?: number; unitPrice?: number; amount?: number }) {
-    const item = await this.prisma.quoteItem.findUnique({ where: { id: itemId } });
+    const item = await this.repo.findItemById(itemId);
     if (!item) throw new Error("견적 항목을 찾을 수 없습니다.");
-    return this.prisma.quoteItem.update({ where: { id: itemId }, data });
+    return this.repo.updateItem(itemId, data);
   }
 
   async removeItem(itemId: string) {
-    const item = await this.prisma.quoteItem.findUnique({ where: { id: itemId } });
+    const item = await this.repo.findItemById(itemId);
     if (!item) throw new Error("견적 항목을 찾을 수 없습니다.");
-    return this.prisma.quoteItem.delete({ where: { id: itemId } });
+    await this.repo.deleteItem(itemId);
   }
 }
