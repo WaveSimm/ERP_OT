@@ -1,4 +1,5 @@
-import { PrismaClient, AssetStatus } from "@prisma/client";
+import { PrismaClient, Prisma, AssetStatus } from "@prisma/client";
+import type { ISensorRepository } from "../../domain/repositories/sensor.repository.js";
 
 const VALID_TRANSITIONS: Record<string, AssetStatus[]> = {
   AVAILABLE: ["DEPLOYED", "IN_MAINTENANCE", "BROKEN", "RETIRED"],
@@ -10,11 +11,16 @@ const VALID_TRANSITIONS: Record<string, AssetStatus[]> = {
 };
 
 export class SensorService {
-  constructor(private prisma: PrismaClient) {}
+  // repo: Sensor aggregate CRUD(Clean Arch). prisma: 복잡 read(list/listAvailable/getById include·
+  //   교정계산, getDeploymentHistory cross).
+  constructor(
+    private readonly repo: ISensorRepository,
+    private readonly prisma: PrismaClient,
+  ) {}
 
   async list(params: { categoryId?: string; status?: string; search?: string; page?: number; limit?: number }) {
     const { categoryId, status, search, page = 1, limit = 20 } = params;
-    const where: any = {};
+    const where: Prisma.SensorWhereInput = {};
     if (categoryId) where.categoryId = categoryId;
     if (status) where.status = status as AssetStatus;
     if (search) {
@@ -47,7 +53,7 @@ export class SensorService {
   }
 
   async listAvailable(categoryId?: string, startDate?: string, endDate?: string) {
-    const where: any = {
+    const where: Prisma.SensorWhereInput = {
       status: { in: ["AVAILABLE", "DEPLOYED"] as AssetStatus[] },
     };
     if (categoryId) where.categoryId = categoryId;
@@ -102,7 +108,7 @@ export class SensorService {
     categoryId: string; name: string; serialNumber: string;
     manufacturer?: string; model?: string; acquiredAt?: string;
     description?: string; calibrationIntervalDays?: number;
-    lastCalibratedAt?: string; metadata?: any;
+    lastCalibratedAt?: string; metadata?: Prisma.InputJsonValue;
   }, userId: string) {
     let nextCalibrationDue: Date | undefined;
     if (data.lastCalibratedAt && data.calibrationIntervalDays) {
@@ -110,45 +116,40 @@ export class SensorService {
       nextCalibrationDue.setDate(nextCalibrationDue.getDate() + data.calibrationIntervalDays);
     }
 
-    return this.prisma.sensor.create({
-      data: {
-        categoryId: data.categoryId,
-        name: data.name,
-        serialNumber: data.serialNumber,
-        createdBy: userId,
-        ...(data.manufacturer != null && { manufacturer: data.manufacturer }),
-        ...(data.model != null && { model: data.model }),
-        ...(data.acquiredAt != null && { acquiredAt: new Date(data.acquiredAt) }),
-        ...(data.description != null && { description: data.description }),
-        ...(data.calibrationIntervalDays != null && { calibrationIntervalDays: data.calibrationIntervalDays }),
-        ...(data.lastCalibratedAt != null && { lastCalibratedAt: new Date(data.lastCalibratedAt) }),
-        ...(nextCalibrationDue != null && { nextCalibrationDue }),
-        ...(data.metadata != null && { metadata: data.metadata }),
-      },
-      include: { category: true },
+    return this.repo.create({
+      categoryId: data.categoryId,
+      name: data.name,
+      serialNumber: data.serialNumber,
+      createdBy: userId,
+      ...(data.manufacturer != null && { manufacturer: data.manufacturer }),
+      ...(data.model != null && { model: data.model }),
+      ...(data.acquiredAt != null && { acquiredAt: new Date(data.acquiredAt) }),
+      ...(data.description != null && { description: data.description }),
+      ...(data.calibrationIntervalDays != null && { calibrationIntervalDays: data.calibrationIntervalDays }),
+      ...(data.lastCalibratedAt != null && { lastCalibratedAt: new Date(data.lastCalibratedAt) }),
+      ...(nextCalibrationDue != null && { nextCalibrationDue }),
+      ...(data.metadata != null && { metadata: data.metadata }),
     });
   }
 
-  async update(id: string, data: any) {
-    if (data.acquiredAt) data.acquiredAt = new Date(data.acquiredAt);
+  async update(id: string, data: Prisma.SensorUncheckedUpdateInput & { acquiredAt?: string | Date; lastCalibratedAt?: string | Date; calibrationIntervalDays?: number }) {
+    if (data.acquiredAt) data.acquiredAt = new Date(data.acquiredAt as string);
     if (data.lastCalibratedAt) {
-      data.lastCalibratedAt = new Date(data.lastCalibratedAt);
-      const sensor = await this.prisma.sensor.findUnique({ where: { id } });
+      const lastCalibratedAt = new Date(data.lastCalibratedAt as string);
+      data.lastCalibratedAt = lastCalibratedAt;
+      const sensor = await this.repo.findById(id);
       const interval = data.calibrationIntervalDays ?? sensor?.calibrationIntervalDays;
       if (interval) {
-        data.nextCalibrationDue = new Date(data.lastCalibratedAt);
-        data.nextCalibrationDue.setDate(data.nextCalibrationDue.getDate() + interval);
+        const nextDue = new Date(lastCalibratedAt);
+        nextDue.setDate(nextDue.getDate() + interval);
+        data.nextCalibrationDue = nextDue;
       }
     }
-    return this.prisma.sensor.update({
-      where: { id },
-      data,
-      include: { category: true },
-    });
+    return this.repo.update(id, data as Prisma.SensorUncheckedUpdateInput);
   }
 
   async changeStatus(id: string, newStatus: AssetStatus) {
-    const sensor = await this.prisma.sensor.findUnique({ where: { id } });
+    const sensor = await this.repo.findById(id);
     if (!sensor) throw new Error("센서를 찾을 수 없습니다.");
 
     const allowed = VALID_TRANSITIONS[sensor.status] ?? [];
@@ -156,14 +157,14 @@ export class SensorService {
       throw new Error(`${sensor.status} → ${newStatus} 상태 전이가 허용되지 않습니다.`);
     }
 
-    const updateData: any = { status: newStatus };
+    const updateData: Prisma.SensorUncheckedUpdateInput = { status: newStatus };
     if (newStatus === "AVAILABLE") {
       updateData.currentEquipmentId = null;
       updateData.currentDeploymentId = null;
       updateData.currentLocation = "창고";
     }
 
-    return this.prisma.sensor.update({ where: { id }, data: updateData, include: { category: true } });
+    return this.repo.update(id, updateData);
   }
 
   async getDeploymentHistory(id: string) {
@@ -177,6 +178,6 @@ export class SensorService {
   }
 
   async remove(id: string) {
-    return this.prisma.sensor.update({ where: { id }, data: { status: "RETIRED" } });
+    return this.repo.retire(id);
   }
 }
