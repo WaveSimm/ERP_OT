@@ -1,7 +1,13 @@
 import { PrismaClient, ContractStatus } from "@prisma/client";
+import type { IContractRepository } from "../../domain/repositories/contract.repository.js";
 
 export class ContractService {
-  constructor(private prisma: PrismaClient) {}
+  // repo: Contract aggregate CRUD(Clean Arch). prisma: 복잡 read(list/getById include),
+  //   계약번호 생성(read), finalize 중복검사, remove 가드.
+  constructor(
+    private readonly repo: IContractRepository,
+    private readonly prisma: PrismaClient,
+  ) {}
 
   async list(params: { search?: string; status?: ContractStatus; page?: number; limit?: number; sortBy?: string; sortOrder?: "asc" | "desc" } = {}) {
     const { search, status, page = 1, limit = 100, sortBy, sortOrder = "asc" } = params;
@@ -88,14 +94,12 @@ export class ContractService {
         ? await this.generateTempNumber()
         : await this.generateNextNumber();
     }
-    return this.prisma.contract.create({
-      data: {
-        ...rest,
-        status,
-        contractNumber,
-        ...(contractDate && { contractDate: new Date(contractDate) }),
-        ...(deadline && { deadline: new Date(deadline) }),
-      },
+    return this.repo.create({
+      ...rest,
+      status,
+      contractNumber,
+      ...(contractDate && { contractDate: new Date(contractDate) }),
+      ...(deadline && { deadline: new Date(deadline) }),
     });
   }
 
@@ -104,7 +108,7 @@ export class ContractService {
    *   정식 contractNumber 입력 받음. 검증: TEMP- 아닌 형식.
    */
   async finalize(id: string, data: { contractNumber: string; contractDate?: string }) {
-    const contract = await this.prisma.contract.findUnique({ where: { id } });
+    const contract = await this.repo.findById(id);
     if (!contract) throw new Error("계약을 찾을 수 없습니다.");
     if (contract.status !== "PROSPECTIVE") {
       throw new Error(`계약 예정 상태에서만 확정할 수 있습니다. (현재: ${contract.status})`);
@@ -117,13 +121,10 @@ export class ContractService {
     if (dup && dup.id !== id) {
       throw new Error(`이미 사용 중인 계약번호: ${data.contractNumber}`);
     }
-    return this.prisma.contract.update({
-      where: { id },
-      data: {
-        status: "ACTIVE",
-        contractNumber: data.contractNumber,
-        ...(data.contractDate && { contractDate: new Date(data.contractDate) }),
-      },
+    return this.repo.update(id, {
+      status: "ACTIVE",
+      contractNumber: data.contractNumber,
+      ...(data.contractDate && { contractDate: new Date(data.contractDate) }),
     });
   }
 
@@ -162,13 +163,10 @@ export class ContractService {
   }) {
     await this.getById(id);
     const { contractDate, deadline, ...rest } = data;
-    return this.prisma.contract.update({
-      where: { id },
-      data: {
-        ...rest,
-        ...(contractDate !== undefined && { contractDate: contractDate ? new Date(contractDate) : null }),
-        ...(deadline !== undefined && { deadline: deadline ? new Date(deadline) : null }),
-      },
+    return this.repo.update(id, {
+      ...rest,
+      ...(contractDate !== undefined && { contractDate: contractDate ? new Date(contractDate) : null }),
+      ...(deadline !== undefined && { deadline: deadline ? new Date(deadline) : null }),
     });
   }
 
@@ -181,7 +179,7 @@ export class ContractService {
     if (contract._count.orders > 0) {
       throw new Error("발주가 있어 삭제할 수 없습니다.");
     }
-    return this.prisma.contract.delete({ where: { id } });
+    await this.repo.delete(id);
   }
 
   /** #YY-NN 형식의 다음 계약번호 생성 */
