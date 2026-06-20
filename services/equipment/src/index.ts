@@ -20,6 +20,7 @@ import { compatibilityRoutes } from "./api/routes/compatibility.routes.js";
 import { EquipmentService } from "./application/asset/equipment.service.js";
 import { SensorService } from "./application/asset/sensor.service.js";
 import { CategoryService } from "./application/asset/category.service.js";
+import { PrismaCategoryRepository } from "./infrastructure/repositories/category.repository.js";
 import { MaintenanceService } from "./application/asset/maintenance.service.js";
 import { ScheduleService } from "./application/asset/schedule.service.js";
 import { DeploymentService } from "./application/asset/deployment.service.js";
@@ -107,7 +108,7 @@ const prisma = new PrismaClient({
 // ─── Services ──────────────────────────────────────────────────────────────
 const equipmentService = new EquipmentService(prisma);
 const sensorService = new SensorService(prisma);
-const categoryService = new CategoryService(prisma);
+const categoryService = new CategoryService(new PrismaCategoryRepository(prisma), prisma);
 const maintenanceService = new MaintenanceService(prisma);
 const scheduleService = new ScheduleService(prisma);
 const deploymentService = new DeploymentService(prisma);
