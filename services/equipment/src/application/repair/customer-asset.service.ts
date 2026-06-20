@@ -1,11 +1,16 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
+import type { ICustomerAssetRepository } from "../../domain/repositories/customer-asset.repository.js";
 
 export class CustomerAssetService {
-  constructor(private prisma: PrismaClient) {}
+  // repo: CustomerAsset aggregate CRUD(Clean Arch). prisma: 복잡 read(list/getById include) + remove 가드.
+  constructor(
+    private readonly repo: ICustomerAssetRepository,
+    private readonly prisma: PrismaClient,
+  ) {}
 
   async list(params: { customerId?: string; search?: string; page?: number; limit?: number } = {}) {
     const { customerId, search, page = 1, limit = 50 } = params;
-    const where: any = {};
+    const where: Prisma.CustomerAssetWhereInput = {};
     if (customerId) where.customerId = customerId;
     if (search) {
       where.OR = [
@@ -61,10 +66,10 @@ export class CustomerAssetService {
     notes?: string;
   }) {
     const { soldAt, warrantyExpiry, ...rest } = data;
-    const createData: any = { ...rest };
+    const createData: Prisma.CustomerAssetUncheckedCreateInput = { ...rest };
     if (soldAt) createData.soldAt = new Date(soldAt);
     if (warrantyExpiry) createData.warrantyExpiry = new Date(warrantyExpiry);
-    return this.prisma.customerAsset.create({ data: createData });
+    return this.repo.create(createData);
   }
 
   async update(id: string, data: {
@@ -80,10 +85,10 @@ export class CustomerAssetService {
     notes?: string;
   }) {
     const { soldAt, warrantyExpiry, ...rest } = data;
-    const updateData: any = { ...rest };
+    const updateData: Prisma.CustomerAssetUncheckedUpdateInput = { ...rest };
     if (soldAt !== undefined) updateData.soldAt = soldAt ? new Date(soldAt) : null;
     if (warrantyExpiry !== undefined) updateData.warrantyExpiry = warrantyExpiry ? new Date(warrantyExpiry) : null;
-    return this.prisma.customerAsset.update({ where: { id }, data: updateData });
+    return this.repo.update(id, updateData);
   }
 
   async remove(id: string) {
@@ -91,6 +96,6 @@ export class CustomerAssetService {
     if (orderCount > 0) {
       throw new Error("AS 이력이 있는 자산은 삭제할 수 없습니다.");
     }
-    return this.prisma.customerAsset.delete({ where: { id } });
+    await this.repo.delete(id);
   }
 }
