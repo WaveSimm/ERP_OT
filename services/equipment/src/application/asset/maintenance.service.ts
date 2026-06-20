@@ -1,7 +1,13 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma, MaintenanceType } from "@prisma/client";
+import type { IMaintenanceRecordRepository } from "../../domain/repositories/maintenance-record.repository.js";
 
 export class MaintenanceService {
-  constructor(private prisma: PrismaClient) {}
+  // repo: MaintenanceRecord CRUD(Clean Arch). prisma: 복잡 read(목록·getPreventiveDue) +
+  //   교정 완료 시 sensor 갱신(cross-aggregate).
+  constructor(
+    private readonly repo: IMaintenanceRecordRepository,
+    private readonly prisma: PrismaClient,
+  ) {}
 
   async listByEquipment(equipmentId: string, page = 1, limit = 20) {
     const where = { equipmentId };
@@ -42,9 +48,9 @@ export class MaintenanceService {
       throw new Error("equipmentId 또는 sensorId 중 하나는 필수입니다.");
     }
 
-    const record = await this.prisma.maintenanceRecord.create({
-      data: {
-        type: data.type as any,
+    const record = await this.repo.create({
+
+        type: data.type as MaintenanceType,
         title: data.title,
         performedAt: new Date(data.performedAt),
         createdBy: userId,
@@ -57,7 +63,6 @@ export class MaintenanceService {
         ...(data.durationHours != null && { durationHours: data.durationHours }),
         ...(data.replacedParts != null && { replacedParts: data.replacedParts }),
         ...(data.notes != null && { notes: data.notes }),
-      },
     });
 
     // 교정(CALIBRATION) 완료 시 센서의 교정일 자동 갱신
@@ -77,14 +82,14 @@ export class MaintenanceService {
     return record;
   }
 
-  async update(id: string, data: any) {
-    if (data.performedAt) data.performedAt = new Date(data.performedAt);
-    if (data.completedAt) data.completedAt = new Date(data.completedAt);
-    return this.prisma.maintenanceRecord.update({ where: { id }, data });
+  async update(id: string, data: Prisma.MaintenanceRecordUncheckedUpdateInput & { performedAt?: string | Date; completedAt?: string | Date }) {
+    if (data.performedAt) data.performedAt = new Date(data.performedAt as string);
+    if (data.completedAt) data.completedAt = new Date(data.completedAt as string);
+    return this.repo.update(id, data as Prisma.MaintenanceRecordUncheckedUpdateInput);
   }
 
   async remove(id: string) {
-    return this.prisma.maintenanceRecord.delete({ where: { id } });
+    await this.repo.delete(id);
   }
 
   /** 예방 정비 예정 장비/센서 조회 (D-30 이내) */
