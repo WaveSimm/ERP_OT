@@ -1,7 +1,13 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
+import type { IImportCostSettlementRepository } from "../../domain/repositories/import-cost-settlement.repository.js";
 
 export class ImportCostService {
-  constructor(private prisma: PrismaClient) {}
+  // repo: ImportCostSettlement aggregate(+remittance) CRUD(Clean Arch). prisma: 복잡 read(list/getById)·
+  //   addExtra($transaction).
+  constructor(
+    private readonly repo: IImportCostSettlementRepository,
+    private readonly prisma: PrismaClient,
+  ) {}
 
   /** 원가정산 목록 */
   async list(params: { sortBy?: string; sortOrder?: "asc" | "desc" } = {}) {
@@ -82,7 +88,7 @@ export class ImportCostService {
       amount: number;
     }>;
   }) {
-    const createData: any = {
+    const createData: Prisma.ImportCostSettlementUncheckedCreateInput = {
       orderId: data.orderId ?? null,
       contractId: data.contractId ?? null,
       declarationNo: data.declarationNo,
@@ -135,10 +141,7 @@ export class ImportCostService {
       };
     }
 
-    return this.prisma.importCostSettlement.create({
-      data: createData,
-      include: { remittances: true, duties: true, items: true },
-    });
+    return this.repo.create(createData);
   }
 
   /** 부대비용 추가 */
@@ -175,11 +178,7 @@ export class ImportCostService {
 
   /** 계약 연결 업데이트 */
   async updateContract(settlementId: string, contractId: string | null) {
-    return this.prisma.importCostSettlement.update({
-      where: { id: settlementId },
-      data: { contractId },
-      include: { contract: { select: { contractNumber: true, name: true, client: true } } },
-    });
+    return this.repo.updateContract(settlementId, contractId);
   }
 
   /** 송금 추가 */
@@ -192,29 +191,27 @@ export class ImportCostService {
     notes?: string;
   }) {
     // 정산 존재 확인
-    const settlement = await this.prisma.importCostSettlement.findUnique({ where: { id: settlementId } });
+    const settlement = await this.repo.findById(settlementId);
     if (!settlement) throw new Error("원가정산을 찾을 수 없습니다.");
 
-    return this.prisma.costRemittance.create({
-      data: {
-        settlementId,
-        remittanceDate: new Date(data.remittanceDate),
-        foreignAmount: data.foreignAmount,
-        exchangeRate: data.exchangeRate,
-        krwAmount: data.krwAmount,
-        invoiceNo: data.invoiceNo ?? null,
-        notes: data.notes ?? null,
-      },
+    return this.repo.createRemittance({
+      settlementId,
+      remittanceDate: new Date(data.remittanceDate),
+      foreignAmount: data.foreignAmount,
+      exchangeRate: data.exchangeRate,
+      krwAmount: data.krwAmount,
+      invoiceNo: data.invoiceNo ?? null,
+      notes: data.notes ?? null,
     });
   }
 
   /** 송금 삭제 */
   async removeRemittance(remittanceId: string) {
-    await this.prisma.costRemittance.delete({ where: { id: remittanceId } });
+    await this.repo.deleteRemittance(remittanceId);
   }
 
   /** 삭제 */
   async remove(id: string) {
-    await this.prisma.importCostSettlement.delete({ where: { id } });
+    await this.repo.delete(id);
   }
 }

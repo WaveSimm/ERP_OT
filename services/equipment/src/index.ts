@@ -91,6 +91,7 @@ import { InventoryTransactionService } from "./application/inventory/inventory-t
 import { AssetCostService } from "./application/inventory/asset-cost.service.js";
 import { ExpenseFollowUpService } from "./application/procurement/expense-followup.service.js";
 import { ImportCostService } from "./application/procurement/import-cost.service.js";
+import { PrismaImportCostSettlementRepository } from "./infrastructure/repositories/import-cost-settlement.repository.js";
 import { InventoryAuditService } from "./application/inventory/inventory-audit.service.js";
 import { PrismaInventoryAuditRepository } from "./infrastructure/repositories/inventory-audit.repository.js";
 import { expenseFollowUpRoutes, internalExpenseRoutes } from "./api/routes/expense-followup.routes.js";
@@ -157,7 +158,7 @@ const customsTaxService = new CustomsTaxService(prisma);
 const inventoryService = new InventoryService(prisma);
 const inventoryTransactionService = new InventoryTransactionService(prisma);
 const assetCostService = new AssetCostService(prisma);
-const importCostService = new ImportCostService(prisma);
+const importCostService = new ImportCostService(new PrismaImportCostSettlementRepository(prisma), prisma);
 const inventoryAuditService = new InventoryAuditService(new PrismaInventoryAuditRepository(prisma), prisma);
 const supplierService = new SupplierService(new PrismaSupplierRepository(prisma), prisma);
 const storageLocationService = new StorageLocationService(new PrismaStorageLocationRepository(prisma), prisma);
