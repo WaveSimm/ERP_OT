@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { InventoryService } from "./inventory.service.js";
+import type { IInboundRequestRepository } from "../../domain/repositories/inbound-request.repository.js";
 
 /**
  * InboundRequest — 입고 대기 큐 (v1.6 신규, 2026-05-13)
@@ -32,7 +33,9 @@ interface InboundItemInput {
 }
 
 export class InboundRequestService {
+  // repo: InboundRequest aggregate CRUD(Clean Arch). prisma: 복잡 read·receive($transaction).
   constructor(
+    private readonly repo: IInboundRequestRepository,
     private prisma: PrismaClient,
     private inventoryService: InventoryService,
   ) {}
@@ -122,30 +125,27 @@ export class InboundRequestService {
     if (data.items.length === 0) throw new Error("최소 1개 품목 필요");
 
     const code = await this.generateCode();
-    return this.prisma.inboundRequest.create({
-      data: {
-        code,
-        status: "PENDING",
-        sourceType: data.sourceType,
-        sourceId: data.sourceId ?? null,
-        sourceDocNumber: data.sourceDocNumber ?? null,
-        requesterId: data.requesterId,
-        notes: data.notes ?? null,
-        items: {
-          create: data.items.map((it) => ({
-            productMasterId: it.productMasterId ?? null,
-            variantId: it.variantId ?? null,
-            itemNameRaw: it.itemNameRaw ?? null,
-            description: it.description ?? null,
-            quantity: it.quantity,
-            unitPrice: it.unitPrice ?? null,
-            supplierId: it.supplierId ?? null,
-            completenessFlag: it.completenessFlag ?? "MANUAL_NEEDED",
-            orderItemId: it.orderItemId ?? null,
-          })),
-        },
+    return this.repo.create({
+      code,
+      status: "PENDING",
+      sourceType: data.sourceType,
+      sourceId: data.sourceId ?? null,
+      sourceDocNumber: data.sourceDocNumber ?? null,
+      requesterId: data.requesterId,
+      notes: data.notes ?? null,
+      items: {
+        create: data.items.map((it) => ({
+          productMasterId: it.productMasterId ?? null,
+          variantId: it.variantId ?? null,
+          itemNameRaw: it.itemNameRaw ?? null,
+          description: it.description ?? null,
+          quantity: it.quantity,
+          unitPrice: it.unitPrice ?? null,
+          supplierId: it.supplierId ?? null,
+          completenessFlag: it.completenessFlag ?? "MANUAL_NEEDED",
+          orderItemId: it.orderItemId ?? null,
+        })),
       },
-      include: { items: true },
     });
   }
 
@@ -379,16 +379,13 @@ export class InboundRequestService {
 
   /** 입고 요청 취소 */
   async cancel(id: string, reason?: string) {
-    const req = await this.prisma.inboundRequest.findUnique({ where: { id } });
+    const req = await this.repo.findById(id);
     if (!req) throw new Error("InboundRequest를 찾을 수 없습니다.");
     if (req.status !== "PENDING") throw new Error(`PENDING 상태에서만 취소 가능 (status=${req.status})`);
 
-    return this.prisma.inboundRequest.update({
-      where: { id },
-      data: {
-        status: "CANCELED",
-        notes: reason ? `${req.notes ?? ""}\n[CANCEL] ${reason}`.trim() : req.notes,
-      },
+    return this.repo.update(id, {
+      status: "CANCELED",
+      notes: reason ? `${req.notes ?? ""}\n[CANCEL] ${reason}`.trim() : req.notes,
     });
   }
 
