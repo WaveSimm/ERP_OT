@@ -1,21 +1,24 @@
 import { PrismaClient, RepairOrderStatus } from "@prisma/client";
 import { canTransition, getAllowedTransitions, getStatusesInGroup } from "../../domain/state-machine/repair-order.fsm.js";
+import type { IRepairOrderRepository } from "../../domain/repositories/repair-order.repository.js";
 
 export class RepairOrderService {
-  constructor(private prisma: PrismaClient) {}
+  // repo: RepairOrder aggregate 영속성(Clean Arch). prisma: 복잡 read(list/getById) +
+  //   cross-aggregate 부수효과(shipment·equipment·sensor·maintenanceRecord) — 점진 전환 중.
+  constructor(
+    private readonly repo: IRepairOrderRepository,
+    private readonly prisma: PrismaClient,
+  ) {}
 
   async generateOrderNumber(): Promise<string> {
     const year = new Date().getFullYear();
-    try {
-      const result = await this.prisma.$queryRaw<[{ nextval: bigint }]>`
-        SELECT nextval('equipment.repair_order_seq')`;
-      const seq = String(result[0].nextval).padStart(4, "0");
-      return `AS-${year}-${seq}`;
-    } catch {
-      // Fallback: count-based
-      const count = await this.prisma.repairOrder.count();
-      return `AS-${year}-${String(count + 1).padStart(4, "0")}`;
+    const seq = await this.repo.nextSequence();
+    if (seq !== null) {
+      return `AS-${year}-${String(seq).padStart(4, "0")}`;
     }
+    // Fallback: count-based
+    const count = await this.repo.count();
+    return `AS-${year}-${String(count + 1).padStart(4, "0")}`;
   }
 
   async list(params: {
@@ -145,18 +148,18 @@ export class RepairOrderService {
       if (asset?.otInventoryNo) otInventoryNoToSave = asset.otInventoryNo;
     }
 
-    const order = await this.prisma.repairOrder.create({
-      data: {
+    const order = await this.repo.create(
+      {
         orderNumber,
         ...rest,
         ...(otInventoryNoToSave && { otInventoryNo: otInventoryNoToSave }),
         receivedAt: receivedAt ? new Date(receivedAt) : new Date(),
       } as any,
-      include: {
+      {
         customer: { select: { id: true, name: true } },
         customerAsset: { select: { id: true, name: true, serialNumber: true } },
       },
-    });
+    );
 
     // 자사 장비 AS 시 상태 변경
     if (data.equipmentId) {
@@ -225,14 +228,11 @@ export class RepairOrderService {
     for (const k of dateFields) {
       if (d[k] !== undefined) d[k] = d[k] ? new Date(d[k]) : null;
     }
-    return this.prisma.repairOrder.update({
-      where: { id },
-      data: d,
-    });
+    return this.repo.update(id, d);
   }
 
   async changeStatus(id: string, newStatus: string, userId?: string) {
-    const order = await this.prisma.repairOrder.findUnique({ where: { id } });
+    const order = await this.repo.findById(id);
     if (!order) throw new Error("AS 접수를 찾을 수 없습니다.");
 
     if (!canTransition(order.status, newStatus as RepairOrderStatus)) {
@@ -326,43 +326,41 @@ export class RepairOrderService {
       }
     }
 
-    return this.prisma.repairOrder.update({ where: { id }, data: updateData });
+    return this.repo.update(id, updateData);
   }
 
   async updateTechStatus(id: string, techStatus: string) {
-    return this.prisma.repairOrder.update({ where: { id }, data: { techStatus } });
+    return this.repo.update(id, { techStatus });
   }
 
   async updateSalesStatus(id: string, salesStatus: string) {
-    return this.prisma.repairOrder.update({ where: { id }, data: { salesStatus } });
+    return this.repo.update(id, { salesStatus });
   }
 
   // 취소된 수리건을 RECEIVED 단계로 복구
   async restore(id: string) {
-    const order = await this.prisma.repairOrder.findUnique({ where: { id } });
+    const order = await this.repo.findById(id);
     if (!order) throw new Error("AS 접수를 찾을 수 없습니다.");
     if (order.status !== "CANCELLED") {
       throw new Error("취소 상태에서만 복구할 수 있습니다.");
     }
-    return this.prisma.repairOrder.update({
-      where: { id },
-      data: { status: "RECEIVED" },
-    });
+    return this.repo.update(id, { status: "RECEIVED" });
   }
 
   async remove(id: string) {
-    const order = await this.prisma.repairOrder.findUnique({ where: { id } });
+    const order = await this.repo.findById(id);
     if (!order) throw new Error("AS 접수를 찾을 수 없습니다.");
     // 삭제 가능: 접수 초기 상태(RECEIVED) + 종결 상태 5종(CANCELLED/COMPLETED/NO_FAULT/NO_REPAIR/CLOSED)
     const deletable = ["RECEIVED", "CANCELLED", "COMPLETED", "NO_FAULT", "NO_REPAIR", "CLOSED"];
     if (!deletable.includes(order.status)) {
       throw new Error("진행 중인 AS 접수는 삭제할 수 없습니다. 먼저 완료·종료·취소 처리하세요.");
     }
-    return this.prisma.repairOrder.delete({ where: { id } });
+    await this.repo.delete(id);
+    return order;
   }
 
   async getStatusTransitions(id: string) {
-    const order = await this.prisma.repairOrder.findUnique({ where: { id } });
+    const order = await this.repo.findById(id);
     if (!order) throw new Error("AS 접수를 찾을 수 없습니다.");
     return { currentStatus: order.status, allowedTransitions: getAllowedTransitions(order.status) };
   }
