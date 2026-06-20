@@ -33,6 +33,7 @@ import { TemplateService } from "./application/asset/template.service.js";
 import { PrismaDeploymentTemplateRepository } from "./infrastructure/repositories/deployment-template.repository.js";
 import { CustomerService } from "./application/repair/customer.service.js";
 import { CustomerAssetService } from "./application/repair/customer-asset.service.js";
+import { PrismaCustomerAssetRepository } from "./infrastructure/repositories/customer-asset.repository.js";
 import { RepairOrderService } from "./application/repair/repair-order.service.js";
 import { PrismaRepairOrderRepository } from "./infrastructure/repositories/repair-order.repository.js";
 import { InspectionReportService } from "./application/repair/inspection-report.service.js";
@@ -128,7 +129,7 @@ const compatibilityService = new CompatibilityService(new PrismaSensorCompatibil
 const statsService = new StatsService(prisma);
 const templateService = new TemplateService(new PrismaDeploymentTemplateRepository(prisma), prisma);
 const customerService = new CustomerService(prisma);
-const customerAssetService = new CustomerAssetService(prisma);
+const customerAssetService = new CustomerAssetService(new PrismaCustomerAssetRepository(prisma), prisma);
 const repairOrderService = new RepairOrderService(new PrismaRepairOrderRepository(prisma), prisma);
 const inspectionReportService = new InspectionReportService(new PrismaInspectionReportRepository(prisma), prisma);
 const repairCostService = new RepairCostService(new PrismaRepairCostRepository(prisma));
