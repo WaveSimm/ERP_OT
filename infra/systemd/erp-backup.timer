@@ -1,0 +1,13 @@
+[Unit]
+Description=ERP_OT 백업 매일 03:00 KST (절대시각·누락보정)
+
+[Timer]
+# 서버 TZ=UTC 함정 회피: Asia/Seoul 명시 → 매일 한국시간 새벽 3시.
+OnCalendar=*-*-* 03:00:00 Asia/Seoul
+# 서버가 꺼져 있어 놓친 실행은 부팅 후 즉시 1회 보정(기존 sleep방식의 재시작 누락 해결).
+Persistent=true
+# 다른 작업과 겹침 분산(±5분)
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

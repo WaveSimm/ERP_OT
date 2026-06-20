@@ -363,53 +363,17 @@ services:
     container_name: erp-ot-backup
     restart: unless-stopped
     entrypoint: /bin/sh
-    command:
-      - -c
-      - |
-        echo "DB + Files backup service started. Schedule: daily 02:00"
-        while true; do
-          NEXT=$(date -d "tomorrow 02:00" +%s 2>/dev/null || date -d "02:00" +%s)
-          NOW=$(date +%s)
-          SLEEP=$((NEXT - NOW))
-          if [ $$SLEEP -le 0 ]; then SLEEP=86400; fi
-          echo "Next backup in $$SLEEP seconds"
-          sleep $$SLEEP
-          TIMESTAMP=$$(date +%Y%m%d_%H%M%S)
-          FILE="/backups/erp_ot_$${TIMESTAMP}.sql.gz"
-          echo "[$${TIMESTAMP}] Starting DB backup..."
-          PGPASSWORD=$${POSTGRES_PASSWORD} pg_dump -h postgres -U $${POSTGRES_USER} -d $${POSTGRES_DB} --no-owner --no-privileges | gzip > "$$FILE"
-          if [ $$? -eq 0 ]; then
-            SIZE=$$(du -h "$$FILE" | cut -f1)
-            echo "[$${TIMESTAMP}] DB Backup OK: $$FILE ($$SIZE)"
-          else
-            echo "[$${TIMESTAMP}] DB Backup FAILED"
-            rm -f "$$FILE"
-          fi
-          for src in approval expense auth ocr; do
-            DIR="/uploads_$$src"
-            UFILE="/backups/$${src}_uploads_$${TIMESTAMP}.tar.gz"
-            if [ -d "$$DIR" ]; then
-              echo "[$${TIMESTAMP}] Backup $$src uploads..."
-              tar czf "$$UFILE" -C "$$DIR" . 2>/dev/null
-              if [ $$? -eq 0 ]; then
-                USIZE=$$(du -h "$$UFILE" | cut -f1)
-                echo "[$${TIMESTAMP}] $$src OK: $$UFILE ($$USIZE)"
-              else
-                echo "[$${TIMESTAMP}] $$src skipped"
-                rm -f "$$UFILE"
-              fi
-            fi
-          done
-          find /backups -name "erp_ot_*.sql.gz" -mtime +30 -delete 2>/dev/null || true
-          find /backups -name "*_uploads_*.tar.gz" -mtime +30 -delete 2>/dev/null || true
-          find /backups -name "uploads_*.tar.gz" -mtime +30 -delete 2>/dev/null || true
-        done
+    # sleep-루프 자체 스케줄 제거 → 백업은 호스트 systemd timer(erp-backup.timer)가 절대시각
+    #   03:00 KST·Persistent(누락보정)로 트리거. 이 컨테이너는 백업 "도구"로 idle 상주
+    #   (pg_dump/tar 환경 + 볼륨 유지). 트리거: docker exec erp-ot-backup sh /scripts/backup-run.sh
+    command: ["-c", "echo 'backup tool idle — triggered by host systemd erp-backup.timer'; exec tail -f /dev/null"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-erp_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required - generate with openssl rand -hex 16}
       POSTGRES_DB: ${POSTGRES_DB:-erp_ot}
     volumes:
       - ./backups:/backups
+      - ./scripts:/scripts:ro
       - approval_uploads:/uploads_approval:ro
       - expense_uploads:/uploads_expense:ro
       - auth_uploads:/uploads_auth:ro
