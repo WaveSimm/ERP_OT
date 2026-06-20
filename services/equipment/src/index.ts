@@ -55,6 +55,7 @@ import { inboundRequestRoutes, inboundRequestInternalRoutes } from "./api/routes
 import { BundleShipmentService } from "./application/inventory/bundle-shipment.service.js";
 import { bundleShipmentRoutes } from "./api/routes/bundle-shipment.routes.js";
 import { ContractService } from "./application/procurement/contract.service.js";
+import { PrismaContractRepository } from "./infrastructure/repositories/contract.repository.js";
 import { OverseasOrderService } from "./application/procurement/overseas-order.service.js";
 import { OrderProgressService } from "./application/procurement/order-progress.service.js";
 import { OrderSettlementService } from "./application/procurement/order-settlement.service.js";
@@ -138,7 +139,7 @@ const shipmentService = new ShipmentService(new PrismaShipmentRepository(prisma)
 const repairStatsService = new RepairStatsService(prisma);
 const productMasterService = new ProductMasterService(prisma);
 const productVariantService = new ProductVariantService(prisma);
-const contractService = new ContractService(prisma);
+const contractService = new ContractService(new PrismaContractRepository(prisma), prisma);
 const overseasOrderService = new OverseasOrderService(prisma);
 const orderProgressService = new OrderProgressService(prisma);
 const orderSettlementService = new OrderSettlementService(prisma);
