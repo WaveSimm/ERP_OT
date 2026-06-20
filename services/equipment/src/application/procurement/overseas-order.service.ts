@@ -1,8 +1,14 @@
-import { PrismaClient, OrderStatus, OrderItemReceiptStatus } from "@prisma/client";
+import { PrismaClient, Prisma, OrderStatus, OrderItemReceiptStatus, OrderCurrency, OrderType } from "@prisma/client";
 import { assertTransition, getAllowedTransitions } from "../../domain/state-machine/order.fsm.js";
+import type { IOverseasOrderRepository } from "../../domain/repositories/overseas-order.repository.js";
 
 export class OverseasOrderService {
-  constructor(private prisma: PrismaClient) {}
+  // repo: OverseasOrder aggregate(+items) CRUD(Clean Arch). prisma: 복잡 read(list/getById)·
+  //   orderNumber 생성·transition(FSM+customsTax)·receiveItems($transaction)·linkInventory(cross)·stats.
+  constructor(
+    private readonly repo: IOverseasOrderRepository,
+    private readonly prisma: PrismaClient,
+  ) {}
 
   async list(params: {
     search?: string; status?: OrderStatus | string; currency?: string;
@@ -11,7 +17,7 @@ export class OverseasOrderService {
     hasPayment?: boolean;  // v1.6 (2026-05-14): 송금 요청·완료 발주만 (회계정산 리스트)
   } = {}) {
     const { search, status, currency, orderType, contractId, page = 1, limit = 50, sortBy, sortOrder = "desc", hasPayment } = params;
-    const where: any = {};
+    const where: Prisma.OverseasOrderWhereInput = {};
 
     if (search) {
       where.OR = [
@@ -22,11 +28,12 @@ export class OverseasOrderService {
     }
     // v1.6 (2026-05-14): status 콤마 분리 다중값 지원 (예: "PARTIALLY_RECEIVED,ARRIVED")
     if (status) {
-      const arr = String(status).split(",").map((s) => s.trim()).filter(Boolean);
-      where.status = arr.length > 1 ? { in: arr } : (arr[0] as any);
+      const arr = String(status).split(",").map((s) => s.trim()).filter(Boolean) as OrderStatus[];
+      if (arr.length > 1) where.status = { in: arr };
+      else if (arr[0]) where.status = arr[0];
     }
-    if (currency) where.currency = currency;
-    if (orderType) where.orderType = orderType;
+    if (currency) where.currency = currency as OrderCurrency;
+    if (orderType) where.orderType = orderType as OrderType;
     if (contractId) where.contractId = contractId;
     // v1.6 (2026-05-14): 송금 요청·완료 내역이 있는 발주만 (회계정산 리스트)
     if (hasPayment) where.payments = { some: {} };
@@ -162,21 +169,15 @@ export class OverseasOrderService {
     const { items, orderDate, estimatedProductionEnd, estimatedShipDate, ...rest } = data;
     const orderNumber = await this.generateOrderNumber();
 
-    return this.prisma.overseasOrder.create({
-      data: {
-        ...rest,
-        orderNumber,
-        status: "DRAFT",
-        orderDate: orderDate ? new Date(orderDate) : undefined,
-        estimatedProductionEnd: estimatedProductionEnd ? new Date(estimatedProductionEnd) : undefined,
-        estimatedShipDate: estimatedShipDate ? new Date(estimatedShipDate) : undefined,
-        items: items?.length ? { create: items } : undefined,
-      } as any,
-      include: {
-        items: true,
-        contract: { select: { id: true, contractNumber: true, name: true } },
-      },
-    });
+    return this.repo.create({
+      ...rest,
+      orderNumber,
+      status: "DRAFT",
+      orderDate: orderDate ? new Date(orderDate) : undefined,
+      estimatedProductionEnd: estimatedProductionEnd ? new Date(estimatedProductionEnd) : undefined,
+      estimatedShipDate: estimatedShipDate ? new Date(estimatedShipDate) : undefined,
+      items: items?.length ? { create: items } : undefined,
+    } as Prisma.OverseasOrderUncheckedCreateInput);
   }
 
   async update(id: string, data: {
@@ -206,12 +207,12 @@ export class OverseasOrderService {
     thirdApproverId?: string | null;
     thirdApproverName?: string | null;
   }) {
-    const order = await this.prisma.overseasOrder.findUnique({ where: { id } });
+    const order = await this.repo.findById(id);
     if (!order) throw new Error("발주를 찾을 수 없습니다.");
     // CLOSED 발주도 일정·입고장소·통관담당·결제수단은 수정 허용
     if (order.status === "CLOSED") {
       const LOGISTICS_ONLY = new Set(["estimatedShipDate", "arrivalLocation", "customsHandler", "paymentTerms"]);
-      const nonLogistics = Object.keys(data).filter((k) => !LOGISTICS_ONLY.has(k) && (data as any)[k] !== undefined);
+      const nonLogistics = Object.keys(data).filter((k) => !LOGISTICS_ONLY.has(k) && (data as Record<string, unknown>)[k] !== undefined);
       if (nonLogistics.length > 0) {
         throw new Error(`마감된 발주는 일정/입고장소/통관담당/결제수단만 수정할 수 있습니다. 시도된 필드: ${nonLogistics.join(", ")}`);
       }
@@ -222,18 +223,18 @@ export class OverseasOrderService {
       "actualShipDate", "customsDate", "arrivalDate", "dueDate",
     ] as const;
 
-    const updateData: any = { ...data };
+    const updateData: Record<string, unknown> = { ...data };
     for (const f of dateFields) {
       if (f in updateData) {
-        updateData[f] = updateData[f] ? new Date(updateData[f]) : null;
+        updateData[f] = updateData[f] ? new Date(updateData[f] as string) : null;
       }
     }
 
-    return this.prisma.overseasOrder.update({ where: { id }, data: updateData });
+    return this.repo.update(id, updateData as Prisma.OverseasOrderUncheckedUpdateInput);
   }
 
   async transition(id: string, toStatus: OrderStatus, userId: string, transitionDate?: string) {
-    const order = await this.prisma.overseasOrder.findUnique({ where: { id } });
+    const order = await this.repo.findById(id);
     if (!order) throw new Error("발주를 찾을 수 없습니다.");
 
     assertTransition(order.status, toStatus);
@@ -256,17 +257,14 @@ export class OverseasOrderService {
     if (toStatus === "SHIPPED")    dateUpdates.actualShipDate = dateValue;
     if (toStatus === "CUSTOMS")    dateUpdates.customsDate = dateValue;
 
-    const updated = await this.prisma.overseasOrder.update({
-      where: { id },
-      data: {
-        status: toStatus,
-        // APPROVED 전이 시 승인일 자동 기록 (최초 1회만)
-        ...(toStatus === "APPROVED" && !order.approvedAt && { approvedAt: new Date() }),
-        // ORDERED 전이 시 발주일 자동 기록 (사용자 명시 입력 없으면)
-        ...(toStatus === "ORDERED" && !order.orderDate && { orderDate: new Date() }),
-        // 전이별 사용자 입력 날짜 (PURCHASING/SHIPPED/CUSTOMS)
-        ...dateUpdates,
-      },
+    const updated = await this.repo.update(id, {
+      status: toStatus,
+      // APPROVED 전이 시 승인일 자동 기록 (최초 1회만)
+      ...(toStatus === "APPROVED" && !order.approvedAt && { approvedAt: new Date() }),
+      // ORDERED 전이 시 발주일 자동 기록 (사용자 명시 입력 없으면)
+      ...(toStatus === "ORDERED" && !order.orderDate && { orderDate: new Date() }),
+      // 전이별 사용자 입력 날짜 (PURCHASING/SHIPPED/CUSTOMS)
+      ...dateUpdates,
     });
 
     // v1.6.1 (2026-05-15): CUSTOMS 진입 시 OrderCustomsTax 자동 생성 (재무팀 큐로)
@@ -283,10 +281,10 @@ export class OverseasOrderService {
   }
 
   async remove(id: string) {
-    const order = await this.prisma.overseasOrder.findUnique({ where: { id } });
+    const order = await this.repo.findById(id);
     if (!order) throw new Error("발주를 찾을 수 없습니다.");
     if (order.status !== "DRAFT") throw new Error("초안 상태에서만 삭제할 수 있습니다.");
-    return this.prisma.overseasOrder.delete({ where: { id } });
+    await this.repo.delete(id);
   }
 
   /**
@@ -295,7 +293,7 @@ export class OverseasOrderService {
    *   approval-service의 결재 문서가 있으면 cancel 시도 (best-effort).
    */
   async cancelSubmission(id: string, _userId: string) {
-    const order = await this.prisma.overseasOrder.findUnique({ where: { id } });
+    const order = await this.repo.findById(id);
     if (!order) throw new Error("발주를 찾을 수 없습니다.");
     if (order.status !== "PENDING_APPROVAL") {
       throw new Error(`상신 취소는 PENDING_APPROVAL 상태에서만 가능합니다. (현재: ${order.status})`);
@@ -317,14 +315,11 @@ export class OverseasOrderService {
       if (!resp.ok) {
         console.warn(`[overseas-order] approval withdraw responded ${resp.status}`);  
       }
-    } catch (err: any) {
-      console.warn(`[overseas-order] approval withdraw failed: ${err.message}`);  
+    } catch (err) {
+      console.warn(`[overseas-order] approval withdraw failed: ${(err as Error).message}`);
     }
 
-    return this.prisma.overseasOrder.update({
-      where: { id },
-      data: { status: "DRAFT" },
-    });
+    return this.repo.update(id, { status: "DRAFT" });
   }
 
   // ─── Items ──────────────────────────────────────────────────────────────
@@ -334,32 +329,26 @@ export class OverseasOrderService {
     quantity: number; unitPrice: number; amount: number; notes?: string;
   }) {
     await this.ensureOrderEditable(orderId);
-    return this.prisma.overseasOrderItem.create({ data: { orderId, ...data } as any });
+    return this.repo.createItem({ orderId, ...data } as Prisma.OverseasOrderItemUncheckedCreateInput);
   }
 
   async updateItem(itemId: string, data: {
     name?: string; spec?: string; quantity?: number;
     unitPrice?: number; amount?: number; notes?: string;
   }) {
-    const item = await this.prisma.overseasOrderItem.findUnique({
-      where: { id: itemId },
-      include: { order: { select: { status: true } } },
-    });
+    const item = await this.repo.findItemById(itemId);
     if (!item) throw new Error("품목을 찾을 수 없습니다.");
     if (item.order.status === "CLOSED") throw new Error("마감된 발주의 품목은 수정할 수 없습니다.");
-    return this.prisma.overseasOrderItem.update({ where: { id: itemId }, data: data as any });
+    return this.repo.updateItem(itemId, data as Prisma.OverseasOrderItemUncheckedUpdateInput);
   }
 
   async removeItem(itemId: string) {
-    const item = await this.prisma.overseasOrderItem.findUnique({
-      where: { id: itemId },
-      include: { order: { select: { status: true } } },
-    });
+    const item = await this.repo.findItemById(itemId);
     if (!item) throw new Error("품목을 찾을 수 없습니다.");
     if (!["DRAFT", "PENDING_APPROVAL"].includes(item.order.status)) {
       throw new Error("승인 대기 이전 상태에서만 품목을 삭제할 수 있습니다.");
     }
-    return this.prisma.overseasOrderItem.delete({ where: { id: itemId } });
+    await this.repo.deleteItem(itemId);
   }
 
   // ─── Partial Receipt ────────────────────────────────────────────────────
