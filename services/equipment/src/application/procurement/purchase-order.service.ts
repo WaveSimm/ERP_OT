@@ -1,12 +1,18 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma, PurchaseOrderStatus } from "@prisma/client";
+import type { IPurchaseOrderRepository } from "../../domain/repositories/purchase-order.repository.js";
 
 export class PurchaseOrderService {
-  constructor(private prisma: PrismaClient) {}
+  // repo: PurchaseOrder aggregate CRUD(Clean Arch). prisma: 복잡 read(include)·orderNumber 생성·
+  //   receive($transaction 입고).
+  constructor(
+    private readonly repo: IPurchaseOrderRepository,
+    private readonly prisma: PrismaClient,
+  ) {}
 
   async list(params: { status?: string; page?: number; limit?: number } = {}) {
     const { status, page = 1, limit = 50 } = params;
-    const where: any = {};
-    if (status) where.status = status;
+    const where: Prisma.PurchaseOrderWhereInput = {};
+    if (status) where.status = status as PurchaseOrderStatus;
 
     const [items, total] = await Promise.all([
       this.prisma.purchaseOrder.findMany({
@@ -56,16 +62,13 @@ export class PurchaseOrderService {
     const orderNumber = await this.generateOrderNumber();
     const { items, orderedAt, expectedDelivery, ...rest } = data;
 
-    return this.prisma.purchaseOrder.create({
-      data: {
-        orderNumber,
-        ...rest,
-        orderedAt: orderedAt ? new Date(orderedAt) : undefined,
-        expectedDelivery: expectedDelivery ? new Date(expectedDelivery) : undefined,
-        items: items ? { create: items } : undefined,
-      } as any,
-      include: { items: { include: { part: { select: { id: true, name: true, partNumber: true } } } } },
-    });
+    return this.repo.create({
+      orderNumber,
+      ...rest,
+      orderedAt: orderedAt ? new Date(orderedAt) : undefined,
+      expectedDelivery: expectedDelivery ? new Date(expectedDelivery) : undefined,
+      items: items ? { create: items } : undefined,
+    } as Prisma.PurchaseOrderUncheckedCreateInput);
   }
 
   async update(id: string, data: {
@@ -78,14 +81,11 @@ export class PurchaseOrderService {
     notes?: string;
   }) {
     const { orderedAt, expectedDelivery, ...rest } = data;
-    return this.prisma.purchaseOrder.update({
-      where: { id },
-      data: {
-        ...rest,
-        ...(orderedAt !== undefined ? { orderedAt: orderedAt ? new Date(orderedAt) : null } : {}),
-        ...(expectedDelivery !== undefined ? { expectedDelivery: expectedDelivery ? new Date(expectedDelivery) : null } : {}),
-      } as any,
-    });
+    return this.repo.update(id, {
+      ...rest,
+      ...(orderedAt !== undefined ? { orderedAt: orderedAt ? new Date(orderedAt) : null } : {}),
+      ...(expectedDelivery !== undefined ? { expectedDelivery: expectedDelivery ? new Date(expectedDelivery) : null } : {}),
+    } as Prisma.PurchaseOrderUncheckedUpdateInput);
   }
 
   async receive(id: string, items: { itemId: string; receivedQuantity: number }[]) {
@@ -120,7 +120,7 @@ export class PurchaseOrderService {
             quantity: item.receivedQuantity,
             reason: `발주 입고: ${po.orderNumber}`,
             purchaseOrderId: id,
-          } as any,
+          } as Prisma.PartTransactionUncheckedCreateInput,
         });
       }
 
@@ -131,7 +131,8 @@ export class PurchaseOrderService {
 
       await tx.purchaseOrder.update({
         where: { id },
-        data: { status: allReceived ? "RECEIVED" : someReceived ? "PARTIALLY_RECEIVED" : po.status } as any,
+        // ★버그수정: enum 값은 PO_RECEIVED (기존 "RECEIVED"는 as any에 가려진 런타임 검증실패 버그)
+        data: { status: allReceived ? "PO_RECEIVED" : someReceived ? "PARTIALLY_RECEIVED" : po.status },
       });
     });
 

@@ -48,6 +48,7 @@ import { PrismaRepairQuoteRepository } from "./infrastructure/repositories/repai
 import { PartService } from "./application/repair/part.service.js";
 import { PrismaPartRepository } from "./infrastructure/repositories/part.repository.js";
 import { PurchaseOrderService } from "./application/procurement/purchase-order.service.js";
+import { PrismaPurchaseOrderRepository } from "./infrastructure/repositories/purchase-order.repository.js";
 import { ShipmentService } from "./application/repair/shipment.service.js";
 import { PrismaShipmentRepository } from "./infrastructure/repositories/shipment.repository.js";
 import { RepairStatsService } from "./application/repair/repair-stats.service.js";
@@ -140,7 +141,7 @@ const inspectionReportService = new InspectionReportService(new PrismaInspection
 const repairCostService = new RepairCostService(new PrismaRepairCostRepository(prisma));
 const repairQuoteService = new RepairQuoteService(new PrismaRepairQuoteRepository(prisma), prisma);
 const partService = new PartService(new PrismaPartRepository(prisma), prisma);
-const purchaseOrderService = new PurchaseOrderService(prisma);
+const purchaseOrderService = new PurchaseOrderService(new PrismaPurchaseOrderRepository(prisma), prisma);
 const shipmentService = new ShipmentService(new PrismaShipmentRepository(prisma), prisma);
 const repairStatsService = new RepairStatsService(prisma);
 const productMasterService = new ProductMasterService(new PrismaProductMasterRepository(prisma), prisma);
