@@ -1,7 +1,13 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
+import type { IPartRepository } from "../../domain/repositories/part.repository.js";
 
 export class PartService {
-  constructor(private prisma: PrismaClient) {}
+  // repo: Part aggregate CRUD(Clean Arch). prisma: 복잡 read(list·getById·listTransactions) +
+  //   재고 트랜잭션($transaction).
+  constructor(
+    private readonly repo: IPartRepository,
+    private readonly prisma: PrismaClient,
+  ) {}
 
   async list(params: { search?: string; lowStock?: boolean; page?: number; limit?: number } = {}) {
     const { search, lowStock, page = 1, limit = 50 } = params;
@@ -61,10 +67,10 @@ export class PartService {
     minStockLevel?: number;
     leadTimeDays?: number;
     location?: string;
-    compatibleAssets?: any;
+    compatibleAssets?: Prisma.InputJsonValue;
     notes?: string;
   }) {
-    return this.prisma.part.create({ data: data as any });
+    return this.repo.create(data);
   }
 
   async update(id: string, data: {
@@ -78,16 +84,16 @@ export class PartService {
     minStockLevel?: number;
     leadTimeDays?: number;
     location?: string;
-    compatibleAssets?: any;
+    compatibleAssets?: Prisma.InputJsonValue;
     notes?: string;
   }) {
-    return this.prisma.part.update({ where: { id }, data: data as any });
+    return this.repo.update(id, data);
   }
 
   async remove(id: string) {
     const txCount = await this.prisma.partTransaction.count({ where: { partId: id } });
     if (txCount > 0) throw new Error("입출고 이력이 있는 부품은 삭제할 수 없습니다.");
-    return this.prisma.part.delete({ where: { id } });
+    await this.repo.delete(id);
   }
 
   // ─── 부품 입출고 ─────────────────────────────────────────────────────────
@@ -132,7 +138,7 @@ export class PartService {
     if (newStock < 0) throw new Error("재고가 부족합니다.");
 
     const [tx] = await this.prisma.$transaction([
-      this.prisma.partTransaction.create({ data: data as any }),
+      this.prisma.partTransaction.create({ data: data as Prisma.PartTransactionUncheckedCreateInput }),
       this.prisma.part.update({ where: { id: data.partId }, data: { stockQuantity: newStock } }),
     ]);
 
