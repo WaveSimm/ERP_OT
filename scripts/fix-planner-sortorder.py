@@ -1,10 +1,10 @@
 """기존 import된 프로젝트의 task sortOrder를 Excel 작업번호로 보정."""
-import sys, io, datetime as dt
+import os, sys, io, datetime as dt
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', line_buffering=True)
 import openpyxl, requests
 
 API = "http://localhost:3003/api/v1"
-EMAIL, PASSWORD = "dev@oceant.com", "dev1234"
+EMAIL, PASSWORD = os.environ.get("DEV_EMAIL", "dev@oceant.com"), os.environ["DEV_PASSWORD"]  # V-22
 
 TARGETS = [
     ("cmolmp0dr00ejzjt28yyztzxd", "References/planner/[기술팀] 선박-온바다호-2026.xlsx"),

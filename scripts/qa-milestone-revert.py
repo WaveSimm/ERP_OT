@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Zero Script QA — 마일스톤-시점태스크-회귀."""
-import sys, io, json
+import os, sys, io, json
 import requests
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
@@ -12,7 +12,7 @@ P = "cmolmw4we00tszjt2jnu8099r"  # KHOA
 
 # Login
 tok = requests.post(f"{AUTH}/api/v1/auth/login",
-    json={"email": "dev@oceant.com", "password": "dev1234"}).json()["accessToken"]
+    json={"email": os.environ.get("DEV_EMAIL", "dev@oceant.com"), "password": os.environ["DEV_PASSWORD"]}).json()["accessToken"]
 H = {"Authorization": f"Bearer {tok}"}
 
 results = []
