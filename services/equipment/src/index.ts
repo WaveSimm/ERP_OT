@@ -58,6 +58,7 @@ import { ProductVariantService } from "./application/inventory/product-variant.s
 import { PrismaProductVariantRepository } from "./infrastructure/repositories/product-variant.repository.js";
 import { productVariantRoutes } from "./api/routes/product-variant.routes.js";
 import { InboundRequestService } from "./application/inventory/inbound-request.service.js";
+import { PrismaInboundRequestRepository } from "./infrastructure/repositories/inbound-request.repository.js";
 import { inboundRequestRoutes, inboundRequestInternalRoutes } from "./api/routes/inbound-request.routes.js";
 import { BundleShipmentService } from "./application/inventory/bundle-shipment.service.js";
 import { bundleShipmentRoutes } from "./api/routes/bundle-shipment.routes.js";
@@ -162,7 +163,7 @@ const importCostService = new ImportCostService(new PrismaImportCostSettlementRe
 const inventoryAuditService = new InventoryAuditService(new PrismaInventoryAuditRepository(prisma), prisma);
 const supplierService = new SupplierService(new PrismaSupplierRepository(prisma), prisma);
 const storageLocationService = new StorageLocationService(new PrismaStorageLocationRepository(prisma), prisma);
-const inboundRequestService = new InboundRequestService(prisma, inventoryService);
+const inboundRequestService = new InboundRequestService(new PrismaInboundRequestRepository(prisma), prisma, inventoryService);
 const bundleShipmentService = new BundleShipmentService(prisma);
 const expenseFollowUpService = new ExpenseFollowUpService(prisma, inboundRequestService);
 
