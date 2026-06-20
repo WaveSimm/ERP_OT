@@ -1,7 +1,12 @@
 import { PrismaClient, LocationType } from "@prisma/client";
+import type { IStorageLocationRepository } from "../../domain/repositories/storage-location.repository.js";
 
 export class StorageLocationService {
-  constructor(private prisma: PrismaClient) {}
+  // repo: StorageLocation aggregate CRUD(Clean Arch). prisma: 복잡 list + 삭제가드(cross-aggregate).
+  constructor(
+    private readonly repo: IStorageLocationRepository,
+    private readonly prisma: PrismaClient,
+  ) {}
 
   async list(params: { type?: LocationType; search?: string; includeInactive?: boolean; page?: number; limit?: number; sortBy?: string; sortOrder?: "asc" | "desc" } = {}) {
     const { type, search, includeInactive, page = 1, limit = 50, sortBy, sortOrder = "asc" } = params;
@@ -40,18 +45,18 @@ export class StorageLocationService {
   }
 
   async getById(id: string) {
-    const loc = await this.prisma.storageLocation.findUnique({ where: { id } });
+    const loc = await this.repo.findById(id);
     if (!loc) throw new Error("위치를 찾을 수 없습니다.");
     return loc;
   }
 
   async create(data: { name: string; type: LocationType; description?: string; sortOrder?: number }) {
-    return this.prisma.storageLocation.create({ data });
+    return this.repo.create(data);
   }
 
   async update(id: string, data: { name?: string; type?: LocationType; description?: string; sortOrder?: number; isActive?: boolean }) {
     await this.getById(id);
-    return this.prisma.storageLocation.update({ where: { id }, data });
+    return this.repo.update(id, data);
   }
 
   async remove(id: string) {
@@ -62,6 +67,6 @@ export class StorageLocationService {
     if (count > 0) {
       throw new Error(`해당 위치에 재고 ${count}건이 있어 삭제할 수 없습니다. 비활성화를 사용하세요.`);
     }
-    return this.prisma.storageLocation.delete({ where: { id } });
+    await this.repo.delete(id);
   }
 }
