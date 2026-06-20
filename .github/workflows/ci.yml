@@ -73,6 +73,46 @@ jobs:
       - name: Test
         run: pnpm exec turbo run test -- --passWithNoTests
 
+  # ─── 통합테스트(실 DB) ──────────────────────────────────────────────────────
+  # 단위 게이트(lint-and-test, *.test.ts)와 분리된 별도 job. *.itest.ts 만 실행하며
+  #   postgres service + prisma db push 로 격리 스키마를 띄운다. 향후 repository 계층
+  #   전환 등 런타임 변경의 회귀 안전망. (현재 equipment 파일럿; 서비스별 점진 확대)
+  integration-test:
+    name: Integration Test (DB)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: erp_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: erp_ot_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U erp_user -d erp_ot_test"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://erp_user:test_password@localhost:5432/erp_ot_test
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: pnpm/action-setup@v4
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # equipment: generate → db push(스키마 적용) → 통합테스트
+      - name: equipment integration tests
+        run: |
+          pnpm --filter @erp-ot/equipment-service run db:generate
+          pnpm --filter @erp-ot/equipment-service exec prisma db push --skip-generate
+          pnpm --filter @erp-ot/equipment-service run test:integration
+
   # docker-build 잡 보류: auth/user Dockerfile이 erp-ot-build-base:latest(=docker-compose 정의)에 의존하는데
   #   CI 러너엔 그 base 이미지가 없어 항상 실패. 재도입하려면 base 이미지 선빌드 스텝(build-base/runtime-base)을
   #   먼저 추가해야 함. 그때까진 lint + 타입체크(pnpm build) 게이트로 운영.
