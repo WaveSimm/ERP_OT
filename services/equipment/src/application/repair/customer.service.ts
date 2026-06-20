@@ -1,11 +1,17 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
+import type { ICustomerRepository } from "../../domain/repositories/customer.repository.js";
 
 export class CustomerService {
-  constructor(private prisma: PrismaClient) {}
+  // repo: Customer aggregate(+contacts) CRUD(Clean Arch). prisma: 복잡 read(list/getById include·
+  //   inventory batch) + remove 가드(repairOrder count).
+  constructor(
+    private readonly repo: ICustomerRepository,
+    private readonly prisma: PrismaClient,
+  ) {}
 
   async list(params: { search?: string; page?: number; limit?: number; sortBy?: string; sortOrder?: "asc" | "desc" } = {}) {
     const { search, page = 1, limit = 50, sortBy, sortOrder = "asc" } = params;
-    const where: any = {};
+    const where: Prisma.CustomerWhereInput = {};
     if (search) {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
@@ -99,7 +105,7 @@ export class CustomerService {
     address2?: string;
     notes?: string;
   }) {
-    return this.prisma.customer.create({ data });
+    return this.repo.create(data);
   }
 
   async update(id: string, data: {
@@ -113,7 +119,7 @@ export class CustomerService {
     address2?: string;
     notes?: string;
   }) {
-    return this.prisma.customer.update({ where: { id }, data });
+    return this.repo.update(id, data);
   }
 
   async remove(id: string) {
@@ -121,18 +127,15 @@ export class CustomerService {
     if (orderCount > 0) {
       throw new Error("AS 이력이 있는 고객은 삭제할 수 없습니다.");
     }
-    await this.prisma.customerAsset.deleteMany({ where: { customerId: id } });
-    await this.prisma.customerContact.deleteMany({ where: { customerId: id } });
-    return this.prisma.customer.delete({ where: { id } });
+    await this.repo.deleteAssetsByCustomer(id);
+    await this.repo.deleteContactsByCustomer(id);
+    await this.repo.delete(id);
   }
 
   // ─── 담당자 CRUD ────────────────────────────────────────────────────
 
   async listContacts(customerId: string) {
-    return this.prisma.customerContact.findMany({
-      where: { customerId },
-      orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
-    });
+    return this.repo.listContactsByCustomer(customerId);
   }
 
   async createContact(customerId: string, data: {
@@ -146,14 +149,9 @@ export class CustomerService {
   }) {
     // 주담당자 설정 시 기존 주담당자 해제
     if (data.isPrimary) {
-      await this.prisma.customerContact.updateMany({
-        where: { customerId, isPrimary: true },
-        data: { isPrimary: false },
-      });
+      await this.repo.unsetPrimaryContacts(customerId);
     }
-    return this.prisma.customerContact.create({
-      data: { customerId, ...data },
-    });
+    return this.repo.createContact(customerId, data);
   }
 
   async updateContact(contactId: string, data: {
@@ -165,18 +163,15 @@ export class CustomerService {
     isPrimary?: boolean;
     notes?: string;
   }) {
-    const contact = await this.prisma.customerContact.findUnique({ where: { id: contactId } });
+    const contact = await this.repo.findContactById(contactId);
     if (!contact) throw new Error("담당자를 찾을 수 없습니다.");
     if (data.isPrimary) {
-      await this.prisma.customerContact.updateMany({
-        where: { customerId: contact.customerId, isPrimary: true, id: { not: contactId } },
-        data: { isPrimary: false },
-      });
+      await this.repo.unsetPrimaryContacts(contact.customerId, contactId);
     }
-    return this.prisma.customerContact.update({ where: { id: contactId }, data });
+    return this.repo.updateContact(contactId, data);
   }
 
   async removeContact(contactId: string) {
-    return this.prisma.customerContact.delete({ where: { id: contactId } });
+    await this.repo.deleteContact(contactId);
   }
 }
