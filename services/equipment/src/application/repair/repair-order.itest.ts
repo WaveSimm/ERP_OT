@@ -1,12 +1,13 @@
 import { describe, it, expect, beforeAll, afterEach, afterAll } from "vitest";
 import { prisma, truncateAll, disconnect } from "../../test-integration/helper";
 import { RepairOrderService } from "./repair-order.service";
+import { PrismaRepairOrderRepository } from "../../infrastructure/repositories/repair-order.repository";
 
 // repair-order 통합테스트(파일럿) — 실 DB로 create→changeStatus 흐름 검증.
 //   목적: 향후 application→infra(repository) 계층 전환 시 회귀 안전망.
 //   단위 FSM 테스트(repair-order.fsm.test.ts)와 달리 실제 prisma 동작·DB 상태를 확인.
 
-const svc = new RepairOrderService(prisma);
+const svc = new RepairOrderService(new PrismaRepairOrderRepository(prisma), prisma);
 
 beforeAll(async () => {
   await truncateAll();
