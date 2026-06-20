@@ -5,7 +5,7 @@ Planner Excel → ERP 1회성 import.
   D3 사용자 자동 reverse / D4/6 우선순위·시간 무시
   D5 체크리스트 → Comment / D7 종속 자동 / D8 마일스톤 → Milestone
 """
-import sys, io, re, time, datetime as dt
+import os, sys, io, re, time, datetime as dt
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', line_buffering=True)
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', line_buffering=True)
 
@@ -15,8 +15,8 @@ import glob
 
 AUTH_URL = "http://localhost:3001/api/v1/auth/login"
 API = "http://localhost:3003/api/v1"
-EMAIL = "dev@oceant.com"
-PASSWORD = "dev1234"
+EMAIL = os.environ.get("DEV_EMAIL", "dev@oceant.com")
+PASSWORD = os.environ["DEV_PASSWORD"]  # V-22: 평문 제거(env 필수)
 
 # References/planner/ 의 모든 .xlsx 를 자동 인식. 새 팀 플랜은 파일을 넣기만 하면 됨.
 #   파일명의 [팀명]·프로젝트명으로 배정을 파싱하므로 '[팀명] 프로젝트.xlsx' 규칙을 지킬 것.

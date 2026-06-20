@@ -1,10 +1,10 @@
 """Planner import 후 progress 누락 보완.
 work log 없는 task에 system work log 1건 추가 후 segment progressPercent 다시 update."""
-import sys, io, datetime as dt
+import os, sys, io, datetime as dt
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', line_buffering=True)
 import openpyxl, requests
 
-EMAIL, PASSWORD = "dev@oceant.com", "dev1234"
+EMAIL, PASSWORD = os.environ.get("DEV_EMAIL", "dev@oceant.com"), os.environ["DEV_PASSWORD"]  # V-22
 API = "http://localhost:3003/api/v1"
 
 # (project_id, excel_path)
