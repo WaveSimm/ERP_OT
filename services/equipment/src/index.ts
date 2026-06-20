@@ -77,6 +77,7 @@ import { expenseFollowUpRoutes, internalExpenseRoutes } from "./api/routes/expen
 import { importCostRoutes } from "./api/routes/import-cost.routes.js";
 import { inventoryAuditRoutes } from "./api/routes/inventory-audit.routes.js";
 import { SupplierService } from "./application/procurement/supplier.service.js";
+import { PrismaSupplierRepository } from "./infrastructure/repositories/supplier.repository.js";
 import { supplierRoutes } from "./api/routes/supplier.routes.js";
 import { StorageLocationService } from "./application/inventory/storage-location.service.js";
 import { PrismaStorageLocationRepository } from "./infrastructure/repositories/storage-location.repository.js";
@@ -138,7 +139,7 @@ const inventoryTransactionService = new InventoryTransactionService(prisma);
 const assetCostService = new AssetCostService(prisma);
 const importCostService = new ImportCostService(prisma);
 const inventoryAuditService = new InventoryAuditService(prisma);
-const supplierService = new SupplierService(prisma);
+const supplierService = new SupplierService(new PrismaSupplierRepository(prisma), prisma);
 const storageLocationService = new StorageLocationService(new PrismaStorageLocationRepository(prisma), prisma);
 const inboundRequestService = new InboundRequestService(prisma, inventoryService);
 const bundleShipmentService = new BundleShipmentService(prisma);
