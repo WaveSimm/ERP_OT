@@ -296,34 +296,31 @@ export default function ResourcesPage() {
       // ── 5. "전체" 그룹에 활성 유저 자원 전부 동기화 ─────────────────────
       const allGroup = markedGroups.find((g) => g.name === "전체");
       if (allGroup && users.length > 0) {
-        const activeEmails = new Set(
-          users.filter((u: any) => u.isActive !== false).map((u: any) => u.email)
-        );
-        const allUserResourceIds = resources
-          .filter((r) => r.userId && activeEmails.has(r.userId))
-          .map((r) => r.id);
-        const currentIds = [...allGroup.resourceIds].sort().join(",");
-        const newIds = [...allUserResourceIds].sort().join(",");
+        // 자원-모델-분리 Phase 4: PERSON Resource 폐기 → 멤버는 auth user id(personUserId)로 직접 동기화.
+        // (구 코드는 폐기된 resources[]에서 id를 뽑아 멤버를 전부 비워버렸음 — 부서/전체 사라짐 회귀)
+        const allUserIds = users
+          .filter((u: any) => u.isActive !== false)
+          .map((u: any) => u.id);
+        const currentIds = [...(allGroup.personUserIds ?? [])].sort().join(",");
+        const newIds = [...allUserIds].sort().join(",");
         if (currentIds !== newIds) {
-          await resourceGroupApi.setMembers(allGroup.id, allUserResourceIds).catch(() => {});
-          allGroup.resourceIds = allUserResourceIds;
+          await resourceGroupApi.setMembers(allGroup.id, allUserIds).catch(() => {});
+          allGroup.personUserIds = allUserIds;
         }
       }
 
       // ── 6. 부서 그룹 구성원 자동 동기화 (ADMIN 전용) ────────────────────
       if (users.length > 0) {
         for (const g of markedGroups.filter((g) => g.isDept)) {
-          const deptEmails = new Set(
-            users.filter((u: any) => u.profile?.departmentName === g.name).map((u: any) => u.email)
-          );
-          const deptResourceIds = resources
-            .filter((r) => r.userId && deptEmails.has(r.userId))
-            .map((r) => r.id);
-          const currentIds = [...g.resourceIds].sort().join(",");
-          const newIds = [...deptResourceIds].sort().join(",");
+          // 멤버 = 해당 부서명 auth user의 id(personUserId). setMembers가 PERSON으로 해석해 저장.
+          const deptUserIds = users
+            .filter((u: any) => u.profile?.departmentName === g.name)
+            .map((u: any) => u.id);
+          const currentIds = [...(g.personUserIds ?? [])].sort().join(",");
+          const newIds = [...deptUserIds].sort().join(",");
           if (currentIds !== newIds) {
-            await resourceGroupApi.setMembers(g.id, deptResourceIds).catch(() => {});
-            g.resourceIds = deptResourceIds;
+            await resourceGroupApi.setMembers(g.id, deptUserIds).catch(() => {});
+            g.personUserIds = deptUserIds;
           }
         }
       }
@@ -336,14 +333,14 @@ export default function ResourcesPage() {
         const sortedIds: string[] = [];
         const addedIds = new Set<string>();
         for (const dg of sortedDeptGroups) {
-          for (const id of dg.resourceIds) {
+          for (const id of (dg.personUserIds ?? [])) {
             if (!addedIds.has(id)) { sortedIds.push(id); addedIds.add(id); }
           }
         }
-        for (const id of allGroup.resourceIds) {
+        for (const id of (allGroup.personUserIds ?? [])) {
           if (!addedIds.has(id)) sortedIds.push(id);
         }
-        allGroup.resourceIds = sortedIds;
+        allGroup.personUserIds = sortedIds;
       }
 
       setGroups(markedGroups);
