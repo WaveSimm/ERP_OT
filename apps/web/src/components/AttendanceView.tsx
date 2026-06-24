@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { attendanceApi, leaveApi, holidayWorkApi, approvalLineApi, userManagementApi, attendanceOverviewApi, getUser } from "@/lib/api";
+import { attendanceApi, leaveApi, holidayWorkApi, approvalLineApi, approvalApi, userManagementApi, attendanceOverviewApi, getUser } from "@/lib/api";
 import { DateInput } from "@/components/ui/DateInput";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -570,14 +570,14 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged }: {
                 }`}>
                 {/* 날짜 헤더 + 출퇴근 — 고정 높이로 엔트리 시작 위치 통일 */}
                 <div className="h-[40px] flex-shrink-0">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1">
                     <span className={`text-xs font-medium leading-none ${
                       isToday ? "text-blue-700 font-bold" :
                       dow === 0 || cell.isHoliday ? "text-red-500" :
                       dow === 6 ? "text-blue-500" : "text-gray-700"
                     }`}>{dayNum}</span>
                     <button onClick={() => setAddingDate(cell.date)}
-                      className="text-gray-300 hover:text-teal-600 hover:bg-teal-50 rounded text-xs leading-none transition-colors w-4 h-4 flex items-center justify-center opacity-0 group-hover:opacity-100"
+                      className="text-red-500 hover:text-white hover:bg-red-500 rounded text-base font-bold leading-none transition-colors w-5 h-5 flex items-center justify-center shrink-0"
                       title="근태 추가">+</button>
                   </div>
                   {cell.isHoliday
@@ -735,10 +735,28 @@ const APPROVAL_STATUS: Record<string, { label: string; color: string }> = {
 function LeaveHistory({ refresh }: { refresh: number }) {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     setLoading(true);
-    leaveApi.list().then((list) => setItems(list.filter((i: any) => i.status !== "CANCELLED"))).catch(() => {}).finally(() => setLoading(false));
+    Promise.all([
+      leaveApi.list().catch(() => [] as any[]),
+      approvalApi.getSentDocuments(1, 50).then((r: any) => r?.items ?? []).catch(() => [] as any[]),
+    ]).then(([list, sent]: [any[], any[]]) => {
+      const rows = (list ?? []).filter((i: any) => i.status !== "CANCELLED");
+      // 승인 전 전자결재 휴가 결재(아직 근태에 미반영) 병합 — APPROVED는 위 휴가 레코드로 표시되므로 제외
+      const pendingDocs = (sent ?? [])
+        .filter((d: any) => d.template?.code === "LEAVE" && d.status !== "APPROVED" && d.status !== "DRAFT")
+        .map((d: any) => ({
+          id: d.id,
+          type: d.content?.leaveType,
+          startDate: d.content?.startDate,
+          endDate: d.content?.endDate,
+          status: d.status === "REJECTED" ? "REJECTED" : "PENDING",
+          _docId: d.id,
+        }));
+      setItems([...pendingDocs, ...rows]);
+    }).finally(() => setLoading(false));
   }, [refresh]);
 
   const cancel = async (id: string) => {
@@ -755,13 +773,15 @@ function LeaveHistory({ refresh }: { refresh: number }) {
         return (
           <div key={item.id} className="flex items-center gap-3 px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm">
             <div className="flex-1 min-w-0">
-              <div className="font-medium text-gray-900">{LEAVE_TYPES.find((t) => t.value === item.type)?.label ?? item.type}</div>
+              <div className="font-medium text-gray-900">{LEAVE_TYPES.find((t) => t.value === item.type)?.label ?? item.type ?? "휴가"}</div>
               <div className="text-xs text-gray-400">{item.startDate?.slice(0, 10)} ~ {item.endDate?.slice(0, 10)}</div>
             </div>
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.color}`}>{st.label}</span>
-            {item.status === "PENDING" && (
-              <button onClick={() => cancel(item.id)} className="text-xs text-gray-400 hover:text-red-500">취소</button>
-            )}
+            {item._docId
+              ? <button onClick={() => router.push(`/approval/${item._docId}`)} className="text-xs text-blue-500 hover:text-blue-700">보기</button>
+              : item.status === "PENDING" && (
+                  <button onClick={() => cancel(item.id)} className="text-xs text-gray-400 hover:text-red-500">취소</button>
+                )}
           </div>
         );
       })}
@@ -772,10 +792,30 @@ function LeaveHistory({ refresh }: { refresh: number }) {
 function HolidayWorkHistory({ refresh }: { refresh: number }) {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     setLoading(true);
-    holidayWorkApi.list().then(setItems).catch(() => {}).finally(() => setLoading(false));
+    Promise.all([
+      holidayWorkApi.list().catch(() => [] as any[]),
+      approvalApi.getSentDocuments(1, 50).then((r: any) => r?.items ?? []).catch(() => [] as any[]),
+    ]).then(([list, sent]: [any[], any[]]) => {
+      // 승인 전 전자결재 휴일근무 결재(아직 근태에 미반영) 병합
+      const pendingDocs = (sent ?? [])
+        .filter((d: any) => d.template?.code === "OT" && d.status !== "APPROVED" && d.status !== "DRAFT")
+        .map((d: any) => {
+          const wd = d.content?.workDates;
+          const firstDate = Array.isArray(wd) ? wd[0] : (d.content?.workDate ?? "");
+          return {
+            id: d.id,
+            date: firstDate,
+            reason: d.content?.reason,
+            status: d.status === "REJECTED" ? "REJECTED" : "PENDING",
+            _docId: d.id,
+          };
+        });
+      setItems([...pendingDocs, ...(list ?? [])]);
+    }).finally(() => setLoading(false));
   }, [refresh]);
 
   const cancel = async (id: string) => {
@@ -797,9 +837,11 @@ function HolidayWorkHistory({ refresh }: { refresh: number }) {
                 <div className="text-xs text-gray-400 truncate">{item.reason}</div>
               </div>
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.color}`}>{st.label}</span>
-              {item.status === "PENDING" && (
-                <button onClick={() => cancel(item.id)} className="text-xs text-gray-400 hover:text-red-500">취소</button>
-              )}
+              {item._docId
+                ? <button onClick={() => router.push(`/approval/${item._docId}`)} className="text-xs text-blue-500 hover:text-blue-700">보기</button>
+                : item.status === "PENDING" && (
+                    <button onClick={() => cancel(item.id)} className="text-xs text-gray-400 hover:text-red-500">취소</button>
+                  )}
             </div>
           </div>
         );

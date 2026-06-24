@@ -3,8 +3,11 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { projectApi, userManagementApi, folderApi } from "@/lib/api";
+import { projectApi, userManagementApi, folderApi, templateApi } from "@/lib/api";
 import AppLayout from "@/components/AppLayout";
+import ProjectSummaryDrawer from "@/components/ProjectSummaryDrawer";
+import TemplateWizard from "@/components/TemplateWizard";
+import TemplateManagerModal from "@/components/TemplateManagerModal";
 import UndoRedoControls from "@/components/UndoRedoControls";
 import { usePermission } from "@/hooks/usePermission";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
@@ -89,6 +92,19 @@ export default function ProjectsPage() {
 
   // API data
   const [projects, setProjects] = useState<Project[]>([]);
+  const [summaryId, setSummaryId] = useState<string | null>(null); // 프로젝트 요약 드로어
+  const [showTemplateWizard, setShowTemplateWizard] = useState(false); // 새 프로젝트 - 템플릿으로 만들기
+  const [showTemplateManager, setShowTemplateManager] = useState(false); // 템플릿 관리
+  // 템플릿 저장 (기존 프로젝트 → 템플릿)
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [saveTplProjectId, setSaveTplProjectId] = useState("");
+  const [saveTplName, setSaveTplName] = useState("");
+  const [saveTplCategory, setSaveTplCategory] = useState("");
+  const [saveTplIncludeAssignments, setSaveTplIncludeAssignments] = useState(false);
+  const [saveTplLoading, setSaveTplLoading] = useState(false);
+  const [saveTplError, setSaveTplError] = useState("");
+  const [tplNames, setTplNames] = useState<string[]>([]);       // 기존 템플릿 이름 (검색/중복확인)
+  const [tplCategories, setTplCategories] = useState<string[]>([]); // 기존 카테고리 (검색/재사용)
   const [total, setTotal]       = useState(0);
   const [loading, setLoading]   = useState(true);
   const [search, setSearch]     = useState("");
@@ -628,6 +644,14 @@ export default function ProjectsPage() {
           <span className="text-[13px] text-gray-800 truncate group-hover/row:text-blue-600 transition-colors leading-none">
             {p.name}
           </span>
+          {/* 프로젝트 요약 버튼 — 항상 표시, 진한 파랑 */}
+          <button
+            onClick={e => { e.stopPropagation(); setSummaryId(p.id); }}
+            className="ml-1.5 px-1.5 h-5 flex items-center justify-center rounded border border-blue-200 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:border-blue-300 shrink-0 transition-colors text-[11px] font-medium"
+            title="프로젝트 요약 보기"
+          >
+            요약
+          </button>
           {/* 폴더에서 제거 버튼 */}
           {folderId && (
             <button
@@ -642,7 +666,7 @@ export default function ProjectsPage() {
         {/* Owner — 클릭 시 드롭다운 (portal 렌더) */}
         <div className="w-[100px] shrink-0 px-2" onClick={e => e.stopPropagation()}>
           <button
-            className="w-full text-left text-xs text-gray-500 truncate hover:text-blue-600 hover:bg-blue-50 rounded px-1 py-0.5 transition-colors"
+            className="w-full text-center text-xs text-gray-500 truncate hover:text-blue-600 hover:bg-blue-50 rounded px-1 py-0.5 transition-colors"
             onClick={(e) => {
               if (ownerEditId === p.id) {
                 setOwnerEditId(null);
@@ -660,7 +684,7 @@ export default function ProjectsPage() {
           </button>
         </div>
         {/* Progress */}
-        <div className="w-[100px] shrink-0 flex items-center gap-1.5 px-2">
+        <div className="w-[100px] shrink-0 flex items-center justify-center gap-1.5 px-2">
           {prog !== null ? (
             <>
               <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
@@ -673,11 +697,11 @@ export default function ProjectsPage() {
           )}
         </div>
         {/* Start */}
-        <div className="w-[96px] shrink-0 px-2 text-xs text-gray-400">{fmtDate(p.effectiveStartDate)}</div>
+        <div className="w-[96px] shrink-0 px-2 text-xs text-gray-400 text-center">{fmtDate(p.effectiveStartDate)}</div>
         {/* End */}
-        <div className="w-[96px] shrink-0 px-2 text-xs text-gray-400">{fmtDate(p.effectiveEndDate)}</div>
+        <div className="w-[96px] shrink-0 px-2 text-xs text-gray-400 text-center">{fmtDate(p.effectiveEndDate)}</div>
         {/* Status */}
-        <div className="w-[80px] shrink-0 px-2 flex items-center gap-1">
+        <div className="w-[80px] shrink-0 px-2 flex items-center justify-center gap-1">
           <span className={clsx("w-1.5 h-1.5 rounded-full shrink-0", st.dot)} />
           <span className={clsx("text-[11px] font-medium", st.text)}>{st.label}</span>
         </div>
@@ -870,11 +894,35 @@ export default function ProjectsPage() {
               onKeyDown={undefined}
               className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-44"
             />
+            {isManager && (
+              <button
+                onClick={() => {
+                  setSaveTplProjectId(""); setSaveTplName(""); setSaveTplCategory(""); setSaveTplIncludeAssignments(false); setSaveTplError(""); setShowSaveTemplate(true);
+                  templateApi.list().then((l: any[]) => {
+                    setTplNames(Array.from(new Set(l.map((t) => t.name).filter(Boolean))));
+                    setTplCategories(Array.from(new Set(l.map((t) => t.category).filter(Boolean))));
+                  }).catch(() => {});
+                }}
+                className="px-3 py-1.5 border border-orange-300 text-orange-700 rounded-lg text-sm hover:bg-orange-50 flex items-center gap-1.5 transition-colors"
+                title="기존 프로젝트를 템플릿으로 저장"
+              >
+                <span>💾</span> 템플릿저장
+              </button>
+            )}
+            {isManager && (
+              <button
+                onClick={() => setShowTemplateManager(true)}
+                className="px-3 py-1.5 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50 flex items-center gap-1.5 transition-colors"
+                title="템플릿 수정/삭제"
+              >
+                <span>⚙️</span> 템플릿관리
+              </button>
+            )}
             <button
               onClick={() => { setNewFolderParent(null); setShowNewFolder(true); }}
               className="px-3 py-1.5 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50 flex items-center gap-1.5 transition-colors"
             >
-              <span>📁</span> 폴더
+              <span>📁</span> 새폴더
             </button>
             {isManager && (
               <button
@@ -895,11 +943,13 @@ export default function ProjectsPage() {
             style={{ height: 30 }}
           >
             <div className="flex-1 pl-4">프로젝트명</div>
-            <div className="w-[100px] shrink-0 px-2">소유자</div>
-            <div className="w-[100px] shrink-0 px-2">진도율</div>
-            <div className="w-[96px] shrink-0 px-2">시작일</div>
-            <div className="w-[96px] shrink-0 px-2">종료일</div>
-            <div className="w-[80px] shrink-0 px-2">상태</div>
+            <div className="w-[100px] shrink-0 px-2 text-center">소유자</div>
+            <div className="w-[100px] shrink-0 px-2 text-center">진도율</div>
+            <div className="w-[96px] shrink-0 px-2 text-center">시작일</div>
+            <div className="w-[96px] shrink-0 px-2 text-center">종료일</div>
+            <div className="w-[80px] shrink-0 px-2 text-center">상태</div>
+            {/* 행의 삭제 버튼(Actions) 컬럼과 정렬 맞춤 */}
+            <div className="w-[36px] shrink-0" />
           </div>
 
           {/* Body */}
@@ -1088,7 +1138,23 @@ export default function ProjectsPage() {
               <h3 className="font-semibold text-gray-900">새 프로젝트 만들기</h3>
               <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
             </div>
-            <form onSubmit={handleCreate} className="p-6 space-y-4">
+            {/* 템플릿으로 만들기 옵션 */}
+            <div className="px-6 pt-4">
+              <button
+                type="button"
+                onClick={() => { setShowCreate(false); setShowTemplateWizard(true); }}
+                className="w-full flex items-center justify-between gap-2 px-4 py-2.5 border border-green-300 bg-green-50 text-green-700 rounded-lg text-sm font-medium hover:bg-green-100 transition-colors"
+              >
+                <span>📋 템플릿으로 만들기</span>
+                <span className="text-green-500">→</span>
+              </button>
+              <div className="flex items-center gap-2 my-3">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="text-xs text-gray-400">또는 빈 프로젝트</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+            </div>
+            <form onSubmit={handleCreate} className="px-6 pb-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">프로젝트명 *</label>
                 <input
@@ -1173,6 +1239,100 @@ export default function ProjectsPage() {
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] bg-gray-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg">
           {toast}
+        </div>
+      )}
+
+      {/* 프로젝트 요약 드로어 */}
+      {summaryId && <ProjectSummaryDrawer projectId={summaryId} onClose={() => setSummaryId(null)} />}
+
+      {/* 새 프로젝트 - 템플릿으로 만들기 */}
+      {showTemplateWizard && (
+        <TemplateWizard projectId="" onClose={() => setShowTemplateWizard(false)} onSuccess={() => { setShowTemplateWizard(false); load(); }} />
+      )}
+
+      {/* 템플릿 관리 */}
+      {showTemplateManager && <TemplateManagerModal onClose={() => setShowTemplateManager(false)} />}
+
+      {/* 템플릿 저장 모달 (기존 프로젝트 선택 → 템플릿) */}
+      {showSaveTemplate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowSaveTemplate(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">템플릿 저장</h2>
+                <p className="text-xs text-gray-500 mt-0.5">기존 프로젝트 구조를 템플릿으로 저장합니다</p>
+              </div>
+              <button onClick={() => setShowSaveTemplate(false)} className="text-gray-400 hover:text-gray-600 text-xl font-light">×</button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">원본 프로젝트 <span className="text-red-500">*</span></label>
+                <select
+                  value={saveTplProjectId}
+                  onChange={e => setSaveTplProjectId(e.target.value)}
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                >
+                  <option value="">프로젝트 선택...</option>
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">템플릿 이름 <span className="text-red-500">*</span></label>
+                <input type="text" value={saveTplName} onChange={e => setSaveTplName(e.target.value)}
+                  list="save-tpl-names" autoComplete="off"
+                  placeholder="템플릿 이름 입력 (기존 이름 검색)"
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                <datalist id="save-tpl-names">{tplNames.map(n => <option key={n} value={n} />)}</datalist>
+                {saveTplName.trim() && tplNames.some(n => n.toLowerCase() === saveTplName.trim().toLowerCase()) && (
+                  <p className="text-[11px] text-red-500 mt-1">이미 존재하는 이름입니다.</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">카테고리 <span className="text-red-500">*</span></label>
+                <input type="text" value={saveTplCategory} onChange={e => setSaveTplCategory(e.target.value)}
+                  list="save-tpl-categories" autoComplete="off"
+                  placeholder="예: 건설, IT, 제조 (기존 카테고리 검색)"
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                <datalist id="save-tpl-categories">{tplCategories.map(c => <option key={c} value={c} />)}</datalist>
+              </div>
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input type="checkbox" checked={saveTplIncludeAssignments} onChange={e => setSaveTplIncludeAssignments(e.target.checked)}
+                  className="w-4 h-4 rounded accent-orange-500" />
+                <span className="text-sm text-gray-700">자원 배정 포함</span>
+              </label>
+              {saveTplError && <p className="text-sm text-red-500">{saveTplError}</p>}
+            </div>
+            <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50">
+              <button onClick={() => setShowSaveTemplate(false)} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100">취소</button>
+              <button
+                disabled={saveTplLoading}
+                onClick={async () => {
+                  if (!saveTplProjectId) { setSaveTplError("원본 프로젝트를 선택해주세요."); return; }
+                  if (!saveTplName.trim()) { setSaveTplError("템플릿 이름을 입력해주세요."); return; }
+                  if (!saveTplCategory.trim()) { setSaveTplError("카테고리를 입력해주세요."); return; }
+                  setSaveTplLoading(true); setSaveTplError("");
+                  try {
+                    await templateApi.saveAsTemplate(saveTplProjectId, {
+                      name: saveTplName.trim(),
+                      category: saveTplCategory.trim(),
+                      includeAssignments: saveTplIncludeAssignments,
+                    });
+                    setShowSaveTemplate(false);
+                    alert("템플릿으로 저장되었습니다.");
+                  } catch (e: any) {
+                    setSaveTplError(e.message ?? "저장 실패");
+                  } finally {
+                    setSaveTplLoading(false);
+                  }
+                }}
+                className="px-4 py-2 text-sm bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 disabled:opacity-50"
+              >
+                {saveTplLoading ? "저장 중..." : "템플릿 저장"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </AppLayout>

@@ -729,6 +729,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                         projectId={projectId ?? ""}
                         allResources={allResources}
                         onRefresh={onRefresh ?? (() => {})}
+                        pushUndo={pushUndo}
                       />
                     </div>
                   ) : (

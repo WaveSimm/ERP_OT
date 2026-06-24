@@ -87,13 +87,6 @@ const RAG_TEXT: Record<string, string> = {
   RED: "text-red-700",
 };
 
-const GROUP_BY_OPTIONS = [
-  { value: "NONE", label: "그룹 없음" },
-  { value: "DEPARTMENT", label: "부서별" },
-  { value: "CLIENT", label: "고객사별" },
-  { value: "CUSTOM", label: "커스텀" },
-];
-
 const ISSUE_FILTER_OPTIONS = [
   { value: "ALL", label: "전체" },
   { value: "CRITICAL", label: "위험" },
@@ -105,10 +98,6 @@ function fmtDate(iso: string) {
   return iso.slice(0, 10);
 }
 
-function fmtKRW(n?: number) {
-  if (n == null) return "-";
-  return new Intl.NumberFormat("ko-KR", { notation: "compact", maximumFractionDigits: 1 }).format(n);
-}
 
 // ─── SVG 미니 타임라인 ────────────────────────────────────────────────────────
 
@@ -257,14 +246,16 @@ function ProjectRow({ row, date, onPin }: { row: ProjectRow; date: string; onPin
           </div>
         </td>
 
-        {/* 프로젝트명 */}
-        <td className="px-3 py-2.5 min-w-[160px]">
-          <Link href={`/projects/${row.id}`} className="text-sm font-medium text-blue-700 hover:underline">
-            {row.name}
-          </Link>
-          {row.isCriticalPathDelayed && (
-            <span className="ml-1.5 text-xs text-red-600 font-medium">CP지연</span>
-          )}
+        {/* 프로젝트명 — 남은 폭(반응형), 길면 말줄임 */}
+        <td className="px-3 py-2.5">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Link href={`/projects/${row.id}`} className="text-sm font-medium text-blue-700 hover:underline truncate" title={row.name}>
+              {row.name}
+            </Link>
+            {row.isCriticalPathDelayed && (
+              <span className="shrink-0 text-xs text-red-600 font-medium">CP지연</span>
+            )}
+          </div>
           <div className="text-xs text-gray-400 mt-0.5">{fmtDate(row.lastUpdatedAt)} 업데이트</div>
         </td>
 
@@ -281,17 +272,6 @@ function ProjectRow({ row, date, onPin }: { row: ProjectRow; date: string; onPin
           </div>
         </td>
 
-        {/* 예산 */}
-        <td className="px-3 py-2.5 w-24 text-xs text-gray-600">
-          {row.budgetUsagePercent != null ? (
-            <span className={row.budgetUsagePercent >= 110 ? "text-red-600 font-medium" : row.budgetUsagePercent >= 100 ? "text-yellow-600" : ""}>
-              {row.budgetUsagePercent}%
-            </span>
-          ) : "-"}
-          {row.plannedBudget != null && (
-            <div className="text-gray-400">{fmtKRW(row.plannedBudget)}</div>
-          )}
-        </td>
 
         {/* 이슈 */}
         <td className="px-3 py-2.5 w-24">
@@ -316,7 +296,7 @@ function ProjectRow({ row, date, onPin }: { row: ProjectRow; date: string; onPin
         </td>
 
         {/* 미니 타임라인 */}
-        <td className="px-3 py-1.5 w-[260px]">
+        <td className="px-3 py-1.5 w-[270px]">
           <MiniTimeline events={row.weeklyTimeline} centerDate={date} />
         </td>
       </tr>
@@ -352,15 +332,14 @@ function GroupAccordion({ group, date, onPin }: { group: DashboardGroup; date: s
       </button>
       {open && group.projects.length > 0 && (
         <div className="mt-1 rounded-lg border overflow-hidden">
-          <table className="w-full table-auto">
+          <table className="w-full table-fixed">
             <thead>
               <tr className="bg-gray-50 text-xs text-gray-500 border-b">
                 <th className="px-3 py-1.5 text-left w-10"></th>
                 <th className="px-3 py-1.5 text-left">프로젝트</th>
                 <th className="px-3 py-1.5 text-left w-28">진행률</th>
-                <th className="px-3 py-1.5 text-left w-24">예산</th>
                 <th className="px-3 py-1.5 text-left w-24">이슈</th>
-                <th className="px-3 py-1.5 text-left w-[260px]">타임라인 (±7일)</th>
+                <th className="px-3 py-1.5 text-left w-[270px]">타임라인 (±7일)</th>
               </tr>
             </thead>
             <tbody>
@@ -386,6 +365,26 @@ const RAG_LABEL: Record<string, { text: string; cls: string }> = {
   RED: { text: "위험", cls: "bg-red-100 text-red-700" },
 };
 
+const SEV_KO: Record<string, string> = { CRITICAL: "위험", WARNING: "경고", INFO: "정보" };
+// 상태 배지 hover 시 보여줄 이슈 설명 (네이티브 title, 멀티라인)
+function ragTooltip(ragStatus: string, issues?: any[]): string {
+  if (!issues || issues.length === 0) {
+    return ragStatus === "GREEN" ? "이상 없음 — 감지된 이슈가 없습니다" : "이슈 정보를 불러오는 중…";
+  }
+  return issues
+    .map((i: any) => `[${SEV_KO[i.severity] ?? i.severity}] ${i.title}${i.description ? `\n   · ${i.description}` : ""}`)
+    .join("\n");
+}
+// 이슈 카운트 배지(심각도별) hover 툴팁
+function severityTooltip(issues: any[] | undefined, severity: string): string {
+  const list = (issues ?? []).filter((i: any) => i.severity === severity);
+  const label = SEV_KO[severity] ?? severity;
+  if (list.length === 0) return `${label} 이슈`;
+  return `${label} 이슈\n` + list
+    .map((i: any) => `· ${i.title}${i.description ? `\n   ${i.description}` : ""}`)
+    .join("\n");
+}
+
 const STATUS_LABEL: Record<string, string> = {
   PLANNING: "계획", IN_PROGRESS: "진행", ON_HOLD: "보류", COMPLETED: "완료", CANCELLED: "취소",
 };
@@ -399,6 +398,8 @@ const SEV_STYLE: Record<string, string> = {
 function SummaryDetailPopup({ type, date, onClose }: { type: string; date: string; onClose: () => void }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  // 상태 배지 툴팁용: 프로젝트별 이슈 상세 (제목/설명/심각도)
+  const [issuesByProject, setIssuesByProject] = useState<Record<string, any[]>>({});
 
   useEffect(() => {
     dashboardApi.getSummaryDetails(type, date)
@@ -407,9 +408,23 @@ function SummaryDetailPopup({ type, date, onClose }: { type: string; date: strin
       .finally(() => setLoading(false));
   }, [type, date]);
 
+  // 전체 프로젝트 카드: 이슈 있는 프로젝트의 상세를 받아 상태 배지 툴팁에 표시
+  useEffect(() => {
+    if (type !== "projects" || !Array.isArray(data)) return;
+    const targets = data.filter((p: any) =>
+      ((p.issueCount?.critical ?? 0) + (p.issueCount?.warning ?? 0) + (p.issueCount?.info ?? 0)) > 0,
+    );
+    if (targets.length === 0) return;
+    Promise.all(targets.map((p: any) =>
+      dashboardApi.getProjectIssues(p.id)
+        .then((iss: any[]) => [p.id, iss] as const)
+        .catch(() => [p.id, []] as const),
+    )).then((entries) => setIssuesByProject(Object.fromEntries(entries)));
+  }, [type, data]);
+
   const TITLE: Record<string, string> = {
-    projects: "전체 프로젝트",
-    issues: "전체 이슈",
+    projects: "프로젝트 현황",
+    issues: "이슈 현황",
     starting: "이번 주 시작 세그먼트",
     ending: "이번 주 완료 / 마일스톤",
   };
@@ -442,7 +457,7 @@ function SummaryDetailPopup({ type, date, onClose }: { type: string; date: strin
                   return (
                     <tr key={p.id} className="border-b hover:bg-gray-50">
                       <td className="py-2 px-2">
-                        <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${rag.cls}`}>{rag.text}</span>
+                        <span title={ragTooltip(p.ragStatus, issuesByProject[p.id])} className={`text-[11px] px-2 py-0.5 rounded-full font-medium cursor-help ${rag.cls}`}>{rag.text}</span>
                       </td>
                       <td className="py-2 px-2">
                         <Link href={`/projects/${p.id}`} className="text-blue-600 hover:underline" onClick={onClose}>
@@ -452,9 +467,9 @@ function SummaryDetailPopup({ type, date, onClose }: { type: string; date: strin
                       </td>
                       <td className="py-2 px-2 text-right">{p.overallProgress}%</td>
                       <td className="py-2 px-2 text-right">
-                        {p.issueCount.critical > 0 && <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded mr-1">{p.issueCount.critical}</span>}
-                        {p.issueCount.warning > 0 && <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded mr-1">{p.issueCount.warning}</span>}
-                        {p.issueCount.info > 0 && <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{p.issueCount.info}</span>}
+                        {p.issueCount.critical > 0 && <span title={severityTooltip(issuesByProject[p.id], "CRITICAL")} className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded mr-1 cursor-help">{p.issueCount.critical}</span>}
+                        {p.issueCount.warning > 0 && <span title={severityTooltip(issuesByProject[p.id], "WARNING")} className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded mr-1 cursor-help">{p.issueCount.warning}</span>}
+                        {p.issueCount.info > 0 && <span title={severityTooltip(issuesByProject[p.id], "INFO")} className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded cursor-help">{p.issueCount.info}</span>}
                       </td>
                     </tr>
                   );
@@ -628,6 +643,11 @@ function GlobalSummaryCards({ summary, date }: { summary: GlobalSummary; date: s
   const we = summary.thisWeekEvents;
   const [detailType, setDetailType] = useState<string | null>(null);
 
+  // 집계 기간: 기준일(오늘) ~ +7일
+  const winStart = date;
+  const winEnd = date ? new Date(new Date(date).getTime() + 7 * 86400000).toISOString().slice(0, 10) : date;
+  const rangeText = winStart ? `${winStart.slice(5)} ~ ${winEnd.slice(5)}` : "";
+
   const cardCls = "bg-white rounded-xl border shadow-sm p-4 cursor-pointer hover:ring-2 hover:ring-blue-200 transition-all";
 
   return (
@@ -636,7 +656,7 @@ function GlobalSummaryCards({ summary, date }: { summary: GlobalSummary; date: s
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {/* 프로젝트 현황 */}
         <div className={cardCls} onClick={() => setDetailType("projects")}>
-          <div className="text-xs text-gray-500 mb-1">전체 프로젝트</div>
+          <div className="text-xs text-gray-500 mb-1">프로젝트 현황</div>
           <div className="text-2xl font-bold text-gray-900">{summary.totalProjects}</div>
           <div className="flex flex-wrap gap-1.5 mt-2">
             {sc.critical > 0 && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">{sc.critical} 위험</span>}
@@ -649,7 +669,7 @@ function GlobalSummaryCards({ summary, date }: { summary: GlobalSummary; date: s
 
         {/* 이슈 현황 */}
         <div className={cardCls} onClick={() => setDetailType("issues")}>
-          <div className="text-xs text-gray-500 mb-1">전체 이슈</div>
+          <div className="text-xs text-gray-500 mb-1">이슈 현황</div>
           <div className="text-2xl font-bold text-gray-900">{ic.critical + ic.warning + ic.info}</div>
           <div className="flex flex-wrap gap-1.5 mt-2">
             {ic.critical > 0 && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">{ic.critical} 위험</span>}
@@ -661,16 +681,16 @@ function GlobalSummaryCards({ summary, date }: { summary: GlobalSummary; date: s
 
         {/* 이번 주 시작 */}
         <div className={cardCls} onClick={() => setDetailType("starting")}>
-          <div className="text-xs text-gray-500 mb-1">이번 주 시작</div>
+          <div className="text-xs text-gray-500 mb-1">앞으로 7일 이내 시작</div>
           <div className="text-2xl font-bold text-blue-600">{we.starting}</div>
-          <div className="text-xs text-gray-400 mt-2">세그먼트 시작 예정</div>
+          <div className="text-xs text-gray-400 mt-2">{rangeText} · 시작 예정 구간</div>
         </div>
 
         {/* 이번 주 완료 & 마일스톤 */}
         <div className={cardCls} onClick={() => setDetailType("ending")}>
-          <div className="text-xs text-gray-500 mb-1">이번 주 완료 / 마일스톤</div>
+          <div className="text-xs text-gray-500 mb-1">앞으로 7일 이내 완료 / 마일스톤</div>
           <div className="text-2xl font-bold text-purple-600">{we.ending} <span className="text-lg font-normal text-gray-400">/ {we.milestones}</span></div>
-          <div className="text-xs text-gray-400 mt-2">완료 예정 / 마일스톤 도달</div>
+          <div className="text-xs text-gray-400 mt-2">{rangeText} · 완료 예정 / 마일스톤 도래</div>
         </div>
       </div>
     </>
@@ -683,7 +703,7 @@ export default function CommandCenterDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [groupBy, setGroupBy] = useState("NONE");
+  const [groupBy] = useState("NONE"); // 그룹화 기능 미구현 → 항상 그룹없음
   const [issueFilter, setIssueFilter] = useState("ALL");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [refreshing, setRefreshing] = useState(false);
@@ -788,21 +808,15 @@ export default function CommandCenterDashboard() {
 
         {/* 필터 컨트롤 */}
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          <DateInput
-            
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <select
-            value={groupBy}
-            onChange={(e) => setGroupBy(e.target.value)}
-            className="text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            {GROUP_BY_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
+          <label className="flex items-center gap-1.5 text-sm text-gray-500">
+            <span className="shrink-0">기준날짜</span>
+            <DateInput
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </label>
+          {/* 그룹화(groupBy) 드롭다운 숨김 — 프로젝트 그룹 관리 화면·데이터 미구현이라 그룹없음 고정 (2026-06-24) */}
           <select
             value={issueFilter}
             onChange={(e) => setIssueFilter(e.target.value)}
@@ -865,15 +879,14 @@ export default function CommandCenterDashboard() {
                 </div>
               )}
               <div className="rounded-lg border overflow-hidden">
-                <table className="w-full table-auto">
+                <table className="w-full table-fixed">
                   <thead>
                     <tr className="bg-gray-50 text-xs text-gray-500 border-b">
                       <th className="px-3 py-1.5 text-left w-10"></th>
                       <th className="px-3 py-1.5 text-left">프로젝트</th>
                       <th className="px-3 py-1.5 text-left w-28">진행률</th>
-                      <th className="px-3 py-1.5 text-left w-24">예산</th>
                       <th className="px-3 py-1.5 text-left w-24">이슈</th>
-                      <th className="px-3 py-1.5 text-left w-[260px]">타임라인 (±7일)</th>
+                      <th className="px-3 py-1.5 text-left w-[270px]">타임라인 (±7일)</th>
                     </tr>
                   </thead>
                   <tbody>

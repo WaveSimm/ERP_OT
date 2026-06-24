@@ -752,10 +752,19 @@ export default function ResourcesPage() {
                             {a.projectName}
                           </button>
                         </td>
-                        <td className="px-3 py-1.5 text-gray-700 text-xs whitespace-nowrap">
-                          <span className="font-medium">{a.taskName}</span>
-                          <span className="text-gray-300 mx-1">·</span>
-                          <span className="text-gray-400">{a.segmentName}</span>
+                        <td className="px-3 py-1.5 text-xs whitespace-nowrap">
+                          <button
+                            onClick={() => {
+                              sessionStorage.setItem(`erp_tab_${a.projectId}`, "tasks");
+                              router.push(`/projects/${a.projectId}?taskId=${a.taskId}`);
+                            }}
+                            className="text-left hover:underline group/task"
+                            title="클릭하여 해당 태스크로 이동"
+                          >
+                            <span className="font-medium text-gray-700 group-hover/task:text-blue-700">{a.taskName}</span>
+                            <span className="text-gray-300 mx-1">·</span>
+                            <span className="text-gray-400">{a.segmentName}</span>
+                          </button>
                         </td>
                         <td className="px-3 py-1.5 text-gray-500 text-xs whitespace-nowrap">
                           {a.startDate.slice(5)} ~ {a.endDate.slice(5)}

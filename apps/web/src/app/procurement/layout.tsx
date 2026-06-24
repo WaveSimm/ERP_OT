@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import AppLayout from "@/components/AppLayout";
+import { getUser } from "@/lib/api";
 
 const TABS = [
   { key: "contracts", label: "계약 관리", href: "/procurement/contracts" },
@@ -36,6 +38,15 @@ function getActiveTab(pathname: string): string {
 export default function ProcurementLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+
+  // 시범 릴리즈(2026-06-23): 회계 메뉴는 관리자 전용 — 비관리자 직접 URL 접근 차단
+  const [allowed, setAllowed] = useState<boolean | null>(null);
+  useEffect(() => {
+    const u = getUser();
+    if (!u || u.role !== "ADMIN") { router.replace("/me/dashboard"); setAllowed(false); }
+    else setAllowed(true);
+  }, [router]);
+
   const activeTab = getActiveTab(pathname);
   const isDetailPage = pathname.startsWith("/procurement/orders/") ||
     pathname.startsWith("/procurement/contracts/") ||
@@ -43,6 +54,8 @@ export default function ProcurementLayout({ children }: { children: React.ReactN
     pathname.startsWith("/procurement/inventory/") ||
     pathname.startsWith("/procurement/settlements/") ||
     pathname.startsWith("/procurement/audits/");
+
+  if (allowed !== true) return null;
 
   return (
     <AppLayout>

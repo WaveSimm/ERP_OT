@@ -61,16 +61,20 @@ function SegmentCard({
   const [assignSearch, setAssignSearch] = useState("");
   const [newAssign, setNewAssign] = useState({ resourceId: "", allocationMode: "PERCENT" as "PERCENT" | "HOURS", allocationPercent: 100, allocationHoursPerDay: 8 });
 
+  // 구간 날짜를 YYYY-MM-DD로 정규화 (단일 태스크 GET은 풀 ISO 반환 → DateInput 공백 방지)
+  const segStart = (seg.startDate ?? "").slice(0, 10);
+  const segEnd = (seg.endDate ?? "").slice(0, 10);
+
   // 인라인 편집 로컬 상태
   const [name, setName] = useState(seg.name);
-  const [startDate, setStartDate] = useState(seg.startDate);
-  const [endDate, setEndDate] = useState(seg.endDate);
+  const [startDate, setStartDate] = useState(segStart);
+  const [endDate, setEndDate] = useState(segEnd);
   const [progress, setProgress] = useState<number>(seg.progressPercent);
   const [errorPopup, setErrorPopup] = useState<{ message: string } | null>(null);
   // ref for save-on-blur without stale closures
-  const latestDates = useRef({ startDate: seg.startDate, endDate: seg.endDate });
+  const latestDates = useRef({ startDate: segStart, endDate: segEnd });
   // 마지막으로 저장된 값 (revert 기준)
-  const savedRef = useRef({ name: seg.name, startDate: seg.startDate, endDate: seg.endDate, progress: seg.progressPercent });
+  const savedRef = useRef({ name: seg.name, startDate: segStart, endDate: segEnd, progress: seg.progressPercent });
 
   const revertSegFields = () => {
     const s = savedRef.current;
@@ -90,11 +94,11 @@ function SegmentCard({
   useEffect(() => {
     if (refreshKey > 0) {
       setName(seg.name);
-      setStartDate(seg.startDate);
-      setEndDate(seg.endDate);
+      setStartDate(segStart);
+      setEndDate(segEnd);
       setProgress(seg.progressPercent);
-      latestDates.current = { startDate: seg.startDate, endDate: seg.endDate };
-      savedRef.current = { name: seg.name, startDate: seg.startDate, endDate: seg.endDate, progress: seg.progressPercent };
+      latestDates.current = { startDate: segStart, endDate: segEnd };
+      savedRef.current = { name: seg.name, startDate: segStart, endDate: segEnd, progress: seg.progressPercent };
       loadAssignments();
     }
   }, [refreshKey]);
@@ -156,6 +160,46 @@ function SegmentCard({
     }
   };
 
+  // 자원-기여도-진척률: 분담율 변경 (기존 배정율은 그대로 유지)
+  const saveAssignWeight = async (resourceId: string, weight: number) => {
+    const a = assignments.find(x => x.resourceId === resourceId);
+    if (!a) return;
+    const oldWeight = a.contributionWeight ?? 0;
+    const newWeight = Math.min(100, Math.max(0, weight));
+    const base: any = { resourceId, allocationMode: a.allocationMode ?? "PERCENT" };
+    if ((a.allocationMode ?? "PERCENT") === "PERCENT") base.allocationPercent = a.allocationPercent ?? 100;
+    else base.allocationHoursPerDay = a.allocationHoursPerDay ?? 8;
+    try {
+      await taskApi.upsertAssignment(projectId, taskId, seg.id, { ...base, contributionWeight: newWeight });
+      const resName = resources.find(r => r.id === resourceId)?.name ?? a.resourceName ?? resourceId;
+      pushUndo?.({
+        label: `"${taskName ?? taskId}" 자원 "${resName}" 분담율 변경`,
+        undo: async () => { await taskApi.upsertAssignment(projectId, taskId, seg.id, { ...base, contributionWeight: oldWeight }); },
+        redo: async () => { await taskApi.upsertAssignment(projectId, taskId, seg.id, { ...base, contributionWeight: newWeight }); },
+      });
+      await loadAssignments();
+      onRefresh();
+    } catch (e: any) { await loadAssignments(); setErrorPopup({ message: e.message }); }
+  };
+
+  // 자원-기여도-진척률: 자원 본인 진척률 변경 (본인/관리자만 — 백엔드 403 검증)
+  const saveAssignProgress = async (resourceId: string, progress: number) => {
+    const a = assignments.find(x => x.resourceId === resourceId);
+    const oldProgress = a?.progressPercent ?? 0;
+    const newProgress = Math.min(100, Math.max(0, progress));
+    try {
+      await taskApi.updateAssignmentProgress(projectId, taskId, seg.id, resourceId, { progressPercent: newProgress });
+      const resName = resources.find(r => r.id === resourceId)?.name ?? a?.resourceName ?? resourceId;
+      pushUndo?.({
+        label: `"${taskName ?? taskId}" 자원 "${resName}" 진척률 변경`,
+        undo: async () => { await taskApi.updateAssignmentProgress(projectId, taskId, seg.id, resourceId, { progressPercent: oldProgress }); },
+        redo: async () => { await taskApi.updateAssignmentProgress(projectId, taskId, seg.id, resourceId, { progressPercent: newProgress }); },
+      });
+      await loadAssignments();
+      onRefresh();
+    } catch (e: any) { await loadAssignments(); setErrorPopup({ message: e.message }); }
+  };
+
   const handleAddAssign = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAssign.resourceId) return;
@@ -164,6 +208,8 @@ function SegmentCard({
       const payload: any = { resourceId: newAssign.resourceId, allocationMode: newAssign.allocationMode };
       if (newAssign.allocationMode === "PERCENT") payload.allocationPercent = newAssign.allocationPercent;
       else payload.allocationHoursPerDay = newAssign.allocationHoursPerDay;
+      // 신규 배정 분담율: 균등 분배 제안 (합 정규화는 계산에서 흡수, D1 소프트)
+      payload.contributionWeight = Math.round(100 / (assignments.length + 1));
       const resId = newAssign.resourceId;
       const resName = resources.find(r => r.id === resId)?.name ?? resId;
       await taskApi.upsertAssignment(projectId, taskId, seg.id, payload);
@@ -207,6 +253,14 @@ function SegmentCard({
   const unusedResources = resources.filter((r) => !assignments.some((a) => a.resourceId === r.id));
   const isSaving = saving === "seg-" + seg.id;
 
+  // 자원-기여도-진척률: 세그먼트 진척률(derived) + 분담율 합
+  const hasAssignments = assignments.length > 0;
+  const weightSum = assignments.reduce((s: number, a: any) => s + (a.contributionWeight ?? 0), 0);
+  const derivedSegProgress = weightSum > 0
+    ? Math.round((assignments.reduce((s: number, a: any) => s + (a.contributionWeight ?? 0) * (a.progressPercent ?? 0), 0) / weightSum) * 10) / 10
+    : 0;
+  const weightMismatch = hasAssignments && Math.round(weightSum) !== 100;
+
   return (
     <div className={clsx("border rounded-lg p-3 space-y-2", isHidden ? "border-gray-100 bg-gray-50/50 opacity-60" : "border-gray-200")}>
       {/* 구간명 + 토글 + 삭제 */}
@@ -242,7 +296,7 @@ function SegmentCard({
 
       {/* 날짜 */}
       {readonly ? (
-        <p className="text-xs text-gray-500">{seg.startDate} ~ {seg.endDate}</p>
+        <p className="text-xs text-gray-500">{segStart} ~ {segEnd}</p>
       ) : (
         <div className="flex items-center gap-1.5">
           <DateInput
@@ -250,7 +304,7 @@ function SegmentCard({
             onChange={(e) => { const v = e.target.value; setStartDate(v); latestDates.current.startDate = v; }}
             onBlur={() => {
               const { startDate: s, endDate: e } = latestDates.current;
-              if (s !== seg.startDate || e !== seg.endDate) saveSegField({ startDate: s, endDate: e });
+              if (s !== segStart || e !== segEnd) saveSegField({ startDate: s, endDate: e });
             }}
             disabled={isSaving}
             className="text-xs px-1.5 py-0.5 border border-gray-200 rounded w-[120px]"
@@ -261,7 +315,7 @@ function SegmentCard({
             onChange={(e) => { const v = e.target.value; setEndDate(v); latestDates.current.endDate = v; }}
             onBlur={() => {
               const { startDate: s, endDate: e } = latestDates.current;
-              if (s !== seg.startDate || e !== seg.endDate) saveSegField({ startDate: s, endDate: e });
+              if (s !== segStart || e !== segEnd) saveSegField({ startDate: s, endDate: e });
             }}
             disabled={isSaving}
             className="text-xs px-1.5 py-0.5 border border-gray-200 rounded w-[120px]"
@@ -269,32 +323,46 @@ function SegmentCard({
         </div>
       )}
 
-      {/* 진행률 */}
-      <div className="flex items-center gap-2">
-        {readonly ? (
-          <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-            <div className="h-full bg-blue-300 rounded-full" style={{ width: `${seg.progressPercent}%` }} />
+      {/* 진행률 — 자원 배정 시 derived(읽기전용), 자원 0명일 때만 직접 입력(D6) */}
+      {hasAssignments ? (
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden" title="자원별 분담율 가중 진척률(자동 계산)">
+              <div className="h-full bg-blue-400 rounded-full" style={{ width: `${derivedSegProgress}%` }} />
+            </div>
+            <span className="text-xs font-medium text-gray-600 shrink-0">{derivedSegProgress}%</span>
           </div>
-        ) : (
-          <>
-            <input
-              type="range" min={0} max={100} step={5} value={progress}
-              onChange={(e) => setProgress(Number(e.target.value))}
-              onMouseUp={() => saveSegField({ progressPercent: progress })}
-              onTouchEnd={() => saveSegField({ progressPercent: progress })}
-              className="flex-1 accent-blue-600"
-            />
-            <input
-              type="number" min={0} max={100} value={progress}
-              onChange={(e) => setProgress(Math.min(100, Math.max(0, Number(e.target.value))))}
-              onBlur={() => saveSegField({ progressPercent: progress })}
-              onFocus={(e) => (e.target as HTMLInputElement).select()}
-              className="w-12 text-xs border border-gray-200 rounded px-1.5 py-1 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </>
-        )}
-        <span className="text-xs text-gray-500 shrink-0">%</span>
-      </div>
+          {weightMismatch && (
+            <p className="text-[10px] text-amber-600">⚠ 분담율 합 {Math.round(weightSum)}% (권장 100%) — 합 기준으로 정규화되어 계산됩니다</p>
+          )}
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          {readonly ? (
+            <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-full bg-blue-300 rounded-full" style={{ width: `${seg.progressPercent}%` }} />
+            </div>
+          ) : (
+            <>
+              <input
+                type="range" min={0} max={100} step={5} value={progress}
+                onChange={(e) => setProgress(Number(e.target.value))}
+                onMouseUp={() => saveSegField({ progressPercent: progress })}
+                onTouchEnd={() => saveSegField({ progressPercent: progress })}
+                className="flex-1 accent-blue-600"
+              />
+              <input
+                type="number" min={0} max={100} value={progress}
+                onChange={(e) => setProgress(Math.min(100, Math.max(0, Number(e.target.value))))}
+                onBlur={() => saveSegField({ progressPercent: progress })}
+                onFocus={(e) => (e.target as HTMLInputElement).select()}
+                className="w-12 text-xs border border-gray-200 rounded px-1.5 py-1 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </>
+          )}
+          <span className="text-xs text-gray-500 shrink-0">%</span>
+        </div>
+      )}
 
       {/* 저장 오류 팝업 */}
       {errorPopup && (
@@ -323,35 +391,79 @@ function SegmentCard({
           <p className="text-xs text-gray-300">배정된 자원 없음</p>
         )}
         {assignments.map((a: any) => (
-          <div key={a.resourceId} className="flex items-center gap-1.5 bg-gray-50 rounded px-2 py-1">
-            <span className="text-xs shrink-0">{a.resourceType === "EQUIPMENT" ? "🔧" : "👤"}</span>
-            <span className="text-xs font-medium text-gray-700 flex-1 truncate">{a.resourceName}</span>
-            {readonly ? (
-              <span className="text-xs text-gray-400">{a.allocationMode === "PERCENT" ? `${a.allocationPercent ?? 100}%` : `${a.allocationHoursPerDay ?? 8}h/일`}</span>
-            ) : (
-              <>
-                <select
-                  value={a.allocationMode ?? "PERCENT"}
-                  onChange={(e) => saveAssignAlloc(a.resourceId, e.target.value, e.target.value === "PERCENT" ? (a.allocationPercent ?? 100) : (a.allocationHoursPerDay ?? 8))}
-                  className="text-xs border border-gray-200 rounded px-1 py-0.5 focus:outline-none"
-                >
-                  <option value="PERCENT">%</option>
-                  <option value="HOURS">h/일</option>
-                </select>
+          <div key={a.resourceId} className="bg-gray-50 rounded px-2 py-1.5 space-y-1">
+            {/* 1행: 이름 + 투입률 + 삭제 */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs shrink-0">{a.resourceType === "EQUIPMENT" ? "🔧" : "👤"}</span>
+              <span className="text-xs font-medium text-gray-700 flex-1 truncate">{a.resourceName}</span>
+              {readonly ? (
+                <span className="text-xs text-gray-400">{a.allocationPercent ?? 100}%</span>
+              ) : (
+                <>
+                  <span className="text-[10px] text-gray-400 shrink-0" title="내 역량(100%) 중 이 태스크에 투입하는 비율">내 투입</span>
+                  <input
+                    key={`${a.resourceId}-${a.allocationPercent}`}
+                    type="number" min={0} max={200} step={5}
+                    defaultValue={a.allocationPercent ?? 100}
+                    onBlur={(e) => saveAssignAlloc(a.resourceId, "PERCENT", Number(e.target.value))}
+                    onFocus={(e) => (e.target as HTMLInputElement).select()}
+                    className="w-12 text-xs border border-gray-200 rounded px-1.5 py-0.5 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <span className="text-[10px] text-gray-400 shrink-0">%</span>
+                  <button onClick={() => handleRemoveAssign(a.resourceId)} className="text-gray-300 hover:text-red-500 text-xs shrink-0">×</button>
+                </>
+              )}
+            </div>
+            {/* 2행: 분담율 + 본인 진척률 바 */}
+            <div className="flex items-center gap-1.5 pl-5">
+              <span className="text-[10px] text-gray-400 shrink-0" title="이 태스크에서 이 자원의 몫">분담</span>
+              {readonly ? (
+                <span className="text-[11px] text-gray-500 w-10 shrink-0">{a.contributionWeight ?? 0}%</span>
+              ) : (
                 <input
-                  key={`${a.resourceId}-${a.allocationMode}-${a.allocationPercent}-${a.allocationHoursPerDay}`}
-                  type="number"
-                  min={a.allocationMode === "HOURS" ? 0.5 : 1}
-                  max={a.allocationMode === "HOURS" ? 24 : 200}
-                  step={a.allocationMode === "HOURS" ? 0.5 : 1}
-                  defaultValue={a.allocationMode === "PERCENT" ? (a.allocationPercent ?? 100) : (a.allocationHoursPerDay ?? 8)}
-                  onBlur={(e) => saveAssignAlloc(a.resourceId, a.allocationMode ?? "PERCENT", Number(e.target.value))}
+                  key={`w-${a.resourceId}-${a.contributionWeight}`}
+                  type="number" min={0} max={100} step={5}
+                  defaultValue={a.contributionWeight ?? 0}
+                  onBlur={(e) => { const v = Number(e.target.value); if (v !== (a.contributionWeight ?? 0)) saveAssignWeight(a.resourceId, v); }}
                   onFocus={(e) => (e.target as HTMLInputElement).select()}
-                  className="w-14 text-xs border border-gray-200 rounded px-1.5 py-0.5 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-11 text-[11px] border border-gray-200 rounded px-1 py-0.5 text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  title="분담율 %"
                 />
-                <button onClick={() => handleRemoveAssign(a.resourceId)} className="text-gray-300 hover:text-red-500 text-xs shrink-0">×</button>
-              </>
-            )}
+              )}
+              <span className="text-[10px] text-gray-400 shrink-0 ml-1" title="이 자원의 본인 진척률">진척</span>
+              {readonly ? (
+                <>
+                  <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${a.progressPercent ?? 0}%` }} />
+                  </div>
+                  <span className="text-[11px] text-gray-500 w-9 text-right shrink-0">{a.progressPercent ?? 0}%</span>
+                </>
+              ) : (
+                <>
+                  <input
+                    type="range" min={0} max={100} step={5}
+                    value={a.progressPercent ?? 0}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      setAssignments((prev) => prev.map((x) => x.resourceId === a.resourceId ? { ...x, progressPercent: v } : x));
+                    }}
+                    onMouseUp={(e) => saveAssignProgress(a.resourceId, Number((e.target as HTMLInputElement).value))}
+                    onTouchEnd={(e) => saveAssignProgress(a.resourceId, Number((e.target as HTMLInputElement).value))}
+                    className="flex-1 h-1.5 accent-emerald-500 cursor-pointer"
+                    title="드래그해서 진척률 조절"
+                  />
+                  <input
+                    key={`p-${a.resourceId}-${a.progressPercent}`}
+                    type="number" min={0} max={100} step={5}
+                    defaultValue={a.progressPercent ?? 0}
+                    onBlur={(e) => { const v = Number(e.target.value); if (v !== (a.progressPercent ?? 0)) saveAssignProgress(a.resourceId, v); }}
+                    onFocus={(e) => (e.target as HTMLInputElement).select()}
+                    className="w-11 text-[11px] border border-gray-200 rounded px-1 py-0.5 text-right focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    title="본인 진척률 %"
+                  />
+                </>
+              )}
+            </div>
           </div>
         ))}
         {showAddAssign && (
@@ -390,23 +502,13 @@ function SegmentCard({
                 선택: {unusedResources.find((r: any) => r.id === newAssign.resourceId)?.name}
               </p>
             )}
-            <div className="flex gap-2">
-              <select value={newAssign.allocationMode} onChange={(e) => setNewAssign({ ...newAssign, allocationMode: e.target.value as "PERCENT" | "HOURS" })}
-                className="px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none">
-                <option value="PERCENT">% 배정</option>
-                <option value="HOURS">시간/일</option>
-              </select>
-              {newAssign.allocationMode === "PERCENT" ? (
-                <input type="number" min={1} max={200} value={newAssign.allocationPercent}
-                  onChange={(e) => setNewAssign({ ...newAssign, allocationPercent: Number(e.target.value) })}
-                  onFocus={(e) => (e.target as HTMLInputElement).select()}
-                  className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none" placeholder="%" />
-              ) : (
-                <input type="number" min={0.5} max={24} step={0.5} value={newAssign.allocationHoursPerDay}
-                  onChange={(e) => setNewAssign({ ...newAssign, allocationHoursPerDay: Number(e.target.value) })}
-                  onFocus={(e) => (e.target as HTMLInputElement).select()}
-                  className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none" placeholder="h/일" />
-              )}
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-gray-500">내 투입률</span>
+              <input type="number" min={0} max={200} step={5} value={newAssign.allocationPercent}
+                onChange={(e) => setNewAssign({ ...newAssign, allocationPercent: Number(e.target.value) })}
+                onFocus={(e) => (e.target as HTMLInputElement).select()}
+                className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none" placeholder="%" />
+              <span className="text-xs text-gray-500">%</span>
             </div>
             <div className="flex gap-2">
               <button type="button" onClick={() => { setShowAddAssign(false); setAssignSearch(""); }} className="flex-1 py-1 border border-gray-300 rounded text-xs hover:bg-gray-50">취소</button>
@@ -628,8 +730,10 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
     setSaving("seg");
     try {
       const segment = await taskApi.createSegment(projectId, task.id, newSeg);
+      // 자원-기여도-진척률: 신규 구간 자원에 분담율 균등 분배
+      const evenWeight = segFormAssigns.length > 0 ? Math.round(100 / segFormAssigns.length) : 0;
       for (const a of segFormAssigns) {
-        const payload: any = { resourceId: a.resourceId, allocationMode: a.allocationMode };
+        const payload: any = { resourceId: a.resourceId, allocationMode: a.allocationMode, contributionWeight: evenWeight };
         if (a.allocationMode === "PERCENT") payload.allocationPercent = a.allocationPercent;
         else payload.allocationHoursPerDay = a.allocationHoursPerDay;
         await taskApi.upsertAssignment(projectId, task.id, segment.id, payload);
@@ -1005,26 +1109,13 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
                             선택: {allResources.find((r: any) => r.id === newParentRes.resourceId)?.name}
                           </p>
                         )}
-                        <div className="flex gap-2">
-                          <select
-                            value={newParentRes.allocationMode}
-                            onChange={(e) => setNewParentRes({ ...newParentRes, allocationMode: e.target.value as "PERCENT" | "HOURS" })}
-                            className="px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none"
-                          >
-                            <option value="PERCENT">% 배정</option>
-                            <option value="HOURS">시간/일</option>
-                          </select>
-                          {newParentRes.allocationMode === "PERCENT" ? (
-                            <input type="number" min={1} max={200} value={newParentRes.allocationPercent}
-                              onChange={(e) => setNewParentRes({ ...newParentRes, allocationPercent: Number(e.target.value) })}
-                              onFocus={(e) => (e.target as HTMLInputElement).select()}
-                              className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none" placeholder="%" />
-                          ) : (
-                            <input type="number" min={0.5} max={24} step={0.5} value={newParentRes.allocationHoursPerDay}
-                              onChange={(e) => setNewParentRes({ ...newParentRes, allocationHoursPerDay: Number(e.target.value) })}
-                              onFocus={(e) => (e.target as HTMLInputElement).select()}
-                              className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none" placeholder="h/일" />
-                          )}
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-gray-500">내 투입률</span>
+                          <input type="number" min={0} max={200} step={5} value={newParentRes.allocationPercent}
+                            onChange={(e) => setNewParentRes({ ...newParentRes, allocationPercent: Number(e.target.value) })}
+                            onFocus={(e) => (e.target as HTMLInputElement).select()}
+                            className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none" placeholder="%" />
+                          <span className="text-xs text-gray-500">%</span>
                         </div>
                         <div className="flex gap-2">
                           <button type="button" onClick={() => { setShowAddParentRes(false); setParentResSearch(""); }}
@@ -1067,31 +1158,19 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
                     {segFormAssigns.map((a, i) => (
                       <div key={a.resourceId} className="flex items-center gap-1.5 bg-white rounded px-2 py-1 border border-gray-200">
                         <span className="text-xs font-medium text-gray-700 flex-1 truncate">{a.resourceName}</span>
-                        <select
-                          value={a.allocationMode}
-                          onChange={(e) => setSegFormAssigns(segFormAssigns.map((x, j) => j === i ? { ...x, allocationMode: e.target.value } : x))}
-                          className="text-xs border border-gray-200 rounded px-1 py-0.5 focus:outline-none"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <option value="PERCENT">%</option>
-                          <option value="HOURS">h/일</option>
-                        </select>
+                        <span className="text-[10px] text-gray-400 shrink-0">내 투입</span>
                         <input
-                          type="number"
-                          min={a.allocationMode === "HOURS" ? 0.5 : 1}
-                          max={a.allocationMode === "HOURS" ? 24 : 200}
-                          step={a.allocationMode === "HOURS" ? 0.5 : 1}
-                          value={a.allocationMode === "PERCENT" ? a.allocationPercent : a.allocationHoursPerDay}
+                          type="number" min={0} max={200} step={5}
+                          value={a.allocationPercent}
                           onChange={(e) => {
                             const v = Number(e.target.value);
-                            setSegFormAssigns(segFormAssigns.map((x, j) => j === i
-                              ? { ...x, allocationPercent: x.allocationMode === "PERCENT" ? v : x.allocationPercent, allocationHoursPerDay: x.allocationMode === "HOURS" ? v : x.allocationHoursPerDay }
-                              : x));
+                            setSegFormAssigns(segFormAssigns.map((x, j) => j === i ? { ...x, allocationPercent: v } : x));
                           }}
                           onFocus={(e) => (e.target as HTMLInputElement).select()}
                           className="w-14 text-xs border border-gray-200 rounded px-1.5 py-0.5 text-right focus:outline-none"
                           onClick={(e) => e.stopPropagation()}
                         />
+                        <span className="text-[10px] text-gray-400 shrink-0">%</span>
                         <button type="button" onClick={() => setSegFormAssigns(segFormAssigns.filter((_, j) => j !== i))}
                           className="text-gray-300 hover:text-red-500 text-xs shrink-0">×</button>
                       </div>

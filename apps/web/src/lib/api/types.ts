@@ -61,6 +61,8 @@ export interface SegmentAssignment {
   allocationMode: string;
   allocationPercent: number | null;
   allocationHoursPerDay: number | null;
+  contributionWeight: number; // 분담율 0~100 (자원-기여도-진척률)
+  progressPercent: number; // 이 자원의 본인 진척률 0~100
   createdAt: string;
   updatedAt: string;
   resourceName?: string;
@@ -1345,4 +1347,52 @@ export interface ImportCostSettlement {
   items?: unknown[];
   extras?: unknown[];
   remittances?: unknown[];
+}
+
+// ─── 프로젝트 요약 (project summary) ──────────────────────────────────────────
+export interface ProjectSummaryParticipant {
+  resourceId: string;
+  type: "PERSON" | "EXTERNAL" | "EQUIPMENT";
+  name: string;
+  departmentName?: string | null;
+  company?: string | null;
+  taskCount: number;
+  segmentCount: number;
+  avgContribution: number;
+  avgProgress: number;
+}
+export interface ProjectSummary {
+  id: string;
+  name: string;
+  status: string;
+  description: string | null;
+  overallProgress: number;
+  startDate: string | null;
+  endDate: string | null;
+  taskStats: { total: number; done: number; inProgress: number; todo: number; blocked: number; onHold: number; overdue: number };
+  schedule: { elapsedPercent: number; progressPercent: number; behindBy: number } | null;
+  nextMilestone: { name: string; date: string; dDay: number } | null;
+  milestoneCount: number;
+  createdBy: string;
+  creatorName: string | null;
+  ownerId: string;
+  ownerName: string | null;
+  createdAt: string;
+  counts: { person: number; external: number; equipment: number; departments: number };
+  departments: { name: string; count: number }[];
+  participants: ProjectSummaryParticipant[];
+}
+
+// ─── 프로젝트 템플릿 (project template) ───────────────────────────────────────
+export interface ProjectTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  scope: string;
+  tags: string[];
+  isRecommended: boolean;
+  usageCount: number;
+  createdAt: string;
+  _count?: { templateTasks: number };
 }

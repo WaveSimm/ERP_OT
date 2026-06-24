@@ -20,9 +20,10 @@ interface Props {
   onRefresh: () => void;
   /** 상위 태스크용: 하위 자원 집계 목록. 제공 시 아바타 표시에 사용 */
   displayResources?: any[];
+  pushUndo?: (action: { label: string; undo: () => Promise<void>; redo: () => Promise<void> }) => void;
 }
 
-export default function ResourcePickerPopover({ task, projectId, allResources, onRefresh, displayResources }: Props) {
+export default function ResourcePickerPopover({ task, projectId, allResources, onRefresh, displayResources, pushUndo }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState<string | null>(null);
@@ -65,12 +66,35 @@ export default function ResourcePickerPopover({ task, projectId, allResources, o
     setSaving(resource.id);
     try {
       if (assignedIds.has(resource.id)) {
+        // 해제 — 복원용 기존 배정 데이터 캡처
+        const old = (firstSeg.assignments ?? []).find((a: any) => a.resourceId === resource.id);
+        const restorePayload: any = {
+          resourceId: resource.id,
+          allocationMode: old?.allocationMode ?? "PERCENT",
+          allocationPercent: old?.allocationPercent ?? 100,
+          ...(old?.allocationHoursPerDay != null ? { allocationHoursPerDay: old.allocationHoursPerDay } : {}),
+          ...(old?.contributionWeight != null ? { contributionWeight: old.contributionWeight } : {}),
+        };
         await taskApi.removeAssignment(projectId, task.id, firstSeg.id, resource.id);
+        pushUndo?.({
+          label: `자원 "${resource.name}" 해제`,
+          undo: async () => { await taskApi.upsertAssignment(projectId, task.id, firstSeg.id, restorePayload); },
+          redo: async () => { await taskApi.removeAssignment(projectId, task.id, firstSeg.id, resource.id); },
+        });
       } else {
-        await taskApi.upsertAssignment(projectId, task.id, firstSeg.id, {
+        // 자원-기여도-진척률: 신규 배정 분담율 균등 분배 제안 (합 정규화는 계산에서 흡수)
+        const firstSegAssignCount = (firstSeg.assignments ?? []).length;
+        const payload: any = {
           resourceId: resource.id,
           allocationMode: "PERCENT",
           allocationPercent: 100,
+          contributionWeight: Math.round(100 / (firstSegAssignCount + 1)),
+        };
+        await taskApi.upsertAssignment(projectId, task.id, firstSeg.id, payload);
+        pushUndo?.({
+          label: `자원 "${resource.name}" 배정`,
+          undo: async () => { await taskApi.removeAssignment(projectId, task.id, firstSeg.id, resource.id); },
+          redo: async () => { await taskApi.upsertAssignment(projectId, task.id, firstSeg.id, payload); },
         });
       }
       onRefresh();
@@ -79,7 +103,7 @@ export default function ResourcePickerPopover({ task, projectId, allResources, o
     } finally {
       setSaving(null);
     }
-  }, [task, projectId, firstSeg, assignedIds, onRefresh]);
+  }, [task, projectId, firstSeg, assignedIds, onRefresh, pushUndo]);
 
   const filtered = allResources.filter((r) =>
     r.name.toLowerCase().includes(search.toLowerCase())
@@ -105,7 +129,7 @@ export default function ResourcePickerPopover({ task, projectId, allResources, o
         return (
           <div
             key={a.resourceId}
-            title={`${name} (${a.allocationMode === "PERCENT" ? `${a.allocationPercent ?? 100}%` : `${a.allocationHoursPerDay ?? 8}h/일`})`}
+            title={`${name} (내 투입 ${a.allocationPercent ?? 100}% · 분담 ${a.contributionWeight ?? 0}%)`}
             className={`w-6 h-6 rounded-full ${avatarColor(name)} flex items-center justify-center text-white text-[9px] font-bold ring-2 ring-white shrink-0`}
             style={{ marginLeft: idx === 0 ? 0 : -8, zIndex: visibleAvatars.length - idx }}
           >

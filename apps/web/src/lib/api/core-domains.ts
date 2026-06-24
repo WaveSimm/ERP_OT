@@ -7,6 +7,7 @@ import type {
   WorkScheduleEntry, LeaveBalance, LeaveRequest, HolidayWorkRequest,
   User, Department, ApprovalLine,
   Notification, ActivityLog, DashboardConfig,
+  ProjectSummary, ProjectTemplate,
 } from "./types";
 
 
@@ -20,6 +21,7 @@ export const projectApi = {
     );
   },
   get: (id: string) => request<Project>(`/projects/${id}`),
+  getSummary: (id: string) => request<ProjectSummary>(`/projects/${id}/summary`),
   create: (data: { name: string; description?: string }) =>
     request<Project>("/projects", { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, data: Record<string, unknown>) =>
@@ -135,6 +137,7 @@ export const taskApi = {
     allocationMode: "PERCENT" | "HOURS";
     allocationPercent?: number;
     allocationHoursPerDay?: number;
+    contributionWeight?: number;
   }) =>
     request<SegmentAssignment>(`/projects/${projectId}/tasks/${taskId}/segments/${segmentId}/assignments`, {
       method: "PUT",
@@ -144,6 +147,15 @@ export const taskApi = {
     request<void>(
       `/projects/${projectId}/tasks/${taskId}/segments/${segmentId}/assignments/${resourceId}`,
       { method: "DELETE" },
+    ),
+  // 자원-기여도-진척률: 자원 본인 진척률 갱신
+  updateAssignmentProgress: (projectId: string, taskId: string, segmentId: string, resourceId: string, data: {
+    progressPercent: number;
+    changeReason?: string;
+  }) =>
+    request<SegmentAssignment>(
+      `/projects/${projectId}/tasks/${taskId}/segments/${segmentId}/assignments/${resourceId}/progress`,
+      { method: "PATCH", body: JSON.stringify(data) },
     ),
 
   // Dependencies
@@ -395,9 +407,12 @@ export const baselineApi = {
 export const templateApi = {
   list: (params?: { category?: string; scope?: string }) => {
     const q = params ? new URLSearchParams(params as Record<string, string>).toString() : "";
-    return request<any[]>(`/templates${q ? `?${q}` : ""}`);
+    return request<ProjectTemplate[]>(`/templates${q ? `?${q}` : ""}`);
   },
   get: (id: string) => request<any>(`/templates/${id}`),
+  update: (id: string, data: { name?: string; description?: string; category?: string; tags?: string[]; scope?: string; isRecommended?: boolean }) =>
+    request<any>(`/templates/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  delete: (id: string) => request<void>(`/templates/${id}`, { method: "DELETE" }),
   preview: (id: string, data: { startDate: string }) =>
     request<any>(`/templates/${id}/preview`, { method: "POST", body: JSON.stringify(data) }),
   instantiate: (id: string, data: {

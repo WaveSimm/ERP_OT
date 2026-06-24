@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useState } from "react";
+import { useRouter } from "next/navigation";
 import { loadColor, loadLabel } from "@/lib/loadColor";
 
 /**
@@ -58,6 +59,7 @@ interface Props {
 const CELL_W = 28;
 
 export function ResourceTimeline({ rows }: Props) {
+  const router = useRouter();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   if (rows.length === 0) {
@@ -166,11 +168,18 @@ export function ResourceTimeline({ rows }: Props) {
                 ).map((a, idx) => (
                   <tr key={`${row.resourceId}-${a.segmentId}-${idx}`} className="border-b border-gray-50 bg-gray-50/30">
                     <td className="px-3 py-1.5 sticky left-0 bg-gray-50/30">
-                      <div className="flex items-center gap-2 pl-5">
-                        <span className="text-[11px] text-blue-600 truncate max-w-[100px]" title={a.projectName}>{a.projectName}</span>
+                      <button
+                        onClick={() => {
+                          try { sessionStorage.setItem(`erp_tab_${a.projectId}`, "tasks"); } catch {}
+                          router.push(`/projects/${a.projectId}?taskId=${a.taskId}`);
+                        }}
+                        className="flex items-center gap-2 pl-5 text-left hover:underline"
+                        title="클릭하여 해당 태스크로 이동"
+                      >
+                        <span className="text-[11px] text-blue-600 truncate max-w-[100px]">{a.projectName}</span>
                         <span className="text-gray-300">·</span>
-                        <span className="text-[11px] text-gray-700 truncate max-w-[120px]" title={a.taskName}>{a.taskName}</span>
-                      </div>
+                        <span className="text-[11px] text-gray-700 truncate max-w-[120px]">{a.taskName}</span>
+                      </button>
                     </td>
                     <td className="text-right px-2 py-1.5 text-[11px] text-gray-600">
                       {a.effectivePercent}%

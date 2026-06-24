@@ -10,6 +10,8 @@ type NavItem = {
   label: string;
   icon: string;
   managerOnly: boolean;
+  /** 시범 릴리즈(2026-06-23): 관리자 외 계정에서 숨김 — 회계/결재 메뉴 제한 */
+  adminOnly?: boolean;
   /** 두 줄 모드 분할 override — 자동 규칙(띄어쓰기/슬래시/floor(len/2))과 다른 결과를 강제할 때만 사용 */
   short?: [string, string];
 };
@@ -21,8 +23,8 @@ const NAV: NavItem[] = [
   { href: "/resources",      label: "자원",       icon: "👥", managerOnly: false },
   { href: "/equipment",      label: "장비",       icon: "🔧", managerOnly: false },
   { href: "/repair",         label: "수리",       icon: "🛠", managerOnly: false },
-  { href: "/procurement",    label: "회계",       icon: "📦", managerOnly: false },
-  { href: "/approval",       label: "결재",      icon: "📝", managerOnly: false },
+  { href: "/procurement",    label: "회계",       icon: "📦", managerOnly: false, adminOnly: true },
+  { href: "/approval",       label: "결재",      icon: "📝", managerOnly: false, adminOnly: true },
   { href: "/board",          label: "게시판",     icon: "📋", managerOnly: false },
 ];
 
@@ -295,7 +297,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </button>
 
           <nav className="flex items-center gap-1 shrink-0">
-            {NAV.filter((n) => !n.managerOnly || isManager).map((n) => {
+            {NAV.filter((n) => (!n.managerOnly || isManager) && (!n.adminOnly || isAdmin)).map((n) => {
               const [first, second] = n.short ?? splitLabel(n.label);
               return (
                 <button

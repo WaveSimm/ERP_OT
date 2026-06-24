@@ -17,6 +17,9 @@ export default function ApprovalLayout({ children }: { children: React.ReactNode
   const searchParams = useSearchParams();
   const router = useRouter();
 
+  // 시범 릴리즈(2026-06-23): 결재 메뉴는 대메뉴에서 숨기되, 경로는 열어둠.
+  //   휴가/휴일근무 신청이 /approval/new(전자결재)에 의존하므로 가드를 걸지 않음.
+
   const isDetailPage = /\/approval\/[^/]+/.test(pathname) && pathname !== "/approval/new";
 
   let activeTab = "pending";

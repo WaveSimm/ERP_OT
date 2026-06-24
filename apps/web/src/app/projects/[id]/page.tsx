@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef, Fragment } from "react";
 import clsx from "clsx";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { projectApi, taskApi, resourceApi, baselineApi, commentApi, templateApi, deploymentApi, userManagementApi, folderApi, listAssignableResources } from "@/lib/api";
+import { projectApi, taskApi, resourceApi, baselineApi, commentApi, deploymentApi, userManagementApi, folderApi, listAssignableResources } from "@/lib/api";
 import dynamic from "next/dynamic";
 import { usePermission } from "@/hooks/usePermission";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
@@ -18,7 +18,7 @@ import AppLayout from "@/components/AppLayout";
 import CommentPopover from "@/components/CommentPopover";
 import ResourcePickerPopover from "@/components/ResourcePickerPopover";
 import ImpactPanel from "@/components/ImpactPanel";
-import TemplateWizard from "@/components/TemplateWizard";
+import ProjectSummaryDrawer from "@/components/ProjectSummaryDrawer";
 
 const GanttChart = dynamic(() => import("@/components/GanttChart"), { ssr: false });
 
@@ -159,13 +159,8 @@ export default function ProjectDetailPage() {
 
   // Panels
   const [showImpactPanel, setShowImpactPanel] = useState(false);
-  const [showTemplateWizard, setShowTemplateWizard] = useState(false);
-  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
-  const [saveTplName, setSaveTplName] = useState("");
-  const [saveTplCategory, setSaveTplCategory] = useState("");
-  const [saveTplIncludeAssignments, setSaveTplIncludeAssignments] = useState(false);
-  const [saveTplLoading, setSaveTplLoading] = useState(false);
-  const [saveTplError, setSaveTplError] = useState("");
+  const [showSummary, setShowSummary] = useState(false); // 프로젝트 요약 드로어
+  // 템플릿 적용/저장 상태는 프로젝트 목록 화면으로 이동 (2026-06-24)
 
   // Comment content map: commentId → content (for activity feed)
   const [commentContentMap, setCommentContentMap] = useState<Record<string, string>>({});
@@ -188,7 +183,10 @@ export default function ProjectDetailPage() {
     } catch { /* ignore */ }
   }, [projectId]);
   const { push: pushUndo, undo: handleUndo, redo: handleRedo, undoCount, redoCount, undoLabel, redoLabel, toast } =
-    useUndoRedo({ onAfterAction: refreshAfterUndoRedo });
+    useUndoRedo({
+      onAfterAction: refreshAfterUndoRedo,
+      onError: () => { void refreshAfterUndoRedo(); alert("작업을 되돌리지 못했습니다. 화면을 최신 상태로 새로고침했습니다."); },
+    });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -387,10 +385,25 @@ export default function ProjectDetailPage() {
         pushUndo({
           label: `태스크 "${taskName}" 삭제`,
           undo: async () => {
-            // 태스크 재생성 (세그먼트 포함)
-            const t = await taskApi.create(projectId, { name: taskData.name, parentId: taskData.parentId, sortOrder: taskData.sortOrder, description: taskData.description });
+            // 태스크 재생성 (세그먼트 포함). parentId/description은 null이면 생략 — API는 string|undefined만 허용(null 거부)
+            const t = await taskApi.create(projectId, {
+              name: taskData.name,
+              ...(taskData.parentId ? { parentId: taskData.parentId } : {}),
+              ...(taskData.sortOrder != null ? { sortOrder: taskData.sortOrder } : {}),
+              ...(taskData.description ? { description: taskData.description } : {}),
+            });
             for (const seg of (taskData.segments ?? [])) {
-              await taskApi.createSegment(projectId, t.id, { name: seg.name, startDate: seg.startDate, endDate: seg.endDate });
+              const newSeg: any = await taskApi.createSegment(projectId, t.id, { name: seg.name, startDate: seg.startDate, endDate: seg.endDate });
+              // 자원 배정 복구 (자원ID + 투입률 + 분담율)
+              for (const a of (seg.assignments ?? [])) {
+                await taskApi.upsertAssignment(projectId, t.id, newSeg.id, {
+                  resourceId: a.resourceId,
+                  allocationMode: a.allocationMode ?? "PERCENT",
+                  ...(a.allocationPercent != null ? { allocationPercent: a.allocationPercent } : {}),
+                  ...(a.allocationHoursPerDay != null ? { allocationHoursPerDay: a.allocationHoursPerDay } : {}),
+                  ...(a.contributionWeight != null ? { contributionWeight: a.contributionWeight } : {}),
+                }).catch(() => {});
+              }
             }
           },
           redo: async () => { await taskApi.delete(projectId, taskId).catch(() => {}); },
@@ -417,12 +430,55 @@ export default function ProjectDetailPage() {
     const count = selected.size;
     if (!confirm(`선택한 ${count}개 태스크를 삭제하시겠습니까?`)) return;
     const ids = Array.from(selected);
+    // 삭제 전 스냅샷 (태스크+세그먼트+자원배정)
+    const snapshot = ids
+      .map((id) => (ganttData?.tasks ?? []).find((t: any) => t.id === id))
+      .filter(Boolean) as any[];
+    const deletedIds = new Set(snapshot.map((t) => t.id));
     try {
       await Promise.all(ids.map((id) => taskApi.delete(projectId, id)));
+      let recreatedIds: string[] = [];
       pushUndo({
         label: `${count}개 태스크 일괄 삭제`,
-        undo: async () => {}, // 일괄 복원은 복잡하므로 reload만
-        redo: async () => {},
+        undo: async () => {
+          recreatedIds = [];
+          const idMap = new Map<string, string>(); // oldId → newId
+          const pending = [...snapshot];
+          let guard = 0;
+          while (pending.length > 0 && guard < 2000) {
+            guard++;
+            const t = pending.shift()!;
+            // 부모도 삭제대상인데 아직 재생성 전이면 뒤로 미룸 (부모 먼저 생성)
+            if (t.parentId && deletedIds.has(t.parentId) && !idMap.has(t.parentId)) { pending.push(t); continue; }
+            const newParentId = t.parentId
+              ? (deletedIds.has(t.parentId) ? idMap.get(t.parentId) : t.parentId)
+              : undefined;
+            const nt: any = await taskApi.create(projectId, {
+              name: t.name,
+              ...(newParentId ? { parentId: newParentId } : {}),
+              ...(t.sortOrder != null ? { sortOrder: t.sortOrder } : {}),
+              ...(t.description ? { description: t.description } : {}),
+            });
+            idMap.set(t.id, nt.id);
+            recreatedIds.push(nt.id);
+            for (const seg of (t.segments ?? [])) {
+              const newSeg: any = await taskApi.createSegment(projectId, nt.id, { name: seg.name, startDate: seg.startDate, endDate: seg.endDate });
+              for (const a of (seg.assignments ?? [])) {
+                await taskApi.upsertAssignment(projectId, nt.id, newSeg.id, {
+                  resourceId: a.resourceId,
+                  allocationMode: a.allocationMode ?? "PERCENT",
+                  ...(a.allocationPercent != null ? { allocationPercent: a.allocationPercent } : {}),
+                  ...(a.allocationHoursPerDay != null ? { allocationHoursPerDay: a.allocationHoursPerDay } : {}),
+                  ...(a.contributionWeight != null ? { contributionWeight: a.contributionWeight } : {}),
+                }).catch(() => {});
+              }
+            }
+          }
+        },
+        redo: async () => {
+          await Promise.all(recreatedIds.map((id) => taskApi.delete(projectId, id).catch(() => {})));
+          recreatedIds = [];
+        },
       });
       setSelected(new Set());
       await load();
@@ -523,13 +579,11 @@ export default function ProjectDetailPage() {
   const [editVal, setEditVal] = useState<any>(null);
   // ref: 항상 최신 editVal 유지 (stale closure 방지)
   const editValRef = useRef<number>(0);
-  // ref: 저장 중 onBlur 이중 실행 방지
-  const progressSavingRef = useRef(false);
 
   const startEdit = (taskId: string, col: "status" | "progress" | "dates" | "note", val: any) => {
     setEditingCell({ taskId, col });
     setEditVal(val);
-    if (col === "progress") { editValRef.current = Number(val) || 0; progressSavingRef.current = false; }
+    if (col === "progress") { editValRef.current = Number(val) || 0; }
   };
   const cancelEdit = () => { setEditingCell(null); setEditVal(null); };
 
@@ -552,34 +606,7 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const saveProgress = async (taskId: string, progress: number) => {
-    if (progressSavingRef.current) return;
-    progressSavingRef.current = true;
-    const rounded = Math.round(progress);
-    const task = (ganttData?.tasks ?? []).find((t: any) => t.id === taskId);
-    const oldProgress = task?.overallProgress ?? 0;
-    const taskName = task?.name ?? taskId;
-    cancelEdit();
-    setGanttData((prev: any) => prev ? {
-      ...prev,
-      tasks: (prev.tasks ?? []).map((t: any) =>
-        t.id === taskId ? { ...t, overallProgress: rounded } : t
-      ),
-    } : prev);
-    try {
-      await taskApi.update(projectId, taskId, { overallProgress: rounded, isManualProgress: true });
-      pushUndo({
-        label: `"${taskName}" 진행률 ${oldProgress}% → ${rounded}%`,
-        undo: async () => { await taskApi.update(projectId, taskId, { overallProgress: oldProgress, isManualProgress: true }); },
-        redo: async () => { await taskApi.update(projectId, taskId, { overallProgress: rounded, isManualProgress: true }); },
-      });
-    } catch (e: any) {
-      alert(e?.message ?? "진행률 변경 실패");
-    } finally {
-      progressSavingRef.current = false;
-      await loadSilent();
-    }
-  };
+  // 자원-기여도-진척률 (D2): 진척률 수동 입력(saveProgress) 폐기 — 자원별 진척률로 자동 계산
 
   const createInlineTask = async () => {
     const name = inlineTaskName.trim();
@@ -727,6 +754,16 @@ export default function ProjectDetailPage() {
   // ── 타임라인 표시 범위 ──────────────────────────────────────────────────────
   const [viewStart, setViewStart] = useState("");
   const [viewEnd, setViewEnd] = useState("");
+  // 현재 구간 길이만큼 앞(-1)/뒤(+1)로 이동
+  const shiftViewRange = (dir: -1 | 1) => {
+    if (!viewStart || !viewEnd) return;
+    const s = new Date(viewStart), e = new Date(viewEnd);
+    const days = Math.round((e.getTime() - s.getTime()) / 86400000) + 1; // 포함 일수
+    s.setDate(s.getDate() + dir * days);
+    e.setDate(e.getDate() + dir * days);
+    setViewStart(toStr(s));
+    setViewEnd(toStr(e));
+  };
 
   // ── 타임라인 구간 가시성 ─────────────────────────────────────────────────────
   const [hiddenSegIds, setHiddenSegIds] = useState<Set<string>>(new Set());
@@ -1252,9 +1289,10 @@ export default function ProjectDetailPage() {
             <button
               onClick={handleRunCpm}
               disabled={runningCpm || tasks.length === 0}
+              title="일정 병목(크리티컬 패스) 분석 — 지연되면 프로젝트 종료가 밀리는 태스크를 찾습니다"
               className="text-sm px-3 py-1 border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-50 disabled:opacity-40 font-medium"
             >
-              {runningCpm ? "⏳..." : "🔴 CPM"}
+              {runningCpm ? "⏳..." : "이슈분석"}
             </button>
             {/* Baseline selector */}
             {baselines.length > 0 && (
@@ -1278,25 +1316,13 @@ export default function ProjectDetailPage() {
               영향 분석
             </button>
             <button
-              onClick={() => setShowTemplateWizard(true)}
-              className="text-sm px-3 py-1 border border-green-300 text-green-700 rounded-lg hover:bg-green-50 font-medium"
-              title="템플릿에서 태스크 추가"
+              onClick={() => setShowSummary(true)}
+              className="text-sm px-3 py-1 border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 font-medium"
+              title="프로젝트 요약 보기"
             >
-              템플릿 적용
+              요약
             </button>
-            <button
-              onClick={() => {
-                setSaveTplName(project?.name ?? "");
-                setSaveTplCategory("");
-                setSaveTplIncludeAssignments(false);
-                setSaveTplError("");
-                setShowSaveTemplate(true);
-              }}
-              className="text-sm px-3 py-1 border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-50 font-medium"
-              title="현재 프로젝트를 템플릿으로 저장"
-            >
-              템플릿 저장
-            </button>
+            {/* 템플릿 적용/저장 버튼은 프로젝트 목록 화면으로 이동 (2026-06-24) */}
             {/* 태스크/마일스톤 추가 버튼은 태스크 목록 하단 인라인 입력 행 아래로 이동 (혼동 방지) */}
           </div>
         </div>
@@ -1352,16 +1378,23 @@ export default function ProjectDetailPage() {
                 ))}
                 <div className="h-3 w-px bg-gray-200 mx-0.5" />
                 <span className="text-[11px] text-gray-400">범위</span>
+                <button onClick={() => shiftViewRange(-1)} disabled={!viewStart || !viewEnd}
+                  title="구간 길이만큼 앞으로 이동"
+                  className="w-6 h-6 flex items-center justify-center rounded-md border border-blue-300 bg-blue-50 text-blue-600 text-sm font-bold hover:bg-blue-100 hover:border-blue-400 disabled:opacity-40 transition-colors">◀</button>
                 <DateInput value={viewStart} onChange={(e) => setViewStart(e.target.value)}
                   className="text-[11px] px-1.5 py-0.5 border border-gray-200 rounded w-[120px]" />
                 <span className="text-[11px] text-gray-300">~</span>
                 <DateInput value={viewEnd} onChange={(e) => setViewEnd(e.target.value)}
                   className="text-[11px] px-1.5 py-0.5 border border-gray-200 rounded w-[120px]" />
+                <button onClick={() => shiftViewRange(1)} disabled={!viewStart || !viewEnd}
+                  title="구간 길이만큼 뒤로 이동"
+                  className="w-6 h-6 flex items-center justify-center rounded-md border border-blue-300 bg-blue-50 text-blue-600 text-sm font-bold hover:bg-blue-100 hover:border-blue-400 disabled:opacity-40 transition-colors">▶</button>
                 <button onClick={() => {
                   setViewStart(ganttData?.project?.effectiveStartDate || "");
                   setViewEnd(ganttData?.project?.effectiveEndDate || "");
-                }} className="text-[11px] text-gray-400 hover:text-gray-600 px-1.5 py-0.5 rounded hover:bg-gray-100">
-                  초기화
+                }} className="text-[11px] text-gray-400 hover:text-gray-600 px-1.5 py-0.5 rounded hover:bg-gray-100"
+                  title="프로젝트 전체 기간으로 보기">
+                  전체기간
                 </button>
                 <span className="text-[11px] text-gray-300 ml-auto">👆 바 클릭 시 상세 편집</span>
               </div>
@@ -1397,7 +1430,7 @@ export default function ProjectDetailPage() {
                 onCopySelected={isManager ? handleCopySelected : undefined}
                 onDeleteSelected={isManager ? handleDeleteSelected : undefined}
                 onClearSelection={() => setSelected(new Set())}
-                onProgressChange={isManager ? saveProgress : undefined}
+                onProgressChange={undefined}
                 onAddTask={isOperator ? () => { setAddAsMilestone(false); setShowAddTask(true); } : undefined}
                 onAddMilestone={isOperator ? () => { setAddAsMilestone(true); setShowAddTask(true); } : undefined}
                 holidays={holidays}
@@ -1494,8 +1527,6 @@ export default function ProjectDetailPage() {
                   const gapAfter  = dropGap !== null && dropGap.taskId === task.id && dropGap.pos === "after";
                   const isEditStatus   = editingCell !== null && editingCell.taskId === task.id && editingCell.col === "status";
                   const isEditDates    = editingCell !== null && editingCell.taskId === task.id && editingCell.col === "dates";
-                  const isEditProgress = editingCell !== null && editingCell.taskId === task.id && editingCell.col === "progress";
-                  const isLeafTask     = !task.isMilestone && !parentTaskIds.has(task.id);
                   return (
                     <Fragment key={task.id}>
                     <RowContextMenu
@@ -1609,27 +1640,8 @@ export default function ProjectDetailPage() {
                           </td>
                         );
                         if (col === "progress") return (
-                          <td key="progress" className={clsx("px-3", isLeafTask && !isEditProgress && "cursor-pointer hover:bg-blue-50/60")}
-                            onClick={isLeafTask && !isEditProgress
-                              ? (e) => { e.stopPropagation(); startEdit(task.id, "progress", task.overallProgress); }
-                              : undefined}
-                          >
-                            {isEditProgress ? (
-                              <input
-                                type="number" min={0} max={100} step={5}
-                                autoFocus
-                                defaultValue={Math.round(task.overallProgress)}
-                                onFocus={(e) => e.target.select()}
-                                onChange={(e) => { editValRef.current = Number(e.target.value); }}
-                                onBlur={() => saveProgress(task.id, editValRef.current)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") saveProgress(task.id, editValRef.current);
-                                  if (e.key === "Escape") cancelEdit();
-                                }}
-                                onClick={(e) => e.stopPropagation()}
-                                className="w-14 px-1 py-0.5 text-[11px] border border-blue-400 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                              />
-                            ) : task.isMilestone ? (
+                          <td key="progress" className="px-3">
+                            {task.isMilestone ? (
                               <div className="flex items-center gap-1.5" title="하위 태스크 평균 진행율">
                                 <div className="w-14 h-1 bg-gray-200 rounded-full overflow-hidden">
                                   <div className="h-full bg-purple-400 rounded-full" style={{ width: `${task.overallProgress ?? 0}%` }} />
@@ -1644,7 +1656,7 @@ export default function ProjectDetailPage() {
                                 <span className="text-[11px] text-gray-400 tabular-nums">{task.overallProgress.toFixed(0)}%</span>
                               </div>
                             ) : (
-                              <div className="flex items-center gap-1.5" title="클릭해서 수동 입력 (구간별 평균은 자동 계산)">
+                              <div className="flex items-center gap-1.5" title="자원별 분담율 가중 진척률(자동 계산)">
                                 <div className="w-14 h-1 bg-gray-200 rounded-full overflow-hidden">
                                   <div className="h-full bg-blue-500 rounded-full" style={{ width: `${task.overallProgress}%` }} />
                                 </div>
@@ -1661,6 +1673,7 @@ export default function ProjectDetailPage() {
                               allResources={resources}
                               onRefresh={load}
                               displayResources={parentTaskIds.has(task.id) ? (task._rolledUpResources ?? []) : undefined}
+                              pushUndo={pushUndo}
                             />
                           </td>
                         );
@@ -2155,97 +2168,9 @@ export default function ProjectDetailPage() {
         />
       )}
 
-      {showTemplateWizard && (
-        <TemplateWizard
-          projectId={projectId}
-          onClose={() => setShowTemplateWizard(false)}
-          onSuccess={load}
-        />
-      )}
+      {/* 프로젝트 요약 드로어 */}
+      {showSummary && <ProjectSummaryDrawer projectId={projectId} onClose={() => setShowSummary(false)} />}
 
-      {showSaveTemplate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowSaveTemplate(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">템플릿으로 저장</h2>
-                <p className="text-xs text-gray-500 mt-0.5">현재 프로젝트 구조를 템플릿으로 저장합니다</p>
-              </div>
-              <button onClick={() => setShowSaveTemplate(false)} className="text-gray-400 hover:text-gray-600 text-xl font-light">×</button>
-            </div>
-
-            <div className="px-6 py-5 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">템플릿 이름 <span className="text-red-500">*</span></label>
-                <input
-                  type="text"
-                  value={saveTplName}
-                  onChange={(e) => setSaveTplName(e.target.value)}
-                  placeholder="템플릿 이름 입력"
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">카테고리 <span className="text-red-500">*</span></label>
-                <input
-                  type="text"
-                  value={saveTplCategory}
-                  onChange={(e) => setSaveTplCategory(e.target.value)}
-                  placeholder="예: 건설, IT, 제조"
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
-              </div>
-
-              <label className="flex items-center gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={saveTplIncludeAssignments}
-                  onChange={(e) => setSaveTplIncludeAssignments(e.target.checked)}
-                  className="w-4 h-4 rounded accent-orange-500"
-                />
-                <span className="text-sm text-gray-700">자원 배정 포함</span>
-              </label>
-
-              {saveTplError && <p className="text-sm text-red-500">{saveTplError}</p>}
-            </div>
-
-            <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50">
-              <button
-                onClick={() => setShowSaveTemplate(false)}
-                className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100"
-              >
-                취소
-              </button>
-              <button
-                disabled={saveTplLoading}
-                onClick={async () => {
-                  if (!saveTplName.trim()) { setSaveTplError("템플릿 이름을 입력해주세요."); return; }
-                  if (!saveTplCategory.trim()) { setSaveTplError("카테고리를 입력해주세요."); return; }
-                  setSaveTplLoading(true);
-                  setSaveTplError("");
-                  try {
-                    await templateApi.saveAsTemplate(projectId, {
-                      name: saveTplName.trim(),
-                      category: saveTplCategory.trim(),
-                      includeAssignments: saveTplIncludeAssignments,
-                    });
-                    setShowSaveTemplate(false);
-                    alert("템플릿으로 저장되었습니다.");
-                  } catch (e: any) {
-                    setSaveTplError(e.message ?? "저장 실패");
-                  } finally {
-                    setSaveTplLoading(false);
-                  }
-                }}
-                className="px-4 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {saveTplLoading ? "저장 중…" : "저장"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {/* Undo/Redo toast */}
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] bg-gray-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg">

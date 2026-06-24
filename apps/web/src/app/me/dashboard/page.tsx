@@ -87,7 +87,7 @@ function useKanban() {
       const isWorkLogRequired = e?.code === "WORK_LOG_REQUIRED_FOR_COMPLETION" || /작업일지/.test(msg);
       if (isWorkLogRequired) {
         alert(
-          "이 태스크를 100%로 완료하려면 작업일지가 1건 이상 필요합니다.\n" +
+          "본인 진척률을 100%로 완료하려면 본인 작업일지가 1건 이상 필요합니다.\n" +
           "작업 목록 탭에서 태스크 상세를 열어 작성해 주세요."
         );
       } else if (msg) {
@@ -346,7 +346,7 @@ const STATUS_LABEL: Record<string, string> = {
 const PROJECT_STATUS_LABEL: Record<string, string> = {
   PLANNING: "계획", IN_PROGRESS: "진행중", ON_HOLD: "보류", COMPLETED: "완료", CANCELLED: "취소",
 };
-type FilterStatus = "ALL" | "TODO" | "IN_PROGRESS" | "ON_HOLD" | "DONE" | "BLOCKED";
+type FilterStatus = "ALL" | "OVERDUE" | "TODO" | "IN_PROGRESS" | "ON_HOLD" | "DONE" | "BLOCKED";
 
 function MyTasksView() {
   const router = useRouter();
@@ -376,11 +376,21 @@ function MyTasksView() {
   };
   useEffect(() => { load(); }, []);
 
+  // 문제 태스크 판정: 미완료(완료/취소 제외)인데 종료일이 지난 "지연"
+  const isOverdueTask = (t: any) => {
+    const td = new Date().toISOString().slice(0, 10);
+    return t.taskStatus !== "DONE" && t.taskStatus !== "CANCELLED" && !!t.endDate && t.endDate < td;
+  };
+
   const filteredGroups = useMemo(() => {
     const filtered = groups.map((g) => ({
       ...g,
       tasks: g.tasks.filter((t: any) => {
-        const matchStatus = filterStatus === "ALL" || t.taskStatus === filterStatus;
+        const matchStatus = filterStatus === "ALL"
+          ? true
+          : filterStatus === "OVERDUE"
+            ? isOverdueTask(t)
+            : t.taskStatus === filterStatus;
         const matchSearch = !searchQuery ||
           t.taskName.toLowerCase().includes(searchQuery.toLowerCase()) ||
           g.project.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -409,6 +419,7 @@ function MyTasksView() {
       on_hold: all.filter((t: any) => t.taskStatus === "ON_HOLD").length,
       done: all.filter((t: any) => t.taskStatus === "DONE").length,
       blocked: all.filter((t: any) => t.taskStatus === "BLOCKED").length,
+      overdue: all.filter(isOverdueTask).length,
     };
   }, [groups]);
 
@@ -443,26 +454,39 @@ function MyTasksView() {
     const field = key.split(":").pop()!;
     setSavingKey(key, true);
     try {
-      if (field === "startDate" || field === "endDate" || field === "progress") {
+      if (field === "startDate" || field === "endDate") {
         const payload: any = { changeReason: "직접 수정" };
         if (field === "startDate") payload.startDate = val;
-        else if (field === "endDate") payload.endDate = val;
-        else payload.progressPercent = Math.min(100, Math.max(0, Number(val)));
+        else payload.endDate = val;
         await taskApi.updateSegment(task.project.id, task.taskId, seg.segmentId, payload);
+      } else if (field === "progress") {
+        // 자원-기여도-진척률: 내 진척률(배정별)로 갱신 → 세그먼트 진척률 자동 재계산
+        await taskApi.updateAssignmentProgress(task.project.id, task.taskId, seg.segmentId, seg.resourceId, {
+          progressPercent: Math.min(100, Math.max(0, Number(val))),
+        });
       } else if (field === "allocation") {
         await taskApi.upsertAssignment(task.project.id, task.taskId, seg.segmentId, {
           resourceId: seg.resourceId,
-          allocationMode: seg.allocationMode ?? "PERCENT",
+          allocationMode: "PERCENT",
           allocationPercent: Math.min(200, Math.max(0, Number(val))),
+        });
+      } else if (field === "weight") {
+        await taskApi.upsertAssignment(task.project.id, task.taskId, seg.segmentId, {
+          resourceId: seg.resourceId,
+          allocationMode: seg.allocationMode ?? "PERCENT",
+          allocationPercent: seg.allocationPercent ?? 100, // 점유율 보존 (미전달 시 null로 덮임)
+          contributionWeight: Math.min(100, Math.max(0, Number(val))),
         });
       }
       await load();
     } catch (e: any) {
+      // 저장 실패 → 낙관적 변경(슬라이더 등)을 서버 진실로 즉시 되돌린 뒤 안내
+      await load();
       const msg = e?.message ?? "";
       const isWorkLogRequired = e?.code === "WORK_LOG_REQUIRED_FOR_COMPLETION" || /작업일지/.test(msg);
       if (isWorkLogRequired) {
         const ok = confirm(
-          "이 태스크를 100%로 완료하려면 작업일지가 1건 이상 필요합니다.\n" +
+          "본인 진척률을 100%로 완료하려면 본인 작업일지가 1건 이상 필요합니다.\n" +
           "태스크 상세를 열어 작업일지를 작성하시겠습니까?"
         );
         if (ok) {
@@ -475,12 +499,12 @@ function MyTasksView() {
       } else {
         alert(msg || "저장 실패");
       }
-      await load();
     } finally { setSavingKey(key, false); }
   };
 
   const FILTER_TABS = [
     { label: "전체", count: counts.all, status: "ALL" as FilterStatus },
+    { label: "지연", count: counts.overdue, status: "OVERDUE" as FilterStatus },
     { label: "예정", count: counts.todo, status: "TODO" as FilterStatus },
     { label: "진행중", count: counts.in_progress, status: "IN_PROGRESS" as FilterStatus },
     { label: "보류", count: counts.on_hold, status: "ON_HOLD" as FilterStatus },
@@ -493,12 +517,19 @@ function MyTasksView() {
       {/* Filter + Search */}
       <div className="flex items-center gap-3 mb-4">
         <div className="flex items-center bg-gray-100 rounded-lg p-1 gap-0.5">
-          {FILTER_TABS.map((tab) => (
+          {FILTER_TABS.map((tab) => {
+            const isOverdueTab = tab.status === "OVERDUE" && tab.count > 0;
+            return (
             <button key={tab.status} onClick={() => setFilterStatus(tab.status)}
-              className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${filterStatus === tab.status ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"}`}>
+              className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                filterStatus === tab.status
+                  ? (isOverdueTab ? "bg-white shadow text-red-600" : "bg-white shadow text-gray-900")
+                  : (isOverdueTab ? "text-red-500 hover:text-red-600" : "text-gray-500 hover:text-gray-700")
+              }`}>
               {tab.label} <span className="ml-0.5 opacity-60">{tab.count}</span>
             </button>
-          ))}
+            );
+          })}
         </div>
         <div className="relative max-w-xs flex-1">
           <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
@@ -582,10 +613,11 @@ function MyTasksView() {
                   {!isCollapsed && (
                     <>
                       <div className="grid gap-0 px-4 py-1.5 border-b border-gray-100 bg-gray-50/30 text-[10px] font-semibold text-gray-400 uppercase tracking-wide"
-                        style={{ gridTemplateColumns: "1fr 76px 96px 96px 200px 72px" }}>
+                        style={{ gridTemplateColumns: "1fr 76px 92px 92px 66px 60px 168px" }}>
                         <span>태스크</span><span className="text-center">상태</span>
                         <span className="text-center">시작일</span><span className="text-center">종료일</span>
-                        <span className="text-center">진행률</span><span className="text-center">배당율</span>
+                        <span className="text-center">내 투입</span><span className="text-center">분담</span>
+                        <span className="text-center">내 진척률</span>
                       </div>
                       <div className="divide-y divide-gray-50">
                         {group.tasks.map((task: any) => {
@@ -597,7 +629,7 @@ function MyTasksView() {
                           return (
                             <div key={task.taskId}>
                               {multiSeg && (
-                                <div className="grid gap-0 px-4 bg-blue-50/40" style={{ gridTemplateColumns: "1fr 76px 96px 96px 200px 72px", height: 34 }}>
+                                <div className="grid gap-0 px-4 bg-blue-50/40" style={{ gridTemplateColumns: "1fr 76px 92px 92px 66px 60px 168px", height: 34 }}>
                                   <div className="flex items-center gap-1.5 min-w-0 cursor-pointer hover:bg-blue-50/60 px-2 rounded" onClick={(e) => handleTaskClick(task, e)}>
                                     {task.isMilestone && <span className="text-purple-500 text-xs shrink-0">◆</span>}
                                     <span className="text-sm font-medium text-gray-800 truncate">{task.taskName}</span>
@@ -622,30 +654,32 @@ function MyTasksView() {
                                   </div>
                                   <div className="flex items-center justify-center text-xs text-gray-400">{task.startDate ?? "—"}</div>
                                   <div className="flex items-center justify-center text-xs text-gray-400">{task.endDate ?? "—"}</div>
-                                  <div className="flex items-center justify-center gap-1.5">
-                                    <div className="w-24 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                  <div />
+                                  <div />
+                                  <div className="flex items-center justify-center gap-1.5" title="태스크 진척률(자원 분담율 가중)">
+                                    <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                                       <div className="h-full bg-blue-400 rounded-full" style={{ width: `${task.overallProgress}%` }} />
                                     </div>
                                     <span className="text-[10px] text-gray-400 w-7 text-right">{task.overallProgress}%</span>
                                   </div>
-                                  <div />
                                 </div>
                               )}
                               {task.mySegments?.map((seg: any) => {
                                 const segKey = `${task.taskId}:${seg.segmentId}`;
                                 const due = dueState(seg.endDate);
-                                const allocVal = seg.allocationMode === "PERCENT" ? (seg.allocationPercent ?? 100) : (seg.allocationHoursPerDay ?? 8);
-                                const allocUnit = seg.allocationMode === "PERCENT" ? "%" : "h";
                                 return (
                                   <div key={seg.segmentId}
                                     className={`grid gap-0 hover:bg-gray-50/60 transition-colors ${multiSeg ? "pl-6" : ""}`}
-                                    style={{ gridTemplateColumns: "1fr 76px 96px 96px 200px 72px", height: 36 }}>
+                                    style={{ gridTemplateColumns: "1fr 76px 92px 92px 66px 60px 168px", height: 36 }}>
                                     <div className={`flex items-center gap-1.5 min-w-0 pl-4 ${!multiSeg ? "cursor-pointer hover:bg-blue-50/60 rounded" : ""}`}
                                       onClick={!multiSeg ? (e) => handleTaskClick(task, e) : undefined}>
                                       {!multiSeg && task.isMilestone && <span className="text-purple-500 text-xs shrink-0">◆</span>}
                                       <span className={`truncate ${multiSeg ? "text-xs text-gray-500" : "text-sm font-medium text-gray-800"}`}>
                                         {multiSeg ? seg.segmentName : task.taskName}
                                       </span>
+                                      {!multiSeg && seg.segmentName && (
+                                        <span className="shrink-0 text-[11px] text-gray-400 truncate" title={seg.segmentName}>· {seg.segmentName}</span>
+                                      )}
                                       {!multiSeg && due === "overdue" && <span className="shrink-0 text-[10px] text-red-600 bg-red-50 px-1 rounded">기한초과</span>}
                                       {!multiSeg && due === "soon" && displayStatus !== "DONE" && <span className="shrink-0 text-[10px] text-orange-600 bg-orange-50 px-1 rounded">마감임박</span>}
                                     </div>
@@ -674,26 +708,33 @@ function MyTasksView() {
                                       <EditCell editKey={`${segKey}:endDate`} display={seg.endDate ?? ""} inputType="date" width="w-28"
                                         editCell={editCell} setEditCell={setEditCell} saving={saving} onCommit={makeCommitHandler(task, seg)} />
                                     </div>
+                                    {/* 내 투입 (점유율 %) */}
+                                    <div className="flex items-center justify-center">
+                                      <EditCell editKey={`${segKey}:allocation`} display={`${seg.allocationPercent ?? 100}%`} inputType="number" width="w-12" align="center"
+                                        editCell={editCell} setEditCell={setEditCell} saving={saving} onCommit={makeCommitHandler(task, seg)} />
+                                    </div>
+                                    {/* 분담 (분담율 %) */}
+                                    <div className="flex items-center justify-center">
+                                      <EditCell editKey={`${segKey}:weight`} display={`${seg.contributionWeight ?? 0}%`} inputType="number" width="w-12" align="center"
+                                        editCell={editCell} setEditCell={setEditCell} saving={saving} onCommit={makeCommitHandler(task, seg)} />
+                                    </div>
+                                    {/* 내 진척률 (배정별 본인 진척) */}
                                     <div className="flex items-center justify-center gap-1.5 pr-1" onClick={(e) => e.stopPropagation()}>
-                                      <input type="range" min={0} max={100} step={5} value={seg.progressPercent ?? 0}
+                                      <input type="range" min={0} max={100} step={5} value={seg.myProgressPercent ?? 0}
                                         onChange={(e) => {
                                           const v = Number(e.target.value);
                                           setGroups((prev) => prev.map((g) => ({
                                             ...g,
                                             tasks: g.tasks.map((t: any) => t.taskId !== task.taskId ? t : {
                                               ...t,
-                                              mySegments: t.mySegments.map((s: any) => s.segmentId !== seg.segmentId ? s : { ...s, progressPercent: v }),
+                                              mySegments: t.mySegments.map((s: any) => s.segmentId !== seg.segmentId ? s : { ...s, myProgressPercent: v }),
                                             }),
                                           })));
                                         }}
                                         onMouseUp={(e) => makeCommitHandler(task, seg)(`${segKey}:progress`, String((e.target as HTMLInputElement).value))}
                                         onTouchEnd={(e) => makeCommitHandler(task, seg)(`${segKey}:progress`, String((e.target as HTMLInputElement).value))}
-                                        className={`w-24 h-1.5 rounded-full cursor-pointer accent-blue-500 ${saving.has(`${segKey}:progress`) ? "opacity-40" : ""}`} />
-                                      <EditCell editKey={`${segKey}:progress`} display={`${seg.progressPercent ?? 0}%`} inputType="number" width="w-10" align="right"
-                                        editCell={editCell} setEditCell={setEditCell} saving={saving} onCommit={makeCommitHandler(task, seg)} />
-                                    </div>
-                                    <div className="flex items-center justify-center">
-                                      <EditCell editKey={`${segKey}:allocation`} display={`${allocVal}${allocUnit}`} inputType="number" width="w-12" align="center"
+                                        className={`w-20 h-1.5 rounded-full cursor-pointer accent-emerald-500 ${saving.has(`${segKey}:progress`) ? "opacity-40" : ""}`} />
+                                      <EditCell editKey={`${segKey}:progress`} display={`${seg.myProgressPercent ?? 0}%`} inputType="number" width="w-10" align="right"
                                         editCell={editCell} setEditCell={setEditCell} saving={saving} onCommit={makeCommitHandler(task, seg)} />
                                     </div>
                                   </div>
