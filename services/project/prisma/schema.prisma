@@ -217,6 +217,8 @@ model TaskSegment {
   sortOrder       Int      @default(0)
   startDate       DateTime @db.Date
   endDate         DateTime @db.Date
+  // 자원-기여도-진척률 (2026-06-23): derived 캐시 — 배정 1개↑ 이면 Σ(weight×progress)/Σweight 로 재계산.
+  //   배정 0개(자원 미배정) 세그먼트일 때만 직접 입력 fallback.
   progressPercent Float    @default(0) // 0~100
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -268,8 +270,11 @@ model SegmentAssignment {
   externalPersonId      String?        // → ExternalPerson.id
   equipmentResourceId   String?        // → EquipmentResource.id
   allocationMode        AllocationMode @default(PERCENT)
-  allocationPercent     Float? // PERCENT 모드 (0~100)
+  allocationPercent     Float? // PERCENT 모드 (0~100) — 개인 가용용량 점유율
   allocationHoursPerDay Float? // HOURS 모드
+  // 자원-기여도-진척률 (2026-06-23):
+  contributionWeight    Float          @default(0) // 분담율 0~100 (세그먼트 내 참여자 합 권장=100)
+  progressPercent       Float          @default(0) // 이 자원의 본인 진척률 0~100 (본인이 관리)
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
 

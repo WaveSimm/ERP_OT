@@ -7,9 +7,9 @@ import { requireRole, requireManager, requireOperator, requireSelfOrManager } fr
 import { TaskStatus, DependencyType, AllocationMode } from "@prisma/client";
 
 const createTaskSchema = z.object({
-  parentId: z.string().optional(),
+  parentId: z.string().nullable().optional(),
   name: z.string().min(1).max(200),
-  description: z.string().max(2000).optional(),
+  description: z.string().max(2000).nullable().optional(),
   sortOrder: z.number().int().optional(),
   isMilestone: z.boolean().optional(),
 });
@@ -46,6 +46,12 @@ const upsertAssignmentSchema = z.object({
   allocationMode: z.nativeEnum(AllocationMode),
   allocationPercent: z.number().min(0).max(200).optional(),
   allocationHoursPerDay: z.number().min(0).optional(),
+  contributionWeight: z.number().min(0).max(100).optional(), // 자원-기여도-진척률: 분담율
+});
+
+const updateAssignmentProgressSchema = z.object({
+  progressPercent: z.number().min(0).max(100),
+  changeReason: z.string().min(1).optional(),
 });
 
 const addDependencySchema = z.object({
@@ -264,6 +270,28 @@ export async function taskRoutes(fastify: FastifyInstance) {
     const { segmentId, resourceId } = req.params as { projectId: string; taskId: string; segmentId: string; resourceId: string };
     await taskService.removeAssignment(segmentId, resourceId, req.userId);
     return reply.status(204).send();
+  });
+
+  // PATCH /api/v1/.../assignments/:resourceId/progress — 자원 본인 진척률 갱신 (자원-기여도-진척률)
+  //   권한: 본인(personUserId == 요청자) 또는 ADMIN/MANAGER. 외부인력/장비는 관리자만.
+  fastify.patch("/:taskId/segments/:segmentId/assignments/:resourceId/progress", async (req, reply) => {
+    const { segmentId, resourceId } = req.params as { projectId: string; taskId: string; segmentId: string; resourceId: string };
+    const dto = updateAssignmentProgressSchema.parse(req.body);
+
+    const isAdmin = ["ADMIN", "MANAGER"].includes(req.userRole);
+    if (!isAdmin) {
+      const assignment = await fastify.prisma.segmentAssignment.findUnique({
+        where: { segmentId_resourceId: { segmentId, resourceId } },
+        select: { personUserId: true },
+      });
+      // 본인(PERSON) 배정만 자기 진척률 수정 가능
+      if (!assignment || assignment.personUserId !== req.userId) {
+        return reply.status(403).send({ code: "FORBIDDEN", message: "본인의 진척률만 수정할 수 있습니다." });
+      }
+    }
+
+    const updated = await taskService.updateAssignmentProgress(segmentId, resourceId, dto.progressPercent, req.userId, dto.changeReason);
+    return reply.send(updated);
   });
 
   // ─── Dependencies ─────────────────────────────────────────────────────────

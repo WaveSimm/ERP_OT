@@ -64,6 +64,13 @@ export async function projectRoutes(fastify: FastifyInstance) {
     return reply.send(project);
   });
 
+  // GET /api/v1/projects/:id/summary — 프로젝트 요약(작성자·참여자·참여부서·자원현황)
+  fastify.get("/:id/summary", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const summary = await service.getProjectSummary(id);
+    return reply.send(summary);
+  });
+
   // PATCH /api/v1/projects/:id
   fastify.patch("/:id", {
     preHandler: requireRole("ADMIN", "MANAGER"),

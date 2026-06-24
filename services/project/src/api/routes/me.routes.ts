@@ -123,10 +123,11 @@ export async function meRoutes(fastify: FastifyInstance) {
     });
     if (!assignment) return reply.status(403).send({ code: "FORBIDDEN", message: "배정된 세그먼트가 아닙니다." });
 
-    const updated = await fastify.prisma.taskSegment.update({
-      where: { id: segmentId },
-      data: { progressPercent: body.progressPercent },
-    });
+    // 자원-기여도-진척률: 세그먼트 직접 update → 내 배정의 본인 진척률 갱신으로 위임
+    //   (세그먼트 progressPercent는 derived 캐시라 직접 쓰면 재계산 시 덮어써짐)
+    const updated = await fastify.taskService.updateAssignmentProgress(
+      segmentId, resource.id, body.progressPercent, req.userId, body.changeReason,
+    );
 
     return reply.send(updated);
   });

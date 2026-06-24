@@ -105,42 +105,7 @@ export class IssueDetectorService {
       });
     }
 
-    // ─── CRITICAL: 예산 초과 (110%) ────────────────────────────────────────────
-    if (project.plannedBudget && project.actualBudget) {
-      const pct = (Number(project.actualBudget) / Number(project.plannedBudget)) * 100;
-      if (pct >= 110) {
-        issues.push({
-          id: `BUDGET_CRITICAL:${projectId}`,
-          projectId,
-          severity: "CRITICAL",
-          category: "BUDGET_OVERRUN",
-          title: `예산 ${Math.round(pct)}% 초과`,
-          description: `계획 예산 대비 실제 비용이 ${Math.round(pct)}%에 달합니다.`,
-          detectedAt,
-          metadata: {
-            plannedBudget: Number(project.plannedBudget),
-            actualBudget: Number(project.actualBudget),
-            overrunPercent: Math.round(pct),
-          },
-        });
-      } else if (pct >= 100) {
-        // ─── WARNING: 예산 경고 (100~110%) ─────────────────────────────────────
-        issues.push({
-          id: `BUDGET_WARNING:${projectId}`,
-          projectId,
-          severity: "WARNING",
-          category: "BUDGET_OVERRUN",
-          title: `예산 ${Math.round(pct)}% 사용`,
-          description: `계획 예산의 ${Math.round(pct)}%를 사용했습니다.`,
-          detectedAt,
-          metadata: {
-            plannedBudget: Number(project.plannedBudget),
-            actualBudget: Number(project.actualBudget),
-            usagePercent: Math.round(pct),
-          },
-        });
-      }
-    }
+    // 예산 이슈(BUDGET_CRITICAL/WARNING)는 폐기 — 예산 개념 미사용 (2026-06-24)
 
     // ─── CRITICAL: 자원 과부하 ──────────────────────────────────────────────────
     const overloaded = this.detectResourceOverload(project.tasks, today, windowEnd, thresholds.resourceOverloadWarning * 1.2);

@@ -136,6 +136,164 @@ export class ProjectService {
     return project;
   }
 
+  // 프로젝트-요약 (2026-06-24): 작성자·참여자·참여부서·자원현황 집계
+  async getProjectSummary(projectId: string) {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      include: { tasks: { include: { segments: { include: { assignments: true } } } } },
+    });
+    if (!project) throw new AppError(404, "PROJECT_NOT_FOUND", "프로젝트를 찾을 수 없습니다.");
+
+    // 진도율·기간 (리프 세그먼트 평균 — listProjects와 동일 기준)
+    const parentIds = new Set(project.tasks.map((t) => t.parentId).filter(Boolean));
+    const leafSegments = project.tasks.filter((t) => !parentIds.has(t.id)).flatMap((t) => t.segments);
+    let startDate: string | null = null, endDate: string | null = null, overallProgress = 0;
+    if (leafSegments.length > 0) {
+      startDate = new Date(Math.min(...leafSegments.map((s) => s.startDate.getTime()))).toISOString().slice(0, 10);
+      endDate = new Date(Math.max(...leafSegments.map((s) => s.endDate.getTime()))).toISOString().slice(0, 10);
+      overallProgress = Math.round((leafSegments.reduce((sum, s) => sum + s.progressPercent, 0) / leafSegments.length) * 10) / 10;
+    }
+
+    // 자원별 집계 (모든 태스크의 세그먼트 배정)
+    type Agg = { type: "PERSON" | "EXTERNAL" | "EQUIPMENT"; segmentCount: number; taskIds: Set<string>; weightSum: number; progressSum: number };
+    const aggMap = new Map<string, Agg>();
+    for (const t of project.tasks) {
+      for (const s of t.segments) {
+        for (const a of s.assignments) {
+          const key = a.personUserId ?? a.externalPersonId ?? a.equipmentResourceId ?? a.resourceId;
+          const type = a.personUserId ? "PERSON" : a.externalPersonId ? "EXTERNAL" : "EQUIPMENT";
+          let agg = aggMap.get(key);
+          if (!agg) { agg = { type, segmentCount: 0, taskIds: new Set(), weightSum: 0, progressSum: 0 }; aggMap.set(key, agg); }
+          agg.segmentCount += 1;
+          agg.taskIds.add(t.id);
+          agg.weightSum += a.contributionWeight ?? 0;
+          agg.progressSum += a.progressPercent ?? 0;
+        }
+      }
+    }
+
+    const personIds = [...aggMap].filter(([, v]) => v.type === "PERSON").map(([k]) => k);
+    const externalIds = [...aggMap].filter(([, v]) => v.type === "EXTERNAL").map(([k]) => k);
+    const equipmentIds = [...aggMap].filter(([, v]) => v.type === "EQUIPMENT").map(([k]) => k);
+
+    // 직원 이름/부서 — auth 1회 조회 (작성자/소유자 이름도 같은 맵에서 해석)
+    const userMap = new Map<string, { name: string; departmentName: string | null; departmentSortOrder: number }>();
+    try {
+      const authUrl = process.env.AUTH_SERVICE_URL ?? "http://auth-service:3001";
+      const res = await fetch(`${authUrl}/internal/users/all-with-departments`, {
+        headers: { "X-Internal-Token": process.env.INTERNAL_API_TOKEN as string },
+      });
+      if (res.ok) {
+        const users = (await res.json()) as Array<{ id: string; name: string; departmentName: string | null; departmentSortOrder: number }>;
+        for (const u of users) userMap.set(u.id, { name: u.name, departmentName: u.departmentName, departmentSortOrder: u.departmentSortOrder ?? 999 });
+      }
+    } catch { /* 이름/부서 조회 실패 시 graceful */ }
+
+    const [externals, equipments] = await Promise.all([
+      externalIds.length ? this.prisma.externalPerson.findMany({ where: { id: { in: externalIds } } }) : Promise.resolve([]),
+      equipmentIds.length ? this.prisma.equipmentResource.findMany({ where: { id: { in: equipmentIds } } }) : Promise.resolve([]),
+    ]);
+    const extMap = new Map(externals.map((e) => [e.id, e]));
+    const eqMap = new Map(equipments.map((e) => [e.id, e]));
+
+    const participants = [...aggMap].map(([id, v]) => {
+      const base = {
+        resourceId: id, type: v.type,
+        segmentCount: v.segmentCount, taskCount: v.taskIds.size,
+        avgContribution: Math.round((v.weightSum / v.segmentCount) * 10) / 10,
+        avgProgress: Math.round((v.progressSum / v.segmentCount) * 10) / 10,
+      };
+      if (v.type === "PERSON") {
+        const u = userMap.get(id);
+        return { ...base, name: u?.name ?? id, departmentName: u?.departmentName ?? null, company: null };
+      }
+      if (v.type === "EXTERNAL") {
+        const e = extMap.get(id);
+        return { ...base, name: e?.name ?? id, departmentName: null, company: e?.company ?? null };
+      }
+      const e = eqMap.get(id);
+      return { ...base, name: e?.name ?? id, departmentName: null, company: null };
+    }).sort((a, b) => b.taskCount - a.taskCount || a.name.localeCompare(b.name, "ko"));
+
+    // 부서별 인원 (PERSON만)
+    const deptCount = new Map<string, { count: number; sortOrder: number }>();
+    for (const id of personIds) {
+      const u = userMap.get(id);
+      const dn = u?.departmentName ?? "부서 미지정";
+      const cur = deptCount.get(dn) ?? { count: 0, sortOrder: u?.departmentSortOrder ?? 999 };
+      cur.count += 1;
+      deptCount.set(dn, cur);
+    }
+    const departments = [...deptCount].map(([name, v]) => ({ name, count: v.count, sortOrder: v.sortOrder }))
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, "ko"))
+      .map(({ name, count }) => ({ name, count }));
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    // 태스크 현황 (상태별 + 지연)
+    const byStatus: Record<string, number> = {};
+    let overdueTasks = 0;
+    for (const t of project.tasks) {
+      byStatus[t.status] = (byStatus[t.status] ?? 0) + 1;
+      if (t.status !== "DONE" && t.status !== "CANCELLED" && t.segments.length > 0) {
+        const maxEnd = t.segments.reduce((m, s) => (s.endDate > m ? s.endDate : m), t.segments[0]!.endDate);
+        if (maxEnd.toISOString().slice(0, 10) < today) overdueTasks += 1;
+      }
+    }
+    const taskStats = {
+      total: project.tasks.length,
+      done: byStatus["DONE"] ?? 0,
+      inProgress: byStatus["IN_PROGRESS"] ?? 0,
+      todo: byStatus["TODO"] ?? 0,
+      blocked: byStatus["BLOCKED"] ?? 0,
+      onHold: byStatus["ON_HOLD"] ?? 0,
+      overdue: overdueTasks,
+    };
+
+    // 일정 대비 진척 (기간 경과율 vs 진도율)
+    let schedule: { elapsedPercent: number; progressPercent: number; behindBy: number } | null = null;
+    if (startDate && endDate) {
+      const s = new Date(startDate).getTime();
+      const e = new Date(endDate).getTime();
+      const n = new Date(today).getTime();
+      let elapsed = e > s ? ((n - s) / (e - s)) * 100 : (n >= e ? 100 : 0);
+      elapsed = Math.max(0, Math.min(100, Math.round(elapsed * 10) / 10));
+      schedule = { elapsedPercent: elapsed, progressPercent: overallProgress, behindBy: Math.round((elapsed - overallProgress) * 10) / 10 };
+    }
+
+    // 다가오는 마일스톤 (미완료 시점 중 가장 임박)
+    const milestoneList = project.tasks
+      .filter((t) => t.isMilestone && t.status !== "DONE" && t.segments.length > 0)
+      .map((t) => ({ name: t.name, date: t.segments[0]!.endDate.toISOString().slice(0, 10) }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const nm = milestoneList.find((m) => m.date >= today) ?? milestoneList[0];
+    const nextMilestone = nm
+      ? { name: nm.name, date: nm.date, dDay: Math.round((new Date(nm.date).getTime() - new Date(today).getTime()) / 86_400_000) }
+      : null;
+
+    return {
+      id: project.id,
+      name: project.name,
+      status: project.status,
+      description: project.description,
+      overallProgress,
+      startDate,
+      endDate,
+      taskStats,
+      schedule,
+      nextMilestone,
+      milestoneCount: milestoneList.length,
+      createdBy: project.createdBy,
+      creatorName: userMap.get(project.createdBy)?.name ?? null,
+      ownerId: project.ownerId,
+      ownerName: userMap.get(project.ownerId)?.name ?? null,
+      createdAt: project.createdAt.toISOString(),
+      counts: { person: personIds.length, external: externalIds.length, equipment: equipmentIds.length, departments: departments.length },
+      departments,
+      participants,
+    };
+  }
+
   async createProject(dto: CreateProjectDto, requesterId: string): Promise<Project> {
     const project = await this.prisma.project.create({
       data: {
@@ -497,6 +655,7 @@ export class ProjectService {
             allocationMode: a.allocationMode,
             allocationPercent: a.allocationPercent,
             allocationHoursPerDay: a.allocationHoursPerDay,
+            contributionWeight: a.contributionWeight ?? 0,
             displayText:
               a.allocationMode === "PERCENT"
                 ? `${a.allocationPercent ?? 0}%`
