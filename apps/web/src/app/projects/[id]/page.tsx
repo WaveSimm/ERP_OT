@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef, Fragment } from "react";
 import clsx from "clsx";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { projectApi, taskApi, resourceApi, baselineApi, commentApi, deploymentApi, userManagementApi, folderApi, listAssignableResources } from "@/lib/api";
-import dynamic from "next/dynamic";
+import nextDynamic from "next/dynamic";
 import { usePermission } from "@/hooks/usePermission";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useHolidaysMap } from "@/hooks/useHolidaysMap";
@@ -20,7 +20,7 @@ import ResourcePickerPopover from "@/components/ResourcePickerPopover";
 import ImpactPanel from "@/components/ImpactPanel";
 import ProjectSummaryDrawer from "@/components/ProjectSummaryDrawer";
 
-const GanttChart = dynamic(() => import("@/components/GanttChart"), { ssr: false });
+const GanttChart = nextDynamic(() => import("@/components/GanttChart"), { ssr: false });
 
 function toStr(d: Date) { return d.toISOString().slice(0, 10); }
 

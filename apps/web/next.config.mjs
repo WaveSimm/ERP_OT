@@ -22,11 +22,13 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
-  output: "standalone",
-  // prod-빌드-정리 PDCA — useSearchParams 사용 페이지의 prerender 에러 회피
-  // 부하 테스트와 운영 모드 진입을 위해 Suspense 래핑 대신 빌드 옵션으로 일괄 처리
+  // output: "standalone" 제거 — `next start`로 구동(standalone server.js 미사용).
+  //   standalone 출력이 /404·/500 prerender 시 <Html> import 오류를 유발해 제거.
+  // missingSuspenseWithCSRBailout: true(기본) — useSearchParams를 Suspense 없이 쓰는 페이지를
+  //   자동으로 CSR 폴백시켜 정적 prerender 시 useContext null 오류를 회피.
+  //   (false로 두면 폴백이 막혀 거의 모든 클라이언트 페이지가 prerender 실패함)
   experimental: {
-    missingSuspenseWithCSRBailout: false,
+    missingSuspenseWithCSRBailout: true,
   },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

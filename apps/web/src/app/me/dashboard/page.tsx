@@ -6,8 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { meApi, myTasksApi, taskApi, projectApi, myProfileApi, dashboardApi, expenseApi } from "@/lib/api";
 import TaskDrawer from "@/components/TaskDrawer";
 import AttendanceView from "@/components/AttendanceView";
-import TransactionsPage from "@/app/expense/transactions/page";
-import SettlementsPage from "@/app/expense/settlements/page";
+import { TransactionsView } from "@/app/expense/_components/TransactionsView";
+import { SettlementsView } from "@/app/expense/_components/SettlementsView";
 import SourcesPage from "@/app/expense/sources/page";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -1391,8 +1391,8 @@ function ExpenseView() {
       {/* 빠른 작업 sub-page 렌더 (선택 시 하단에 추가 표시) */}
       {subTab && (
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          {subTab === "transactions"  && <TransactionsPage initialStatus={txInitialStatus} onChange={refreshSummary} />}
-          {subTab === "settlements"   && <SettlementsPage />}
+          {subTab === "transactions"  && <TransactionsView initialStatus={txInitialStatus} onChange={refreshSummary} />}
+          {subTab === "settlements"   && <SettlementsView />}
           {subTab === "sources"       && <SourcesPage />}
         </div>
       )}
