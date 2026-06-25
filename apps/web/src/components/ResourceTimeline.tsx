@@ -89,7 +89,12 @@ export function ResourceTimeline({ rows }: Props) {
             <th className="text-left px-3 py-2 sticky left-0 bg-white min-w-[220px] font-medium text-gray-600">
               자원 / 태스크
             </th>
-            <th className="text-right px-2 py-2 min-w-[60px] font-medium text-gray-600">peak/배정</th>
+            <th
+              className="text-right px-2 py-2 min-w-[60px] font-medium text-gray-600 cursor-help"
+              title="투입률 — 자원 행: 기간 중 가장 바쁜 하루의 누적 투입률(최대/peak). 태스크 행: 해당 태스크의 투입률."
+            >
+              투입률
+            </th>
             {days.map((d) => {
               const md = d.date.slice(5).replace("-", "/");
               const dow = new Date(d.date + "T00:00:00.000Z").getUTCDay();
@@ -131,7 +136,10 @@ export function ResourceTimeline({ rows }: Props) {
                       {taskCount > 0 && <span className="text-[10px] text-gray-400">· {taskCount}건</span>}
                     </button>
                   </td>
-                  <td className={`text-right px-2 py-2 font-medium ${row.isOverloaded ? "text-red-600" : row.totalAllocationPercent === 0 ? "text-gray-400" : "text-blue-600"}`}>
+                  <td
+                    className={`text-right px-2 py-2 font-medium cursor-help ${row.isOverloaded ? "text-red-600" : row.totalAllocationPercent === 0 ? "text-gray-400" : "text-blue-600"}`}
+                    title={`최대 투입률 ${row.totalAllocationPercent}% — 기간 중 가장 바쁜 하루의 누적 투입(겹치는 배정 합산의 최댓값). 100% 초과 시 과부하.`}
+                  >
                     {row.totalAllocationPercent}%
                   </td>
                   {row.dayBreakdown.map((cell) => {
@@ -211,20 +219,24 @@ export function ResourceTimeline({ rows }: Props) {
           })}
         </tbody>
       </table>
+    </div>
+  );
+}
 
-      {/* 범례 */}
-      <div className="flex items-center gap-3 mt-3 text-[11px] text-gray-500 flex-wrap px-3">
-        <span className="font-medium">부하 범례:</span>
-        <span className="flex items-center gap-1"><span className="inline-block w-4 h-4 bg-gray-50 border border-gray-200 rounded-sm" /> 여유 0%</span>
-        <span className="flex items-center gap-1"><span className="inline-block w-4 h-4 bg-blue-200 rounded-sm" /> 1~50%</span>
-        <span className="flex items-center gap-1"><span className="inline-block w-4 h-4 bg-blue-500 rounded-sm" /> 51~100%</span>
-        <span className="flex items-center gap-1"><span className="inline-block w-4 h-4 bg-orange-400 rounded-sm" /> 주의 101~150%</span>
-        <span className="flex items-center gap-1"><span className="inline-block w-4 h-4 bg-red-500 rounded-sm" /> 과부하 &gt;150%</span>
-        <span className="flex items-center gap-1"><span className="inline-block w-4 h-4 bg-gray-100 rounded-sm" /> 주말</span>
-        <span className="flex items-center gap-1"><span className="inline-block w-4 h-4 bg-gray-300 rounded-sm" /> 공휴일</span>
-        <span className="flex items-center gap-1"><span className="inline-block w-4 h-4 bg-pink-200 rounded-sm" /> 휴가</span>
-        <span className="flex items-center gap-1"><span className="inline-block w-4 h-4 bg-purple-400 rounded-sm" /> 휴일근무</span>
-      </div>
+// 부하 색상 범례 (직원현황 탭 상단에 sticky로 1회 표시 — 부서별 중복 제거)
+export function ResourceLoadLegend() {
+  return (
+    <div className="flex items-center gap-3 text-[11px] text-gray-500 flex-wrap">
+      <span className="font-medium">부하 범례:</span>
+      <span className="flex items-center gap-1"><span className="inline-block w-4 h-4 bg-gray-50 border border-gray-200 rounded-sm" /> 여유 0%</span>
+      <span className="flex items-center gap-1"><span className="inline-block w-4 h-4 bg-blue-200 rounded-sm" /> 1~50%</span>
+      <span className="flex items-center gap-1"><span className="inline-block w-4 h-4 bg-blue-500 rounded-sm" /> 51~100%</span>
+      <span className="flex items-center gap-1"><span className="inline-block w-4 h-4 bg-orange-400 rounded-sm" /> 주의 101~150%</span>
+      <span className="flex items-center gap-1"><span className="inline-block w-4 h-4 bg-red-500 rounded-sm" /> 과부하 &gt;150%</span>
+      <span className="flex items-center gap-1"><span className="inline-block w-4 h-4 bg-gray-100 rounded-sm" /> 주말</span>
+      <span className="flex items-center gap-1"><span className="inline-block w-4 h-4 bg-gray-300 rounded-sm" /> 공휴일</span>
+      <span className="flex items-center gap-1"><span className="inline-block w-4 h-4 bg-pink-200 rounded-sm" /> 휴가</span>
+      <span className="flex items-center gap-1"><span className="inline-block w-4 h-4 bg-purple-400 rounded-sm" /> 휴일근무</span>
     </div>
   );
 }

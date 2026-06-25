@@ -237,6 +237,9 @@ export const equipmentResourceApi = {
   update: (id: string, data: { name?: string; type?: "EQUIPMENT" | "VEHICLE" | "FACILITY"; isActive?: boolean }) =>
     request<EquipmentResource>(`/equipment-resources/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   delete: (id: string) => request<void>(`/equipment-resources/${id}`, { method: "DELETE" }),
+  // 수동 정렬 순서 저장 (관리화면 ▲▼ → 예약 목록 반영)
+  reorder: (orderedIds: string[]) =>
+    request<void>("/equipment-resources/reorder", { method: "PATCH", body: JSON.stringify({ orderedIds }) }),
 };
 
 export interface EquipmentResource {
@@ -244,6 +247,7 @@ export interface EquipmentResource {
   name: string;
   type: "EQUIPMENT" | "VEHICLE" | "FACILITY";  // EQUIPMENT는 폐기됨 (2026-05-05). 신규 등록은 VEHICLE/FACILITY만
   isActive: boolean;
+  sortOrder: number;
   createdAt: string;
   updatedAt: string;
 }
