@@ -438,10 +438,9 @@ export const templateApi = {
 // ─── Impact ──────────────────────────────────────────────────────────────────
 
 export const impactApi = {
-  analyze: (projectId: string, params?: { taskId?: string; delayDays?: number }) => {
-    const q = params ? new URLSearchParams(params as Record<string, string>).toString() : "";
-    return request<any>(`/projects/${projectId}/impact${q ? `?${q}` : ""}`);
-  },
+  // 현재 상태 분석 — 실제 지연 태스크 자동 탐지 (입력 불필요)
+  analyze: (projectId: string) => request<any>(`/projects/${projectId}/impact`),
+  // What-If — 가정 지연 입력
   whatIf: (projectId: string, data: { taskId: string; delayDays: number }) =>
     request<any>(`/projects/${projectId}/whatif`, { method: "POST", body: JSON.stringify(data) }),
 };
