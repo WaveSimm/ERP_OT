@@ -351,6 +351,7 @@ model EquipmentResource {
   name         String
   type         EquipmentType @default(VEHICLE)
   isActive     Boolean       @default(true)
+  sortOrder    Int           @default(0)  // 공용자산 수동 정렬 (관리화면에서 변경 → 예약 목록 반영)
   // 향후 확장 가능: serialNumber, location, calibrationCycle, lastInspectedAt, ownerDeptId 등
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
