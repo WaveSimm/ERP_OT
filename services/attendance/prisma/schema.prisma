@@ -40,6 +40,7 @@ enum LeaveType {
   BEREAVEMENT   // 경조사 (일 단위)
   SICK
   SPECIAL
+  SUBSTITUTE    // 연차대체 (휴일근무 보상 사용)
 
   @@schema("attendance")
 }
@@ -79,6 +80,7 @@ enum EntryType {
   SICK
   SPECIAL
   OT
+  SUBSTITUTE    // 연차대체 (휴일근무 보상)
 
   @@schema("attendance")
 }
@@ -173,6 +175,9 @@ model LeaveBalance {
   usedDays        Float    @default(0)
   pendingDays     Float    @default(0)
   adjustedDays    Float    @default(0)   // 임시 보너스/감산
+  // 연차대체 (휴일근무 보상): 휴일근무 1건=+1일. 유효 = 발생연도 다음해 3월말까지.
+  substituteDays     Float @default(0)   // 발생 누적 (해당 연도)
+  substituteUsedDays Float @default(0)   // 사용
   updatedAt       DateTime @updatedAt
 
   @@unique([userId, year])

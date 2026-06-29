@@ -34,7 +34,9 @@ interface CalendarDay {
 }
 
 interface LeaveBalance {
-  totalDays: number;
+  totalDays: number;        // 정기 연차 (기본 15일)
+  longServiceDays?: number; // 장기근속 휴가
+  adjustedDays?: number;    // 임시 조정
   usedDays: number;
   pendingDays: number;
   remainingDays: number;
@@ -42,6 +44,10 @@ interface LeaveBalance {
   familyDayTotal?: number;
   familyDayUsed?: number;
   familyDayRemaining?: number;
+  // 연차대체 (휴일근무 보상, 발생연도 다음해 3월말까지)
+  substituteTotal?: number;
+  substituteUsed?: number;
+  substituteRemaining?: number;
 }
 
 interface WorkScheduleEntry {
@@ -74,6 +80,7 @@ const ENTRY_LABELS: Record<string, string> = {
   FAMILY: "가정의날",            // legacy 호환
   BEREAVEMENT: "경조사",         // v1.5
   ANNUAL: "연차", SICK: "병가", SPECIAL: "공가", OT: "휴일근무",
+  SUBSTITUTE: "연차대체",
 };
 
 const ENTRY_COLORS: Record<string, string> = {
@@ -93,6 +100,7 @@ const ENTRY_COLORS: Record<string, string> = {
   SICK: "bg-pink-100 text-pink-800",
   SPECIAL: "bg-indigo-100 text-indigo-800",
   OT: "bg-gray-200 text-gray-800",
+  SUBSTITUTE: "bg-cyan-100 text-cyan-800",
 };
 
 const ALL_ENTRY_TYPES = [
@@ -308,6 +316,7 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete }: {
   const LEAVE_OPTS: { v: string; l: string }[] = [
     { v: "ANNUAL", l: "연차" }, { v: "HALF", l: "반차(4시간)" }, { v: "QUARTER", l: "1/4연차(2시간)" },
     { v: "FAMILY_DAY", l: "가정의날(1시간)" }, { v: "FAMILY_DAY_2H", l: "가정의날(2시간)" },
+    { v: "SUBSTITUTE", l: "연차대체" },
     { v: "BEREAVEMENT", l: "경조사" }, { v: "SICK", l: "병가" }, { v: "SPECIAL", l: "공가" },
   ];
 
@@ -741,44 +750,42 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged }: {
 
 // ─── Leave Balance Card ───────────────────────────────────────────────────────
 
+// 연차 현황 — 상단 슬림 바 (한 줄: 잔여/전체 · 사용 · 대기 · 가정의 날)
 function LeaveBalanceCard({ balance }: { balance: LeaveBalance | null }) {
   if (!balance) return null;
-  const pct = balance.totalDays > 0 ? Math.round((balance.usedDays / balance.totalDays) * 100) : 0;
+  const longSvc = balance.longServiceDays ?? 0;
+  const adj = balance.adjustedDays ?? 0;
+  const subTotal = balance.substituteTotal ?? 0;        // 연차대체 발생(유효)
+  const subRem = balance.substituteRemaining ?? 0;
+  const total = balance.totalDays + longSvc + adj + subTotal;
+  const used = balance.usedDays + (balance.substituteUsed ?? 0);
+  const remaining = balance.remainingDays + subRem;
+  // 전체 구성: 정기 · 대체 · 근속 (조정은 0 아닐 때만)
+  const breakdown = [`정기 ${balance.totalDays}일`, `대체 ${subTotal}일`, `근속 ${longSvc}일`];
+  if (adj !== 0) breakdown.push(`조정 ${adj > 0 ? "+" : ""}${adj}일`);
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-900">연차 현황</h3>
-        <span className="text-xs text-gray-400">{new Date().getFullYear()}년</span>
+    <div className="bg-white border border-gray-200 rounded-xl px-4 py-2.5">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+        <span className="text-sm font-semibold text-gray-900">
+          연차 현황 <span className="text-xs font-normal text-gray-400">{new Date().getFullYear()}</span>
+        </span>
+        <span className="text-xs text-gray-500">사용 <span className="font-medium text-gray-700">{used}일</span></span>
+        <span className="flex items-baseline gap-1 text-xs">
+          <span className="text-gray-500">잔여</span>
+          <span className="text-base font-bold text-blue-600 leading-none">{remaining}일</span>
+          <span className="text-gray-400">/ 전체 {total}일</span>
+          <span className="text-gray-400">({breakdown.join(" · ")})</span>
+        </span>
+        {balance.pendingDays > 0 && <span className="text-xs text-amber-600">대기 {balance.pendingDays}일</span>}
+        {typeof balance.familyDayTotal === "number" && (
+          <span className="text-xs text-gray-500 sm:ml-auto flex items-baseline gap-1.5 sm:border-l sm:border-gray-200 sm:pl-4">
+            <span className="text-gray-600 font-medium">가정의 날</span>
+            <span className="text-gray-400">(이번 달)</span>
+            <span>사용 {balance.familyDayUsed ?? 0}시간</span>
+            <span>· 잔여 <span className="font-semibold text-rose-600">{balance.familyDayRemaining}</span>시간</span>
+          </span>
+        )}
       </div>
-      <div className="flex items-end gap-1 mb-2">
-        <span className="text-2xl font-bold text-blue-600">{balance.remainingDays}</span>
-        <span className="text-sm text-gray-500 mb-0.5">일 잔여</span>
-        <span className="text-xs text-gray-400 mb-0.5 ml-1">/ {balance.totalDays}일</span>
-      </div>
-      <div className="w-full bg-gray-100 rounded-full h-2 mb-2">
-        <div className="bg-blue-500 h-2 rounded-full transition-all" style={{ width: `${pct}%` }} />
-      </div>
-      <div className="flex justify-between text-xs text-gray-500">
-        <span>사용: {balance.usedDays}일</span>
-        {balance.pendingDays > 0 && <span className="text-amber-600">대기: {balance.pendingDays}일</span>}
-      </div>
-      {/* 가정의 날 — 매월 4시간, 이월 없음(매월 리셋) */}
-      {typeof balance.familyDayTotal === "number" && (
-        <div className="mt-3 pt-3 border-t border-gray-100">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">가정의 날 <span className="text-gray-400">(이번 달)</span></span>
-            <span className="text-xs">
-              <span className="font-semibold text-rose-600">{balance.familyDayRemaining}</span>
-              <span className="text-gray-400"> / {balance.familyDayTotal}시간</span>
-            </span>
-          </div>
-          <div className="w-full bg-gray-100 rounded-full h-1.5 mt-1.5">
-            <div className="bg-rose-400 h-1.5 rounded-full transition-all"
-              style={{ width: `${balance.familyDayTotal ? Math.round(((balance.familyDayUsed ?? 0) / balance.familyDayTotal) * 100) : 0}%` }} />
-          </div>
-          <p className="text-[10px] text-gray-400 mt-1">매월 4시간 발생 · 이월 없음</p>
-        </div>
-      )}
     </div>
   );
 }
@@ -791,6 +798,7 @@ const LEAVE_TYPES = [
   { value: "QUARTER", label: "1/4연차(2시간)" },
   { value: "FAMILY_DAY", label: "가정의날(1시간)" },
   { value: "FAMILY_DAY_2H", label: "가정의날(2시간)" },
+  { value: "SUBSTITUTE", label: "연차대체" },
   { value: "BEREAVEMENT", label: "경조사" },
   { value: "SICK", label: "병가" },
   { value: "SPECIAL", label: "공가" },
@@ -1002,12 +1010,10 @@ export default function AttendanceView() {
     <div className="space-y-6">
       {/* 중간 릴리즈(2026-06-29): 전자결재 미사용 → 휴가/휴일근무는 캘린더 날짜별 "+" 버튼(근태 추가)에서 직접 등록 */}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="md:col-span-2">
-          <CheckInWidget today={today} onAction={handleAction} />
-        </div>
-        <LeaveBalanceCard balance={balance} />
-      </div>
+      {/* 연차 현황 — 상단 슬림 바(한 줄) */}
+      <LeaveBalanceCard balance={balance} />
+
+      <CheckInWidget today={today} onAction={handleAction} />
 
       {/* 월간 달력 (근태 통합) */}
       <div>

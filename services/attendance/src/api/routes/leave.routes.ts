@@ -16,7 +16,7 @@ export async function leaveRoutes(fastify: FastifyInstance) {
   // POST /api/v1/leave/requests
   fastify.post("/requests", async (req, reply) => {
     const body = z.object({
-      type: z.enum(["ANNUAL", "HALF", "QUARTER", "FAMILY_DAY", "FAMILY_DAY_2H", "BEREAVEMENT", "SICK", "SPECIAL"]),
+      type: z.enum(["ANNUAL", "HALF", "QUARTER", "FAMILY_DAY", "FAMILY_DAY_2H", "BEREAVEMENT", "SICK", "SPECIAL", "SUBSTITUTE"]),
       startDate: z.string(),
       endDate: z.string(),
       reason: z.string().min(1),

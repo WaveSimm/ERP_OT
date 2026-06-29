@@ -133,7 +133,21 @@ export class LeaveService {
     const remaining = balance.totalDays + balance.longServiceDays + balance.adjustedDays
                     - balance.usedDays - balance.pendingDays;
     const fd = await this.getFamilyDayUsage(userId);
-    return { ...balance, remainingDays: Math.max(0, remaining), ...fd };
+    const sub = await this.getSubstituteStatus(userId);
+    return { ...balance, remainingDays: Math.max(0, remaining), ...fd, ...sub };
+  }
+
+  // 연차대체 (휴일근무 보상): 발생연도 다음해 3월말까지 유효. 1~3월엔 작년분도 합산.
+  async getSubstituteStatus(userId: string, ref: Date = new Date()) {
+    const y = ref.getFullYear();
+    const years = ref.getMonth() <= 2 ? [y, y - 1] : [y];   // 1~3월: 작년분(올해 3월말까지) 포함
+    const rows = await this.prisma.leaveBalance.findMany({ where: { userId, year: { in: years } } });
+    let granted = 0, used = 0;
+    for (const r of rows) {
+      const expiryExclusive = new Date(r.year + 1, 3, 1);   // (발생연도+1) 4/1 00:00 — 그 전까지 유효
+      if (ref < expiryExclusive) { granted += (r as any).substituteDays ?? 0; used += (r as any).substituteUsedDays ?? 0; }
+    }
+    return { substituteTotal: granted, substituteUsed: used, substituteRemaining: Math.max(0, granted - used) };
   }
 
   // 가정의날: 매월 4시간 별도 풀 (이월 없음 — 월별 카운트라 자동 리셋).
@@ -184,8 +198,16 @@ export class LeaveService {
     const year = start.getFullYear();
 
     const balance = await this.getBalance(userId, year);
-    if (days > balance.remainingDays) {
+    if (data.type !== "SUBSTITUTE" && days > balance.remainingDays) {
       throw new Error(`신청 일수(${days}일)가 잔여 연차(${balance.remainingDays}일)를 초과합니다.`);
+    }
+
+    // 연차대체 사용: 별도 풀(휴일근무 보상) 한도 체크
+    if (data.type === "SUBSTITUTE") {
+      const sub = await this.getSubstituteStatus(userId, start);
+      if (days > sub.substituteRemaining) {
+        throw new Error(`연차대체 잔여(${sub.substituteRemaining}일)를 초과합니다.`);
+      }
     }
 
     // 가정의날: 월 4시간 별도 풀 한도 체크 (연차와 무관)
@@ -214,7 +236,9 @@ export class LeaveService {
         });
         await tx.leaveBalance.update({
           where: { userId_year: { userId, year } },
-          data: { usedDays: { increment: days } },
+          data: data.type === "SUBSTITUTE"
+            ? { substituteUsedDays: { increment: days } }
+            : { usedDays: { increment: days } },
         });
         const entryType = this.mapLeaveToEntryType(data.type as LeaveType);
         const dates = this.getDateRange(start, end);
@@ -286,9 +310,13 @@ export class LeaveService {
     const year = req.startDate.getFullYear();
     return this.prisma.$transaction(async (tx) => {
       await tx.workScheduleEntry.deleteMany({ where: { sourceId: id } });
+      const isSub = req.type === "SUBSTITUTE";
       if (req.status === "APPROVED") {
-        await tx.leaveBalance.update({ where: { userId_year: { userId, year } }, data: { usedDays: { decrement: req.days } } });
-      } else if ((["PENDING", "PENDING_2ND", "PENDING_3RD"] as string[]).includes(req.status)) {
+        await tx.leaveBalance.update({
+          where: { userId_year: { userId, year } },
+          data: isSub ? { substituteUsedDays: { decrement: req.days } } : { usedDays: { decrement: req.days } },
+        });
+      } else if (!isSub && (["PENDING", "PENDING_2ND", "PENDING_3RD"] as string[]).includes(req.status)) {
         await tx.leaveBalance.update({ where: { userId_year: { userId, year } }, data: { pendingDays: { decrement: req.days } } });
       }
       await tx.leaveRequest.delete({ where: { id } });
@@ -432,6 +460,7 @@ export class LeaveService {
       FAMILY_DAY_2H: "FAMILY_DAY_2H",
       BEREAVEMENT: "BEREAVEMENT",
       SICK: "SICK", SPECIAL: "SPECIAL",
+      SUBSTITUTE: "SUBSTITUTE",
     };
     return map[leaveType] ?? "ANNUAL";
   }

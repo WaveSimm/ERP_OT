@@ -41,6 +41,16 @@ export class HolidayWorkService {
     );
   }
 
+  // 연차대체 잔액 증감 (휴일근무 보상). 발생연도(date 기준) LeaveBalance.substituteDays.
+  private async grantSubstitute(tx: any, userId: string, dateStr: string | Date, delta: number) {
+    const year = new Date(dateStr).getFullYear();
+    await tx.leaveBalance.upsert({
+      where: { userId_year: { userId, year } },
+      create: { userId, year, totalDays: 15, substituteDays: Math.max(0, delta) },
+      update: { substituteDays: { increment: delta } },
+    });
+  }
+
   async createRequest(userId: string, data: CreateInput, direct = false) {
     await this.assertIsHoliday(data.date);
 
@@ -74,6 +84,8 @@ export class HolidayWorkService {
           create: { userId, date: new Date(data.date), entryType: "OT", sourceType: "OT_APPROVED", sourceId: created.id, label: "휴일근무" },
           update: {},
         });
+        // 내규: 휴일근무 1건 → 연차대체 +1일 (발생연도 기준)
+        await this.grantSubstitute(tx, userId, data.date, 1);
         return created;
       });
     }
@@ -154,6 +166,8 @@ export class HolidayWorkService {
         },
         update: {},
       });
+      // 내규: 휴일근무 승인 → 연차대체 +1일
+      await this.grantSubstitute(tx, input.userId, input.date, 1);
 
       return created;
     });
@@ -179,6 +193,8 @@ export class HolidayWorkService {
       });
       // 근태현황 엔트리 삭제 (자동 동기화로 만든 항목)
       await tx.workScheduleEntry.deleteMany({ where: { sourceId: id } });
+      // APPROVED였던 건 취소 시 연차대체 회수 (-1)
+      if (req.status === "APPROVED") await this.grantSubstitute(tx, userId, req.date, -1);
       return updated;
     });
   }
@@ -189,6 +205,8 @@ export class HolidayWorkService {
     if (!req) throw new HolidayWorkError("NOT_FOUND", "삭제할 수 없는 휴일근무입니다.", 404);
     return this.prisma.$transaction(async (tx) => {
       await tx.workScheduleEntry.deleteMany({ where: { sourceId: id } });
+      // APPROVED였던 건이면 연차대체 회수 (-1)
+      if (req.status === "APPROVED") await this.grantSubstitute(tx, userId, req.date, -1);
       await tx.holidayWorkRequest.delete({ where: { id } });
       return { ok: true };
     });
@@ -234,6 +252,8 @@ export class HolidayWorkService {
           create: { userId: req.userId, date: req.date, entryType: "OT", sourceType: "OT_APPROVED", sourceId: id, label: "휴일근무" },
           update: {},
         });
+        // 내규: 휴일근무 승인 → 연차대체 +1일
+        await this.grantSubstitute(tx, req.userId, req.date, 1);
         return updated;
       });
     }
