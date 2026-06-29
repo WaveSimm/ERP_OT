@@ -188,8 +188,20 @@ export class LeaveService {
     return this.getBalance(userId, year);
   }
 
+  // 시간단위 휴가 소요시간(h): 반차4 / 1/4 2 / 가정의날 1·2
+  private leaveDurationHours(type: string): number {
+    return type === "HALF" ? 4 : type === "QUARTER" ? 2 : type === "FAMILY_DAY" ? 1 : type === "FAMILY_DAY_2H" ? 2 : 0;
+  }
+  private addHours(hhmm: string, hours: number): string {
+    const parts = hhmm.split(":").map(Number);
+    const h = parts[0] ?? 0, m = parts[1] ?? 0;
+    const total = h * 60 + m + Math.round(hours * 60);
+    const nh = Math.floor(total / 60) % 24, nm = total % 60;
+    return `${String(nh).padStart(2, "0")}:${String(nm).padStart(2, "0")}`;
+  }
+
   async createRequest(userId: string, data: {
-    type: string; startDate: string; endDate: string; reason: string;
+    type: string; startDate: string; endDate: string; reason: string; startTime?: string;
     approverId?: string; secondApproverId?: string; thirdApproverId?: string;
   }, direct = false) {
     const start = new Date(data.startDate);
@@ -222,12 +234,16 @@ export class LeaveService {
     // 중간 릴리즈(2026-06-29): 근태 직접 추가 — 승인 없이 즉시 APPROVED + 잔액 차감 + 캘린더 반영
     if (direct) {
       return this.prisma.$transaction(async (tx) => {
+        const dur = this.leaveDurationHours(data.type);
+        const st = data.startTime && dur > 0 ? data.startTime : undefined;
+        const et = st ? this.addHours(st, dur) : undefined;
         const request = await tx.leaveRequest.create({
           data: {
             userId,
             type: data.type as LeaveType,
             startDate: start,
             endDate: end,
+            ...(st ? { startTime: st } : {}),
             days,
             reason: data.reason,
             status: "APPROVED" as ApprovalStatus,
@@ -245,7 +261,7 @@ export class LeaveService {
         for (const date of dates) {
           await tx.workScheduleEntry.upsert({
             where: { userId_date_entryType_sourceId: { userId, date, entryType, sourceId: request.id } },
-            create: { userId, date, entryType, sourceType: "LEAVE_APPROVED", sourceId: request.id },
+            create: { userId, date, entryType, sourceType: "LEAVE_APPROVED", sourceId: request.id, ...(st && et ? { startTime: st, endTime: et } : {}) },
             update: {},
           });
         }

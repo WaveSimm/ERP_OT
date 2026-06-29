@@ -563,7 +563,7 @@ export const leaveApi = {
     const q = params ? new URLSearchParams(params as Record<string, string>).toString() : "";
     return request<LeaveRequest[]>(`/leave/requests${q ? `?${q}` : ""}`);
   },
-  create: (data: { type: string; startDate: string; endDate: string; reason: string; approverId?: string; direct?: boolean }) =>
+  create: (data: { type: string; startDate: string; endDate: string; reason: string; startTime?: string; approverId?: string; direct?: boolean }) =>
     request<LeaveRequest>("/leave/requests", { method: "POST", body: JSON.stringify(data) }),
   cancel: (id: string) =>
     request<LeaveRequest>(`/leave/requests/${id}/cancel`, { method: "PATCH", body: "{}" }),

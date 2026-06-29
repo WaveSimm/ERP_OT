@@ -146,6 +146,7 @@ model LeaveRequest {
   type         LeaveType
   startDate    DateTime       @db.Date
   endDate      DateTime       @db.Date
+  startTime    String?        // 시간단위 휴가 시작시각 HH:mm (반차/1/4/가정의날). 30분 단위
   days         Float
   reason       String
   status            ApprovalStatus @default(PENDING)

@@ -53,6 +53,21 @@ function fmtMonth(dateStr: string) {
 }
 
 function isToday(dateStr: string) { return dateStr === fmt(new Date()); }
+
+// 시간단위 바: 전체 폭 = 업무시간 09:30~18:30 (540분). 시작시각 위치 + 길이로 타임라인 표시.
+const DAY_START_MIN = 9 * 60 + 30;   // 09:30
+const DAY_END_MIN = 18 * 60 + 30;    // 18:30
+const DAY_SPAN_MIN = DAY_END_MIN - DAY_START_MIN; // 540
+function toMin(t: string): number { const [h, m] = t.split(":").map(Number); return (h ?? 0) * 60 + (m ?? 0); }
+// 시작시각/종료시각 → 셀 내 바의 left/width(%). 시간 없으면 종일(0~100%).
+function barGeom(startTime: string | null, endTime: string | null): { left: number; width: number } {
+  if (!startTime || !endTime) return { left: 0, width: 100 };
+  const s = Math.max(DAY_START_MIN, Math.min(DAY_END_MIN, toMin(startTime)));
+  const e = Math.max(DAY_START_MIN, Math.min(DAY_END_MIN, toMin(endTime)));
+  const left = ((s - DAY_START_MIN) / DAY_SPAN_MIN) * 100;
+  const width = Math.max(6, Math.min(100 - left, ((e - s) / DAY_SPAN_MIN) * 100));
+  return { left, width };
+}
 function isWeekend(dateStr: string) {
   const d = new Date(dateStr).getDay();
   return d === 0 || d === 6;
@@ -391,7 +406,7 @@ function MemberRow({ member, days, viewMode, holidays }: { member: Member; days:
           : "";
         return (
           <td key={day} className={`px-0.5 py-1 text-center border-l border-gray-50 align-top ${cellBg}`}>
-            <div className="flex flex-col items-center gap-0.5">
+            <div className={`flex flex-col gap-0.5 ${viewMode === "month" ? "items-center" : "items-start"}`}>
               {dayEntries.map((e) => {
                 const timeStr = e.startTime && e.endTime
                   ? `${e.startTime}~${e.endTime}`
@@ -405,12 +420,18 @@ function MemberRow({ member, days, viewMode, holidays }: { member: Member; days:
                     </span>
                   );
                 }
+                // 타임라인 트랙: 전체 폭 = 09:30~18:30, 바는 시작시각 위치 + 길이
+                const { left, width } = barGeom(e.startTime, e.endTime);
+                const isPartial = !!(e.startTime && e.endTime);
                 return (
-                  <div key={e.id} className={`rounded px-1 py-0.5 text-left w-full ${ENTRY_COLORS[e.entryType] ?? "bg-gray-100 text-gray-600"}`}
+                  <div key={e.id} className="w-full relative h-5 rounded bg-gray-100/60"
                     title={[ENTRY_LABELS[e.entryType], timeStr, e.label].filter(Boolean).join(" / ")}>
-                    <div className="text-[10px] font-medium leading-tight truncate">{ENTRY_LABELS[e.entryType] ?? e.entryType}</div>
-                    {timeStr && <div className="text-[9px] leading-tight opacity-75 truncate">{timeStr}</div>}
-                    {e.label && <div className="text-[9px] leading-tight opacity-60 truncate">{e.label}</div>}
+                    <div className={`absolute top-0 bottom-0 rounded px-1 flex items-center overflow-hidden ${ENTRY_COLORS[e.entryType] ?? "bg-gray-100 text-gray-600"}`}
+                      style={{ left: `${left}%`, width: `${width}%` }}>
+                      <span className="text-[9px] font-medium leading-none truncate">
+                        {ENTRY_LABELS[e.entryType] ?? e.entryType}{isPartial && timeStr ? ` ${timeStr}` : ""}
+                      </span>
+                    </div>
                   </div>
                 );
               })}

@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { attendanceApi, leaveApi, holidayWorkApi, approvalLineApi, approvalApi, userManagementApi, attendanceOverviewApi, getUser } from "@/lib/api";
 import { DateInput } from "@/components/ui/DateInput";
+import { TimeInput } from "@/components/ui/TimeInput";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -326,7 +327,7 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete }: {
     try {
       // 휴가/휴일근무 직접 등록 (추가 모드) — 승인 없이 즉시 반영
       if (!isEdit && category === "LEAVE") {
-        await leaveApi.create({ type: leaveType, startDate, endDate: leaveSingle ? startDate : (endDate || startDate), reason: label.trim() || "휴가", direct: true });
+        await leaveApi.create({ type: leaveType, startDate, endDate: leaveSingle ? startDate : (endDate || startDate), reason: label.trim() || "휴가", direct: true, ...(leaveSingle ? { startTime } : {}) });
         onSuccess(); onClose(); return;
       }
       if (!isEdit && category === "HOLIDAY") {
@@ -489,9 +490,26 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete }: {
             </div>
             {leaveSingle ? (
               <div>
-                <label className="block text-xs text-gray-600 mb-1">날짜</label>
-                <DateInput value={startDate} required onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">날짜</label>
+                    <DateInput value={startDate} required onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">시작시간 (30분 단위)</label>
+                    <TimeInput value={startTime} step={1800} onChange={(e) => setStartTime(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                  </div>
+                </div>
+                {(() => {
+                  const dur = leaveType === "HALF" ? 4 : leaveType === "QUARTER" ? 2 : leaveType === "FAMILY_DAY_2H" ? 2 : leaveType === "FAMILY_DAY" ? 1 : 0;
+                  if (!dur || !startTime) return null;
+                  const [h, m] = startTime.split(":").map(Number);
+                  const t = h * 60 + m + dur * 60;
+                  const et = `${String(Math.floor(t / 60) % 24).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
+                  return <p className="text-[11px] text-teal-600 mt-1">⏱ {startTime} ~ {et} ({dur}시간)</p>;
+                })()}
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">

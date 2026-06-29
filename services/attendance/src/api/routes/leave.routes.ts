@@ -19,6 +19,7 @@ export async function leaveRoutes(fastify: FastifyInstance) {
       type: z.enum(["ANNUAL", "HALF", "QUARTER", "FAMILY_DAY", "FAMILY_DAY_2H", "BEREAVEMENT", "SICK", "SPECIAL", "SUBSTITUTE"]),
       startDate: z.string(),
       endDate: z.string(),
+      startTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),  // 시간단위 휴가 시작시각
       reason: z.string().min(1),
       approverId: z.string().optional(),  // 프론트에서 지정 시 우선 사용
       direct: z.boolean().optional(),     // 중간 릴리즈: 근태 직접 추가(승인 없이 즉시 반영)
@@ -28,6 +29,7 @@ export async function leaveRoutes(fastify: FastifyInstance) {
     if (body.direct) {
       const request = await svc.createRequest(req.userId, {
         type: body.type, startDate: body.startDate, endDate: body.endDate, reason: body.reason,
+        ...(body.startTime ? { startTime: body.startTime } : {}),
       }, true);
       return reply.status(201).send(request);
     }
