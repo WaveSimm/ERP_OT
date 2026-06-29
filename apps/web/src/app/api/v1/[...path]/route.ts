@@ -6,12 +6,13 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL ?? "http://localhost:3001";
-const PROJECT_SERVICE_URL = process.env.API_BASE_URL ?? "http://localhost:3003";
-const ATTENDANCE_SERVICE_URL = process.env.ATTENDANCE_SERVICE_URL ?? "http://localhost:3004";
-const EQUIPMENT_SERVICE_URL = process.env.EQUIPMENT_SERVICE_URL ?? "http://localhost:3005";
-const APPROVAL_SERVICE_URL = process.env.APPROVAL_SERVICE_URL ?? "http://localhost:3006";
-const OCR_SERVICE_URL = process.env.OCR_SERVICE_URL ?? "http://localhost:3007";
+// 폴백은 docker 서비스명 (localhost 아님 — env 누락 시에도 컨테이너 네트워크에서 동작)
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL ?? "http://auth-service:3001";
+const PROJECT_SERVICE_URL = process.env.API_BASE_URL ?? "http://project-service:3003";
+const ATTENDANCE_SERVICE_URL = process.env.ATTENDANCE_SERVICE_URL ?? "http://attendance-service:3004";
+const EQUIPMENT_SERVICE_URL = process.env.EQUIPMENT_SERVICE_URL ?? "http://equipment-service:3005";
+const APPROVAL_SERVICE_URL = process.env.APPROVAL_SERVICE_URL ?? "http://approval-service:3006";
+const OCR_SERVICE_URL = process.env.OCR_SERVICE_URL ?? "http://ocr-service:3007";
 
 // H9: notifications 제거 — project-service의 알림 라우트와 attendance 알림 라우트 충돌
 // (attendance는 /internal/notifications/bulk 만 가짐, /api/v1/notifications는 project 소관)
@@ -50,6 +51,28 @@ function getClientIp(req: NextRequest): string {
 }
 
 const STATE_CHANGING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+// 백엔드 연결 일시오류(undici keep-alive 재사용 경합 등) — 죽은 소켓 재사용 시 ECONNRESET 발생.
+//   "서버 내부 오류"(500)의 주원인. 멱등(GET/HEAD)만 새 연결로 1회 자동 재시도하면 대부분 해소.
+const RETRYABLE = /ECONNRESET|socket hang up|UND_ERR_SOCKET|ECONNREFUSED|ETIMEDOUT|other side closed|fetch failed|terminated/i;
+
+async function fetchUpstream(target: string, init: RequestInit, method: string): Promise<Response> {
+  const idempotent = method === "GET" || method === "HEAD";
+  const maxRetries = idempotent ? 1 : 0;
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fetch(target, { ...init, signal: AbortSignal.timeout(30000) });
+    } catch (err: unknown) {
+      lastErr = err;
+      const e = err as { code?: string; message?: string; cause?: { code?: string; message?: string } };
+      const msg = `${e?.cause?.code ?? ""} ${e?.cause?.message ?? ""} ${e?.code ?? ""} ${e?.message ?? ""}`;
+      if (attempt < maxRetries && RETRYABLE.test(msg)) continue; // 새 연결로 재시도
+      throw err;
+    }
+  }
+  throw lastErr;
+}
 
 // CSRF 검증 — accessToken cookie 있고 state-changing이면 X-CSRF-Token이 csrfToken cookie와 일치해야
 function checkCsrf(req: NextRequest): { ok: boolean; reason?: string } {
@@ -113,11 +136,19 @@ async function proxy(req: NextRequest, { params }: { params: { path: string[] } 
   const hasBody = req.method !== "GET" && req.method !== "HEAD";
   const bodyText = hasBody ? await req.text() : undefined;
 
-  const res = await fetch(target, {
-    method: req.method,
-    headers,
-    body: bodyText,
-  });
+  let res: Response;
+  try {
+    res = await fetchUpstream(target, { method: req.method, headers, body: bodyText }, req.method);
+  } catch (err: unknown) {
+    // 백엔드 연결 실패/타임아웃 → 깔끔한 502 (Next 기본 500 "서버 내부 오류" 대신)
+    const e = err as { name?: string; cause?: { code?: string } };
+    const isTimeout = e?.name === "TimeoutError";
+    console.error(`[proxy] upstream 실패 ${req.method} ${path.join("/")} → ${target}: ${e?.cause?.code ?? e?.name ?? err}`);
+    return NextResponse.json(
+      { error: { code: isTimeout ? "UPSTREAM_TIMEOUT" : "UPSTREAM_UNAVAILABLE", message: "백엔드 서비스에 일시적으로 연결할 수 없습니다. 잠시 후 다시 시도해주세요." } },
+      { status: isTimeout ? 504 : 502 },
+    );
+  }
 
   // 응답 헤더 forward (Set-Cookie 다중 처리)
   const resHeaders = new Headers();
