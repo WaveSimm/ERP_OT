@@ -3,7 +3,8 @@
 import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { expenseApi, procurementApi } from "@/lib/api";
-import { fmtDateTime24 } from "@/lib/datetime";
+import { fmtDateTime24, fmtDate } from "@/lib/datetime";
+import { DateInput } from "@/components/ui/DateInput";
 import { useTableSort } from "@/lib/hooks/useTableSort";
 import { useBulkSelect } from "@/lib/hooks/useBulkSelect";
 import ReceiptDetailModal from "@/components/expense/ReceiptDetailModal";
@@ -55,6 +56,9 @@ export function TransactionsView({ initialStatus = "TARGET", onChange }: { initi
   const [loading, setLoading] = useState(true);
   // v1.6.4 (2026-05-16): default = TARGET (정산대상). 가상 상태: TARGET/SETTLED/EXCLUDED/""
   const [statusFilter, setStatusFilter] = useState(initialStatus || "TARGET");
+  // 거래일 범위 필터 — 정산 시작 시 해당 기간 내역만 보기 위함
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   // 부모 컴포넌트(ExpenseView)가 카드 클릭으로 initialStatus를 바꾸면 동기화
   useEffect(() => {
@@ -90,6 +94,13 @@ export function TransactionsView({ initialStatus = "TARGET", onChange }: { initi
     // 특정 settlement 선택 시: status 탭 무시 (해당 묶음의 모든 거래 표시)
     if (settlementFilter && settlementFilter !== "__unclassified__") {
       return (t.settlementItems ?? []).some((si: any) => si.settlementId === settlementFilter);
+    }
+    // 거래일 범위 필터 (특정 정산묶음 보기 제외, 나머지 모든 뷰에 적용) — 정산할 기간 내역만 보기
+    if (dateFrom || dateTo) {
+      const td = t.transactedAt ? fmtDate(t.transactedAt) : "";
+      if (!td) return false;
+      if (dateFrom && td < dateFrom) return false;
+      if (dateTo && td > dateTo) return false;
     }
     // status 탭 필터 (미분류 + 전체에서 적용)
     if (statusFilter === "TARGET") {
@@ -509,6 +520,17 @@ export function TransactionsView({ initialStatus = "TARGET", onChange }: { initi
         <span className="text-xs text-gray-500">
           {statusFilter === "" ? `총 ${total}건` : `${filteredItems.length}건`}
         </span>
+        {/* 거래일 범위 — 정산 시작 시 해당 기간 내역만 보기 */}
+        <span className="ml-1 pl-2 border-l border-gray-200 text-xs text-gray-500">거래일</span>
+        <DateInput value={dateFrom} max={dateTo || undefined} onChange={(e) => setDateFrom(e.target.value)}
+          className="px-2 py-1 text-xs border border-gray-300 rounded-md text-gray-700" />
+        <span className="text-xs text-gray-400">~</span>
+        <DateInput value={dateTo} min={dateFrom || undefined} onChange={(e) => setDateTo(e.target.value)}
+          className="px-2 py-1 text-xs border border-gray-300 rounded-md text-gray-700" />
+        {(dateFrom || dateTo) && (
+          <button onClick={() => { setDateFrom(""); setDateTo(""); }}
+            className="px-2 py-1 text-xs text-gray-500 border border-gray-300 rounded-md hover:bg-gray-50">기간 초기화</button>
+        )}
         <div className="ml-auto flex items-center gap-2">
           <input ref={fileInputRef} type="file" accept=".xls,.xlsx,.html"
             onChange={handleImport} disabled={importing} className="hidden" id="stmt-import" />

@@ -73,8 +73,8 @@ export default function KnowledgeSearchPage() {
     setMounted(true);
   }, [router]);
 
-  const runSearch = useCallback(async () => {
-    const query = q.trim();
+  const runSearch = useCallback(async (override?: string) => {
+    const query = (override ?? q).trim();
     if (query.length < 2) {
       setData(null);
       setError(query.length === 0 ? null : "2자 이상 입력해주세요.");
@@ -135,9 +135,38 @@ export default function KnowledgeSearchPage() {
           <p className="mt-1.5 text-xs text-gray-400">
             💡 <b className="font-medium text-gray-500">키워드</b>도 <b className="font-medium text-gray-500">문장(질문)</b>도 검색됩니다 — 구체 주제어(모델명·사업명)에 파일종류(&lsquo;사진&rsquo;·&lsquo;pdf&rsquo;·&lsquo;엑셀&rsquo;)·장소·항만(&lsquo;포항&rsquo;·&lsquo;축산항&rsquo;)·시기(&lsquo;2025년&rsquo;)를 함께 넣을수록 정확합니다.
           </p>
-          <p className="mt-1 text-xs text-gray-400">
-            예) <span className="text-gray-500">만성호 어선검사증서</span> · <span className="text-gray-500">냉수대 관측 절차는?</span> · <span className="text-gray-500">용역계약서 pdf</span> · <span className="text-gray-500">흥해 사진</span> · <span className="text-gray-500">축산항 2025년 작업 사진</span>
-          </p>
+          {/* 검증된 예시 검색어 — 클릭 시 바로 검색 (내용검색 + 날짜/최근 라우팅) */}
+          <div className="mt-2 space-y-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] text-gray-400 mr-0.5">예시</span>
+              {[
+                "만성호 어선검사증서",
+                "냉수대 관측 절차는?",
+                "용역계약서 pdf",
+                "축산항 2025년 작업 사진",
+              ].map((ex) => (
+                <button key={ex} type="button" onClick={() => { setQ(ex); void runSearch(ex); }}
+                  className="text-xs px-2.5 py-1 rounded-full border border-gray-200 text-gray-600 bg-gray-50 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors">
+                  {ex}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] text-gray-400 mr-0.5">날짜·최근</span>
+              {[
+                "가장 최근에 추가된 파일 20개",
+                "어제 올린 사진",
+                "이번주 추가된 문서",
+                "2024년 6월 28일 작성 견적서",
+                "2021년 7월 27일 찍은 사진",
+              ].map((ex) => (
+                <button key={ex} type="button" onClick={() => { setQ(ex); void runSearch(ex); }}
+                  className="text-xs px-2.5 py-1 rounded-full border border-violet-200 text-violet-600 bg-violet-50 hover:bg-violet-100 hover:border-violet-300 transition-colors">
+                  {ex}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="flex gap-6">
