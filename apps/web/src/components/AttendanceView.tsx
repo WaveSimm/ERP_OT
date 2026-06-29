@@ -972,6 +972,7 @@ function HolidayWorkHistory({ refresh }: { refresh: number }) {
 // ─── AttendanceView (exported) ────────────────────────────────────────────────
 
 export default function AttendanceView() {
+  const router = useRouter();
   const [today, setToday] = useState<TodayRecord | null>(null);
   const [balance, setBalance] = useState<LeaveBalance | null>(null);
   const [refresh, setRefresh] = useState(0);
@@ -1018,7 +1019,13 @@ export default function AttendanceView() {
       {/* 월간 달력 (근태 통합) */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-gray-900">월간 근태 현황</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-gray-900">월간 근태 현황</h2>
+            <button onClick={() => router.push("/resources?tab=attendance")}
+              className="text-xs px-2 py-0.5 rounded border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors">
+              전사근태 →
+            </button>
+          </div>
           <div className="flex items-center gap-2">
             <button onClick={() => navigateMonth(-1)} className="p-1 text-gray-400 hover:text-gray-700 border border-gray-200 rounded">‹</button>
             <span className="text-sm font-medium text-gray-700">{year}년 {month}월</span>
