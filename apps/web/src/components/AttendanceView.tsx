@@ -38,6 +38,10 @@ interface LeaveBalance {
   usedDays: number;
   pendingDays: number;
   remainingDays: number;
+  // 가정의 날 (매월 4시간, 이월 없음) — 이번 달 기준
+  familyDayTotal?: number;
+  familyDayUsed?: number;
+  familyDayRemaining?: number;
 }
 
 interface WorkScheduleEntry {
@@ -297,11 +301,29 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete }: {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [groupAction, setGroupAction] = useState<"single" | "group">(hasGroup ? "group" : "single");
+  // 중간 릴리즈(2026-06-29): 근태 추가 모달에서 휴가/휴일근무도 직접 등록(승인 없이 즉시 반영)
+  const [category, setCategory] = useState<"WORK" | "LEAVE" | "HOLIDAY">("WORK");
+  const [leaveType, setLeaveType] = useState("ANNUAL");
+  const leaveSingle = leaveType === "HALF" || leaveType === "QUARTER" || leaveType === "FAMILY_DAY" || leaveType === "FAMILY_DAY_2H";
+  const LEAVE_OPTS: { v: string; l: string }[] = [
+    { v: "ANNUAL", l: "연차" }, { v: "HALF", l: "반차(4시간)" }, { v: "QUARTER", l: "1/4연차(2시간)" },
+    { v: "FAMILY_DAY", l: "가정의날(1시간)" }, { v: "FAMILY_DAY_2H", l: "가정의날(2시간)" },
+    { v: "BEREAVEMENT", l: "경조사" }, { v: "SICK", l: "병가" }, { v: "SPECIAL", l: "공가" },
+  ];
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true); setError(null);
     try {
+      // 휴가/휴일근무 직접 등록 (추가 모드) — 승인 없이 즉시 반영
+      if (!isEdit && category === "LEAVE") {
+        await leaveApi.create({ type: leaveType, startDate, endDate: leaveSingle ? startDate : (endDate || startDate), reason: label.trim() || "휴가", direct: true });
+        onSuccess(); onClose(); return;
+      }
+      if (!isEdit && category === "HOLIDAY") {
+        await holidayWorkApi.create({ date: startDate, reason: label.trim() || "휴일근무", direct: true });
+        onSuccess(); onClose(); return;
+      }
       if (isEdit && entry) {
         if (hasGroup && groupAction === "group") {
           await attendanceOverviewApi.updateGroup(entry.groupId!, {
@@ -384,6 +406,20 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete }: {
                 </button>
               </div>
             )}
+            {/* 구분 (추가 모드만): 근무 / 휴가 / 휴일근무 */}
+            {!isEdit && (
+              <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
+                {([["WORK", "근무"], ["LEAVE", "휴가"], ["HOLIDAY", "휴일근무"]] as const).map(([v, l]) => (
+                  <button key={v} type="button" onClick={() => setCategory(v)}
+                    className={`flex-1 text-xs py-1.5 rounded-md font-medium transition-colors ${category === v ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"}`}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* ── 근무 (외근/교육/출장) ── */}
+            {category === "WORK" && (<>
             <div>
               <label className="block text-xs text-gray-600 mb-1">근태 유형</label>
               <select value={entryType} onChange={(e) => setEntryType(e.target.value)}
@@ -431,6 +467,57 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete }: {
                 placeholder="예: 강남 현장, 안전교육"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
             </div>
+            </>)}
+
+            {/* ── 휴가 (즉시 반영) ── */}
+            {category === "LEAVE" && (<>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">휴가 종류</label>
+              <select value={leaveType} onChange={(e) => setLeaveType(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                {LEAVE_OPTS.map((t) => <option key={t.v} value={t.v}>{t.l}</option>)}
+              </select>
+            </div>
+            {leaveSingle ? (
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">날짜</label>
+                <DateInput value={startDate} required onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">시작일</label>
+                  <DateInput value={startDate} required onChange={(e) => { setStartDate(e.target.value); if (e.target.value > endDate) setEndDate(e.target.value); }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">종료일</label>
+                  <DateInput value={endDate} required min={startDate} onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                </div>
+              </div>
+            )}
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">사유</label>
+              <input type="text" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="사유"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            </div>
+            </>)}
+
+            {/* ── 휴일근무 (즉시 반영, 휴일/주말만) ── */}
+            {category === "HOLIDAY" && (<>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">날짜 (휴일/주말)</label>
+              <DateInput value={startDate} required onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">사유</label>
+              <input type="text" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="사유"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            </div>
+            </>)}
             {error && <p className="text-xs text-red-500">{error}</p>}
             <div className="flex gap-2 pt-1">
               {isEdit && onDelete && (
@@ -675,6 +762,23 @@ function LeaveBalanceCard({ balance }: { balance: LeaveBalance | null }) {
         <span>사용: {balance.usedDays}일</span>
         {balance.pendingDays > 0 && <span className="text-amber-600">대기: {balance.pendingDays}일</span>}
       </div>
+      {/* 가정의 날 — 매월 4시간, 이월 없음(매월 리셋) */}
+      {typeof balance.familyDayTotal === "number" && (
+        <div className="mt-3 pt-3 border-t border-gray-100">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">가정의 날 <span className="text-gray-400">(이번 달)</span></span>
+            <span className="text-xs">
+              <span className="font-semibold text-rose-600">{balance.familyDayRemaining}</span>
+              <span className="text-gray-400"> / {balance.familyDayTotal}시간</span>
+            </span>
+          </div>
+          <div className="w-full bg-gray-100 rounded-full h-1.5 mt-1.5">
+            <div className="bg-rose-400 h-1.5 rounded-full transition-all"
+              style={{ width: `${balance.familyDayTotal ? Math.round(((balance.familyDayUsed ?? 0) / balance.familyDayTotal) * 100) : 0}%` }} />
+          </div>
+          <p className="text-[10px] text-gray-400 mt-1">매월 4시간 발생 · 이월 없음</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -682,19 +786,19 @@ function LeaveBalanceCard({ balance }: { balance: LeaveBalance | null }) {
 // ─── Leave Request Form ───────────────────────────────────────────────────────
 
 const LEAVE_TYPES = [
-  { value: "ANNUAL", label: "연차 (1일)" },
-  { value: "HALF_AM", label: "반차-오전 (0.5일)" },
-  { value: "HALF_PM", label: "반차-오후 (0.5일)" },
-  { value: "QUARTER", label: "1/4차 (2시간)" },
-  { value: "FAMILY", label: "가정의날 (1시간)" },
+  { value: "ANNUAL", label: "연차" },
+  { value: "HALF", label: "반차(4시간)" },
+  { value: "QUARTER", label: "1/4연차(2시간)" },
+  { value: "FAMILY_DAY", label: "가정의날(1시간)" },
+  { value: "FAMILY_DAY_2H", label: "가정의날(2시간)" },
+  { value: "BEREAVEMENT", label: "경조사" },
   { value: "SICK", label: "병가" },
-  { value: "SPECIAL", label: "특별휴가" },
+  { value: "SPECIAL", label: "공가" },
 ];
 
-// ─── 휴가 신청 버튼 (전자결재 시스템으로 redirect) ─────────────────────────────
-// 근태현황 design v1.4 + 옵션 (라): 진입은 근태에서 자연스럽게, 실제 신청은 전자결재로 통합
-// 모든 결재 신청은 /approval/new가 single source of truth (OT와 동일 패턴)
-
+// ─── 휴가/휴일근무 신청 버튼 (전자결재 redirect) ──────────────────────────────
+// 중간 릴리즈(2026-06-29): 전자결재 미사용 → 버튼 정의 비활성화. 재개 시 아래 함수 + 렌더 블록 복원.
+/*
 function LeaveRequestForm({ onSuccess: _onSuccess }: { onSuccess: () => void }) {
   const router = useRouter();
   return (
@@ -707,10 +811,6 @@ function LeaveRequestForm({ onSuccess: _onSuccess }: { onSuccess: () => void }) 
   );
 }
 
-// ─── 휴일근무 신청 버튼 (전자결재 시스템으로 redirect) ──────────────────────────
-// 근태현황 design v1.3 + 옵션 (라): 진입은 근태에서 자연스럽게, 실제 신청은 전자결재로 통합
-// 모든 결재 신청은 /approval/new가 single source of truth
-
 function HolidayWorkRequestForm({ onSuccess: _onSuccess }: { onSuccess: () => void }) {
   const router = useRouter();
   return (
@@ -722,6 +822,7 @@ function HolidayWorkRequestForm({ onSuccess: _onSuccess }: { onSuccess: () => vo
     </button>
   );
 }
+*/
 
 // ─── Leave / 휴일근무 History ─────────────────────────────────────────────────
 
@@ -759,9 +860,12 @@ function LeaveHistory({ refresh }: { refresh: number }) {
     }).finally(() => setLoading(false));
   }, [refresh]);
 
-  const cancel = async (id: string) => {
-    await leaveApi.cancel(id);
+  // 중간 릴리즈(2026-06-29): 승인 개념 제거 → 삭제(연차 복원 + 캘린더 제거)
+  const del = async (id: string) => {
+    if (!window.confirm("이 휴가를 삭제하시겠습니까? 연차가 복원됩니다.")) return;
+    await leaveApi.remove(id);
     setItems((prev) => prev.filter((i) => i.id !== id));
+    window.dispatchEvent(new CustomEvent("attendance-updated"));
   };
 
   if (loading) return <div className="text-xs text-gray-400 py-4 text-center">불러오는 중...</div>;
@@ -776,12 +880,14 @@ function LeaveHistory({ refresh }: { refresh: number }) {
               <div className="font-medium text-gray-900">{LEAVE_TYPES.find((t) => t.value === item.type)?.label ?? item.type ?? "휴가"}</div>
               <div className="text-xs text-gray-400">{item.startDate?.slice(0, 10)} ~ {item.endDate?.slice(0, 10)}</div>
             </div>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.color}`}>{st.label}</span>
-            {item._docId
-              ? <button onClick={() => router.push(`/approval/${item._docId}`)} className="text-xs text-blue-500 hover:text-blue-700">보기</button>
-              : item.status === "PENDING" && (
-                  <button onClick={() => cancel(item.id)} className="text-xs text-gray-400 hover:text-red-500">취소</button>
-                )}
+            {item._docId ? (
+              <>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.color}`}>{st.label}</span>
+                <button onClick={() => router.push(`/approval/${item._docId}`)} className="text-xs text-blue-500 hover:text-blue-700">보기</button>
+              </>
+            ) : (
+              <button onClick={() => del(item.id)} className="text-xs text-red-500 hover:text-red-700">삭제</button>
+            )}
           </div>
         );
       })}
@@ -818,9 +924,12 @@ function HolidayWorkHistory({ refresh }: { refresh: number }) {
     }).finally(() => setLoading(false));
   }, [refresh]);
 
-  const cancel = async (id: string) => {
-    await holidayWorkApi.cancel(id);
-    setItems((prev) => prev.map((i) => i.id === id ? { ...i, status: "CANCELLED" } : i));
+  // 중간 릴리즈(2026-06-29): 승인 개념 제거 → 삭제(캘린더 제거)
+  const del = async (id: string) => {
+    if (!window.confirm("이 휴일근무를 삭제하시겠습니까?")) return;
+    await holidayWorkApi.remove(id);
+    setItems((prev) => prev.filter((i) => i.id !== id));
+    window.dispatchEvent(new CustomEvent("attendance-updated"));
   };
 
   if (loading) return <div className="text-xs text-gray-400 py-4 text-center">불러오는 중...</div>;
@@ -836,12 +945,14 @@ function HolidayWorkHistory({ refresh }: { refresh: number }) {
                 <div className="font-medium text-gray-900">{item.date?.slice(0, 10)} · 휴일근무</div>
                 <div className="text-xs text-gray-400 truncate">{item.reason}</div>
               </div>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.color}`}>{st.label}</span>
-              {item._docId
-                ? <button onClick={() => router.push(`/approval/${item._docId}`)} className="text-xs text-blue-500 hover:text-blue-700">보기</button>
-                : item.status === "PENDING" && (
-                    <button onClick={() => cancel(item.id)} className="text-xs text-gray-400 hover:text-red-500">취소</button>
-                  )}
+              {item._docId ? (
+                <>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.color}`}>{st.label}</span>
+                  <button onClick={() => router.push(`/approval/${item._docId}`)} className="text-xs text-blue-500 hover:text-blue-700">보기</button>
+                </>
+              ) : (
+                <button onClick={() => del(item.id)} className="text-xs text-red-500 hover:text-red-700">삭제</button>
+              )}
             </div>
           </div>
         );
@@ -873,10 +984,10 @@ export default function AttendanceView() {
   useEffect(() => { loadToday(); loadBalance(); }, []);
 
   useEffect(() => {
-    const handler = () => { loadToday(); setRefresh((r) => r + 1); };
+    const handler = () => { loadToday(); loadBalance(); setRefresh((r) => r + 1); };
     window.addEventListener("attendance-updated", handler);
     return () => window.removeEventListener("attendance-updated", handler);
-  }, [loadToday]);
+  }, [loadToday, loadBalance]);
 
   const navigateMonth = (dir: -1 | 1) => {
     let m = month + dir, y = year;
@@ -889,11 +1000,7 @@ export default function AttendanceView() {
 
   return (
     <div className="space-y-6">
-      {/* 신청 버튼 */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <LeaveRequestForm onSuccess={() => { setRefresh((r) => r + 1); loadBalance(); }} />
-        <HolidayWorkRequestForm onSuccess={() => setRefresh((r) => r + 1)} />
-      </div>
+      {/* 중간 릴리즈(2026-06-29): 전자결재 미사용 → 휴가/휴일근무는 캘린더 날짜별 "+" 버튼(근태 추가)에서 직접 등록 */}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="md:col-span-2">
@@ -912,7 +1019,7 @@ export default function AttendanceView() {
             <button onClick={() => navigateMonth(1)} className="p-1 text-gray-400 hover:text-gray-700 border border-gray-200 rounded">›</button>
           </div>
         </div>
-        <MonthlyCalendar year={year} month={month} refresh={refresh} onEntryChanged={() => setRefresh((r) => r + 1)} />
+        <MonthlyCalendar year={year} month={month} refresh={refresh} onEntryChanged={() => { setRefresh((r) => r + 1); loadBalance(); }} />
         <p className="text-[10px] text-gray-400 mt-1.5 ml-1">날짜를 클릭하여 근태를 추가할 수 있습니다</p>
       </div>
 

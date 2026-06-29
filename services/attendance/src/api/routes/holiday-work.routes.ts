@@ -15,7 +15,23 @@ export async function holidayWorkRoutes(fastify: FastifyInstance) {
       projectId: z.string().optional(),
       taskId: z.string().optional(),
       approverId: z.string().optional(), // 프론트 지정 시 우선 사용 (default 결재라인 무시)
+      direct: z.boolean().optional(),    // 중간 릴리즈: 근태 직접 추가(승인 없이 즉시 반영)
     }).parse(req.body);
+
+    // 중간 릴리즈(2026-06-29): 근태 추가로 직접 등록 — 승인 흐름 없이 즉시 APPROVED
+    if (body.direct) {
+      try {
+        const request = await svc.createRequest(req.userId, {
+          date: body.date, reason: body.reason,
+          ...(body.projectId ? { projectId: body.projectId } : {}),
+          ...(body.taskId ? { taskId: body.taskId } : {}),
+        }, true);
+        return reply.status(201).send(request);
+      } catch (err) {
+        if (err instanceof HolidayWorkError) return reply.status(err.statusCode).send({ error: { code: err.code, message: err.message } });
+        throw err;
+      }
+    }
 
     // 결재자 조회 (위임 고려) — 프론트 지정 없을 때만
     const approverInfo = await fastify.authClient.getApprover(req.userId);
@@ -65,6 +81,19 @@ export async function holidayWorkRoutes(fastify: FastifyInstance) {
     const { id } = req.params as { id: string };
     try {
       return reply.send(await svc.cancel(id, req.userId));
+    } catch (err) {
+      if (err instanceof HolidayWorkError) {
+        return reply.status(err.statusCode).send({ error: { code: err.code, message: err.message } });
+      }
+      throw err;
+    }
+  });
+
+  // DELETE /api/v1/holiday-work/requests/:id — 중간 릴리즈: 본인 휴일근무 삭제(상태 무관)
+  fastify.delete("/requests/:id", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    try {
+      return reply.send(await svc.deleteRequest(id, req.userId));
     } catch (err) {
       if (err instanceof HolidayWorkError) {
         return reply.status(err.statusCode).send({ error: { code: err.code, message: err.message } });

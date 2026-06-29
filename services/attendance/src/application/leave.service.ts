@@ -132,7 +132,26 @@ export class LeaveService {
     // 잔여 = 기본 + 장기근속 + 임시조정 - 사용 - 대기 (장기근속은 수동 이월)
     const remaining = balance.totalDays + balance.longServiceDays + balance.adjustedDays
                     - balance.usedDays - balance.pendingDays;
-    return { ...balance, remainingDays: Math.max(0, remaining) };
+    const fd = await this.getFamilyDayUsage(userId);
+    return { ...balance, remainingDays: Math.max(0, remaining), ...fd };
+  }
+
+  // 가정의날: 매월 4시간 별도 풀 (이월 없음 — 월별 카운트라 자동 리셋).
+  //   사용량 = 해당 월 APPROVED 가정의날 합산(FAMILY_DAY=1h, FAMILY_DAY_2H=2h).
+  async getFamilyDayUsage(userId: string, ref: Date = new Date()) {
+    const y = ref.getFullYear(), m = ref.getMonth();
+    const start = new Date(y, m, 1), end = new Date(y, m + 1, 1);
+    const rows = await this.prisma.leaveRequest.findMany({
+      where: {
+        userId,
+        type: { in: ["FAMILY_DAY", "FAMILY_DAY_2H"] as LeaveType[] },
+        status: "APPROVED" as ApprovalStatus,
+        startDate: { gte: start, lt: end },
+      },
+      select: { type: true },
+    });
+    const used = rows.reduce((s, r) => s + (r.type === "FAMILY_DAY_2H" ? 2 : 1), 0);
+    return { familyDayTotal: 4, familyDayUsed: used, familyDayRemaining: Math.max(0, 4 - used) };
   }
 
   /** Admin only — 사용자별 연차 잔여 항목 직접 설정 */
@@ -158,7 +177,7 @@ export class LeaveService {
   async createRequest(userId: string, data: {
     type: string; startDate: string; endDate: string; reason: string;
     approverId?: string; secondApproverId?: string; thirdApproverId?: string;
-  }) {
+  }, direct = false) {
     const start = new Date(data.startDate);
     const end = new Date(data.endDate);
     const days = this.calcDays(data.type, start, end);
@@ -167,6 +186,47 @@ export class LeaveService {
     const balance = await this.getBalance(userId, year);
     if (days > balance.remainingDays) {
       throw new Error(`신청 일수(${days}일)가 잔여 연차(${balance.remainingDays}일)를 초과합니다.`);
+    }
+
+    // 가정의날: 월 4시간 별도 풀 한도 체크 (연차와 무관)
+    if (data.type === "FAMILY_DAY" || data.type === "FAMILY_DAY_2H") {
+      const need = data.type === "FAMILY_DAY_2H" ? 2 : 1;
+      const fd = await this.getFamilyDayUsage(userId, start);
+      if (need > fd.familyDayRemaining) {
+        throw new Error(`이번 달 가정의 날 잔여(${fd.familyDayRemaining}시간)를 초과합니다.`);
+      }
+    }
+
+    // 중간 릴리즈(2026-06-29): 근태 직접 추가 — 승인 없이 즉시 APPROVED + 잔액 차감 + 캘린더 반영
+    if (direct) {
+      return this.prisma.$transaction(async (tx) => {
+        const request = await tx.leaveRequest.create({
+          data: {
+            userId,
+            type: data.type as LeaveType,
+            startDate: start,
+            endDate: end,
+            days,
+            reason: data.reason,
+            status: "APPROVED" as ApprovalStatus,
+            approvedAt: new Date(),
+          },
+        });
+        await tx.leaveBalance.update({
+          where: { userId_year: { userId, year } },
+          data: { usedDays: { increment: days } },
+        });
+        const entryType = this.mapLeaveToEntryType(data.type as LeaveType);
+        const dates = this.getDateRange(start, end);
+        for (const date of dates) {
+          await tx.workScheduleEntry.upsert({
+            where: { userId_date_entryType_sourceId: { userId, date, entryType, sourceId: request.id } },
+            create: { userId, date, entryType, sourceType: "LEAVE_APPROVED", sourceId: request.id },
+            update: {},
+          });
+        }
+        return request;
+      });
     }
 
     const [request] = await this.prisma.$transaction([
@@ -216,6 +276,23 @@ export class LeaveService {
       // 근태현황 엔트리 삭제
       await tx.workScheduleEntry.deleteMany({ where: { sourceId: id } });
       return updated;
+    });
+  }
+
+  // 중간 릴리즈(2026-06-29): 휴가 삭제(상태 무관) — 잔액 복원 + 캘린더 엔트리 제거 후 레코드 삭제
+  async deleteRequest(id: string, userId: string) {
+    const req = await this.prisma.leaveRequest.findFirst({ where: { id, userId } });
+    if (!req) throw new Error("삭제할 수 없는 휴가입니다.");
+    const year = req.startDate.getFullYear();
+    return this.prisma.$transaction(async (tx) => {
+      await tx.workScheduleEntry.deleteMany({ where: { sourceId: id } });
+      if (req.status === "APPROVED") {
+        await tx.leaveBalance.update({ where: { userId_year: { userId, year } }, data: { usedDays: { decrement: req.days } } });
+      } else if ((["PENDING", "PENDING_2ND", "PENDING_3RD"] as string[]).includes(req.status)) {
+        await tx.leaveBalance.update({ where: { userId_year: { userId, year } }, data: { pendingDays: { decrement: req.days } } });
+      }
+      await tx.leaveRequest.delete({ where: { id } });
+      return { ok: true };
     });
   }
 
@@ -329,8 +406,8 @@ export class LeaveService {
   private calcDays(type: string, start: Date, end: Date): number {
     if (type === "HALF") return 0.5;
     if (type === "QUARTER") return 0.25;
-    if (type === "FAMILY_DAY") return 0.125;
-    if (type === "FAMILY_DAY_2H") return 0.25;
+    // 가정의날: 연차에서 차감하지 않음 — 월 4시간 별도 풀(getFamilyDayUsage)로 관리
+    if (type === "FAMILY_DAY" || type === "FAMILY_DAY_2H") return 0;
     let count = 0;
     const cur = new Date(start);
     while (cur <= end) {

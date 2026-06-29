@@ -31,6 +31,17 @@ export const projectApi = {
   runCpm: (id: string) => request<any>(`/projects/${id}/cpm`, { method: "POST", body: "{}" }),
   activities: (id: string, page = 1) =>
     request<any>(`/projects/${id}/activities?page=${page}&pageSize=20`),
+  // MS Planner 일괄 이관 (프로젝트 마이그레이션 탭, ADMIN)
+  importPlanner: (data: unknown) =>
+    request<{
+      aborted: boolean;
+      reason?: string;
+      projectId?: string;
+      tasks?: number;
+      segments?: number;
+      assignments?: number;
+      dependencies?: number;
+    }>("/projects/import-planner", { method: "POST", body: JSON.stringify(data) }),
 };
 
 // ─── Folders ─────────────────────────────────────────────────────────────────
@@ -537,10 +548,12 @@ export const leaveApi = {
     const q = params ? new URLSearchParams(params as Record<string, string>).toString() : "";
     return request<LeaveRequest[]>(`/leave/requests${q ? `?${q}` : ""}`);
   },
-  create: (data: { type: string; startDate: string; endDate: string; reason: string; approverId?: string }) =>
+  create: (data: { type: string; startDate: string; endDate: string; reason: string; approverId?: string; direct?: boolean }) =>
     request<LeaveRequest>("/leave/requests", { method: "POST", body: JSON.stringify(data) }),
   cancel: (id: string) =>
     request<LeaveRequest>(`/leave/requests/${id}/cancel`, { method: "PATCH", body: "{}" }),
+  remove: (id: string) =>
+    request<{ ok: boolean }>(`/leave/requests/${id}`, { method: "DELETE" }),
 };
 
 // ─── Holiday Work (휴일근무 신청, 구 OT) ───────────────────────────────────────
@@ -548,10 +561,12 @@ export const leaveApi = {
 export const holidayWorkApi = {
   list: (status?: string) =>
     request<HolidayWorkRequest[]>(`/holiday-work/requests${status ? `?status=${status}` : ""}`),
-  create: (data: { date: string; reason: string; projectId?: string; taskId?: string; approverId?: string }) =>
+  create: (data: { date: string; reason: string; projectId?: string; taskId?: string; approverId?: string; direct?: boolean }) =>
     request<HolidayWorkRequest>("/holiday-work/requests", { method: "POST", body: JSON.stringify(data) }),
   cancel: (id: string) =>
     request<HolidayWorkRequest>(`/holiday-work/requests/${id}/cancel`, { method: "PATCH", body: "{}" }),
+  remove: (id: string) =>
+    request<{ ok: boolean }>(`/holiday-work/requests/${id}`, { method: "DELETE" }),
 };
 
 // ─── Team (Manager) ──────────────────────────────────────────────────────────

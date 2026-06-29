@@ -144,6 +144,10 @@ export interface LeaveBalance {
   adjustedDays: number;
   updatedAt: string;
   remainingDays: number;
+  // 가정의 날 (매월 4시간, 이월 없음) — 이번 달 기준
+  familyDayTotal?: number;
+  familyDayUsed?: number;
+  familyDayRemaining?: number;
 }
 
 export interface LeaveRequest {

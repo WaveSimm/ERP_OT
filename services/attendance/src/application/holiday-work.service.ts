@@ -41,8 +41,42 @@ export class HolidayWorkService {
     );
   }
 
-  async createRequest(userId: string, data: CreateInput) {
+  async createRequest(userId: string, data: CreateInput, direct = false) {
     await this.assertIsHoliday(data.date);
+
+    // 중간 릴리즈(2026-06-29): 근태 직접 추가 — 승인 없이 즉시 APPROVED + 캘린더 반영
+    if (direct) {
+      const dup = await this.prisma.holidayWorkRequest.findFirst({
+        where: {
+          userId,
+          date: new Date(data.date),
+          taskId: data.taskId ?? null,
+          status: { in: ["PENDING", "PENDING_2ND", "PENDING_3RD", "APPROVED"] as ApprovalStatus[] },
+        },
+      });
+      if (dup) {
+        throw new HolidayWorkError("DUPLICATE_REQUEST", `${data.date}에 이미 휴일근무 기록이 있습니다.`, 409);
+      }
+      return this.prisma.$transaction(async (tx) => {
+        const created = await tx.holidayWorkRequest.create({
+          data: {
+            userId,
+            date: new Date(data.date),
+            reason: data.reason,
+            projectId: data.projectId ?? null,
+            taskId: data.taskId ?? null,
+            status: "APPROVED" as ApprovalStatus,
+            approvedAt: new Date(),
+          },
+        });
+        await tx.workScheduleEntry.upsert({
+          where: { userId_date_entryType_sourceId: { userId, date: new Date(data.date), entryType: "OT", sourceId: created.id } },
+          create: { userId, date: new Date(data.date), entryType: "OT", sourceType: "OT_APPROVED", sourceId: created.id, label: "휴일근무" },
+          update: {},
+        });
+        return created;
+      });
+    }
 
     return this.prisma.holidayWorkRequest.create({
       data: {
@@ -146,6 +180,17 @@ export class HolidayWorkService {
       // 근태현황 엔트리 삭제 (자동 동기화로 만든 항목)
       await tx.workScheduleEntry.deleteMany({ where: { sourceId: id } });
       return updated;
+    });
+  }
+
+  // 중간 릴리즈(2026-06-29): 휴일근무 삭제(상태 무관) — 캘린더 엔트리 제거 후 레코드 삭제
+  async deleteRequest(id: string, userId: string) {
+    const req = await this.prisma.holidayWorkRequest.findFirst({ where: { id, userId } });
+    if (!req) throw new HolidayWorkError("NOT_FOUND", "삭제할 수 없는 휴일근무입니다.", 404);
+    return this.prisma.$transaction(async (tx) => {
+      await tx.workScheduleEntry.deleteMany({ where: { sourceId: id } });
+      await tx.holidayWorkRequest.delete({ where: { id } });
+      return { ok: true };
     });
   }
 
