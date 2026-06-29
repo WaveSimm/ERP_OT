@@ -1,4 +1,4 @@
-import { PrismaClient, Project, ProjectStatus, Prisma } from "@prisma/client";
+import { PrismaClient, Project, ProjectStatus, TaskStatus, Prisma } from "@prisma/client";
 import { AppError } from "@erp-ot/shared";
 import { resolveResourceNames } from "./shared/resource-name-resolver.js";
 import { ProjectListFilter } from "../domain/repositories/project.repository.js";
@@ -22,6 +22,43 @@ export interface UpdateProjectDto {
   plannedBudget?: number | null | undefined;
   actualBudget?: number | null | undefined;
   ownerId?: string | undefined;
+}
+
+// ─── MS Planner 일괄 이관 (프로젝트 마이그레이션 탭) ──────────────────────────
+//   단일 트랜잭션으로 프로젝트+태스크+세그먼트+배정+의존성을 생성.
+//   순차 REST(태스크별 POST/PATCH)가 유발하던 recompute/락 부하를 회피한다.
+export interface PlannerImportTask {
+  outline: string;
+  parentOutline: string | null;
+  name: string;
+  sortOrder: number;
+  isMilestone: boolean;
+  start: string | null; // YYYY-MM-DD
+  end: string | null;
+  progress: number; // 0~100
+  hasSegment: boolean;
+  assigneeIds: string[]; // 이미 매칭된 auth_user.id
+  workLogs?: string[] | undefined; // 비고·메모 원문 → 작업일지(WorkLog)로 적재
+}
+
+export interface PlannerImportDto {
+  name: string;
+  ownerId: string;
+  folderId?: string | undefined;
+  metaProgress?: number | null | undefined; // 0~100
+  tasks: PlannerImportTask[];
+  deps: { predOutline: string; succOutline: string; type: string }[];
+}
+
+export interface PlannerImportResult {
+  aborted: boolean;
+  reason?: string;
+  projectId?: string;
+  tasks?: number;
+  segments?: number;
+  assignments?: number;
+  dependencies?: number;
+  workLogs?: number;
 }
 
 export interface ProjectListItem extends Omit<Project, "effectiveStartDate" | "effectiveEndDate" | "overallProgress"> {
@@ -592,6 +629,13 @@ export class ProjectService {
             orderBy: { sortOrder: "asc" },
           },
           _count: { select: { comments: true } },
+          // 비고 열 = 최신 작업일지 1건 (workedAt DESC, 인덱스 [taskId,isDeleted,workedAt DESC])
+          workLogs: {
+            where: { isDeleted: false },
+            orderBy: [{ workedAt: "desc" }, { createdAt: "desc" }],
+            take: 1,
+            select: { content: true, workedAt: true, authorName: true },
+          },
         },
         orderBy: [{ sortOrder: "asc" }],
       }),
@@ -639,6 +683,14 @@ export class ProjectService {
         isCritical: task.isCritical || criticalSet.has(task.id),
         totalFloat: task.totalFloat,
         description: task.description ?? null,
+        // 비고 열 표시용: 최신 작업일지(없으면 null → 프론트에서 description 폴백)
+        latestWorkLog: task.workLogs[0]
+          ? {
+              content: task.workLogs[0].content,
+              workedAt: task.workLogs[0].workedAt.toISOString().slice(0, 10),
+              authorName: task.workLogs[0].authorName,
+            }
+          : null,
         commentCount: task._count.comments,
         effectiveStartDate: effectiveStart?.toISOString().slice(0, 10) ?? null,
         effectiveEndDate: effectiveEnd?.toISOString().slice(0, 10) ?? null,
@@ -699,6 +751,155 @@ export class ProjectService {
       })),
       criticalPath: [...criticalSet],
     };
+  }
+
+  /**
+   * MS Planner 플랜을 단일 트랜잭션으로 일괄 적재. (scripts/planner-commit.js 로직을 서비스로 이관)
+   *   멱등: 동일 이름 프로젝트가 있으면 적재하지 않고 aborted=true 반환.
+   *   세그먼트/배정은 "날짜 있는 leaf"에만 생성. createdBy="planner-import" 표식.
+   */
+  async importPlanner(dto: PlannerImportDto, _requesterId: string): Promise<PlannerImportResult> {
+    const dup = await this.prisma.project.findFirst({ where: { name: dto.name }, select: { id: true } });
+    if (dup) return { aborted: true, reason: "DUPLICATE_NAME", projectId: dup.id };
+
+    const parentSet = new Set(dto.tasks.map((t) => t.parentOutline).filter((o): o is string => !!o));
+    const sorted = [...dto.tasks].sort((a, b) => {
+      const da = (a.outline.match(/\./g) || []).length;
+      const db = (b.outline.match(/\./g) || []).length;
+      if (da !== db) return da - db; // 부모(얕은 깊이) 먼저
+      return a.outline.localeCompare(b.outline, undefined, { numeric: true });
+    });
+    const allDates = dto.tasks.filter((t) => t.start && t.end).flatMap((t) => [t.start!, t.end!]).sort();
+    const projStart = allDates.length ? new Date(allDates[0]!) : null;
+    const projEnd = allDates.length ? new Date(allDates[allDates.length - 1]!) : null;
+    const statusOf = (pct: number): ProjectStatus =>
+      pct >= 100 ? ProjectStatus.COMPLETED : pct > 0 ? ProjectStatus.IN_PROGRESS : ProjectStatus.PLANNING;
+    const taskStatusOf = (pct: number): TaskStatus =>
+      pct >= 100 ? TaskStatus.DONE : pct > 0 ? TaskStatus.IN_PROGRESS : TaskStatus.TODO;
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const project = await tx.project.create({
+        data: {
+          name: dto.name,
+          status: dto.metaProgress != null ? statusOf(dto.metaProgress) : ProjectStatus.IN_PROGRESS,
+          ownerId: dto.ownerId,
+          createdBy: "planner-import",
+          overallProgress: dto.metaProgress ?? null,
+          effectiveStartDate: projStart,
+          effectiveEndDate: projEnd,
+        },
+      });
+
+      if (dto.folderId) {
+        const itemCount = await tx.projectFolderItem.count({ where: { folderId: dto.folderId } });
+        await tx.projectFolderItem.create({ data: { folderId: dto.folderId, projectId: project.id, sortOrder: itemCount } });
+      }
+
+      // 1) 태스크 (부모 먼저 — outlineToId 채워가며 parentId 연결)
+      //    비고·메모는 작업일지(WorkLog)로 적재 (start가 있으면 그 날짜, 없으면 오늘).
+      const outlineToId = new Map<string, string>();
+      let wlCount = 0;
+      for (const t of sorted) {
+        const created = await tx.task.create({
+          data: {
+            projectId: project.id,
+            parentId: t.parentOutline ? outlineToId.get(t.parentOutline) ?? null : null,
+            name: t.name,
+            status: taskStatusOf(t.progress),
+            sortOrder: t.sortOrder || 0,
+            overallProgress: t.progress || 0,
+            isMilestone: t.isMilestone,
+            createdBy: "planner-import",
+            effectiveStartDate: t.start ? new Date(t.start) : null,
+            effectiveEndDate: t.end ? new Date(t.end) : null,
+          },
+        });
+        outlineToId.set(t.outline, created.id);
+
+        if (t.workLogs?.length) {
+          const workedAt = t.start ? new Date(t.start) : new Date();
+          for (const content of t.workLogs) {
+            await tx.workLog.create({
+              data: {
+                taskId: created.id,
+                authorId: "planner-import",
+                authorName: "MS Planner 이관",
+                content,
+                workedAt,
+                isDeleted: false,
+              },
+            });
+            wlCount++;
+          }
+        }
+      }
+
+      // 2) 세그먼트 + 배정 (leaf만)
+      //   - 날짜 있는 leaf: 그 날짜로 세그먼트 생성
+      //   - 날짜 없지만 담당자 있는 leaf: 배정(segmentAssignment)은 세그먼트에만 붙으므로,
+      //     담당자가 누락되지 않도록 대체 날짜(작업→프로젝트→오늘)로 세그먼트를 만들어 배정.
+      //   - 날짜도 담당자도 없는 leaf: 세그먼트 불필요 → skip
+      const today = new Date();
+      let segCount = 0;
+      let asgCount = 0;
+      for (const t of sorted) {
+        if (parentSet.has(t.outline)) continue;
+        const hasDates = !!(t.start && t.end);
+        if (!hasDates && t.assigneeIds.length === 0) continue;
+        const segStart = t.start ? new Date(t.start) : (projStart ?? today);
+        const segEnd = t.end ? new Date(t.end) : (projEnd ?? today);
+        const taskId = outlineToId.get(t.outline)!;
+        const seg = await tx.taskSegment.create({
+          data: {
+            taskId,
+            name: t.name.slice(0, 200),
+            sortOrder: 0,
+            startDate: segStart,
+            endDate: segEnd,
+            progressPercent: t.progress || 0,
+          },
+        });
+        segCount++;
+        const n = t.assigneeIds.length;
+        for (const uid of t.assigneeIds) {
+          await tx.segmentAssignment.create({
+            data: {
+              segmentId: seg.id,
+              resourceId: uid,
+              personUserId: uid,
+              allocationMode: "PERCENT",
+              allocationPercent: 100,
+              contributionWeight: n ? Math.round((100 / n) * 100) / 100 : 0,
+              progressPercent: t.progress || 0,
+            },
+          });
+          asgCount++;
+        }
+      }
+
+      // 3) 의존성 (Task↔Task)
+      let depCount = 0;
+      for (const d of dto.deps) {
+        const predId = outlineToId.get(d.predOutline);
+        const succId = outlineToId.get(d.succOutline);
+        if (!predId || !succId || predId === succId) continue;
+        await tx.dependency.create({
+          data: {
+            predecessorTaskId: predId,
+            successorTaskId: succId,
+            dependencyType: (["FS", "SS", "FF", "SF"].includes(d.type) ? d.type : "FS") as "FS" | "SS" | "FF" | "SF",
+            lag: 0,
+            createdBy: "planner-import",
+          },
+        });
+        depCount++;
+      }
+
+      return { projectId: project.id, tasks: dto.tasks.length, segments: segCount, assignments: asgCount, dependencies: depCount, workLogs: wlCount };
+    }, { maxWait: 15000, timeout: 120000 });
+
+    await this.cache.invalidateProjectSummary(result.projectId);
+    return { aborted: false, ...result };
   }
 
   private async logActivity(

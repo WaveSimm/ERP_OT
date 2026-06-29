@@ -587,6 +587,26 @@ export default function ProjectDetailPage() {
   };
   const cancelEdit = () => { setEditingCell(null); setEditVal(null); };
 
+  // 태스크 이름 인라인 편집 (이름 더블클릭)
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [editNameVal, setEditNameVal] = useState("");
+  const saveTaskName = async (taskId: string, name: string) => {
+    const task = (ganttData?.tasks ?? []).find((t: any) => t.id === taskId);
+    const oldName = task?.name ?? "";
+    const newName = name.trim();
+    setEditingNameId(null);
+    if (!newName || newName === oldName) return;
+    try {
+      await taskApi.update(projectId, taskId, { name: newName });
+      pushUndo({
+        label: `태스크 이름 "${oldName}" → "${newName}"`,
+        undo: async () => { await taskApi.update(projectId, taskId, { name: oldName }); await load(); },
+        redo: async () => { await taskApi.update(projectId, taskId, { name: newName }); await load(); },
+      });
+      await load();
+    } catch (e: any) { alert(e?.message ?? "이름 수정 실패"); }
+  };
+
   const saveStatus = async (taskId: string, status: string) => {
     const task = (ganttData?.tasks ?? []).find((t: any) => t.id === taskId);
     const oldStatus = task?.status ?? "TODO";
@@ -634,21 +654,6 @@ export default function ProjectDetailPage() {
       await load();
     } catch { /* ignore */ }
     finally { setInlineAdding(false); }
-  };
-
-  const saveNote = async (taskId: string, note: string) => {
-    const task = (ganttData?.tasks ?? []).find((t: any) => t.id === taskId);
-    const oldNote = task?.description ?? "";
-    const taskName = task?.name ?? taskId;
-    const newNote = note.trim() || null;
-    cancelEdit();
-    await taskApi.update(projectId, taskId, { description: newNote }).catch(() => {});
-    pushUndo({
-      label: `"${taskName}" 비고 수정`,
-      undo: async () => { await taskApi.update(projectId, taskId, { description: oldNote || null }); },
-      redo: async () => { await taskApi.update(projectId, taskId, { description: newNote }); },
-    });
-    await load();
   };
 
   const saveDates = async (task: any, start: string, end: string) => {
@@ -1401,6 +1406,7 @@ export default function ProjectDetailPage() {
               <GanttChart
                 data={computedGanttData!}
                 flatItems={flatItems}
+                canRename={isOperator}
                 viewStart={viewStart || undefined}
                 viewEnd={viewEnd || undefined}
                 onTaskClick={(task) => {
@@ -1532,7 +1538,8 @@ export default function ProjectDetailPage() {
                     <RowContextMenu
                       fallbackToBrowser
                       items={[
-                        { label: "편집/상세", icon: "✏️", onClick: () => handleTaskClick(task) },
+                        { label: "편집/상세", icon: "📄", onClick: () => handleTaskClick(task) },
+                        { label: "이름 수정", icon: "✏️", onClick: () => { setEditingNameId(task.id); setEditNameVal(task.name); }, visible: !!isOperator },
                         { label: "복사", icon: "📋", onClick: () => setCopyTargets([{ id: task.id, name: task.name, projectId }]), visible: !parentTaskIds.has(task.id) && !!isManager },
                         { separator: true, visible: !!isManager },
                         { label: "삭제", icon: "🗑", onClick: () => handleDeleteTask(task.id, task.name), destructive: true, visible: !!isManager },
@@ -1571,7 +1578,9 @@ export default function ProjectDetailPage() {
                         <input type="checkbox" readOnly checked={isSel} className="pointer-events-none" />
                       </td>
                       {/* 태스크명 */}
-                      <td className="px-2 cursor-pointer hover:bg-blue-50/60" onClick={(e) => handleTaskClick(task, e)}>
+                      <td className="px-2 cursor-pointer hover:bg-blue-50/60"
+                        onClick={(e) => { if (e.detail > 1) return; handleTaskClick(task, e); }}
+                        onDoubleClick={isOperator ? (e) => { e.stopPropagation(); setEditingNameId(task.id); setEditNameVal(task.name); } : undefined}>
                         <div className="flex items-center" style={{ paddingLeft: depth * 16 }}>
                           {hasChildren ? (
                             <button
@@ -1585,10 +1594,23 @@ export default function ProjectDetailPage() {
                               {depth > 0 && <span className="w-2 h-px bg-gray-300 inline-block" />}
                             </span>
                           )}
-                          <span className={`text-xs font-medium truncate ${task.isMilestone ? "text-purple-700" : task.isCritical ? "text-red-600" : depth === 0 ? "text-gray-900" : "text-gray-600"}`}>
-                            {task.isMilestone && <span className="mr-1 text-purple-400">◆</span>}
-                            {task.name}
-                          </span>
+                          {editingNameId === task.id ? (
+                            <input
+                              autoFocus
+                              value={editNameVal}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => setEditNameVal(e.target.value)}
+                              onBlur={() => saveTaskName(task.id, editNameVal)}
+                              onKeyDown={(e) => { if (e.key === "Enter") saveTaskName(task.id, editNameVal); if (e.key === "Escape") setEditingNameId(null); }}
+                              className="text-xs font-medium border border-blue-400 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500 min-w-0 flex-1"
+                            />
+                          ) : (
+                            <span
+                              className={`text-xs font-medium truncate ${task.isMilestone ? "text-purple-700" : task.isCritical ? "text-red-600" : depth === 0 ? "text-gray-900" : "text-gray-600"}`}>
+                              {task.isMilestone && <span className="mr-1 text-purple-400">◆</span>}
+                              {task.name}
+                            </span>
+                          )}
                           {task.commentCount > 0 && (
                             <span className="ml-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                               <CommentPopover taskId={task.id} count={task.commentCount} />
@@ -1678,27 +1700,20 @@ export default function ProjectDetailPage() {
                           </td>
                         );
                         if (col === "note") {
-                          const isEditNote = editingCell !== null && editingCell.taskId === task.id && editingCell.col === "note";
+                          // 비고 = 최신 작업일지(workLog). 없으면 기존 description 폴백. 클릭 시 행→드로어(작업일지 탭)로 추가/편집.
+                          const wl = task.latestWorkLog;
+                          const text = wl?.content ?? task.description ?? "";
+                          const tip = wl
+                            ? `${wl.workedAt} · ${wl.authorName}\n${wl.content}`
+                            : (task.description ? `(이전 비고)\n${task.description}` : "작업일지 없음 — 클릭해 추가");
                           return (
-                            <td key="note" className="px-2"
-                              onClick={(e) => { e.stopPropagation(); if (!isEditNote) { setEditingCell({ taskId: task.id, col: "note" }); setEditVal(task.description ?? ""); } }}
-                            >
-                              {isEditNote ? (
-                                <input
-                                  autoFocus
-                                  type="text"
-                                  value={editVal}
-                                  onChange={(e) => setEditVal(e.target.value)}
-                                  onKeyDown={(e) => { if (e.key === "Enter") saveNote(task.id, editVal); if (e.key === "Escape") cancelEdit(); }}
-                                  onBlur={() => saveNote(task.id, editVal)}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="w-full text-[11px] border border-blue-400 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                  placeholder="비고 입력..."
-                                />
-                              ) : task.description ? (
-                                <span className="text-[11px] text-gray-600 truncate block max-w-[120px]" title={task.description}>{task.description}</span>
+                            <td key="note" className="px-2" title={tip}>
+                              {text ? (
+                                <span className="text-[11px] text-gray-600 truncate block max-w-[120px]">
+                                  {text}
+                                </span>
                               ) : (
-                                <span className="text-[11px] text-gray-300 hover:text-gray-400">—</span>
+                                <span className="text-[11px] text-gray-300 hover:text-gray-400">+ 작업일지</span>
                               )}
                             </td>
                           );

@@ -88,7 +88,7 @@ function fmtDate(s?: string | null) {
 
 export default function ProjectsPage() {
   const router = useRouter();
-  const { isManager } = usePermission();
+  const { isManager, isOperator } = usePermission();
 
   // API data
   const [projects, setProjects] = useState<Project[]>([]);
@@ -925,7 +925,7 @@ export default function ProjectsPage() {
             >
               <span>📁</span> 새폴더
             </button>
-            {isManager && (
+            {isOperator && (
               <button
                 onClick={() => setShowCreate(true)}
                 className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors flex items-center gap-1.5"

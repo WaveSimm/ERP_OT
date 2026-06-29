@@ -238,21 +238,8 @@ export class TaskService {
       throw new AppError(400, "INVALID_DATE_RANGE", "시작일이 종료일보다 늦을 수 없습니다.");
     }
 
-    // 같은 태스크 내 세그먼트 날짜 중복 검증
-    const entity = new TaskEntity(
-      task.id,
-      task.projectId,
-      task.name,
-      task.status,
-      task.overallProgress,
-      task.isCritical,
-      task.createdBy,
-      task.segments,
-    );
-
-    if (entity.hasSegmentOverlap(newStart, newEnd)) {
-      throw new AppError(409, "SEGMENT_DATE_OVERLAP", "같은 태스크 내 세그먼트 날짜가 중복됩니다.");
-    }
+    // 구간 날짜 중복 허용 (2026-06-29): 여러 담당자가 겹치는 세부 구간을 동시에 진행 가능.
+    //   기존 SEGMENT_DATE_OVERLAP 검증 제거.
 
     const segment = await this.prisma.taskSegment.create({
       data: {
@@ -348,22 +335,7 @@ export class TaskService {
       throw new AppError(400, "INVALID_DATE_RANGE", "시작일이 종료일보다 늦을 수 없습니다.");
     }
 
-    // 날짜 변경 시 중복 검증
-    if (dto.startDate || dto.endDate) {
-      const entity = new TaskEntity(
-        segment.task.id,
-        segment.task.projectId,
-        segment.task.name,
-        segment.task.status,
-        segment.task.overallProgress,
-        segment.task.isCritical,
-        segment.task.createdBy,
-        segment.task.segments,
-      );
-      if (entity.hasSegmentOverlap(newStart, newEnd, segmentId)) {
-        throw new AppError(409, "SEGMENT_DATE_OVERLAP", "같은 태스크 내 세그먼트 날짜가 중복됩니다.");
-      }
-    }
+    // 구간 날짜 중복 허용 (2026-06-29): 겹치는 세부 구간 허용 — SEGMENT_DATE_OVERLAP 검증 제거.
 
     // 완료-작업일지-필수 검증 (Q2=(2a) 변경: segment progressPercent 변경으로 task 100% 도달 시도도 차단)
     // - 다른 segment들 + 본 segment 새 값으로 평균 계산

@@ -82,8 +82,9 @@ function shiftDate(isoDate: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTaskClick, onTaskCopy, baselineSegments, allResources, onRefresh, pushUndo, projectId, inlineTaskName, onInlineTaskNameChange, inlineAdding, onInlineTaskCreate, selected, onToggleSelect, onToggleAll, dragIds, dropGap, onDragStart, onDragOver, onDrop, onDragEnd, onIndent, onOutdent, onCopySelected, onDeleteSelected, onClearSelection, onProgressChange, onAddTask, onAddMilestone, holidays }: {
+export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTaskClick, onTaskCopy, baselineSegments, allResources, onRefresh, pushUndo, projectId, inlineTaskName, onInlineTaskNameChange, inlineAdding, onInlineTaskCreate, selected, onToggleSelect, onToggleAll, dragIds, dropGap, onDragStart, onDragOver, onDrop, onDragEnd, onIndent, onOutdent, onCopySelected, onDeleteSelected, onClearSelection, onProgressChange, onAddTask, onAddMilestone, holidays, canRename }: {
   data: GanttData;
+  canRename?: boolean;
   flatItems?: FlatItem[];
   viewStart?: string;
   viewEnd?: string;
@@ -124,6 +125,25 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
   // 진도율 인라인 편집 (leaf task만)
   const [editingProgressId, setEditingProgressId] = useState<string | null>(null);
   const progressValRef = useRef<number>(0);
+  // 태스크 이름 인라인 편집 (우클릭 → 이름 수정)
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [editNameVal, setEditNameVal] = useState("");
+  const saveTaskName = async (taskId: string, name: string) => {
+    const t = (data?.tasks ?? []).find((x: any) => x.id === taskId);
+    const oldName = (t as any)?.name ?? "";
+    const newName = name.trim();
+    setEditingNameId(null);
+    if (!projectId || !newName || newName === oldName) return;
+    try {
+      await taskApi.update(projectId, taskId, { name: newName });
+      pushUndo?.({
+        label: `태스크 이름 "${oldName}" → "${newName}"`,
+        undo: async () => { await taskApi.update(projectId, taskId, { name: oldName }); onRefresh?.(); },
+        redo: async () => { await taskApi.update(projectId, taskId, { name: newName }); onRefresh?.(); },
+      });
+      onRefresh?.();
+    } catch (e: any) { alert(e?.message ?? "이름 수정 실패"); }
+  };
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -552,13 +572,15 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                 key={task.id}
                 fallbackToBrowser
                 items={[
-                  { label: "편집/상세", icon: "✏️", onClick: () => onTaskClick?.(task), visible: !!onTaskClick },
+                  { label: "편집/상세", icon: "📄", onClick: () => onTaskClick?.(task), visible: !!onTaskClick },
+                  { label: "이름 수정", icon: "✏️", onClick: () => { setEditingNameId(task.id); setEditNameVal(task.name); }, visible: !!canRename },
                   { label: "복사", icon: "📋", onClick: () => onTaskCopy?.(task), visible: !!onTaskCopy && !((task as any)._children?.length > 0) },
                 ]}
               >
               <div
                 style={{ height: ROW_H }}
-                onClick={(e) => { e.stopPropagation(); onTaskClick?.(task); }}
+                onClick={(e) => { e.stopPropagation(); if (e.detail > 1) return; onTaskClick?.(task); }}
+                onDoubleClick={canRename ? (e) => { e.stopPropagation(); setEditingNameId(task.id); setEditNameVal(task.name); } : undefined}
                 onDragOver={onDragOver ? (e) => onDragOver(e, task.id) : undefined}
                 onDrop={onDrop ? (e) => { e.preventDefault(); onDrop(e); } : undefined}
                 className={clsx(
@@ -619,6 +641,17 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                       ? <span className="w-4 h-px bg-gray-200 shrink-0 ml-0" />
                       : <span className="w-4 shrink-0" />
                   )}
+                  {editingNameId === task.id ? (
+                    <input
+                      autoFocus
+                      value={editNameVal}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => setEditNameVal(e.target.value)}
+                      onBlur={() => saveTaskName(task.id, editNameVal)}
+                      onKeyDown={(e) => { if (e.key === "Enter") saveTaskName(task.id, editNameVal); if (e.key === "Escape") setEditingNameId(null); }}
+                      className="text-sm font-medium border border-blue-400 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500 min-w-0 flex-1"
+                    />
+                  ) : (
                   <p className={clsx(
                     "text-sm truncate",
                     parentIds.has(task.id) ? "font-semibold" : "font-medium",
@@ -634,6 +667,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                       : task.isCritical && <span className="mr-0.5">🔴</span>}
                     {task.name}
                   </p>
+                  )}
                   {(task as any).commentCount > 0 && (
                     <span className="ml-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                       <CommentPopover taskId={task.id} count={(task as any).commentCount} />

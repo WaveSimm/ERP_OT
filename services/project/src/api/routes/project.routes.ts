@@ -31,6 +31,31 @@ const cloneProjectSchema = z.object({
   includeDependencies: z.boolean().default(true),
 });
 
+const importPlannerSchema = z.object({
+  name: z.string().min(1).max(200),
+  ownerId: z.string().min(1),
+  folderId: z.string().optional(),
+  metaProgress: z.number().nullable().optional(),
+  tasks: z.array(z.object({
+    outline: z.string().min(1),
+    parentOutline: z.string().nullable(),
+    name: z.string().min(1).max(200),
+    sortOrder: z.number().int(),
+    isMilestone: z.boolean(),
+    start: z.string().nullable(),
+    end: z.string().nullable(),
+    progress: z.number(),
+    hasSegment: z.boolean(),
+    assigneeIds: z.array(z.string()),
+    workLogs: z.array(z.string()).max(10).optional(),
+  })).min(1).max(2000),
+  deps: z.array(z.object({
+    predOutline: z.string(),
+    succOutline: z.string(),
+    type: z.string(),
+  })).max(4000),
+});
+
 export async function projectRoutes(fastify: FastifyInstance) {
   const service: ProjectService = fastify.projectService;
 
@@ -50,11 +75,20 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/projects
   fastify.post("/", {
-    preHandler: requireRole("ADMIN", "MANAGER"),
+    preHandler: requireRole("ADMIN", "MANAGER", "OPERATOR"),
   }, async (req, reply) => {
     const dto = createProjectSchema.parse(req.body);
     const project = await service.createProject(dto, req.userId);
     return reply.status(201).send(project);
+  });
+
+  // POST /api/v1/projects/import-planner — MS Planner 플랜 일괄 이관 (ADMIN)
+  fastify.post("/import-planner", {
+    preHandler: requireRole("ADMIN"),
+  }, async (req, reply) => {
+    const dto = importPlannerSchema.parse(req.body);
+    const result = await service.importPlanner(dto, req.userId);
+    return reply.send(result);
   });
 
   // GET /api/v1/projects/:id
@@ -73,7 +107,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
   // PATCH /api/v1/projects/:id
   fastify.patch("/:id", {
-    preHandler: requireRole("ADMIN", "MANAGER"),
+    preHandler: requireRole("ADMIN", "MANAGER", "OPERATOR"),
   }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const dto = updateProjectSchema.parse(req.body);
@@ -83,7 +117,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
   // DELETE /api/v1/projects/:id
   fastify.delete("/:id", {
-    preHandler: requireRole("ADMIN", "MANAGER"),
+    preHandler: requireRole("ADMIN", "MANAGER", "OPERATOR"),
   }, async (req, reply) => {
     const { id } = req.params as { id: string };
     await service.deleteProject(id, req.userId);
@@ -98,7 +132,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/projects/:id/clone
   fastify.post("/:id/clone", {
-    preHandler: requireRole("ADMIN", "MANAGER"),
+    preHandler: requireRole("ADMIN", "MANAGER", "OPERATOR"),
   }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const options = cloneProjectSchema.parse(req.body);

@@ -528,6 +528,23 @@ function SegmentCard({
 
 export default function TaskDrawer({ task, projectId, isParent = false, onCopy, hiddenSegIds, onToggleSeg, onClose, onRefresh, pushUndo, onUndo, onRedo, undoCount = 0, redoCount = 0, undoLabel, redoLabel, toast, refreshKey = 0 }: Props) {
   const [comments, setComments] = useState<any[]>([]);
+  // 태스크 이름 인라인 편집 (헤더)
+  const [nameDraft, setNameDraft] = useState(task.name);
+  useEffect(() => { setNameDraft(task.name); }, [task.name]);
+  const saveTaskName = async () => {
+    const newName = nameDraft.trim();
+    if (!newName || newName === task.name) { setNameDraft(task.name); return; }
+    const oldName = task.name;
+    try {
+      await taskApi.update(projectId, task.id, { name: newName });
+      pushUndo?.({
+        label: `태스크 이름 "${oldName}" → "${newName}"`,
+        undo: async () => { await taskApi.update(projectId, task.id, { name: oldName }); onRefresh(); },
+        redo: async () => { await taskApi.update(projectId, task.id, { name: newName }); onRefresh(); },
+      });
+      onRefresh();
+    } catch (e: any) { alert(e?.message ?? "이름 수정 실패"); setNameDraft(task.name); }
+  };
   const [newComment, setNewComment] = useState("");
   const [postingComment, setPostingComment] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
@@ -890,7 +907,22 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 flex items-start gap-3">
           <div className="flex-1 min-w-0">
-            <h2 className="font-bold text-gray-900 text-lg leading-tight">{task.name}</h2>
+            <input
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onBlur={saveTaskName}
+              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") { setNameDraft(task.name); (e.target as HTMLInputElement).blur(); } }}
+              title="태스크 이름 — 수정 후 Enter 또는 포커스 해제"
+              className="w-full font-bold text-gray-900 text-lg leading-tight bg-transparent border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none"
+            />
+            {/* 태스크 날짜 — 구간 범위(최소 시작 ~ 최대 종료), 읽기전용 */}
+            {(() => {
+              const segs = (task.segments ?? []).filter((x: any) => x.startDate && x.endDate);
+              if (!segs.length) return null;
+              const s = segs.map((x: any) => String(x.startDate).slice(0, 10)).sort()[0];
+              const e = segs.map((x: any) => String(x.endDate).slice(0, 10)).sort().slice(-1)[0];
+              return <p className="text-xs text-gray-400 mt-1">📅 {s === e ? s : `${s} ~ ${e}`}</p>;
+            })()}
           </div>
           {/* Undo / Redo */}
           {onUndo && onRedo && (
