@@ -866,7 +866,8 @@ export default function ProjectsPage() {
 
   const rootFolders  = folders.filter(f => f.parentId === null);
   // 복제 개념: 폴더에 넣어도 루트에는 그대로 유지 (한 프로젝트가 루트 + 여러 폴더에 동시 존재)
-  const rootProjects = filteredProjects;
+  // 루트(폴더 밖)에 표시되는 프로젝트만 이름 오름차순 자동정렬. 폴더 내부는 수동 순서 유지(getOrderedChildProjects).
+  const rootProjects = [...filteredProjects].sort((a, b) => a.name.localeCompare(b.name, "ko"));
   const isRootDrop   = dropTarget === "root" && dragging !== null;
 
   // ─── Render ──────────────────────────────────────────────────────────────────
@@ -1026,9 +1027,9 @@ export default function ProjectsPage() {
       {/* ── Folder project picker modal ─────────────────────────────────────── */}
       {pickerFolderId && (() => {
         const folder = folders.find(f => f.id === pickerFolderId);
-        const filtered = projects.filter(p =>
-          !pickerSearch || p.name.toLowerCase().includes(pickerSearch.toLowerCase())
-        );
+        const filtered = projects
+          .filter(p => !pickerSearch || p.name.toLowerCase().includes(pickerSearch.toLowerCase()))
+          .sort((a, b) => a.name.localeCompare(b.name, "ko"));
         const allChecked = filtered.length > 0 && filtered.every(p => pickerSelected.has(p.id));
         return (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
