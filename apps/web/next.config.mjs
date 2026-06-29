@@ -34,13 +34,16 @@ const nextConfig = {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
   async rewrites() {
-    const eq = process.env.EQUIPMENT_SERVICE_URL || "http://localhost:3005";
-    const auth = process.env.AUTH_SERVICE_URL || "http://localhost:3001";
-    const att = process.env.ATTENDANCE_SERVICE_URL || "http://localhost:3004";
-    const proj = process.env.API_BASE_URL || "http://localhost:3003";
-    const appr = process.env.APPROVAL_SERVICE_URL || "http://localhost:3006";
-    const ocr = process.env.OCR_SERVICE_URL || "http://localhost:3007";
-    const exp = process.env.EXPENSE_SERVICE_URL || "http://localhost:3008";
+    // ★ 폴백은 docker 서비스명으로 (localhost 아님). rewrites 목적지는 빌드타임에 baked 되는데,
+    //   Dockerfile 빌드 등 env 없는 빌드에서 localhost로 구워지면 런타임 ECONNREFUSED 대량발생(2026-06-26 사태).
+    //   docker 서비스명을 폴백으로 두면 env 없이 빌드해도 컨테이너 네트워크에서 정상 동작.
+    const eq = process.env.EQUIPMENT_SERVICE_URL || "http://equipment-service:3005";
+    const auth = process.env.AUTH_SERVICE_URL || "http://auth-service:3001";
+    const att = process.env.ATTENDANCE_SERVICE_URL || "http://attendance-service:3004";
+    const proj = process.env.API_BASE_URL || "http://project-service:3003";
+    const appr = process.env.APPROVAL_SERVICE_URL || "http://approval-service:3006";
+    const ocr = process.env.OCR_SERVICE_URL || "http://ocr-service:3007";
+    const exp = process.env.EXPENSE_SERVICE_URL || "http://expense-service:3008";
     // OT-Brain knowledge-api (NAS 통합검색) — 호스트 서비스(GPU reranker 동반). 컨테이너에선 host.docker.internal 경유.
     const knowledge = process.env.KNOWLEDGE_SERVICE_URL || "http://ot-knowledge-api:3100";
     const nasFile = process.env.NAS_FILE_SERVICE_URL || "http://ot-nas-file:3105";
