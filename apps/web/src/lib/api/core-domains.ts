@@ -14,11 +14,26 @@ import type {
 // ─── Projects ────────────────────────────────────────────────────────────────
 
 export const projectApi = {
-  list: (params?: { search?: string; status?: string }) => {
-    const q = new URLSearchParams(params as Record<string, string>).toString();
-    return request<Paginated<ProjectListItem>>(
-      `/projects${q ? `?${q}` : ""}`,
-    );
+  // 전체 로드: 백엔드 limit 상한(100)에 맞춰 페이지를 끝까지 순회해 모든 프로젝트를 모아 반환.
+  list: async (params?: { search?: string; status?: string }) => {
+    const PAGE_SIZE = 100;
+    const items: ProjectListItem[] = [];
+    let page = 1;
+    let total = 0;
+    // 무한루프 방지용 안전장치 (최대 1000페이지 = 10만 건)
+    for (let guard = 0; guard < 1000; guard++) {
+      const q = new URLSearchParams({
+        ...(params as Record<string, string>),
+        page: String(page),
+        limit: String(PAGE_SIZE),
+      }).toString();
+      const res = await request<Paginated<ProjectListItem>>(`/projects?${q}`);
+      items.push(...res.items);
+      total = res.total;
+      if (items.length >= total || res.items.length === 0) break;
+      page++;
+    }
+    return { items, total, page: 1, limit: items.length } as Paginated<ProjectListItem>;
   },
   get: (id: string) => request<Project>(`/projects/${id}`),
   getSummary: (id: string) => request<ProjectSummary>(`/projects/${id}/summary`),

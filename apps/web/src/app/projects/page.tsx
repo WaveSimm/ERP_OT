@@ -865,8 +865,8 @@ export default function ProjectsPage() {
   const displayTotal = search ? filteredProjects.length : total;
 
   const rootFolders  = folders.filter(f => f.parentId === null);
-  // 어떤 폴더에도 속하지 않은 프로젝트만 루트에 표시
-  const rootProjects = filteredProjects.filter(p => !(projFolderMap[p.id]?.length > 0));
+  // 복제 개념: 폴더에 넣어도 루트에는 그대로 유지 (한 프로젝트가 루트 + 여러 폴더에 동시 존재)
+  const rootProjects = filteredProjects;
   const isRootDrop   = dropTarget === "root" && dragging !== null;
 
   // ─── Render ──────────────────────────────────────────────────────────────────
