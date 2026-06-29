@@ -6,7 +6,7 @@ const QUEUE_NAME = "project.activity-logger";
 
 interface ActivityEvent {
   action: string;
-  userId: string;
+  userId: string | null; // 로그인 실패 등 비인증 이벤트는 null (auth가 의도적으로 보냄)
   entityType: string;
   entityId: string;
   description: string;
@@ -43,7 +43,9 @@ export class ActivityEventConsumer {
           const event: ActivityEvent = JSON.parse(msg.content.toString());
           await this.prisma.activityLog.create({
             data: {
-              userId: event.userId,
+              // userId 컬럼은 non-null(String, FK 아님). 비인증 이벤트(로그인 실패 등)는
+              //   "anonymous" sentinel로 기록 — 실제 시도 정보는 entityId(이메일)·metadata에 보존.
+              userId: event.userId || "anonymous",
               action: event.action,
               entityType: event.entityType,
               entityId: event.entityId,
