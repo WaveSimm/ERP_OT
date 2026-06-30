@@ -611,6 +611,7 @@ export const myProfileApi = {
   updateProfile: (id: string, data: {
     phoneOffice?: string | null;
     phoneMobile?: string | null;
+    address?: string | null;
   }) => request<User>(`/users/${id}/profile`, { method: "PATCH", body: JSON.stringify(data) }),
   changeName: (name: string) =>
     request<User>("/auth/me", { method: "PATCH", body: JSON.stringify({ name }) }),

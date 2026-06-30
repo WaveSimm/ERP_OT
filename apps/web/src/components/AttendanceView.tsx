@@ -60,6 +60,7 @@ interface WorkScheduleEntry {
   label: string | null;
   groupId: string | null;
   sourceType: string;
+  sourceId: string | null;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -290,12 +291,13 @@ function getDatesInRange(start: string, end: string): string[] {
   return dates;
 }
 
-function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete, defaultStart = "09:30", defaultEnd = "18:30" }: {
+function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete, onDeleteLeave, defaultStart = "09:30", defaultEnd = "18:30" }: {
   date: string;
   entry?: WorkScheduleEntry | null;
   onClose: () => void;
   onSuccess: () => void;
   onDelete?: (id: string) => void;
+  onDeleteLeave?: (leaveId: string) => void;   // 휴가 파생(LEAVE_APPROVED) 항목 삭제 — 휴가 레코드 제거
   defaultStart?: string;   // 본인 근무시간(유연근무 반영). 신규 입력 기본값.
   defaultEnd?: string;
 }) {
@@ -399,9 +401,20 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete, defaultStar
               <p className="font-medium mb-1">{ENTRY_LABELS[entry!.entryType] ?? entry!.entryType}</p>
               {(entry!.startTime || entry!.endTime) && <p className="text-xs">{entry!.startTime ? entry!.startTime : ""}{entry!.startTime && entry!.endTime ? " ~ " : ""}{entry!.endTime ? (entry!.startTime ? entry!.endTime : `~${entry!.endTime}`) : ""}</p>}
               {entry!.label && <p className="text-xs text-gray-500">{entry!.label}</p>}
-              <p className="text-[10px] text-gray-400 mt-2">자동 생성된 항목은 수정할 수 없습니다.</p>
+              <p className="text-[10px] text-gray-400 mt-2">
+                {entry!.sourceType === "LEAVE_APPROVED"
+                  ? "휴가 항목은 여기서 수정은 불가하며, 필요 시 삭제할 수 있습니다."
+                  : "자동 생성된 항목은 수정할 수 없습니다."}
+              </p>
             </div>
-            <button type="button" onClick={onClose} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">닫기</button>
+            <div className="flex gap-2">
+              {entry!.sourceType === "LEAVE_APPROVED" && entry!.sourceId && onDeleteLeave && (
+                <button type="button"
+                  onClick={() => { if (window.confirm("이 휴가 항목을 삭제하시겠습니까? 연차가 복원됩니다.")) { onDeleteLeave(entry!.sourceId!); onClose(); } }}
+                  className="flex-1 px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-100">삭제</button>
+              )}
+              <button type="button" onClick={onClose} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">닫기</button>
+            </div>
           </div>
         ) : (
           <form onSubmit={submit} className="space-y-3">
@@ -648,6 +661,15 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
     } catch {}
   };
 
+  // 휴가 파생(가정의날 등 LEAVE_APPROVED) 항목 삭제 — 휴가 레코드 제거(캘린더 엔트리도 함께 삭제됨)
+  const handleDeleteLeave = async (leaveId: string) => {
+    try {
+      await leaveApi.remove(leaveId);
+      setEntries((prev) => prev.filter((e) => e.sourceId !== leaveId));
+      onEntryChanged();
+    } catch {}
+  };
+
   if (loading) return <div className="text-sm text-gray-400 py-6 text-center">불러오는 중...</div>;
 
   const firstDay = new Date(year, month - 1, 1).getDay();
@@ -680,7 +702,8 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
             const dayNum = parseInt(cell.date.slice(8));
             const isToday = cell.date === todayStr;
             const dow = new Date(cell.date).getDay();
-            const dayEntries = entriesByDate.get(cell.date) ?? [];
+            // 출근(WORK)은 위 회색 출퇴근 글씨로 이미 표시 → 바 중복 방지 위해 제외. 외근/휴가 등만 바로 표시.
+            const dayEntries = (entriesByDate.get(cell.date) ?? []).filter((e) => e.entryType !== "WORK");
 
             return (
               <div key={cell.date}
@@ -768,6 +791,7 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
           onClose={() => setEditingEntry(null)}
           onSuccess={() => { onEntryChanged(); }}
           onDelete={(id) => { handleDeleteEntry(id); }}
+          onDeleteLeave={(leaveId) => { handleDeleteLeave(leaveId); }}
         />
       )}
     </div>

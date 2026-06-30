@@ -157,8 +157,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // 프로필 모달
   const [showProfile, setShowProfile] = useState(false);
   const [profileTab, setProfileTab] = useState<"info" | "password">("info");
-  const [profileForm, setProfileForm] = useState({ name: "", phoneOffice: "", phoneMobile: "" });
-  const [originalProfileForm, setOriginalProfileForm] = useState({ name: "", phoneOffice: "", phoneMobile: "" });
+  const [profileForm, setProfileForm] = useState({ name: "", phoneOffice: "", phoneMobile: "", address: "" });
+  const [originalProfileForm, setOriginalProfileForm] = useState({ name: "", phoneOffice: "", phoneMobile: "", address: "" });
+  const [profileMeta, setProfileMeta] = useState<{ email: string; departmentName: string }>({ email: "", departmentName: "" });
   const [pwForm, setPwForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [profileSaving, setProfileSaving] = useState(false);
   const [pwSaving, setPwSaving] = useState(false);
@@ -184,14 +185,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     setProfileMsg(null);
     setPwMsg(null);
     setPwForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-    const initial = { name: user.name, phoneOffice: "", phoneMobile: "" };
+    const initial = { name: user.name, phoneOffice: "", phoneMobile: "", address: "" };
     setProfileForm(initial);
     setOriginalProfileForm(initial);
     try {
-      const profile = await myProfileApi.getProfile(user.id);
-      const loaded = { name: user.name, phoneOffice: profile?.phoneOffice ?? "", phoneMobile: profile?.phoneMobile ?? "" };
+      const data = await myProfileApi.getProfile(user.id);
+      // 응답은 {...user, profile:{ phoneOffice, ... }} 구조 — 개인정보는 profile에 중첩됨.
+      // 직원관리와 동일하게 data.profile에서 읽어 값 통일(과거엔 최상위에서 읽어 빈 값/불일치였음).
+      const p: any = (data as any)?.profile ?? data ?? {};
+      const loaded = { name: user.name, phoneOffice: p.phoneOffice ?? "", phoneMobile: p.phoneMobile ?? "", address: p.address ?? "" };
       setProfileForm(loaded);
       setOriginalProfileForm(loaded);
+      setProfileMeta({ email: (data as any)?.email ?? "", departmentName: p.departmentName ?? "" });
     } catch {}
     setShowProfile(true);
   };
@@ -212,6 +217,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       await myProfileApi.updateProfile(user.id, {
         phoneOffice: profileForm.phoneOffice || null,
         phoneMobile: profileForm.phoneMobile || null,
+        address: profileForm.address || null,
       });
       setProfileMsg({ type: "ok", text: "저장되었습니다." });
     } catch (e: any) {
@@ -450,6 +456,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 {currentUser && (
                   <span className="text-xs text-gray-400">
                     {ROLE_LABELS[currentUser.role] ?? currentUser.role}
+                    {profileMeta.email && <span className="ml-1.5 text-gray-400">· {profileMeta.email}</span>}
                   </span>
                 )}
               </div>
@@ -477,6 +484,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {profileTab === "info" && (
               <form onSubmit={saveProfile} className="p-6 space-y-4">
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">부서</label>
+                  <div className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600">{profileMeta.departmentName || "—"}</div>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">이름</label>
                   <input type="text" value={profileForm.name}
                     onChange={(e) => setProfileForm((p) => ({ ...p, name: e.target.value }))}
@@ -495,6 +506,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <input type="text" value={profileForm.phoneMobile}
                     onChange={(e) => setProfileForm((p) => ({ ...p, phoneMobile: e.target.value }))}
                     placeholder="예: 010-1234-5678"
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">주소</label>
+                  <input type="text" value={profileForm.address}
+                    onChange={(e) => setProfileForm((p) => ({ ...p, address: e.target.value }))}
+                    placeholder="예: 서울시 강남구 ..."
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 {profileMsg && (
