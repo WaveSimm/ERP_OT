@@ -3,7 +3,7 @@ import { ZodError } from "zod";
 import fastifyCors from "@fastify/cors";
 import fastifyHelmet from "@fastify/helmet";
 import fastifyRateLimit from "@fastify/rate-limit";
-import { rateLimitPolicies, rateLimitErrorResponseBuilder, requireInternal } from "@erp-ot/shared";
+import { rateLimitPolicies, rateLimitErrorResponseBuilder, userRateLimitKey, requireInternal } from "@erp-ot/shared";
 import fastifyJwt from "@fastify/jwt";
 import fastifyCookie from "@fastify/cookie";
 import fastifyMultipart from "@fastify/multipart";
@@ -141,6 +141,7 @@ async function buildApp() {
   });
   await app.register(fastifyRateLimit, {
     ...rateLimitPolicies.default,
+    keyGenerator: userRateLimitKey,   // 사용자별 버킷(쿠키 토큰 기준, 없으면 IP)
     errorResponseBuilder: rateLimitErrorResponseBuilder,
   });
 
