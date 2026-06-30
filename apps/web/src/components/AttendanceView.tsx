@@ -890,7 +890,11 @@ function LeaveHistory({ refresh }: { refresh: number }) {
           status: d.status === "REJECTED" ? "REJECTED" : "PENDING",
           _docId: d.id,
         }));
-      setItems([...pendingDocs, ...rows]);
+      // 가정의 날은 매월 정산이라 휴가 내역 목록에서는 제외(잔액 카드에서 월별 관리)
+      const FAMILY_DAY_TYPES = ["FAMILY_DAY", "FAMILY_DAY_2H", "FAMILY"];
+      setItems([...pendingDocs, ...rows]
+        .filter((i: any) => !FAMILY_DAY_TYPES.includes(i.type))
+        .sort((a: any, b: any) => (b.startDate ?? "").localeCompare(a.startDate ?? "")));  // 최근 날짜 상단
     }).finally(() => setLoading(false));
   }, [refresh]);
 
@@ -954,7 +958,8 @@ function HolidayWorkHistory({ refresh }: { refresh: number }) {
             _docId: d.id,
           };
         });
-      setItems([...pendingDocs, ...(list ?? [])]);
+      setItems([...pendingDocs, ...(list ?? [])]
+        .sort((a: any, b: any) => (b.date ?? "").localeCompare(a.date ?? "")));  // 최근 날짜 상단
     }).finally(() => setLoading(false));
   }, [refresh]);
 
