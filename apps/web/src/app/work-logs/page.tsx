@@ -7,9 +7,10 @@ import AppLayout from "@/components/AppLayout";
 import UnifiedBoardSidebar from "@/components/board/UnifiedBoardSidebar";
 import SearchBar from "@/components/board/SearchBar";
 import WorkLogTimeline from "@/components/work-log/WorkLogTimeline";
-import { workLogApi, getUser } from "@/lib/api";
+import { workLogApi, userManagementApi, getUser } from "@/lib/api";
 import { type WorkLogItem } from "@/components/work-log/WorkLogCard";
 import { DateInput } from "@/components/ui/DateInput";
+import FilterableSelect from "@/components/FilterableSelect";
 
 interface AllWorkLog extends WorkLogItem {
   taskName?: string;
@@ -39,6 +40,9 @@ export default function ProjectBoardLandingPage() {
   const [projectFilter, setProjectFilter] = useState<string>("");
   const [searchText, setSearchText] = useState<string>("");
   const [appliedSearch, setAppliedSearch] = useState<string>("");
+  // 필터 드롭다운용 전체 목록(로드된 로그가 아닌 완전한 소스)
+  const [fullProjects, setFullProjects] = useState<{ id: string; name: string }[]>([]);
+  const [fullAuthors, setFullAuthors] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
     const token = localStorage.getItem("erp_user");
@@ -49,6 +53,13 @@ export default function ProjectBoardLandingPage() {
     const u = getUser();
     if (u) setMe({ id: u.id, role: u.role });
     setMounted(true);
+    // 프로젝트·작성자 필터 전체 목록 로드
+    workLogApi.myProjects()
+      .then((ps: any[]) => setFullProjects((ps ?? []).map((p) => ({ id: p.projectId, name: p.projectName ?? "(이름 없음)" }))))
+      .catch(() => {});
+    userManagementApi.members(true)
+      .then((ms) => setFullAuthors(ms ?? []))
+      .catch(() => {});
   }, [router]);
 
   const reload = useCallback(async () => {
@@ -96,12 +107,12 @@ export default function ProjectBoardLandingPage() {
       })
     : logs;
 
-  const authorOptions = Array.from(
-    new Map(logs.map((l) => [l.authorId, l.authorName])).entries(),
-  ).map(([id, name]) => ({ id, name }));
-  const projectOptions = Array.from(
-    new Map(logs.filter((l) => l.projectId).map((l) => [l.projectId!, l.projectName ?? "(이름 없음)"])).entries(),
-  ).map(([id, name]) => ({ id, name }));
+  const authorOptions = fullAuthors.length > 0
+    ? fullAuthors
+    : Array.from(new Map(logs.map((l) => [l.authorId, l.authorName])).entries()).map(([id, name]) => ({ id, name }));
+  const projectOptions = fullProjects.length > 0
+    ? fullProjects
+    : Array.from(new Map(logs.filter((l) => l.projectId).map((l) => [l.projectId!, l.projectName ?? "(이름 없음)"])).entries()).map(([id, name]) => ({ id, name }));
 
   if (!mounted) {
     return (
@@ -142,73 +153,43 @@ export default function ProjectBoardLandingPage() {
 
           <div className="flex-1 min-w-0">
             <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-medium text-gray-700">필터:</span>
-                <select
-                  value={projectFilter}
-                  onChange={(e) => setProjectFilter(e.target.value)}
-                  className="border border-gray-300 rounded px-2 py-1 text-sm"
-                >
-                  <option value="">전체 프로젝트</option>
-                  {projectOptions.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={authorFilter}
-                  onChange={(e) => setAuthorFilter(e.target.value)}
-                  className="border border-gray-300 rounded px-2 py-1 text-sm"
-                >
-                  <option value="">전체 작성자</option>
-                  {authorOptions.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-                </select>
-                <DateInput
-                  
-                  value={from}
-                  onChange={(e) => setFrom(e.target.value)}
-                  className="border border-gray-300 rounded px-2 py-1 text-sm"
-                />
-                <span className="text-gray-400">~</span>
-                <DateInput
-                  
-                  value={to}
-                  onChange={(e) => setTo(e.target.value)}
-                  className="border border-gray-300 rounded px-2 py-1 text-sm"
-                />
-                <div className="ml-auto flex gap-1">
-                  <button
-                    onClick={() => {
-                      setFrom(dateAdd(-7));
-                      setTo(dateAdd(0));
-                    }}
-                    className="text-xs px-2 py-1 border border-gray-300 rounded hover:bg-gray-50"
-                  >
-                    최근 7일
-                  </button>
-                  <button
-                    onClick={() => {
-                      setFrom(dateAdd(-30));
-                      setTo(dateAdd(0));
-                    }}
-                    className="text-xs px-2 py-1 border border-gray-300 rounded hover:bg-gray-50"
-                  >
-                    최근 30일
-                  </button>
-                  <button
-                    onClick={() => {
-                      setFrom("");
-                      setTo("");
-                    }}
-                    className="text-xs px-2 py-1 border border-gray-300 rounded hover:bg-gray-50"
-                  >
-                    전체
-                  </button>
+              <div className="space-y-2">
+                {/* 1줄: 프로젝트 · 작성자 */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium text-gray-700">필터:</span>
+                  <FilterableSelect
+                    value={projectFilter}
+                    onChange={setProjectFilter}
+                    options={projectOptions.map((p) => ({ value: p.id, label: p.name }))}
+                    placeholder="전체 프로젝트"
+                    className="border border-gray-300 rounded px-2 py-1 text-sm bg-white flex items-center justify-between gap-2 w-[500px] max-w-full"
+                  />
+                  <FilterableSelect
+                    value={authorFilter}
+                    onChange={setAuthorFilter}
+                    options={authorOptions.map((a) => ({ value: a.id, label: a.name }))}
+                    placeholder="전체 작성자"
+                    className="border border-gray-300 rounded px-2 py-1 text-sm bg-white flex items-center justify-between gap-2 min-w-[170px]"
+                  />
+                </div>
+                {/* 2줄: 날짜 범위 · 구간 버튼 */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <DateInput
+                    value={from}
+                    onChange={(e) => setFrom(e.target.value)}
+                    className="border border-gray-300 rounded px-2 py-1 text-sm"
+                  />
+                  <span className="text-gray-400">~</span>
+                  <DateInput
+                    value={to}
+                    onChange={(e) => setTo(e.target.value)}
+                    className="border border-gray-300 rounded px-2 py-1 text-sm"
+                  />
+                  <div className="flex gap-1">
+                    <button onClick={() => { setFrom(dateAdd(-7)); setTo(dateAdd(0)); }} className="text-xs px-2 py-1 border border-gray-300 rounded hover:bg-gray-50">최근 7일</button>
+                    <button onClick={() => { setFrom(dateAdd(-30)); setTo(dateAdd(0)); }} className="text-xs px-2 py-1 border border-gray-300 rounded hover:bg-gray-50">최근 30일</button>
+                    <button onClick={() => { setFrom(""); setTo(""); }} className="text-xs px-2 py-1 border border-gray-300 rounded hover:bg-gray-50">전체</button>
+                  </div>
                 </div>
               </div>
               <div className="text-xs text-gray-400 mt-2">총 {visibleLogs.length}건{appliedSearch && ` (전체 ${logs.length}건 중)`}</div>
