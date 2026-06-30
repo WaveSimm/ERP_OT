@@ -6,7 +6,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["project"]
+  schemas  = ["project", "ops"]
 }
 
 // ─────────────────────────────────────────────
@@ -768,4 +768,50 @@ model ProjectFolderItem {
   @@unique([folderId, projectId])
   @@map("project_folder_items")
   @@schema("project")
+}
+
+// ─────────────────────────────────────────────
+// ops — 시스템 모니터링/알림 프레임워크 (admin)
+//   호스트 모니터(disk-monitor.sh 등)가 alert_event 에 이벤트를 기록하고,
+//   호스트 notifier(ops-notifier.sh)가 메일 발송. 이 서비스는 조회/설정 담당.
+// ─────────────────────────────────────────────
+
+model Monitor {
+  key       String   @id
+  name      String
+  enabled   Boolean  @default(true)
+  config    Json     @default(dbgenerated("'{}'::jsonb"))
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("monitor")
+  @@schema("ops")
+}
+
+model AlertRecipient {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  channel   String   @default("email")
+  address   String
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([channel, address])
+  @@map("alert_recipient")
+  @@schema("ops")
+}
+
+model AlertEvent {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  monitorKey String    @map("monitor_key")
+  level      String
+  source     String?
+  message    String
+  detail     Json?
+  notify     Boolean   @default(false)
+  notifiedAt DateTime? @map("notified_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([createdAt(sort: Desc)])
+  @@map("alert_event")
+  @@schema("ops")
 }

@@ -23,6 +23,7 @@ import { baselineRoutes } from "./api/routes/baseline.routes.js";
 import { templateRoutes } from "./api/routes/template.routes.js";
 import { resourceRoutes } from "./api/routes/resource.routes.js";
 import { collabRoutes } from "./api/routes/collab.routes.js";
+import { monitoringRoutes } from "./api/routes/monitoring.routes.js";
 import { notificationRoutes } from "./api/routes/notification.routes.js";
 import { myTasksRoutes } from "./api/routes/my-tasks.routes.js";
 import { meRoutes } from "./api/routes/me.routes.js";
@@ -229,6 +230,7 @@ async function buildApp() {
   app.register(equipmentReservationRoutes, { prefix: "/api/v1/equipment-reservations" });
   app.register(externalPersonRoutes, { prefix: "/api/v1/external-persons" });
   app.register(collabRoutes, { prefix: "/api/v1" });
+  app.register(monitoringRoutes, { prefix: "/api/v1/monitoring" });
   app.register(notificationRoutes, { prefix: "/api/v1/notifications" });
   app.register(myTasksRoutes, { prefix: "/api/v1/tasks" });
   app.register(workLogRoutes, { prefix: "/api/v1/tasks" });

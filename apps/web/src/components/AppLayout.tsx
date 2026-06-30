@@ -397,6 +397,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                         <button onClick={() => { router.push("/admin/activity-logs"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
                           📜 시스템 이력
                         </button>
+                        <button onClick={() => { router.push("/admin/monitoring"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                          🖥 시스템 모니터링
+                        </button>
                         <button onClick={() => { router.push("/admin/feature-requests"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
                           💡 기능 요구 관리
                         </button>
