@@ -199,7 +199,13 @@ export async function meRoutes(fastify: FastifyInstance) {
             isEndDay: end.toISOString().slice(0, 10) === dateStr,
             spanDays,
           };
-        });
+        })
+        // 요일별 태스크 정렬: 프로젝트명 → 태스크명 → 구간명 (한글 로케일)
+        .sort((x, y) =>
+          (x.projectName || "").localeCompare(y.projectName || "", "ko") ||
+          (x.taskName || "").localeCompare(y.taskName || "", "ko") ||
+          (x.segmentName || "").localeCompare(y.segmentName || "", "ko"),
+        );
 
       days.push({
         date: dateStr,

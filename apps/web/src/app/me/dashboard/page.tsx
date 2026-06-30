@@ -268,6 +268,11 @@ function WeekCalendarView() {
   if (loading) return <div className="text-sm text-gray-400 py-8 text-center">불러오는 중...</div>;
   if (!data) return null;
 
+  // 프로젝트=행 / 요일=열 — 프로젝트명 순(한글)
+  const projects: string[] = Array.from(
+    new Set((data.days as any[]).flatMap((d) => d.segments.map((s: any) => s.projectName))),
+  ).sort((a, b) => String(a).localeCompare(String(b), "ko"));
+
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
       <div className="px-4 py-3 flex items-center justify-between border-b border-gray-200">
@@ -275,24 +280,47 @@ function WeekCalendarView() {
         <span className="text-sm font-semibold text-gray-900">{data.weekStart} ~ {data.weekEnd}</span>
         <button onClick={() => navigate(1)} className="p-1 text-gray-400 hover:text-gray-700">›</button>
       </div>
-      <div className="grid grid-cols-7 divide-x divide-gray-100">
-        {data.days.map((day: any) => (
-          <div key={day.date} className={`min-h-[120px] p-2 ${day.isToday ? "bg-blue-50" : ""} ${day.dayOfWeek === 0 || day.dayOfWeek === 6 ? "bg-gray-50" : ""}`}>
-            <div className={`text-xs font-semibold mb-2 ${day.isToday ? "text-blue-600" : day.dayOfWeek === 0 ? "text-red-500" : day.dayOfWeek === 6 ? "text-blue-500" : "text-gray-600"}`}>
-              {DAY_LABELS[day.dayOfWeek]} {day.date.slice(8)}
-            </div>
-            <div className="space-y-1">
-              {day.segments.map((seg: any) => (
-                <div key={`${seg.segmentId}-${day.date}`}
-                  className={`text-xs px-1.5 py-0.5 rounded truncate ${seg.isCriticalPath ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}
-                  title={`${seg.projectName} / ${seg.segmentName}`}>
-                  {seg.segmentName}
-                </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs border-collapse">
+          <thead>
+            <tr className="border-b border-gray-200 bg-gray-50">
+              <th className="text-left px-3 py-2 font-medium text-gray-500 sticky left-0 bg-gray-50 z-10 min-w-[150px]">프로젝트</th>
+              {data.days.map((day: any) => (
+                <th key={day.date}
+                  className={`px-2 py-2 font-medium text-center min-w-[90px] ${day.isToday ? "text-blue-600 bg-blue-50" : day.dayOfWeek === 0 ? "text-red-500" : day.dayOfWeek === 6 ? "text-blue-500" : "text-gray-600"}`}>
+                  {DAY_LABELS[day.dayOfWeek]} {day.date.slice(8)}
+                </th>
               ))}
-              {day.segments.length === 0 && <div className="text-xs text-gray-300">-</div>}
-            </div>
-          </div>
-        ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {projects.length === 0 && (
+              <tr><td colSpan={8} className="px-3 py-8 text-center text-gray-300">이번 주 배정된 작업이 없습니다.</td></tr>
+            )}
+            {projects.map((proj) => (
+              <tr key={proj} className="hover:bg-gray-50/50 align-top">
+                <td className="px-3 py-2 font-medium text-gray-800 sticky left-0 bg-white z-10 truncate max-w-[200px]" title={proj}>{proj}</td>
+                {data.days.map((day: any) => {
+                  const segs = day.segments.filter((s: any) => s.projectName === proj);
+                  return (
+                    <td key={day.date}
+                      className={`px-1.5 py-1.5 ${day.isToday ? "bg-blue-50/40" : day.dayOfWeek === 0 || day.dayOfWeek === 6 ? "bg-gray-50/50" : ""}`}>
+                      <div className="space-y-1">
+                        {segs.map((seg: any) => (
+                          <div key={`${seg.segmentId}-${day.date}`}
+                            className={`px-1.5 py-0.5 rounded truncate ${seg.isCriticalPath ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}
+                            title={`${seg.taskName} / ${seg.segmentName}`}>
+                            {seg.segmentName}
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
