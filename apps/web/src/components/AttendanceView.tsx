@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { attendanceApi, leaveApi, holidayWorkApi, approvalLineApi, approvalApi, userManagementApi, attendanceOverviewApi, getUser } from "@/lib/api";
+import { attendanceApi, leaveApi, holidayWorkApi, approvalLineApi, approvalApi, userManagementApi, attendanceOverviewApi, workScheduleApi, getUser } from "@/lib/api";
 import { DateInput } from "@/components/ui/DateInput";
 import { TimeInput } from "@/components/ui/TimeInput";
 
@@ -85,23 +85,23 @@ const ENTRY_LABELS: Record<string, string> = {
 };
 
 const ENTRY_COLORS: Record<string, string> = {
-  WORK: "bg-blue-100 text-blue-800",
-  FIELD: "bg-green-100 text-green-800",
-  TRAINING: "bg-purple-100 text-purple-800",
-  BUSINESS_TRIP: "bg-orange-100 text-orange-800",
-  HALF: "bg-yellow-100 text-yellow-800",
-  HALF_AM: "bg-yellow-100 text-yellow-800",
-  HALF_PM: "bg-yellow-100 text-yellow-800",
-  QUARTER: "bg-amber-100 text-amber-800",
-  FAMILY_DAY: "bg-emerald-100 text-emerald-800",
-  FAMILY_DAY_2H: "bg-emerald-100 text-emerald-800",
-  FAMILY: "bg-emerald-100 text-emerald-800",
-  BEREAVEMENT: "bg-rose-100 text-rose-800",
-  ANNUAL: "bg-red-100 text-red-800",
-  SICK: "bg-pink-100 text-pink-800",
-  SPECIAL: "bg-indigo-100 text-indigo-800",
-  OT: "bg-gray-200 text-gray-800",
-  SUBSTITUTE: "bg-cyan-100 text-cyan-800",
+  WORK: "bg-sky-100 text-sky-700",              // 출근 — 파랑(sky)
+  FIELD: "bg-green-100 text-green-800",      // 근무군(외근·교육·출장) — 초록(emerald)
+  TRAINING: "bg-green-100 text-green-800",
+  BUSINESS_TRIP: "bg-green-100 text-green-800",
+  HALF: "bg-amber-100 text-amber-700",           // 휴가군 — 노랑(amber)
+  HALF_AM: "bg-amber-100 text-amber-700",
+  HALF_PM: "bg-amber-100 text-amber-700",
+  QUARTER: "bg-amber-100 text-amber-700",
+  FAMILY_DAY: "bg-amber-100 text-amber-700",
+  FAMILY_DAY_2H: "bg-amber-100 text-amber-700",
+  FAMILY: "bg-amber-100 text-amber-700",
+  BEREAVEMENT: "bg-amber-100 text-amber-700",
+  ANNUAL: "bg-amber-100 text-amber-700",
+  SICK: "bg-amber-100 text-amber-700",
+  SPECIAL: "bg-amber-100 text-amber-700",        // 공가 — 휴가군
+  SUBSTITUTE: "bg-amber-100 text-amber-700",     // 연차대체 — 휴가군
+  OT: "bg-rose-100 text-rose-700",               // 휴일근무 — 빨강(rose)
 };
 
 const ALL_ENTRY_TYPES = [
@@ -290,12 +290,14 @@ function getDatesInRange(start: string, end: string): string[] {
   return dates;
 }
 
-function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete }: {
+function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete, defaultStart = "09:30", defaultEnd = "18:30" }: {
   date: string;
   entry?: WorkScheduleEntry | null;
   onClose: () => void;
   onSuccess: () => void;
   onDelete?: (id: string) => void;
+  defaultStart?: string;   // 본인 근무시간(유연근무 반영). 신규 입력 기본값.
+  defaultEnd?: string;
 }) {
   const isEdit = !!entry;
   const isEditable = !entry || entry.sourceType === "MANUAL";
@@ -303,8 +305,8 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete }: {
   const [startDate, setStartDate] = useState(date);
   const [endDate, setEndDate] = useState(date);
   const [entryType, setEntryType] = useState(entry?.entryType ?? "FIELD");
-  const [startTime, setStartTime] = useState(entry?.startTime ?? "09:30");
-  const [endTime, setEndTime] = useState(entry?.endTime ?? "18:30");
+  const [startTime, setStartTime] = useState(entry?.startTime ?? defaultStart);
+  const [endTime, setEndTime] = useState(entry?.endTime ?? defaultEnd);
   const endTimeHRef = useRef<HTMLInputElement>(null);
   const [label, setLabel] = useState(entry?.label ?? "");
   const [saving, setSaving] = useState(false);
@@ -463,12 +465,14 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete }: {
             ))}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-xs text-gray-600 mb-1">시작 시간</label>
-                <ClockTimeInput value={startTime} onChange={setStartTime} nextRef={endTimeHRef} />
+                <label className="block text-xs text-gray-600 mb-1">시작 시간 (30분 단위)</label>
+                <TimeInput value={startTime} step={1800} onChange={(e) => setStartTime(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
               </div>
               <div>
-                <label className="block text-xs text-gray-600 mb-1">종료 시간</label>
-                <ClockTimeInput value={endTime} onChange={setEndTime} hInputRef={endTimeHRef} />
+                <label className="block text-xs text-gray-600 mb-1">종료 시간 (30분 단위)</label>
+                <TimeInput value={endTime} step={1800} onChange={(e) => setEndTime(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
               </div>
             </div>
             <div>
@@ -574,11 +578,13 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete }: {
 
 // ─── Monthly Calendar with Work Schedule Entries ─────────────────────────────
 
-function MonthlyCalendar({ year, month, refresh, onEntryChanged }: {
+function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, defaultEnd }: {
   year: number;
   month: number;
   refresh: number;
   onEntryChanged: () => void;
+  defaultStart?: string;
+  defaultEnd?: string;
 }) {
   const [days, setDays] = useState<CalendarDay[]>([]);
   const [summary, setSummary] = useState<any>(null);
@@ -749,6 +755,8 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged }: {
           date={addingDate}
           onClose={() => setAddingDate(null)}
           onSuccess={() => { onEntryChanged(); }}
+          defaultStart={defaultStart}
+          defaultEnd={defaultEnd}
         />
       )}
 
@@ -995,6 +1003,8 @@ export default function AttendanceView() {
   const [balance, setBalance] = useState<LeaveBalance | null>(null);
   const [refresh, setRefresh] = useState(0);
   const [activeTab, setActiveTab] = useState<"leave" | "ot">("leave");
+  // 본인 근무시간(유연근무 반영). 근태 추가 모달 기본값으로 사용. 로딩 전 회사 기본값.
+  const [sched, setSched] = useState<{ start: string; end: string }>({ start: "09:30", end: "18:30" });
 
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
@@ -1008,7 +1018,13 @@ export default function AttendanceView() {
     try { setBalance(await leaveApi.getBalance()); } catch {}
   }, []);
 
-  useEffect(() => { loadToday(); loadBalance(); }, []);
+  useEffect(() => {
+    loadToday();
+    loadBalance();
+    workScheduleApi.mine()
+      .then((s) => { if (s?.workStartTime && s?.workEndTime) setSched({ start: s.workStartTime, end: s.workEndTime }); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const handler = () => { loadToday(); loadBalance(); setRefresh((r) => r + 1); };
@@ -1050,7 +1066,7 @@ export default function AttendanceView() {
             <button onClick={() => navigateMonth(1)} className="p-1 text-gray-400 hover:text-gray-700 border border-gray-200 rounded">›</button>
           </div>
         </div>
-        <MonthlyCalendar year={year} month={month} refresh={refresh} onEntryChanged={() => { setRefresh((r) => r + 1); loadBalance(); }} />
+        <MonthlyCalendar year={year} month={month} refresh={refresh} onEntryChanged={() => { setRefresh((r) => r + 1); loadBalance(); }} defaultStart={sched.start} defaultEnd={sched.end} />
         <p className="text-[10px] text-gray-400 mt-1.5 ml-1">날짜를 클릭하여 근태를 추가할 수 있습니다</p>
       </div>
 

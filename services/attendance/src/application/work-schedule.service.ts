@@ -38,6 +38,11 @@ export class WorkScheduleService {
       entryMap.get(e.userId)!.push(e);
     }
 
+    // 3-1. 개인 근무시간(유연근무) 맵 — 전사근태 바를 본인 근무시간 축에 그리기 위함. 없으면 회사 기본.
+    const schedules = await this.prisma.userWorkSchedule.findMany();
+    const schedMap = new Map(schedules.map((s) => [s.userId, { workStartTime: s.workStartTime, workEndTime: s.workEndTime }]));
+    const sched = (uid: string) => schedMap.get(uid) ?? { workStartTime: "09:30", workEndTime: "18:30" };
+
     // 4. 부서별 그룹핑
     const deptMap = new Map<string, { id: string; name: string; sortOrder: number; members: UserWithDept[] }>();
     const unassigned: UserWithDept[] = [];
@@ -70,6 +75,7 @@ export class WorkScheduleService {
           .map((m) => ({
             userId: m.id,
             name: m.name,
+            ...sched(m.id),
             entries: (entryMap.get(m.id) ?? []).map((e) => ({
               id: e.id,
               date: e.date.toISOString().slice(0, 10),
@@ -91,6 +97,7 @@ export class WorkScheduleService {
       unassigned: unassigned.map((m) => ({
         userId: m.id,
         name: m.name,
+        ...sched(m.id),
         entries: (entryMap.get(m.id) ?? []).map((e) => ({
           id: e.id,
           date: e.date.toISOString().slice(0, 10),

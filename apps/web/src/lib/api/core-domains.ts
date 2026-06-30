@@ -526,6 +526,8 @@ export const attendanceApi = {
 
 export const workScheduleApi = {
   listAll: () => request<any[]>("/policy/work-schedules"),
+  // 본인 유효 근무시간(개인 유연근무 설정 우선, 없으면 회사 기본) — 근태 입력 기본값용
+  mine: () => request<{ workStartTime: string; workEndTime: string; dailyWorkHours: number; source: string }>("/policy/work-schedule/me"),
   get: (userId: string) => request<any>(`/policy/work-schedule/${userId}`),
   set: (userId: string, data: { workStartTime: string; workEndTime: string; dailyWorkHours?: number }) =>
     request<any>(`/policy/work-schedule/${userId}`, { method: "PUT", body: JSON.stringify(data) }),
