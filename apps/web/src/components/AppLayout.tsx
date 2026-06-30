@@ -282,6 +282,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     router.push("/login");
   };
 
+  // 30분 유휴(무활동) 시 자동 로그아웃 — 서버 세션(리프레시 토큰·쿠키)까지 종료
+  useEffect(() => {
+    if (!currentUser) return;
+    const IDLE_MS = 30 * 60 * 1000;
+    let last = Date.now();
+    const bump = () => { last = Date.now(); };
+    const events = ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "click"];
+    events.forEach((e) => window.addEventListener(e, bump, { passive: true }));
+    const iv = setInterval(() => {
+      if (Date.now() - last > IDLE_MS) {
+        clearInterval(iv);
+        events.forEach((e) => window.removeEventListener(e, bump));
+        authApi.logout().catch(() => {}).finally(() => { clearToken(); router.push("/login?idle=1"); });
+      }
+    }, 60 * 1000);
+    return () => { events.forEach((e) => window.removeEventListener(e, bump)); clearInterval(iv); };
+  }, [currentUser, router]);
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
@@ -402,6 +420,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                         </button>
                         <button onClick={() => { router.push("/admin/feature-requests"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
                           💡 기능 요구 관리
+                        </button>
+                        <button onClick={() => { router.push("/admin/contract-migration"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                          📥 계약 마이그레이션
+                        </button>
+                        <button onClick={() => { router.push("/admin/project-migration"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                          📊 프로젝트 마이그레이션
                         </button>
                       </>
                     )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { authApi, setToken, setUser, clearToken } from "@/lib/api";
 
@@ -10,6 +10,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [idle, setIdle] = useState(false);
+  // 유휴 자동 로그아웃 안내 (useSearchParams는 Suspense 필요 → window 직접 사용)
+  useEffect(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("idle") === "1") setIdle(true);
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,6 +46,12 @@ export default function LoginPage() {
             <h1 className="text-2xl font-bold text-gray-900">ERP-OT 관리 시스템</h1>
             <p className="text-sm text-gray-500 mt-1">이메일과 비밀번호로 로그인하세요</p>
           </div>
+
+          {idle && (
+            <div className="mb-4 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-center">
+              30분 이상 활동이 없어 자동 로그아웃되었습니다. 다시 로그인해 주세요.
+            </div>
+          )}
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
