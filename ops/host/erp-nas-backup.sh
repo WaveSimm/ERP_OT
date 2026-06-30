@@ -40,13 +40,17 @@ if [ "$MODE" = "weekly" ]; then
     log "otbrain 덤프 실패"; rm -rf "$STAGE"; exit 1
   fi
 else
-  log "daily 시작: erp_ot DB + 업로드 4종 + .env"
+  log "daily 시작: erp_ot DB + 업로드 4종 + .env + 호스트 스크립트"
   docker exec erp-ot-postgres pg_dump -U erp_user -d erp_ot --no-owner --no-privileges 2>/dev/null | gzip > "$STAGE/erp_ot_$DAY.sql.gz"
   for V in auth approval expense ocr; do
     docker run --rm -v "erp_ot_${V}_uploads":/v:ro alpine tar czf - -C /v . 2>/dev/null > "$STAGE/${V}_uploads_$DAY.tar.gz"
   done
   [ -f "$ERP_ENV" ] && cp "$ERP_ENV" "$STAGE/erp_ot.env"
   [ -f "$OT_ENV" ]  && cp "$OT_ENV"  "$STAGE/otbrain.env"
+  # 호스트 운영 스크립트 + crontab + git 훅 (서버 유실 대비, 자동 최신 보관)
+  ( cd "$HOME" && tar czf "$STAGE/host_ops_$DAY.tar.gz" *.sh ) 2>/dev/null
+  crontab -l > "$STAGE/crontab_$DAY.txt" 2>/dev/null
+  [ -f "$HOME/ERP_OT/.git/hooks/post-commit" ] && cp "$HOME/ERP_OT/.git/hooks/post-commit" "$STAGE/post-commit.hook"
   log "스테이징 완료 ($(du -sh "$STAGE" | cut -f1)) → 업로드"
   upload daily 30
 fi
