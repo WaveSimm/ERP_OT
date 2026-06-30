@@ -13,6 +13,7 @@ function dayHeader(workedAt: string) {
 interface ProjectWorkLogItem extends WorkLogItem {
   taskName?: string;
   projectName?: string;
+  projectId?: string;
 }
 
 interface Props {
@@ -22,6 +23,7 @@ interface Props {
   isAdmin: boolean;
   showTaskName?: boolean;
   showProjectName?: boolean;
+  projectId?: string;   // 단일 프로젝트 뷰의 기본 projectId(항목에 없을 때 폴백)
   onUpdate: (id: string, v: WorkLogFormValue) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }
@@ -33,6 +35,7 @@ export default function WorkLogTimeline({
   isAdmin,
   showTaskName,
   showProjectName,
+  projectId,
   onUpdate,
   onDelete,
 }: Props) {
@@ -69,6 +72,7 @@ export default function WorkLogTimeline({
                 onDelete={onDelete}
                 taskName={showTaskName ? l.taskName : undefined}
                 projectName={showProjectName ? l.projectName : undefined}
+                projectId={l.projectId ?? projectId}
               />
             ))}
           </div>

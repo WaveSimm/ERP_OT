@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import PostMarkdownView from "@/components/board/PostMarkdownView";
 import WorkLogForm, { type WorkLogFormValue } from "./WorkLogForm";
 
@@ -26,6 +27,7 @@ interface Props {
   onDelete: (id: string) => Promise<void>;
   taskName?: string;
   projectName?: string;
+  projectId?: string;   // 있으면 프로젝트/태스크 배지를 해당 위치 링크로
 }
 
 function timeAgo(iso: string) {
@@ -41,7 +43,7 @@ function timeAgo(iso: string) {
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
 }
 
-export default function WorkLogCard({ log, segments, canEdit, onUpdate, onDelete, taskName, projectName }: Props) {
+export default function WorkLogCard({ log, segments, canEdit, onUpdate, onDelete, taskName, projectName, projectId }: Props) {
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -67,17 +69,28 @@ export default function WorkLogCard({ log, segments, canEdit, onUpdate, onDelete
     <div className="border border-gray-200 rounded-lg px-3 py-2.5">
       <div className="flex items-center gap-2 mb-1.5 flex-wrap">
         <span className="text-sm font-medium text-gray-800">{log.authorName || "익명"}</span>
-        {projectName && (
+        {projectName && (projectId ? (
+          <Link href={`/projects/${projectId}`}
+            className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:underline">
+            {projectName}
+          </Link>
+        ) : (
           <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700">
             {projectName}
           </span>
-        )}
-        {taskName && (
+        ))}
+        {taskName && (projectId ? (
+          <Link href={`/projects/${projectId}?taskId=${log.taskId}`}
+            className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 hover:underline">
+            {taskName}
+          </Link>
+        ) : (
           <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
             {taskName}
           </span>
-        )}
-        {log.segmentName && (
+        ))}
+        {/* 구간명이 태스크명/프로젝트명과 같으면 중복이라 숨김(임포트가 동명 구간 생성) */}
+        {log.segmentName && log.segmentName !== taskName && log.segmentName !== projectName && (
           <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">
             {log.segmentName}
           </span>

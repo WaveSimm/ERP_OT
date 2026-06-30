@@ -15,6 +15,7 @@ interface MyProjectBoardItem {
   lastLogAt: string | null;
 }
 import WorkLogTimeline from "@/components/work-log/WorkLogTimeline";
+import Pagination from "@/components/Pagination";
 import { workLogApi, getUser } from "@/lib/api";
 import { type WorkLogItem } from "@/components/work-log/WorkLogCard";
 import { DateInput } from "@/components/ui/DateInput";
@@ -40,12 +41,13 @@ export default function ProjectBoardPage({ params }: { params: { projectId: stri
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [authorFilter, setAuthorFilter] = useState<string>("");
-  const [from, setFrom] = useState<string>(dateAdd(-30));
-  const [to, setTo] = useState<string>(dateAdd(0));
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [loadingMore, setLoadingMore] = useState(false);
+  // 기본 '전체'(날짜필터 없음) — 임포트 비고의 workedAt가 과거/미래로 퍼져 있어 30일 기본은 logCount와 불일치.
+  const [from, setFrom] = useState<string>("");
+  const [to, setTo] = useState<string>("");
   const [searchText, setSearchText] = useState<string>("");
   const [appliedSearch, setAppliedSearch] = useState<string>("");
+  const [pageSize, setPageSize] = useState<number>(20);   // 20/50/100 선택
+  const [page, setPage] = useState<number>(1);
 
   // 프로젝트 사이드바 로드
   useEffect(() => {
@@ -64,11 +66,22 @@ export default function ProjectBoardPage({ params }: { params: { projectId: stri
     setLoading(true);
     setError(null);
     try {
-      const params: any = { from, to };
-      if (authorFilter) params.authorId = authorFilter;
-      const res = await workLogApi.listByProject(projectId, params);
-      setLogs((res.items ?? []) as ProjectWorkLog[]);
-      setNextCursor(res.nextCursor ?? null);
+      // 페이지네이션은 클라이언트에서 처리하므로 전체를 로드(cursor 루프, 안전캡 5000).
+      const base: any = { limit: 200 };
+      if (from) base.from = from;
+      if (to) base.to = to;
+      if (authorFilter) base.authorId = authorFilter;
+      const all: ProjectWorkLog[] = [];
+      let cursor: string | null = null;
+      for (let i = 0; i < 25; i++) {
+        const params = cursor ? { ...base, cursor } : base;
+        const res = await workLogApi.listByProject(projectId, params);
+        all.push(...((res.items ?? []) as ProjectWorkLog[]));
+        cursor = res.nextCursor ?? null;
+        if (!cursor) break;
+      }
+      setLogs(all);
+      setPage(1);
     } catch (err: any) {
       setError(err?.message ?? "조회 실패");
     } finally {
@@ -80,21 +93,8 @@ export default function ProjectBoardPage({ params }: { params: { projectId: stri
     void reload();
   }, [reload]);
 
-  const loadMore = async () => {
-    if (!nextCursor) return;
-    setLoadingMore(true);
-    try {
-      const params: any = { from, to, cursor: nextCursor };
-      if (authorFilter) params.authorId = authorFilter;
-      const res = await workLogApi.listByProject(projectId, params);
-      setLogs((prev) => [...prev, ...((res.items ?? []) as ProjectWorkLog[])]);
-      setNextCursor(res.nextCursor ?? null);
-    } catch (err: any) {
-      alert(err?.message ?? "추가 조회 실패");
-    } finally {
-      setLoadingMore(false);
-    }
-  };
+  // 검색/페이지크기 변경 시 1페이지로
+  useEffect(() => { setPage(1); }, [appliedSearch, pageSize]);
 
   const handleUpdate = async (id: string, v: { content: string; workedAt: string }) => {
     await workLogApi.update(id, v);
@@ -115,6 +115,11 @@ export default function ProjectBoardPage({ params }: { params: { projectId: stri
       })
     : logs;
 
+  // 클라이언트 페이지네이션
+  const totalPages = Math.max(1, Math.ceil(visibleLogs.length / pageSize));
+  const pageSafe = Math.min(page, totalPages);
+  const pagedLogs = visibleLogs.slice((pageSafe - 1) * pageSize, pageSafe * pageSize);
+
   // 작성자 목록 (현재 결과에서 추출)
   const authorOptions = Array.from(
     new Map(logs.map((l) => [l.authorId, l.authorName])).entries(),
@@ -133,7 +138,9 @@ export default function ProjectBoardPage({ params }: { params: { projectId: stri
               <Link href="/work-logs" className="hover:text-gray-700">프로젝트 게시판</Link>
             </div>
             <h2 className="text-xl font-bold text-gray-900 mt-1">
-              {currentProject?.projectName ?? "프로젝트 조회 중..."}
+              <Link href={`/projects/${projectId}`} className="hover:text-blue-600 hover:underline">
+                {currentProject?.projectName ?? "프로젝트 조회 중..."}
+              </Link>
             </h2>
             {currentProject && (
               <p className="text-sm text-gray-500 mt-0.5">
@@ -199,6 +206,15 @@ export default function ProjectBoardPage({ params }: { params: { projectId: stri
                   >
                     최근 30일
                   </button>
+                  <button
+                    onClick={() => {
+                      setFrom("");
+                      setTo("");
+                    }}
+                    className="text-xs px-2 py-1 border border-gray-300 rounded hover:bg-gray-50"
+                  >
+                    전체
+                  </button>
                 </div>
               </div>
             </div>
@@ -249,28 +265,37 @@ export default function ProjectBoardPage({ params }: { params: { projectId: stri
               </div>
             ) : (
               <>
-                {appliedSearch && (
-                  <div className="text-xs text-gray-400 mb-2">
-                    검색 결과 {visibleLogs.length}건 (전체 {logs.length}건 중)
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs text-gray-400">
+                    {appliedSearch
+                      ? `검색 결과 ${visibleLogs.length}건 (전체 ${logs.length}건 중)`
+                      : `총 ${visibleLogs.length}건`}
                   </div>
-                )}
+                  <label className="text-xs text-gray-500 flex items-center gap-1">
+                    페이지당
+                    <select
+                      value={pageSize}
+                      onChange={(e) => setPageSize(Number(e.target.value))}
+                      className="border border-gray-300 rounded px-1.5 py-0.5 text-xs"
+                    >
+                      <option value={20}>20개</option>
+                      <option value={50}>50개</option>
+                      <option value={100}>100개</option>
+                    </select>
+                  </label>
+                </div>
                 <WorkLogTimeline
-                  logs={visibleLogs}
+                  logs={pagedLogs}
                   currentUserId={me?.id ?? ""}
                   isAdmin={isAdmin}
                   showTaskName
+                  projectId={projectId}
                   onUpdate={handleUpdate}
                   onDelete={handleDelete}
                 />
-                {nextCursor && (
-                  <div className="mt-4 text-center">
-                    <button
-                      onClick={loadMore}
-                      disabled={loadingMore}
-                      className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      {loadingMore ? "로드 중..." : "더보기"}
-                    </button>
+                {totalPages > 1 && (
+                  <div className="mt-4">
+                    <Pagination page={pageSafe} totalPages={totalPages} total={visibleLogs.length} onPageChange={setPage} />
                   </div>
                 )}
               </>

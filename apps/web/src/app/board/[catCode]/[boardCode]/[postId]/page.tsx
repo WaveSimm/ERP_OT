@@ -167,7 +167,8 @@ export default function PostDetailPage({ params }: { params: { catCode: string; 
             </div>
           </div>
 
-          {catCode === "feature-request" && (
+          {/* 상태 패널은 실제 기능요구 게시판에만. 업데이트 게시판은 조치 완료 기록이라 상태 불필요. */}
+          {catCode === "feature-request" && boardCode === "feature-request-all" && (
             <div className="px-6 py-3 border-b border-gray-100">
               <FeatureRequestPanel post={post} onUpdated={(next) => setPost({ ...post, ...next })} />
             </div>

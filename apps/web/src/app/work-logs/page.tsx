@@ -200,6 +200,15 @@ export default function ProjectBoardLandingPage() {
                   >
                     최근 30일
                   </button>
+                  <button
+                    onClick={() => {
+                      setFrom("");
+                      setTo("");
+                    }}
+                    className="text-xs px-2 py-1 border border-gray-300 rounded hover:bg-gray-50"
+                  >
+                    전체
+                  </button>
                 </div>
               </div>
               <div className="text-xs text-gray-400 mt-2">총 {visibleLogs.length}건{appliedSearch && ` (전체 ${logs.length}건 중)`}</div>
