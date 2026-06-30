@@ -154,7 +154,9 @@ export class LeaveService {
   //   사용량 = 해당 월 APPROVED 가정의날 합산(FAMILY_DAY=1h, FAMILY_DAY_2H=2h).
   async getFamilyDayUsage(userId: string, ref: Date = new Date()) {
     const y = ref.getFullYear(), m = ref.getMonth();
-    const start = new Date(y, m, 1), end = new Date(y, m + 1, 1);
+    // 월 경계를 UTC 기준으로 — startDate가 UTC 자정으로 저장돼, KST 컨테이너의 new Date(y,m,1)(=전달 15:00Z)와
+    // 어긋나 월말(예: 6/30) 가정의날이 다음 달 사용량으로 누수되던 버그 수정.
+    const start = new Date(Date.UTC(y, m, 1)), end = new Date(Date.UTC(y, m + 1, 1));
     const rows = await this.prisma.leaveRequest.findMany({
       where: {
         userId,
