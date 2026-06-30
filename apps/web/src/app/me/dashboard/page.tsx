@@ -708,7 +708,7 @@ function MyTasksView() {
                                       {!multiSeg && seg.segmentName && (
                                         <span className="shrink-0 text-[11px] text-gray-400 truncate" title={seg.segmentName}>· {seg.segmentName}</span>
                                       )}
-                                      {!multiSeg && due === "overdue" && <span className="shrink-0 text-[10px] text-red-600 bg-red-50 px-1 rounded">기한초과</span>}
+                                      {!multiSeg && due === "overdue" && displayStatus !== "DONE" && displayStatus !== "CANCELLED" && <span className="shrink-0 text-[10px] text-red-600 bg-red-50 px-1 rounded">기한초과</span>}
                                       {!multiSeg && due === "soon" && displayStatus !== "DONE" && <span className="shrink-0 text-[10px] text-orange-600 bg-orange-50 px-1 rounded">마감임박</span>}
                                     </div>
                                     <div className="flex items-center justify-center">
