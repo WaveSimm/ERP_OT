@@ -1,0 +1,14 @@
+# EXIF nightly batch: 20:00-08:00 KST (cron=Asia/Seoul; UTC→KST 마이그레이션 교정 2026-06-22)
+0 20 * * * /home/oceantech/exif-start.sh >> /home/oceantech/exif-cron.log 2>&1
+0 8 * * * /home/oceantech/exif-stop.sh >> /home/oceantech/exif-cron.log 2>&1
+# ERP/otbrain → NAS 백업 (EXIF 야간 UTC11-23 피함)
+0 0 * * *   /home/oceantech/erp-nas-backup.sh daily  >> /home/oceantech/nas-backup.log 2>&1
+0 5 * * 0   /home/oceantech/erp-nas-backup.sh weekly >> /home/oceantech/nas-backup.log 2>&1
+# NAS 증분동기화 — Universal Search 델타 폴러 (5분 주기, finder, CIFS 미사용)
+*/5 * * * *   /home/oceantech/nas-poll.sh
+# NAS 정합 reconcile — 삭제 감지 (매주 토요일 08:00 KST, ~9h, CIFS 미사용)
+0 8 * * 6   /home/oceantech/nas-reconcile.sh
+# NAS 문서 청킹 야간배치 — PENDING 추출 (03:00 KST, EXIF 중 / soft마운트라 안전)
+0 3 * * *   /home/oceantech/nas-extract.sh
+*/10 * * * *  /home/oceantech/disk-monitor.sh
+* * * * *  /home/oceantech/ops-notifier.sh
