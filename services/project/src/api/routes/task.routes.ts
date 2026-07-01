@@ -140,8 +140,9 @@ export async function taskRoutes(fastify: FastifyInstance) {
   });
 
   // DELETE /api/v1/projects/:projectId/tasks/:taskId
+  // 태스크 삭제: OPERATOR 이상 허용 (VIEWER 제외). 복사/세그먼트 등 다른 삭제는 여전히 MANAGER 이상.
   fastify.delete("/:taskId", {
-    preHandler: requireRole("ADMIN", "MANAGER"),
+    preHandler: requireOperator(),
   }, async (req, reply) => {
     const { taskId } = req.params as { projectId: string; taskId: string };
     await taskService.deleteTask(taskId, req.userId);

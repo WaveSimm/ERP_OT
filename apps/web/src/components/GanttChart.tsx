@@ -122,6 +122,14 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
   const scrollRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerW, setContainerW] = useState(0);
+  // 헤더 고정용: 선택 툴바 높이 측정 + 타임라인 가로 스크롤 위치(sticky 날짜 헤더 동기화)
+  const gSelToolbarRef = useRef<HTMLDivElement>(null);
+  const [gToolbarH, setGToolbarH] = useState(0);
+  const [tlScrollX, setTlScrollX] = useState(0);
+  const tlRaf = useRef(0);
+  useEffect(() => {
+    setGToolbarH(selected && selected.size > 0 ? (gSelToolbarRef.current?.offsetHeight ?? 0) : 0);
+  }, [selected]);
   // 진도율 인라인 편집 (leaf task만)
   const [editingProgressId, setEditingProgressId] = useState<string | null>(null);
   const progressValRef = useRef<number>(0);
@@ -420,6 +428,8 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
   const todayX = daysBetween(rangeStart, new Date()) * dayPx;
 
   const totalH = rows.length * ROW_H;
+  // sticky 헤더 top 오프셋 = 상단 고정프레임(--top-chrome, page에서 주입) + 선택 툴바 높이
+  const hdrTop = `calc(var(--top-chrome, 56px) + var(--gantt-extra, 0px) + ${gToolbarH}px)`;
 
   // Build a map: taskId → row index
   const taskRowIndex = useMemo(() => {
@@ -506,10 +516,10 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
   }, [data.dependencies, data.tasks, taskRowIndex, rangeStart, dayPx]);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden" ref={containerRef}>
-      {/* 선택 툴바 */}
+    <div className="bg-white rounded-xl border border-gray-200 overflow-clip" ref={containerRef}>
+      {/* 선택 툴바 — 스크롤해도 상단(글로벌 헤더 h-14 아래)에 고정 */}
       {selected && selected.size > 0 && (
-        <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border-b border-blue-100">
+        <div ref={gSelToolbarRef} className="sticky z-[25] flex items-center gap-2 px-4 py-2 bg-blue-50 border-b border-blue-100" style={{ top: "calc(var(--top-chrome, 56px) + var(--gantt-extra, 0px))" }}>
           <span className="text-xs font-semibold text-blue-700">{selected.size}개 선택됨</span>
           <span className="text-[10px] text-blue-400">— 드래그 핸들(⠿)로 이동</span>
           {(onIndent || onOutdent) && <div className="h-3 w-px bg-blue-200" />}
@@ -551,8 +561,8 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
           className="shrink-0 border-r border-gray-200 flex flex-col relative"
           style={{ width: leftW }}
         >
-          {/* Header */}
-          <div className="h-14 border-b border-gray-200 px-4 flex items-end pb-1.5 gap-2">
+          {/* Header — 스크롤해도 상단 고정 */}
+          <div className="sticky z-[23] bg-white h-14 border-b border-gray-200 px-4 flex items-end pb-1.5 gap-2" style={{ top: hdrTop }}>
             {onToggleAll && (
               <input
                 type="checkbox"
@@ -739,7 +749,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
 
         {/* Resource assignment column */}
         <div className="shrink-0 border-r border-gray-200 flex flex-col relative" style={{ width: resourceW }}>
-          <div className="h-14 border-b border-gray-200 px-3 flex items-end pb-1.5">
+          <div className="sticky z-[23] bg-white h-14 border-b border-gray-200 px-3 flex items-end pb-1.5" style={{ top: hdrTop }}>
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">자원</span>
           </div>
           <div className="flex-1 overflow-hidden">
@@ -798,9 +808,11 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
           </div>
         </div>
 
-        {/* Right timeline panel */}
-        <div className={clsx("flex-1", hasCustomRange ? "overflow-hidden" : "overflow-x-auto")} ref={scrollRef}>
-          <div style={{ width: timelineW, minWidth: hasCustomRange ? undefined : "100%" }}>
+        {/* Right timeline panel — sticky 날짜 헤더(가로 스크롤 동기화) + 가로 스크롤 바디 */}
+        <div className="flex-1 min-w-0 flex flex-col">
+          {/* Sticky 날짜 헤더 — 바디의 가로 스크롤을 translateX로 미러링 */}
+          <div className="sticky z-[23] bg-white overflow-hidden" style={{ top: hdrTop }}>
+            <div style={{ width: timelineW, minWidth: hasCustomRange ? undefined : "100%", transform: `translateX(${-tlScrollX}px)` }}>
             {/* Month headers */}
             <div className="relative h-7 border-b border-gray-100">
               {months.map((m) => (
@@ -854,7 +866,19 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                 );
               })}
             </div>
-
+            </div>
+          </div>
+          {/* Body — 가로 스크롤, 스크롤 위치를 sticky 헤더와 동기화 */}
+          <div
+            className={clsx(hasCustomRange ? "overflow-hidden" : "overflow-x-auto")}
+            ref={scrollRef}
+            onScroll={(e) => {
+              const sl = e.currentTarget.scrollLeft;
+              cancelAnimationFrame(tlRaf.current);
+              tlRaf.current = requestAnimationFrame(() => setTlScrollX(sl));
+            }}
+          >
+            <div style={{ width: timelineW, minWidth: hasCustomRange ? undefined : "100%" }}>
             {/* Rows */}
             <div className="relative" style={{ height: totalH }}>
               {/* Dependency arrows SVG overlay */}
@@ -1097,8 +1121,11 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
             </div>
           </div>
         </div>
+        </div>
       </div>
 
+      {/* 하단 추가영역 — 스크롤해도 화면 하단에 고정 */}
+      <div className="sticky bottom-0 z-[25] bg-white">
       {/* 인라인 태스크 추가 행 */}
       {onInlineTaskNameChange && onInlineTaskCreate !== undefined && (
         <div className="border-t border-gray-100 flex">
@@ -1147,6 +1174,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
           <span className="text-[10px] text-gray-400 ml-2">상세 옵션이 필요할 때</span>
         </div>
       )}
+      </div>
 
       {/* Legend */}
       <div className="border-t border-gray-200 px-4 py-2 flex items-center gap-6 text-xs text-gray-500 flex-wrap">

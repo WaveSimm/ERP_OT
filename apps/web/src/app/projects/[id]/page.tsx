@@ -553,6 +553,32 @@ export default function ProjectDetailPage() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const lastSelectedRef = useRef<string | null>(null);
 
+  // 선택 툴바 높이 — sticky 헤더(<thead>)의 top 오프셋 계산용 (툴바가 열 제목 위에 겹치지 않게)
+  const selToolbarRef = useRef<HTMLDivElement>(null);
+  const [selToolbarH, setSelToolbarH] = useState(0);
+  useEffect(() => {
+    setSelToolbarH(selected.size > 0 ? (selToolbarRef.current?.offsetHeight ?? 0) : 0);
+  }, [selected.size]);
+  // 상단 고정 프레임: 프로젝트명 바 + 탭 바 높이를 측정해 하위 sticky들의 top 오프셋(--top-chrome)을 계산
+  const projHeaderRef = useRef<HTMLDivElement>(null);
+  const tabsBarRef = useRef<HTMLDivElement>(null);
+  const rangeBarRef = useRef<HTMLDivElement>(null); // 간트 "지난주~" 범위 바 (간트 탭 전용)
+  const [projHeaderH, setProjHeaderH] = useState(0);
+  const [rangeBarH, setRangeBarH] = useState(0);
+  const [topChrome, setTopChrome] = useState(56);
+  useEffect(() => {
+    const measure = () => {
+      const ph = projHeaderRef.current?.offsetHeight ?? 0;
+      const th = tabsBarRef.current?.offsetHeight ?? 0;
+      setProjHeaderH(ph);
+      setTopChrome(56 + ph + th); // 56 = 글로벌 네비 높이(h-14)
+      setRangeBarH(rangeBarRef.current?.offsetHeight ?? 0);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [activeTab, ganttData]);
+
   // ── 드래그 state ─────────────────────────────────────────────────────────────
   const [dragIds, setDragIds] = useState<string[]>([]);
   const [dropGap, setDropGap] = useState<{ taskId: string; pos: "before" | "after" } | null>(null);
@@ -652,6 +678,57 @@ export default function ProjectDetailPage() {
       });
       setInlineTaskName("");
       await load();
+    } catch { /* ignore */ }
+    finally { setInlineAdding(false); }
+  };
+
+  // 우클릭한 태스크 바로 아래(같은 레벨)에 새 태스크 생성
+  const createTaskBelow = async (clicked: any) => {
+    setInlineAdding(true);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const end = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
+      const name = "새 태스크";
+      const allTasks: any[] = ganttData?.tasks ?? [];
+      const parentId = clicked.parentId ?? null;
+      const siblings = allTasks
+        .filter((t: any) => (t.parentId ?? null) === parentId)
+        .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+      const ci = siblings.findIndex((t: any) => t.id === clicked.id);
+      const clickedOrder = clicked.sortOrder ?? 0;
+      const next = ci >= 0 ? siblings[ci + 1] : undefined;
+
+      let newOrder: number;
+      if (!next) {
+        newOrder = clickedOrder + 10; // 마지막이면 뒤에 append
+      } else {
+        const gap = (next.sortOrder ?? 0) - clickedOrder;
+        if (gap >= 2) {
+          newOrder = clickedOrder + Math.floor(gap / 2); // 간격 안에 삽입 (형제 미변경)
+        } else {
+          // 간격이 없으면 뒤쪽 형제만 +10 시프트 (권한상 본인 태스크만 반영될 수 있음)
+          newOrder = clickedOrder + 1;
+          await Promise.all(
+            siblings.slice(ci + 1).map((t: any) =>
+              taskApi.update(projectId, t.id, { sortOrder: (t.sortOrder ?? 0) + 10 }).catch(() => {}),
+            ),
+          );
+        }
+      }
+
+      const created: any = await taskApi.create(projectId, { name, parentId: parentId ?? undefined, sortOrder: newOrder });
+      await taskApi.createSegment(projectId, created.id, { name, startDate: today, endDate: end });
+      pushUndo({
+        label: `태스크 "${name}" 생성`,
+        undo: async () => { await taskApi.delete(projectId, created.id); },
+        redo: async () => {
+          const t: any = await taskApi.create(projectId, { name, parentId: parentId ?? undefined, sortOrder: newOrder });
+          await taskApi.createSegment(projectId, t.id, { name, startDate: today, endDate: end });
+        },
+      });
+      await load();
+      setEditingNameId(created.id);
+      setEditNameVal(name);
     } catch { /* ignore */ }
     finally { setInlineAdding(false); }
   };
@@ -1092,9 +1169,9 @@ export default function ProjectDetailPage() {
   return (
     <AppLayout>
       {/* 태스크 상세창 외부 클릭 시 닫기 — TaskDrawer/오버레이는 아래에서 별도 렌더링 */}
-      <div className="min-h-screen" onClick={() => selectedTask && setSelectedTask(null)}>
-      {/* Project header — 1줄 */}
-      <div className="bg-white border-b border-gray-200 px-6 py-2.5">
+      <div className="min-h-screen" style={{ ["--top-chrome" as any]: `${topChrome}px` }} onClick={() => selectedTask && setSelectedTask(null)}>
+      {/* Project header — 1줄, 스크롤해도 상단 고정 */}
+      <div ref={projHeaderRef} className="sticky top-14 z-[29] bg-white border-b border-gray-200 px-6 py-2.5">
         <div className="flex items-center gap-2 min-w-0">
           {/* 뒤로 */}
           <button onClick={() => router.push("/projects")} className="text-gray-400 hover:text-gray-600 text-sm shrink-0">← 목록</button>
@@ -1333,8 +1410,8 @@ export default function ProjectDetailPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="bg-white border-b border-gray-200 px-6 flex gap-1">
+      {/* Tabs — 프로젝트명 바 아래에 고정 */}
+      <div ref={tabsBarRef} className="sticky z-[27] bg-white border-b border-gray-200 px-6 flex gap-1" style={{ top: 56 + projHeaderH }}>
         {(["gantt", "tasks", "equipment", "activity"] as const).map((tab) => (
           <button
             key={tab}
@@ -1365,9 +1442,9 @@ export default function ProjectDetailPage() {
               </button>
             </div>
           ) : (
-            <div>
-              {/* 타임라인 표시 범위 설정 */}
-              <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+            <div style={{ ["--gantt-extra" as any]: `${rangeBarH}px` }}>
+              {/* 타임라인 표시 범위 설정 — 스크롤해도 탭 아래에 고정 */}
+              <div ref={rangeBarRef} className="sticky z-[25] bg-gray-50 flex items-center gap-1.5 py-1 mb-1.5 flex-wrap" style={{ top: "var(--top-chrome, 56px)" }}>
                 {/* 빠른 선택 버튼 */}
                 {[
                   { label: "지난주",     range: () => ganttWeekRange(-1) },
@@ -1412,7 +1489,7 @@ export default function ProjectDetailPage() {
                 onTaskClick={(task) => {
                   if (selectedTask?.id === task.id) { setSelectedTask(null); } else { handleTaskClick(task); }
                 }}
-                onTaskCopy={isManager ? (task) => setCopyTargets([{ id: task.id, name: task.name, projectId }]) : undefined}
+                onTaskCopy={isOperator ? (task) => setCopyTargets([{ id: task.id, name: task.name, projectId }]) : undefined}
                 baselineSegments={baselineSegments.length > 0 ? baselineSegments : undefined}
                 allResources={resources}
                 onRefresh={loadSilent}
@@ -1433,8 +1510,8 @@ export default function ProjectDetailPage() {
                 onDragEnd={clearDragState}
                 onIndent={handleIndent}
                 onOutdent={handleOutdent}
-                onCopySelected={isManager ? handleCopySelected : undefined}
-                onDeleteSelected={isManager ? handleDeleteSelected : undefined}
+                onCopySelected={isOperator ? handleCopySelected : undefined}
+                onDeleteSelected={isOperator ? handleDeleteSelected : undefined}
                 onClearSelection={() => setSelected(new Set())}
                 onProgressChange={undefined}
                 onAddTask={isOperator ? () => { setAddAsMilestone(false); setShowAddTask(true); } : undefined}
@@ -1447,10 +1524,10 @@ export default function ProjectDetailPage() {
 
         {/* ── Tasks ── */}
         {activeTab === "tasks" && (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            {/* Multi-select toolbar */}
+          <div className="bg-white rounded-xl border border-gray-200 overflow-clip">
+            {/* Multi-select toolbar — 스크롤해도 상단(글로벌 헤더 h-14 아래)에 고정 */}
             {selected.size > 0 && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border-b border-blue-100">
+              <div ref={selToolbarRef} className="sticky z-[25] flex items-center gap-2 px-4 py-2 bg-blue-50 border-b border-blue-100" style={{ top: "var(--top-chrome, 56px)" }}>
                 <span className="text-xs font-semibold text-blue-700">{selected.size}개 선택됨</span>
                 <span className="text-[10px] text-blue-400">— 드래그 핸들(⠿)로 이동</span>
                 <div className="h-3 w-px bg-blue-200" />
@@ -1463,7 +1540,7 @@ export default function ProjectDetailPage() {
                   → 들여쓰기
                 </button>
                 <div className="h-3 w-px bg-blue-200" />
-                {isManager && (
+                {isOperator && (
                   <button
                     onClick={handleCopySelected}
                     className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded border border-blue-200"
@@ -1472,7 +1549,7 @@ export default function ProjectDetailPage() {
                     📋 복사
                   </button>
                 )}
-                {isManager && (
+                {isOperator && (
                   <button onClick={handleDeleteSelected}
                     className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded border border-red-200">
                     🗑 선택 삭제
@@ -1484,7 +1561,8 @@ export default function ProjectDetailPage() {
             )}
 
             <table className="w-full text-sm select-none">
-              <thead>
+              {/* 열 제목 — 스크롤해도 상단 고정. top = 상단 고정프레임 + 선택 툴바 높이 */}
+              <thead className="sticky z-[23] bg-gray-50" style={{ top: `calc(var(--top-chrome, 56px) + ${selToolbarH}px)` }}>
                 <tr className="border-b border-gray-200 bg-gray-50">
                   <th className="w-6" />
                   <th className="px-3 py-2 w-8" onClick={toggleAll}>
@@ -1539,10 +1617,11 @@ export default function ProjectDetailPage() {
                       fallbackToBrowser
                       items={[
                         { label: "편집/상세", icon: "📄", onClick: () => handleTaskClick(task) },
+                        { label: "아래에 태스크 추가", icon: "➕", onClick: () => createTaskBelow(task), visible: !!isOperator },
                         { label: "이름 수정", icon: "✏️", onClick: () => { setEditingNameId(task.id); setEditNameVal(task.name); }, visible: !!isOperator },
-                        { label: "복사", icon: "📋", onClick: () => setCopyTargets([{ id: task.id, name: task.name, projectId }]), visible: !parentTaskIds.has(task.id) && !!isManager },
-                        { separator: true, visible: !!isManager },
-                        { label: "삭제", icon: "🗑", onClick: () => handleDeleteTask(task.id, task.name), destructive: true, visible: !!isManager },
+                        { label: "복사", icon: "📋", onClick: () => setCopyTargets([{ id: task.id, name: task.name, projectId }]), visible: !parentTaskIds.has(task.id) && !!isOperator },
+                        { separator: true, visible: !!isOperator },
+                        { label: "삭제", icon: "🗑", onClick: () => handleDeleteTask(task.id, task.name), destructive: true, visible: !!isOperator },
                       ]}
                     >
                     <tr
@@ -1721,7 +1800,7 @@ export default function ProjectDetailPage() {
                         return null;
                       })}
                       <td className="px-1 text-center" onClick={(e) => e.stopPropagation()}>
-                        {isManager && (
+                        {isOperator && (
                           <button onClick={() => handleDeleteTask(task.id, task.name)}
                             className="text-gray-300 hover:text-red-500 text-xs opacity-0 group-hover/row:opacity-100" title="삭제">🗑</button>
                         )}
@@ -1768,6 +1847,8 @@ export default function ProjectDetailPage() {
                 })}
               </tbody>
             </table>
+            {/* 하단 추가영역 — 스크롤해도 화면 하단에 고정 */}
+            <div className="sticky bottom-0 z-[25] bg-white">
             {/* 인라인 태스크 추가 행 */}
             <div className="border-t border-gray-100">
               <div className="flex items-center gap-2 px-3 py-1.5">
@@ -1808,6 +1889,7 @@ export default function ProjectDetailPage() {
                 <span className="text-[10px] text-gray-400 ml-2">상세 옵션이 필요할 때</span>
               </div>
             )}
+            </div>
           </div>
         )}
 

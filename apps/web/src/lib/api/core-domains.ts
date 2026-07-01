@@ -713,16 +713,14 @@ export async function listAssignableResources(): Promise<AssignableResource[]> {
   // 공용자산 정리 (2026-05-05): EquipmentResource는 프로젝트 미연계 — 자원 popover에서 제외.
   // 직원(auth_users) + 외부 인력만 자원 배정 대상.
   const [users, externals] = await Promise.all([
-    userManagementApi.list().catch(() => ({ items: [] as any[] })),
+    // 자원 배정 대상 = 활성 전직원. GET /users는 ADMIN 전용이라 OPERATOR는 403 → 전 사용자 허용인
+    // /users/members?all=true (활성 전직원 id+name) 사용. (기존엔 operator가 외부인력만 보였음)
+    userManagementApi.members(true).catch(() => [] as { id: string; name: string }[]),
     externalPersonApi.list({ status: "ACTIVE" }).catch(() => [] as ExternalPerson[]),
   ]);
   const out: AssignableResource[] = [];
-  const userList: any[] = Array.isArray((users as any).items)
-    ? (users as any).items
-    : (Array.isArray(users) ? (users as any[]) : []);
-  for (const u of userList) {
-    if (u.status === "RETIRED" || u.isActive === false) continue;
-    out.push({ id: u.id, name: u.name, category: "PERSON", type: "PERSON", email: u.email, isActive: true });
+  for (const u of users) {
+    out.push({ id: u.id, name: u.name, category: "PERSON", type: "PERSON", isActive: true });
   }
   for (const e of externals) {
     out.push({ id: e.id, name: e.name, category: "EXTERNAL", type: "PERSON", company: e.company, isActive: true });
