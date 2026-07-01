@@ -306,9 +306,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return () => { events.forEach((e) => window.removeEventListener(e, bump)); clearInterval(iv); };
   }, [currentUser, router]);
 
+  // 다크모드 토글 — html.dark 클래스 + localStorage 저장. 현재 개발자 계정에서만 버튼 노출(실험).
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const dark = localStorage.getItem("erp-theme") === "dark";
+    setIsDark(dark);
+    document.documentElement.classList.toggle("dark", dark);
+  }, []);
+  const toggleTheme = () => {
+    setIsDark((prev) => {
+      const next = !prev;
+      document.documentElement.classList.toggle("dark", next);
+      localStorage.setItem("erp-theme", next ? "dark" : "light");
+      return next;
+    });
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center gap-2">
           <button
             onClick={() => router.push("/home")}
@@ -331,8 +347,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   className={clsx(
                     "flex items-center gap-0.5 px-1 xl:px-1.5 py-0.5 rounded-md text-sm font-medium transition-colors shrink-0",
                     pathname.startsWith(n.href)
-                      ? "bg-blue-50 text-blue-700"
-                      : "text-gray-600 hover:bg-gray-100",
+                      ? "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                      : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700",
                   )}
                 >
                   <span className="shrink-0">{n.icon}</span>
@@ -368,8 +384,28 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               )}
             </button>
 
+            {/* 다크모드 토글 — 개발자 계정 전용 (실험) */}
+            {currentUser?.name === "개발자" && (
+              <button
+                onClick={toggleTheme}
+                title={isDark ? "라이트 모드로" : "다크 모드로"}
+                aria-label="테마 전환"
+                className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700 rounded-md transition-colors shrink-0"
+              >
+                {isDark ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  </svg>
+                )}
+              </button>
+            )}
+
             {currentUser && (
-              <button onClick={openProfile} className="text-sm text-gray-600 hover:text-blue-600 transition-colors whitespace-nowrap shrink-0">
+              <button onClick={openProfile} className="text-sm text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors whitespace-nowrap shrink-0">
                 {currentUser.name}
               </button>
             )}
