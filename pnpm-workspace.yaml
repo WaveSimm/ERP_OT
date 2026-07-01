@@ -2,3 +2,5 @@ packages:
   - "apps/*"
   - "packages/*"
   - "services/*"
+  # caps-sync는 호스트 cron에서 npm으로 도는 독립 워커(자체 package-lock.json) — pnpm 대상 아님
+  - "!services/caps-sync"
