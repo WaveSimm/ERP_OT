@@ -183,6 +183,26 @@ export async function contractRoutes(fastify: FastifyInstance) {
     const body = request.body as { contractNumber: string; contractDate?: string };
     return fastify.contractService.finalize(id, body);
   });
+
+  // 마이그레이션(엑셀 일괄 업로드): ADMIN 전용. records 배열이 크므로 bodyLimit 상향.
+  fastify.post(
+    "/import/preview",
+    { preHandler: [requireRole("ADMIN")], bodyLimit: 26_214_400 },
+    async (request) => {
+      const { records } = (request.body ?? {}) as { records?: any[] };
+      return fastify.contractService.importPreview(records ?? []);
+    },
+  );
+
+  fastify.post(
+    "/import",
+    { preHandler: [requireRole("ADMIN")], bodyLimit: 26_214_400 },
+    async (request, reply) => {
+      const { records } = (request.body ?? {}) as { records?: any[] };
+      const result = await fastify.contractService.importBulk(records ?? [], request.userId || "migration");
+      return reply.status(201).send(result);
+    },
+  );
 }
 
 export async function overseasOrderRoutes(fastify: FastifyInstance) {

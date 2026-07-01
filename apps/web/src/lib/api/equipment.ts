@@ -464,6 +464,18 @@ export const procurementApi = {
   finalizeContract: (id: string, data: { contractNumber: string; contractDate?: string }) =>
     request<Contract>(`/procurement/contracts/${id}/finalize`, { method: "POST", body: JSON.stringify(data) }),
 
+  // 계약 마이그레이션(엑셀 일괄 업로드) — contractNumber 기준 중복검사
+  importContractsPreview: (records: unknown[]) =>
+    request<{
+      total: number; newCount: number; duplicateCount: number; invalidCount: number;
+      sampleNew: { contractNumber: string; name: string; client: string }[];
+      sampleDuplicates: { contractNumber: string; name: string; client: string }[];
+      sampleInvalid: { contractNumber: string; name: string }[];
+    }>("/procurement/contracts/import/preview", { method: "POST", body: JSON.stringify({ records }) }),
+  importContracts: (records: unknown[]) =>
+    request<{ total: number; imported: number; duplicateInDb: number; invalid: number; skipped: number }>(
+      "/procurement/contracts/import", { method: "POST", body: JSON.stringify({ records }) }),
+
   // 해외 발주
   getOrders: (params?: { search?: string; status?: string; currency?: string; orderType?: string; contractId?: string; page?: number; limit?: number; sortBy?: string; sortOrder?: "asc" | "desc"; hasPayment?: boolean }) => {
     const q = new URLSearchParams();
