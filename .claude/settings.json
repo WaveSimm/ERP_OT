@@ -8,6 +8,7 @@
     }
   },
   "enabledPlugins": {
-    "bkit-starter@bkit-marketplace": true
+    "bkit-starter@bkit-marketplace": false,
+    "bkit@bkit-marketplace": true
   }
 }
