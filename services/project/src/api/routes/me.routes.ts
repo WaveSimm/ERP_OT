@@ -30,7 +30,7 @@ export async function meRoutes(fastify: FastifyInstance) {
     const todayStr = today.toISOString().slice(0, 10);
     // 자원-모델-분리 Phase 4 (2026-05-13): legacy resource 조회 → auth_user id (req.userId) 직접 사용
     const resource = { id: req.userId };
-    if (!resource) return reply.send({ date: todayStr, columns: { UPCOMING: [], IN_PROGRESS: [], DUE_SOON: [], DONE: [] }, staleCount: 0, totalAssigned: 0 });
+    if (!resource) return reply.send({ date: todayStr, columns: { CRITICAL: [], DUE_SOON: [], IN_PROGRESS: [], UPCOMING: [] }, staleCount: 0, totalAssigned: 0 });
 
     const assignments = await fastify.prisma.segmentAssignment.findMany({
       where: { resourceId: resource.id },
@@ -47,7 +47,7 @@ export async function meRoutes(fastify: FastifyInstance) {
       },
     });
 
-    const columns: Record<string, MyDayCard[]> = { UPCOMING: [], IN_PROGRESS: [], DUE_SOON: [], DONE: [] };
+    const columns: Record<string, MyDayCard[]> = { CRITICAL: [], DUE_SOON: [], IN_PROGRESS: [], UPCOMING: [] };
     let staleCount = 0;
 
     for (const a of assignments) {
@@ -82,19 +82,21 @@ export async function meRoutes(fastify: FastifyInstance) {
       if (staleDays >= 3) staleCount++;
 
       const isDone = seg.progressPercent >= 100 || (daysUntilEnd < 0 && task.status === "DONE");
-      if (isDone) {
-        columns.DONE!.push(card);
+      if (isDone) continue; // 완료 세그먼트는 보드에서 제외 (완료 칸 폐지)
+
+      if (task.isCritical || daysUntilEnd < 0) {
+        // 크리티컬(CPM 임계경로) 또는 지연(종료일 지난 미완료)을 전용 칸으로 뽑음
+        columns.CRITICAL!.push(card);
       } else if (start <= today && today <= end) {
         if (daysUntilEnd <= 3) columns.DUE_SOON!.push(card);
         else columns.IN_PROGRESS!.push(card);
-      } else if (start > today && daysUntilEnd <= 7) {
-        columns.UPCOMING!.push(card);
       } else if (start > today) {
         columns.UPCOMING!.push(card);
       }
     }
 
-    // DUE_SOON 오름차순 정렬
+    // 크리티컬·마감임박 오름차순 정렬(임박 우선)
+    columns.CRITICAL!.sort((a, b) => a.daysUntilEnd - b.daysUntilEnd);
     columns.DUE_SOON!.sort((a, b) => a.daysUntilEnd - b.daysUntilEnd);
 
     return reply.send({
@@ -189,7 +191,9 @@ export async function meRoutes(fastify: FastifyInstance) {
           return {
             segmentId: seg.id,
             segmentName: seg.name,
+            taskId: seg.task.id,
             taskName: seg.task.name,
+            projectId: seg.task.project.id,
             projectName: seg.task.project.name,
             startDate: start.toISOString().slice(0, 10),
             endDate: end.toISOString().slice(0, 10),

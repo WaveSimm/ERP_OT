@@ -33,10 +33,10 @@ interface KanbanCard {
 interface KanbanData {
   date: string;
   columns: {
-    UPCOMING: KanbanCard[];
-    IN_PROGRESS: KanbanCard[];
+    CRITICAL: KanbanCard[];
     DUE_SOON: KanbanCard[];
-    DONE: KanbanCard[];
+    IN_PROGRESS: KanbanCard[];
+    UPCOMING: KanbanCard[];
   };
   staleCount: number;
   totalAssigned: number;
@@ -71,12 +71,10 @@ function useKanban() {
         );
       }
       if (progressPercent >= 100) {
-        let card: KanbanCard | undefined;
-        for (const col of ["DUE_SOON", "IN_PROGRESS", "UPCOMING"] as const) {
-          const idx = cols[col].findIndex((c) => c.segmentId === segmentId);
-          if (idx !== -1) { [card] = cols[col].splice(idx, 1); break; }
+        // 완료 세그먼트는 보드에서 제거 (완료 칸 없음)
+        for (const col of Object.keys(cols) as (keyof typeof cols)[]) {
+          cols[col] = cols[col].filter((c) => c.segmentId !== segmentId);
         }
-        if (card) cols.DONE = [{ ...card, progressPercent: 100 }, ...cols.DONE];
       }
       return { ...prev, columns: cols };
     });
@@ -166,10 +164,10 @@ function ProgressUpdateModal({ card, onClose, onSave }: {
 }
 
 const COLUMN_META = {
+  CRITICAL:    { label: "크리티컬·지연", color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-200", dot: "bg-orange-500" },
   DUE_SOON:    { label: "마감 임박", color: "text-red-600",   bg: "bg-red-50",   border: "border-red-200",   dot: "bg-red-500" },
   IN_PROGRESS: { label: "진행 중",   color: "text-blue-600",  bg: "bg-blue-50",  border: "border-blue-200",  dot: "bg-blue-500" },
   UPCOMING:    { label: "예정",       color: "text-gray-600",  bg: "bg-gray-50",  border: "border-gray-200",  dot: "bg-gray-400" },
-  DONE:        { label: "완료",       color: "text-green-600", bg: "bg-green-50", border: "border-green-200", dot: "bg-green-500" },
 };
 
 function KanbanCardItem({ card, onUpdate }: { card: KanbanCard; onUpdate: (card: KanbanCard) => void }) {
@@ -273,6 +271,10 @@ function WeekCalendarView() {
     new Set((data.days as any[]).flatMap((d) => d.segments.map((s: any) => s.projectName))),
   ).sort((a, b) => String(a).localeCompare(String(b), "ko"));
 
+  // 프로젝트명 → projectId (행 헤더 링크용)
+  const projIdByName = new Map<string, string>();
+  for (const d of data.days as any[]) for (const s of d.segments) if (!projIdByName.has(s.projectName)) projIdByName.set(s.projectName, s.projectId);
+
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
       <div className="px-4 py-3 flex items-center justify-between border-b border-gray-200">
@@ -299,7 +301,9 @@ function WeekCalendarView() {
             )}
             {projects.map((proj) => (
               <tr key={proj} className="hover:bg-gray-50/50 align-top">
-                <td className="px-3 py-2 font-medium text-gray-800 sticky left-0 bg-white z-10 truncate max-w-[200px]" title={proj}>{proj}</td>
+                <td className="px-3 py-2 font-medium sticky left-0 bg-white z-10 truncate max-w-[200px]" title={proj}>
+                  <Link href={`/projects/${projIdByName.get(proj) ?? ""}`} className="text-gray-800 hover:text-blue-600 hover:underline">{proj}</Link>
+                </td>
                 {data.days.map((day: any) => {
                   const segs = day.segments.filter((s: any) => s.projectName === proj);
                   return (
@@ -307,11 +311,12 @@ function WeekCalendarView() {
                       className={`px-1.5 py-1.5 ${day.isToday ? "bg-blue-50/40" : day.dayOfWeek === 0 || day.dayOfWeek === 6 ? "bg-gray-50/50" : ""}`}>
                       <div className="space-y-1">
                         {segs.map((seg: any) => (
-                          <div key={`${seg.segmentId}-${day.date}`}
-                            className={`px-1.5 py-0.5 rounded truncate ${seg.isCriticalPath ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}
+                          <Link key={`${seg.segmentId}-${day.date}`}
+                            href={`/projects/${seg.projectId}?taskId=${seg.taskId}`}
+                            className={`block px-1.5 py-0.5 rounded truncate hover:ring-1 hover:ring-blue-300 ${seg.isCriticalPath ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}
                             title={`${seg.taskName} / ${seg.segmentName}`}>
                             {seg.segmentName}
-                          </div>
+                          </Link>
                         ))}
                       </div>
                     </td>
@@ -415,7 +420,7 @@ function MyTasksView() {
       ...g,
       tasks: g.tasks.filter((t: any) => {
         const matchStatus = filterStatus === "ALL"
-          ? true
+          ? (t.taskStatus !== "DONE" && t.taskStatus !== "CANCELLED")   // 전체=미완료 (완료는 완료 탭에서)
           : filterStatus === "OVERDUE"
             ? isOverdueTask(t)
             : t.taskStatus === filterStatus;
@@ -441,7 +446,7 @@ function MyTasksView() {
   const counts = useMemo(() => {
     const all = groups.flatMap((g) => g.tasks);
     return {
-      all: all.length,
+      all: all.filter((t: any) => t.taskStatus !== "DONE" && t.taskStatus !== "CANCELLED").length,
       todo: all.filter((t: any) => t.taskStatus === "TODO").length,
       in_progress: all.filter((t: any) => t.taskStatus === "IN_PROGRESS").length,
       on_hold: all.filter((t: any) => t.taskStatus === "ON_HOLD").length,
@@ -1541,7 +1546,7 @@ export default function DashboardPage() {
           </div>
         ) : data ? (
           <div className="flex gap-4 overflow-x-auto pb-2">
-            {(["DUE_SOON", "IN_PROGRESS", "UPCOMING", "DONE"] as const).map((col) => (
+            {(["CRITICAL", "DUE_SOON", "IN_PROGRESS", "UPCOMING"] as const).map((col) => (
               <KanbanColumn key={col} colKey={col} cards={data.columns[col]} onUpdate={setModalCard} />
             ))}
           </div>
