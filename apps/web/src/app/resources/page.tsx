@@ -19,12 +19,6 @@ const TYPE_LABELS: Record<string, string> = {
   FACILITY: "🏭 시설",
 };
 
-function todayStr() { return new Date().toISOString().slice(0, 10); }
-function addMonths(date: string, n: number) {
-  const d = new Date(date);
-  d.setMonth(d.getMonth() + n);
-  return d.toISOString().slice(0, 10);
-}
 function toDateStr(d: Date) { return d.toISOString().slice(0, 10); }
 function weekRange(offsetWeeks: number): { start: string; end: string } {
   const today = new Date();
@@ -35,6 +29,13 @@ function weekRange(offsetWeeks: number): { start: string; end: string } {
   const sun = new Date(mon);
   sun.setDate(mon.getDate() + 6);
   return { start: toDateStr(mon), end: toDateStr(sun) };
+}
+function monthRange(offsetMonths: number): { start: string; end: string } {
+  const d = new Date();
+  d.setMonth(d.getMonth() + offsetMonths);
+  const start = new Date(d.getFullYear(), d.getMonth(), 1);
+  const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  return { start: toDateStr(start), end: toDateStr(end) };
 }
 
 const TAB_KEY = "erp_tab_resources";
@@ -209,8 +210,9 @@ export default function ResourcesPage() {
   const [authUsers, setAuthUsers] = useState<{ id: string; email: string; name: string }[]>([]);
 
   // Dashboard
-  const [startDate, setStartDate] = useState<string>(addMonths(todayStr(), -1));
-  const [endDate, setEndDate] = useState<string>(addMonths(todayStr(), 2));
+  // 초기 기본 기간: 이번주 월요일 ~ 다음주 일요일 (2주)
+  const [startDate, setStartDate] = useState<string>(weekRange(0).start);
+  const [endDate, setEndDate] = useState<string>(weekRange(1).end);
   const [dashboard, setDashboard] = useState<any[]>([]);
   const [dashLoading, setDashLoading] = useState(false);
   const [expandedResources, setExpandedResources] = useState<Set<string>>(new Set());
@@ -356,14 +358,21 @@ export default function ResourcesPage() {
     }
   };
 
-  const applyDate = async (start: string, end: string) => {
+  // 기간 설정만 담당(persist). 실제 재조회는 아래 useEffect(startDate/endDate 의존)가 처리.
+  const applyDate = (start: string, end: string) => {
     setStartDate(start);
     setEndDate(end);
     try { sessionStorage.setItem(DASH_DATE_KEY, JSON.stringify({ startDate: start, endDate: end })); } catch {}
-    setDashLoading(true);
-    try { setDashboard(await resourceApi.dashboard(start, end)); }
-    catch (e: any) { alert(e.message ?? "대시보드 로드 실패"); }
-    finally { setDashLoading(false); }
+  };
+
+  // 간트 방식: 현재 선택 구간 길이만큼 앞(-1)/뒤(+1)로 이동
+  const shiftRange = (dir: -1 | 1) => {
+    if (!startDate || !endDate) return;
+    const s = new Date(startDate), e = new Date(endDate);
+    const days = Math.round((e.getTime() - s.getTime()) / 86400000) + 1; // 포함 일수
+    s.setDate(s.getDate() + dir * days);
+    e.setDate(e.getDate() + dir * days);
+    applyDate(toDateStr(s), toDateStr(e));
   };
 
   const loadDashboard = useCallback(async () => {
@@ -666,14 +675,15 @@ export default function ResourcesPage() {
 
   return (
     <AppLayout>
-      <div className="max-w-6xl mx-auto px-6 py-6">
-        {/* 헤더 */}
+      <div className="max-w-6xl mx-auto px-6 pb-6">
+        {/* 헤더 + 탭 — 헤더 밑 sticky (다른 메뉴와 통일) */}
+        <div className="sticky top-14 z-30 bg-gray-50 -mx-6 px-6 pt-4 pb-0 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-gray-900">자원관리</h2>
         </div>
 
         {/* 탭 */}
-        <div className="flex gap-1 border-b border-gray-200 mb-6">
+        <div className="flex gap-1 border-b border-gray-200">
           {([
             { key: "attendance",  label: "전사근태" },
             { key: "dashboard",   label: "직원현황" },
@@ -692,25 +702,31 @@ export default function ResourcesPage() {
             </button>
           ))}
         </div>
+        </div>
 
         {/* 직원현황 탭 (구 운영 현황) */}
         {resourceTab === "dashboard" && (<div>
             {/* 날짜 필터 */}
             <div className="flex items-center gap-2 mb-4 flex-wrap">
-              {/* 빠른 선택 버튼 */}
+              {/* 빠른 기간 선택 (간트 방식) */}
               {[
-                { label: "오늘", onClick: () => { const t = todayStr(); applyDate(t, t); } },
-                { label: "지난주", onClick: () => { const r = weekRange(-1); applyDate(r.start, r.end); } },
-                { label: "이번주", onClick: () => { const r = weekRange(0); applyDate(r.start, r.end); } },
-                { label: "다음주", onClick: () => { const r = weekRange(1); applyDate(r.start, r.end); } },
-              ].map(({ label, onClick }) => (
-                <button key={label} onClick={onClick}
-                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors">
+                { label: "지난주", range: () => weekRange(-1) },
+                { label: "이번주", range: () => weekRange(0) },
+                { label: "다음주", range: () => weekRange(1) },
+                { label: "이번주+다음주", range: () => { const a = weekRange(0); const b = weekRange(1); return { start: a.start, end: b.end }; } },
+                { label: "이번달", range: () => monthRange(0) },
+              ].map(({ label, range }) => (
+                <button key={label} onClick={() => { const r = range(); applyDate(r.start, r.end); }}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors whitespace-nowrap">
                   {label}
                 </button>
               ))}
-              <div className="flex-1" />
-              {/* 날짜 직접 입력 + 조회 (오른쪽) */}
+              <div className="h-4 w-px bg-gray-200 mx-1" />
+              <span className="text-xs text-gray-400">범위</span>
+              {/* 양쪽 화살표: 선택 구간 길이만큼 앞뒤 이동 */}
+              <button onClick={() => shiftRange(-1)} disabled={!startDate || !endDate}
+                title="구간 길이만큼 앞으로 이동"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-blue-300 bg-blue-50 text-blue-600 font-bold hover:bg-blue-100 hover:border-blue-400 disabled:opacity-40 transition-colors">◀</button>
               <DateInput value={startDate} onChange={(e) => {
                 setStartDate(e.target.value);
                 try { sessionStorage.setItem(DASH_DATE_KEY, JSON.stringify({ startDate: e.target.value, endDate })); } catch {}
@@ -720,10 +736,10 @@ export default function ResourcesPage() {
                 setEndDate(e.target.value);
                 try { sessionStorage.setItem(DASH_DATE_KEY, JSON.stringify({ startDate, endDate: e.target.value })); } catch {}
               }} className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              <button onClick={loadDashboard} disabled={dashLoading}
-                className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-                {dashLoading ? "조회 중..." : "조회"}
-              </button>
+              <button onClick={() => shiftRange(1)} disabled={!startDate || !endDate}
+                title="구간 길이만큼 뒤로 이동"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-blue-300 bg-blue-50 text-blue-600 font-bold hover:bg-blue-100 hover:border-blue-400 disabled:opacity-40 transition-colors">▶</button>
+              <div className="flex-1" />
               <button onClick={() => {
                 const allIds = [
                   ...groups.filter((g) => g.isDept || (!g.isDept && g.description !== "__all__" && g.name !== "전체")).map((g) => g.id),
@@ -753,7 +769,7 @@ export default function ResourcesPage() {
             ) : (
               <div className="space-y-1">
                 {/* 부하 색상 범례 — 스크롤해도 상단 고정 (부서별 중복 제거) */}
-                <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border border-gray-100 rounded-lg px-3 py-2 mb-2 shadow-sm">
+                <div className="sticky top-14 z-20 bg-white/95 backdrop-blur-sm border border-gray-100 rounded-lg px-3 py-2 mb-2 shadow-sm">
                   <ResourceLoadLegend />
                 </div>
                 {(() => {

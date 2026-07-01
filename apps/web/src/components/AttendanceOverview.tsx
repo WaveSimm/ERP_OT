@@ -19,9 +19,9 @@ const ENTRY_LABELS: Record<string, string> = {
 
 const ENTRY_COLORS: Record<string, string> = {
   WORK: "bg-sky-100 text-sky-700",              // 출근 — 파랑(sky)
-  FIELD: "bg-green-100 text-green-800",      // 근무군(외근·교육·출장) — 초록(emerald)
-  TRAINING: "bg-green-100 text-green-800",
-  BUSINESS_TRIP: "bg-green-100 text-green-800",
+  FIELD: "bg-sky-100 text-sky-700",      // 근무군(외근·교육·출장) — 파랑(sky) (출근 숨김에 따라 파란색 사용)
+  TRAINING: "bg-sky-100 text-sky-700",
+  BUSINESS_TRIP: "bg-sky-100 text-sky-700",
   HALF: "bg-amber-100 text-amber-700",           // 휴가군 — 노랑(amber)
   HALF_AM: "bg-amber-100 text-amber-700",
   HALF_PM: "bg-amber-100 text-amber-700",
@@ -406,7 +406,8 @@ function MemberRow({ member, days, viewMode, holidays }: { member: Member; days:
         {member.name}
       </td>
       {days.map((day) => {
-        const dayEntries = entriesByDate.get(day) ?? [];
+        // 출근(WORK, 파란 박스)은 전사근태에서 숨김 — 외근/휴가 등 예외만 표시
+        const dayEntries = (entriesByDate.get(day) ?? []).filter((e) => e.entryType !== "WORK");
         const isHol = !!holidays?.get(day);
         const cellBg = isToday(day)
           ? "bg-blue-50/30"

@@ -112,7 +112,7 @@ export default function ProcurementPage() {
   return (
     <div>
       {/* v1.6 (2026-05-14): 상태 카운트 + 필터 행 sticky (layout sticky 영역 아래) */}
-      <div className="sticky top-[112px] z-20 bg-gray-50 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-2 pb-2 mb-2">
+      <div className="sticky top-[156px] z-20 bg-gray-50 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-3 pb-2 mb-2">
       {/* Dashboard Summary — v1.6 (2026-05-14): 부분입고·입고완료 별도 셀 + 0건이어도 항상 표시 */}
       {dashboard && (
         <div className="flex gap-2 mb-3 overflow-x-auto">

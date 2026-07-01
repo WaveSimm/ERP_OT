@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { procurementApi, repairApi, supplierApi } from "@/lib/api";
 import SearchableSelect from "@/components/SearchableSelect";
 import { DateInput } from "@/components/ui/DateInput";
 import SortableHeader from "@/components/SortableHeader";
 import { useSortPreference } from "@/hooks/useSortPreference";
+import Pagination from "@/components/Pagination";
 
 const STATUS_LABELS: Record<string, string> = { PROSPECTIVE: "예정", ACTIVE: "진행중", COMPLETED: "완료", CANCELLED: "취소" };
 const STATUS_COLORS: Record<string, string> = {
@@ -28,6 +29,17 @@ export default function ContractsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  // 툴바 높이 실측 → 컬럼헤더 sticky top = 서브탭바(--top-chrome) + 툴바높이
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const [toolbarH, setToolbarH] = useState(48);
+  useEffect(() => {
+    const el = toolbarRef.current; if (!el) return;
+    const update = () => setToolbarH(el.offsetHeight);
+    update();
+    const ro = new ResizeObserver(update); ro.observe(el);
+    window.addEventListener("resize", update);
+    return () => { ro.disconnect(); window.removeEventListener("resize", update); };
+  }, []);
   const { sortBy, sortOrder, handleSort } = useSortPreference("contracts");
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
@@ -48,6 +60,7 @@ export default function ContractsPage() {
         search: search || undefined,
         status: statusFilter || undefined,
         page,
+        limit: 50,
         ...(sortBy && { sortBy, sortOrder }),
       });
       setContracts(res.items);
@@ -118,7 +131,7 @@ export default function ContractsPage() {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
+      <div ref={toolbarRef} className="sticky z-20 bg-gray-50 -mx-4 sm:-mx-6 px-4 sm:px-6 py-2 -mt-6 mb-0 flex items-center gap-3 flex-wrap" style={{ top: "var(--top-chrome, 157px)" }}>
         <h2 className="text-lg font-bold">계약 관리</h2>
         <div className="flex bg-gray-100 rounded-lg p-0.5">
           {[{ key: "", label: "전체" }, ...Object.entries(STATUS_LABELS).map(([k, v]) => ({ key: k, label: v }))].map((f) => (
@@ -138,9 +151,9 @@ export default function ContractsPage() {
         </button>
       </div>
 
-      <div className="bg-white rounded-lg border overflow-hidden">
+      <div className="bg-white rounded-lg border overflow-auto" style={{ maxHeight: `calc(100vh - var(--top-chrome, 157px) - ${toolbarH}px - 5rem)` }}>
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b">
+          <thead className="sticky top-0 z-10 bg-gray-50 [&>tr>th]:border-b [&>tr>th]:border-gray-200">
             <tr>
               <SortableHeader sortKey="contractNumber" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-3 text-left font-medium text-gray-600 w-24 whitespace-nowrap">계약번호</SortableHeader>
               <SortableHeader sortKey="client" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-3 text-left font-medium text-gray-600 whitespace-nowrap">고객사</SortableHeader>
@@ -213,6 +226,8 @@ export default function ContractsPage() {
           </tbody>
         </table>
       </div>
+
+      <Pagination page={page} totalPages={Math.ceil(total / 50)} onPageChange={setPage} total={total} className="mt-4 border rounded-lg" />
 
       {/* v1.6.1 (2026-05-15): 계약 확정 모달 — PROSPECTIVE → ACTIVE */}
       {finalizing && (

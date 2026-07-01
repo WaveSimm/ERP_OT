@@ -32,6 +32,18 @@ export default function InventoryPage() {
   const [items, setItems] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  // 표 박스가 화면 남은 높이를 채우게 실측(박스 top→화면 끝) → 페이지 스크롤 없이 표 안에서만 스크롤
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [boxMaxH, setBoxMaxH] = useState<number>();
+  useEffect(() => {
+    const compute = () => {
+      const el = boxRef.current; if (!el) return;
+      setBoxMaxH(Math.max(220, window.innerHeight - el.getBoundingClientRect().top - 80));
+    };
+    compute();
+    window.addEventListener("resize", compute);
+    return () => window.removeEventListener("resize", compute);
+  });
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
@@ -306,9 +318,9 @@ export default function InventoryPage() {
       ) : items.length === 0 ? (
         <div className="text-center py-12 text-gray-400">재고가 없습니다.</div>
       ) : (
-        <div className="bg-white rounded-lg border overflow-hidden">
+        <div ref={boxRef} className="bg-white rounded-lg border overflow-auto" style={{ maxHeight: boxMaxH }}>
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-600">
+            <thead className="sticky top-0 z-10 bg-gray-50 text-gray-600 [&>tr>th]:border-b [&>tr>th]:border-gray-200">
               <tr>
                 <SortableHeader sortKey="inventoryNo" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="text-left px-4 py-3 font-medium">재고번호</SortableHeader>
                 <SortableHeader sortKey="itemName" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="text-left px-4 py-3 font-medium">품명</SortableHeader>
