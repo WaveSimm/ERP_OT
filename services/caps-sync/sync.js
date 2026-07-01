@@ -136,7 +136,8 @@ async function runDates(caps, pg, dates, label) {
   for (const k of keys) {
     const a = agg[k];
     const ex = existing[k];
-    if (ex && ex.status === "LEAVE") { skipLeave++; continue; } // 안전장치: 종일휴가 보존
+    // 휴가 보존 제거: 가정의날·1/4연차·반차 등 "부분휴가"도 status=LEAVE라, 스킵하면 실제 근무한 출퇴근이 누락됨.
+    // 종일휴가자는 badge가 없어 어차피 처리 안 됨. 휴가 표시/잔여일수는 leave_requests에서 별도 관리되어 영향 없음.
 
     // 이벤트 → 탭(120초 내 연속 = 한 번). 출근길 연타·이중기록 흡수.
     const taps = [];
