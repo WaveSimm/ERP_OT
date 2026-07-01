@@ -1,84 +1,23 @@
 import { PrismaClient, Prisma, LeaveType, ApprovalStatus } from "@prisma/client";
+import {
+  normalizeLeaveType,
+  TIME_BASED_TYPES,
+  resolveTimeRange,
+  minutesToDays,
+  leaveDurationHours,
+  addHours,
+  calcLeaveDays,
+  familyDayMonthRange,
+  sumFamilyDayHours,
+  substituteYears,
+  isSubstituteValid,
+} from "../domain/leave-calc.js";
 
 export class LeaveError extends Error {
   constructor(public readonly code: string, message: string, public readonly statusCode = 400) {
     super(message);
     this.name = "LeaveError";
   }
-}
-
-// 전자결재 select 옵션 (한국어) → LeaveType enum 매핑
-const KOR_TO_LEAVE_TYPE: Record<string, string> = {
-  // 현행 라벨 (v1.7)
-  "연차(1일)": "ANNUAL",
-  "반차(4H)": "HALF",
-  "1/4연차(2H)": "QUARTER",
-  "가정의날(1H)": "FAMILY_DAY",
-  "가정의날(2H)": "FAMILY_DAY_2H",
-  "경조사": "BEREAVEMENT",
-  "병가": "SICK",
-  "공가": "SPECIAL",
-  // legacy 라벨 호환
-  "연차": "ANNUAL",
-  "반차": "HALF",
-  "반차(오전)": "HALF",
-  "반차(오후)": "HALF",
-  "1/4연차": "QUARTER",
-  "1/4차": "QUARTER",
-  "가정의날": "FAMILY_DAY",
-  "특별휴가": "SPECIAL",
-};
-
-const VALID_ENUM = ["ANNUAL", "HALF", "QUARTER", "FAMILY_DAY", "FAMILY_DAY_2H", "BEREAVEMENT", "SICK", "SPECIAL"];
-
-function normalizeLeaveType(input: string): string {
-  if (!input) return "ANNUAL";
-  if (VALID_ENUM.includes(input)) return input;
-  return KOR_TO_LEAVE_TYPE[input] ?? "ANNUAL";
-}
-
-// 시간 단위 휴가 (startTime 입력만 받고 endTime은 type별 자동)
-const TIME_BASED_TYPES = ["HALF", "QUARTER", "FAMILY_DAY", "FAMILY_DAY_2H"];
-
-// type별 고정 시간 (분). 모든 시간 단위 휴가는 startTime + duration 자동.
-const TYPE_DEFAULT_MINUTES: Record<string, number> = {
-  HALF: 240,           // 반차 4시간
-  QUARTER: 120,        // 1/4연차 2시간
-  FAMILY_DAY: 60,      // 가정의날 1시간
-  FAMILY_DAY_2H: 120,  // 가정의날 2시간
-};
-
-// "HH:mm" + 분 → "HH:mm" (자정 넘어가는 케이스는 24시간 클램프)
-function addMinutes(startTime: string, minutes: number): string {
-  const [h, m] = startTime.split(":").map(Number);
-  if ([h, m].some((n) => Number.isNaN(n))) return startTime;
-  const total = (h! * 60 + m!) + minutes;
-  const clamped = Math.min(total, 24 * 60 - 1); // 23:59 까지
-  const hh = String(Math.floor(clamped / 60)).padStart(2, "0");
-  const mm = String(clamped % 60).padStart(2, "0");
-  return `${hh}:${mm}`;
-}
-
-// startTime/endTime "HH:mm" 차이를 분 단위로
-function diffMinutes(startTime: string, endTime: string): number {
-  const [sh, sm] = startTime.split(":").map(Number);
-  const [eh, em] = endTime.split(":").map(Number);
-  if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) return 0;
-  return (eh! * 60 + em!) - (sh! * 60 + sm!);
-}
-
-// 분 → 일 (1h = 0.125일)
-function minutesToDays(minutes: number): number {
-  if (minutes <= 0) return 0;
-  return Math.round((minutes / 60) * 0.125 * 1000) / 1000;
-}
-
-// type 기준 + 시작시간 → 종료시간 자동 계산 (v1.6: 모든 시간 단위 휴가가 type 고정 duration)
-function resolveTimeRange(type: string, startTime?: string, _endTime?: string): { startTime?: string; endTime?: string; minutes: number } {
-  if (!TIME_BASED_TYPES.includes(type)) return { minutes: 0 };
-  const def = TYPE_DEFAULT_MINUTES[type] ?? 0;
-  if (!startTime) return { minutes: def };
-  return { startTime, endTime: addMinutes(startTime, def), minutes: def };
 }
 
 export class LeaveService {
@@ -139,13 +78,11 @@ export class LeaveService {
 
   // 연차대체 (휴일근무 보상): 발생연도 다음해 3월말까지 유효. 1~3월엔 작년분도 합산.
   async getSubstituteStatus(userId: string, ref: Date = new Date()) {
-    const y = ref.getFullYear();
-    const years = ref.getMonth() <= 2 ? [y, y - 1] : [y];   // 1~3월: 작년분(올해 3월말까지) 포함
+    const years = substituteYears(ref);   // 1~3월: 작년분(올해 3월말까지) 포함
     const rows = await this.prisma.leaveBalance.findMany({ where: { userId, year: { in: years } } });
     let granted = 0, used = 0;
     for (const r of rows) {
-      const expiryExclusive = new Date(r.year + 1, 3, 1);   // (발생연도+1) 4/1 00:00 — 그 전까지 유효
-      if (ref < expiryExclusive) { granted += (r as any).substituteDays ?? 0; used += (r as any).substituteUsedDays ?? 0; }
+      if (isSubstituteValid(r.year, ref)) { granted += (r as any).substituteDays ?? 0; used += (r as any).substituteUsedDays ?? 0; }
     }
     return { substituteTotal: granted, substituteUsed: used, substituteRemaining: Math.max(0, granted - used) };
   }
@@ -153,10 +90,7 @@ export class LeaveService {
   // 가정의날: 매월 4시간 별도 풀 (이월 없음 — 월별 카운트라 자동 리셋).
   //   사용량 = 해당 월 APPROVED 가정의날 합산(FAMILY_DAY=1h, FAMILY_DAY_2H=2h).
   async getFamilyDayUsage(userId: string, ref: Date = new Date()) {
-    const y = ref.getFullYear(), m = ref.getMonth();
-    // 월 경계를 UTC 기준으로 — startDate가 UTC 자정으로 저장돼, KST 컨테이너의 new Date(y,m,1)(=전달 15:00Z)와
-    // 어긋나 월말(예: 6/30) 가정의날이 다음 달 사용량으로 누수되던 버그 수정.
-    const start = new Date(Date.UTC(y, m, 1)), end = new Date(Date.UTC(y, m + 1, 1));
+    const { start, end } = familyDayMonthRange(ref);
     const rows = await this.prisma.leaveRequest.findMany({
       where: {
         userId,
@@ -166,7 +100,7 @@ export class LeaveService {
       },
       select: { type: true },
     });
-    const used = rows.reduce((s, r) => s + (r.type === "FAMILY_DAY_2H" ? 2 : 1), 0);
+    const used = sumFamilyDayHours(rows);
     return { familyDayTotal: 4, familyDayUsed: used, familyDayRemaining: Math.max(0, 4 - used) };
   }
 
@@ -188,18 +122,6 @@ export class LeaveService {
       data,
     });
     return this.getBalance(userId, year);
-  }
-
-  // 시간단위 휴가 소요시간(h): 반차4 / 1/4 2 / 가정의날 1·2
-  private leaveDurationHours(type: string): number {
-    return type === "HALF" ? 4 : type === "QUARTER" ? 2 : type === "FAMILY_DAY" ? 1 : type === "FAMILY_DAY_2H" ? 2 : 0;
-  }
-  private addHours(hhmm: string, hours: number): string {
-    const parts = hhmm.split(":").map(Number);
-    const h = parts[0] ?? 0, m = parts[1] ?? 0;
-    const total = h * 60 + m + Math.round(hours * 60);
-    const nh = Math.floor(total / 60) % 24, nm = total % 60;
-    return `${String(nh).padStart(2, "0")}:${String(nm).padStart(2, "0")}`;
   }
 
   async createRequest(userId: string, data: {
@@ -236,9 +158,9 @@ export class LeaveService {
     // 중간 릴리즈(2026-06-29): 근태 직접 추가 — 승인 없이 즉시 APPROVED + 잔액 차감 + 캘린더 반영
     if (direct) {
       return this.prisma.$transaction(async (tx) => {
-        const dur = this.leaveDurationHours(data.type);
+        const dur = leaveDurationHours(data.type);
         const st = data.startTime && dur > 0 ? data.startTime : undefined;
-        const et = st ? this.addHours(st, dur) : undefined;
+        const et = st ? addHours(st, dur) : undefined;
         const request = await tx.leaveRequest.create({
           data: {
             userId,
@@ -450,18 +372,7 @@ export class LeaveService {
   }
 
   private calcDays(type: string, start: Date, end: Date): number {
-    if (type === "HALF") return 0.5;
-    if (type === "QUARTER") return 0.25;
-    // 가정의날: 연차에서 차감하지 않음 — 월 4시간 별도 풀(getFamilyDayUsage)로 관리
-    if (type === "FAMILY_DAY" || type === "FAMILY_DAY_2H") return 0;
-    let count = 0;
-    const cur = new Date(start);
-    while (cur <= end) {
-      const dow = cur.getDay();
-      if (dow !== 0 && dow !== 6) count++;
-      cur.setDate(cur.getDate() + 1);
-    }
-    return count;
+    return calcLeaveDays(type, start, end);
   }
 
   private async calculateAnnualLeave(userId: string, year: number): Promise<number> {
