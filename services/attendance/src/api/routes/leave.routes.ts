@@ -16,12 +16,23 @@ export async function leaveRoutes(fastify: FastifyInstance) {
   // POST /api/v1/leave/requests
   fastify.post("/requests", async (req, reply) => {
     const body = z.object({
-      type: z.enum(["ANNUAL", "HALF_AM", "HALF_PM", "QUARTER", "FAMILY", "SICK", "SPECIAL"]),
+      type: z.enum(["ANNUAL", "HALF", "QUARTER", "FAMILY_DAY", "FAMILY_DAY_2H", "BEREAVEMENT", "SICK", "SPECIAL", "SUBSTITUTE"]),
       startDate: z.string(),
       endDate: z.string(),
+      startTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),  // 시간단위 휴가 시작시각
       reason: z.string().min(1),
       approverId: z.string().optional(),  // 프론트에서 지정 시 우선 사용
+      direct: z.boolean().optional(),     // 중간 릴리즈: 근태 직접 추가(승인 없이 즉시 반영)
     }).parse(req.body);
+
+    // 중간 릴리즈(2026-06-29): 근태 추가로 직접 등록 — 승인 흐름 없이 즉시 APPROVED
+    if (body.direct) {
+      const request = await svc.createRequest(req.userId, {
+        type: body.type, startDate: body.startDate, endDate: body.endDate, reason: body.reason,
+        ...(body.startTime ? { startTime: body.startTime } : {}),
+      }, true);
+      return reply.status(201).send(request);
+    }
 
     // 결재자 조회 (위임 고려) — 프론트 지정 없을 때만
     const approverInfo = await fastify.authClient.getApprover(req.userId);
@@ -63,6 +74,12 @@ export async function leaveRoutes(fastify: FastifyInstance) {
   fastify.patch("/requests/:id/cancel", async (req, reply) => {
     const { id } = req.params as { id: string };
     return reply.send(await svc.cancelRequest(id, req.userId));
+  });
+
+  // DELETE /api/v1/leave/requests/:id — 중간 릴리즈: 본인 휴가 삭제(상태 무관, 잔액 복원)
+  fastify.delete("/requests/:id", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    return reply.send(await svc.deleteRequest(id, req.userId));
   });
 
   // Manager: 승인 대기 목록

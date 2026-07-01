@@ -23,7 +23,7 @@ export class WorkScheduleService {
     // 1. 전체 사용자 + 부서 목록 조회
     const allUsers = await this.authClient.getAllUsersWithDepartments();
 
-    // 2. 해당 기간 엔트리 조회
+    // 2. 해당 기간 엔트리 조회 (외근/교육/출장/휴가 등)
     const entries = await this.prisma.workScheduleEntry.findMany({
       where: {
         date: { gte: startDate, lte: endDate },
@@ -31,12 +31,41 @@ export class WorkScheduleService {
       orderBy: { date: "asc" },
     });
 
-    // 3. userId → entries 매핑
-    const entryMap = new Map<string, typeof entries>();
-    for (const e of entries) {
+    // 2-1. 출근(WORK) 바는 attendance_records(출퇴근 시각)에서 합성 — 단일 출처.
+    //      work_schedule의 WORK 엔트리는 무시(이중표시 방지).
+    const records = await this.prisma.attendanceRecord.findMany({
+      where: { date: { gte: startDate, lte: endDate }, OR: [{ checkIn: { not: null } }, { checkOut: { not: null } }] },
+    });
+    const toKstHHMM = (d: Date) => {
+      const k = new Date(d.getTime() + 9 * 3600 * 1000);
+      return String(k.getUTCHours()).padStart(2, "0") + ":" + String(k.getUTCMinutes()).padStart(2, "0");
+    };
+    const synthWork = records.map((r) => ({
+      id: "att-" + r.id,
+      userId: r.userId,
+      date: r.date,
+      entryType: "WORK" as any,
+      startTime: r.checkIn ? toKstHHMM(r.checkIn) : null,
+      endTime: r.checkOut ? toKstHHMM(r.checkOut) : null,
+      label: null as string | null,
+      groupId: null as string | null,
+      sourceType: "AUTO" as any,
+      sourceId: null as string | null,
+    }));
+
+    // 3. userId → entries 매핑 (work_schedule의 WORK 제외 + 합성 WORK 추가)
+    const entryMap = new Map<string, any[]>();
+    const pushEntry = (e: any) => {
       if (!entryMap.has(e.userId)) entryMap.set(e.userId, []);
       entryMap.get(e.userId)!.push(e);
-    }
+    };
+    for (const e of entries) { if (e.entryType === "WORK") continue; pushEntry(e); }
+    for (const e of synthWork) pushEntry(e);
+
+    // 3-1. 개인 근무시간(유연근무) 맵 — 전사근태 바를 본인 근무시간 축에 그리기 위함. 없으면 회사 기본.
+    const schedules = await this.prisma.userWorkSchedule.findMany();
+    const schedMap = new Map(schedules.map((s) => [s.userId, { workStartTime: s.workStartTime, workEndTime: s.workEndTime }]));
+    const sched = (uid: string) => schedMap.get(uid) ?? { workStartTime: "09:30", workEndTime: "18:30" };
 
     // 4. 부서별 그룹핑
     const deptMap = new Map<string, { id: string; name: string; sortOrder: number; members: UserWithDept[] }>();
@@ -70,6 +99,7 @@ export class WorkScheduleService {
           .map((m) => ({
             userId: m.id,
             name: m.name,
+            ...sched(m.id),
             entries: (entryMap.get(m.id) ?? []).map((e) => ({
               id: e.id,
               date: e.date.toISOString().slice(0, 10),
@@ -91,6 +121,7 @@ export class WorkScheduleService {
       unassigned: unassigned.map((m) => ({
         userId: m.id,
         name: m.name,
+        ...sched(m.id),
         entries: (entryMap.get(m.id) ?? []).map((e) => ({
           id: e.id,
           date: e.date.toISOString().slice(0, 10),

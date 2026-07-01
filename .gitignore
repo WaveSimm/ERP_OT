@@ -42,3 +42,8 @@ docker-compose.override.yml
 # 마이그레이션 산출물(import-contracts.py 등)
 tmp/
 scripts/baseline-results/
+bkit.config.json
+
+# bkit 런타임 상태(감사로그·토큰장부·스냅샷 — 세션마다 변경)
+.bkit/
+**/.bkit/

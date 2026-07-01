@@ -1,0 +1,42 @@
+#!/bin/bash
+# ── post-commit: 커밋 시 '업데이트' 게시판(feature-update)에 자동 등록 ────────────
+#   커밋 메시지 유형(feat/fix/refactor…)을 [추가]/[디버깅]/[개선] 머리말로 변환해
+#   board_posts 에 1건 INSERT. DB/도커가 없거나 실패해도 커밋은 막지 않는다(|| true).
+#   주입은 psql -v + :'var' 로 안전 처리. 머지 커밋은 스킵.
+set -uo pipefail
+
+BOARD="bfd8881c-2ae3-42e9-b50b-fb2378e333de"   # 업데이트 보드
+AUTHOR="dev-admin-001"                          # 개발자
+PGC="erp-ot-postgres"
+
+# 머지 커밋 스킵
+git rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1 && exit 0
+
+subj=$(git log -1 --pretty=%s)
+body=$(git log -1 --pretty=%b)
+hash=$(git log -1 --pretty=%h)
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "-")
+
+# conventional-commit 유형 → 한글 머리말
+ctype=$(printf '%s' "$subj" | grep -oE '^[a-z]+' | head -1)
+case "$ctype" in
+  feat)                 tag="추가";;
+  fix)                  tag="디버깅";;
+  refactor|perf|improve|style) tag="개선";;
+  *)                    tag="기타";;
+esac
+
+# 제목: [태그] + 타입/스코프 프리픽스 제거한 제목
+clean=$(printf '%s' "$subj" | sed -E 's/^[a-z]+(\([^)]*\))?!?:[[:space:]]*//')
+title="[$tag] $clean"
+content="$clean"
+[ -n "$body" ] && content="$content"$'\n\n'"$body"
+content="$content"$'\n\n'"(커밋 $hash · 브랜치 $branch)"
+
+docker exec -i "$PGC" psql -U erp_user -d erp_ot -q \
+  -v ON_ERROR_STOP=1 -v board="$BOARD" -v author="$AUTHOR" -v title="$title" -v content="$content" \
+  >/dev/null 2>&1 <<'SQL' || true
+INSERT INTO public.board_posts (id, board_id, author_id, title, content, published_at, created_at, updated_at)
+VALUES (gen_random_uuid()::text, :'board', :'author', :'title', :'content', now(), now(), now());
+SQL
+exit 0

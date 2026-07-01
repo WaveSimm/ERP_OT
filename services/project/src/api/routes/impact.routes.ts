@@ -11,21 +11,10 @@ const whatifSchema = z.object({
 export async function impactRoutes(fastify: FastifyInstance) {
   const service: ImpactService = fastify.impactService;
 
-  // GET /api/v1/projects/:projectId/impact?taskId=&delayDays=
-  fastify.get<{ Params: { projectId: string }; Querystring: { taskId?: string; delayDays?: string } }>("/:projectId/impact", async (req, reply) => {
+  // GET /api/v1/projects/:projectId/impact — 현재 상태 분석 (실제 지연 태스크 자동 탐지)
+  fastify.get<{ Params: { projectId: string } }>("/:projectId/impact", async (req, reply) => {
     const { projectId } = req.params;
-    const query = req.query;
-    const taskId = query.taskId as string;
-    const delayDays = parseInt(query.delayDays ?? "", 10);
-
-    if (!taskId || isNaN(delayDays)) {
-      return reply.status(400).send({
-        code: "MISSING_PARAMS",
-        message: "taskId와 delayDays 쿼리 파라미터가 필요합니다.",
-      });
-    }
-
-    const result = await service.analyzeImpact(projectId, taskId, delayDays, false);
+    const result = await service.analyzeCurrentState(projectId);
     return reply.send(result);
   });
 

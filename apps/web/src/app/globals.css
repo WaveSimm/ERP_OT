@@ -4,3 +4,52 @@
 
 * { box-sizing: border-box; }
 html { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+/* ── 다크모드 전용 오버라이드 (모두 .dark 아래 → 라이트 모드엔 전혀 영향 없음) ──
+   수백 컴포넌트에 dark: 를 달지 않고, .dark 일 때만 공통 "중립색" 유틸리티를
+   다크 값으로 remap. 색상(파랑/빨강 등) 배지·버튼은 건드리지 않아 그대로 유지. */
+
+/* 배경(중립) */
+.dark .bg-white { background-color: #1f2937 !important; }
+.dark .bg-gray-50 { background-color: #111827 !important; }
+.dark .bg-gray-100 { background-color: #374151 !important; }
+.dark .bg-gray-200 { background-color: #4b5563 !important; }
+
+/* 글씨(중립) — 어두운 글씨 안 보임 해결 */
+.dark .text-black { color: #f3f4f6 !important; }
+.dark .text-gray-900 { color: #f3f4f6 !important; }
+.dark .text-gray-800 { color: #e5e7eb !important; }
+.dark .text-gray-700 { color: #d1d5db !important; }
+.dark .text-gray-600 { color: #9ca3af !important; }
+.dark .text-gray-500 { color: #9ca3af !important; }
+
+/* 테두리/구분선 */
+.dark .border-gray-100,
+.dark .border-gray-200,
+.dark .border-gray-300 { border-color: #374151 !important; }
+.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: #374151 !important; }
+
+/* hover 상태(중립) */
+.dark .hover\:bg-gray-50:hover,
+.dark .hover\:bg-gray-100:hover { background-color: #374151 !important; }
+.dark .hover\:bg-gray-200:hover { background-color: #4b5563 !important; }
+
+/* 은은한 색상 박스(-50 틴트)는 너무 밝지 않게 살짝 낮춤 */
+.dark .bg-blue-50 { background-color: #1e3a5f !important; }
+.dark .bg-red-50 { background-color: #4a1d24 !important; }
+.dark .bg-green-50 { background-color: #16351f !important; }
+.dark .bg-yellow-50, .dark .bg-amber-50 { background-color: #3d2f12 !important; }
+
+/* 폼 요소 (명시적 bg 클래스 없는 네이티브 입력 대비) */
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.dark textarea,
+.dark select { background-color: #1f2937; color: #f3f4f6; border-color: #374151; }
+.dark ::placeholder { color: #6b7280 !important; }
+
+/* 다크모드 스크롤바 */
+.dark ::-webkit-scrollbar { width: 12px; height: 12px; }
+.dark ::-webkit-scrollbar-track { background: #111827; }
+.dark ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 6px; border: 2px solid #111827; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+.dark * { scrollbar-color: #4b5563 #111827; }

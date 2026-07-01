@@ -1,0 +1,13 @@
+{
+  "name": "caps-sync",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CAPS(ADT) 출입기록 → ERP 근태 출퇴근 동기화 워커",
+  "type": "commonjs",
+  "scripts": {
+    "seed-map": "node sync.js --seed-map",
+    "backfill": "node sync.js --backfill",
+    "sync": "node sync.js"
+  },
+  "dependencies": { "tedious": "^18.0.0", "pg": "^8.11.0" }
+}

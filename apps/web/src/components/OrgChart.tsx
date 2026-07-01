@@ -30,7 +30,7 @@ const COLS: CeoCol[] = [
       { dept: "영업2팀", head: "강성화", members: ["김재엽", "오원진", "황유진"] },
     ],
     execs: [{ name: "모태준", title: "이사", teams: [
-      { dept: "무인사업1팀", head: "모태준", members: ["서주안", "손형석", "송인근", "이창민", "황원욱"] },
+      { dept: "무인사업1팀", head: "이창민", members: ["서주안", "손형석", "송인근", "황원욱"] },
       { dept: "무인사업2팀", head: "이수현", members: ["강경원", "김만복", "김정훈", "김진수", "이진호"] },
     ] }],
   },
@@ -194,7 +194,7 @@ export default function OrgChart() {
           <div className="text-xs font-semibold text-gray-500 mb-3">범례</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 20 }}>
             {[
-              { cls: "bg-amber-100 border-amber-300", label: "임원 · 회장단" },
+              { cls: "bg-amber-100 border-amber-300", label: "회장단" },
               { cls: "bg-blue-600 border-blue-700 text-white", label: "문홍배 대표이사" },
               { cls: "bg-emerald-600 border-emerald-700 text-white", label: "신용은 대표이사" },
               { cls: "bg-violet-600 border-violet-700 text-white", label: "조혁만 대표이사" },

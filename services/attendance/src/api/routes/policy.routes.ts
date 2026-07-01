@@ -34,6 +34,30 @@ export async function policyRoutes(fastify: FastifyInstance) {
     return reply.send(await svc.updatePolicy(update));
   });
 
+  // GET /api/v1/policy/work-schedule/me — 본인 유효 근무시간(개인 설정 우선, 없으면 회사 기본).
+  //   정적 경로라 아래 :userId 파라미터 라우트보다 우선 매칭됨. 본인 조회이므로 role 제한 없음.
+  fastify.get("/work-schedule/me", async (req, reply) => {
+    const userId = req.userId;
+    const personal = userId
+      ? await fastify.prisma.userWorkSchedule.findUnique({ where: { userId } })
+      : null;
+    if (personal) {
+      return reply.send({
+        workStartTime: personal.workStartTime,
+        workEndTime: personal.workEndTime,
+        dailyWorkHours: personal.dailyWorkHours,
+        source: "personal",
+      });
+    }
+    const policy = (await svc.getPolicy()) as { workStartTime?: string; workEndTime?: string; dailyWorkHours?: number } | null;
+    return reply.send({
+      workStartTime: policy?.workStartTime ?? "09:30",
+      workEndTime: policy?.workEndTime ?? "18:30",
+      dailyWorkHours: policy?.dailyWorkHours ?? 8,
+      source: "company",
+    });
+  });
+
   // GET /api/v1/policy/work-schedule/:userId  (ADMIN)
   fastify.get("/work-schedule/:userId", {
     preHandler: requireRole("ADMIN", "MANAGER"),

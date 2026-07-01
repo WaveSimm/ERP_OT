@@ -9,6 +9,21 @@ export interface TaskSegmentData {
   progressPercent: number;
 }
 
+/** 세그먼트 진척률 = Σ(분담율 × 자원 진척률) / Σ(분담율). 분담율 합이 0이면 0. */
+export function calculateSegmentProgress(
+  assignments: Array<{ contributionWeight: number; progressPercent: number }>,
+): number {
+  if (assignments.length === 0) return 0;
+  let weightSum = 0;
+  let weighted = 0;
+  for (const a of assignments) {
+    weightSum += a.contributionWeight;
+    weighted += a.contributionWeight * a.progressPercent;
+  }
+  if (weightSum === 0) return 0;
+  return Math.round((weighted / weightSum) * 100) / 100;
+}
+
 export class TaskEntity {
   constructor(
     public readonly id: string,

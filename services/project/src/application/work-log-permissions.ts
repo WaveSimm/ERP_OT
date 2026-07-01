@@ -39,7 +39,8 @@ export async function canCreateWorkLog(
   taskId: string,
   user: AuthUser,
 ): Promise<boolean> {
-  if (user.role === "ADMIN" || user.role === "MANAGER") return true;
+  // OPERATOR까지 배정 여부와 무관하게 작성 허용 (2026-06-29). VIEWER만 불가.
+  if (user.role === "ADMIN" || user.role === "MANAGER" || user.role === "OPERATOR") return true;
   if (user.role === "VIEWER") return false;
   return await isAssignedToTask(prisma, user.id, taskId);
 }

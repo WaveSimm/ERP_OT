@@ -32,8 +32,17 @@ export class EquipmentResourceService {
     if (filter.search) where.name = { contains: filter.search, mode: "insensitive" };
     return this.prisma.equipmentResource.findMany({
       where,
-      orderBy: [{ isActive: "desc" }, { name: "asc" }],
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     });
+  }
+
+  /** 공용자산 수동 정렬 — 전달된 id 순서대로 sortOrder 재부여 (관리화면 ▲▼) */
+  async reorder(orderedIds: string[]) {
+    await this.prisma.$transaction(
+      orderedIds.map((id, index) =>
+        this.prisma.equipmentResource.update({ where: { id }, data: { sortOrder: index } }),
+      ),
+    );
   }
 
   async get(id: string) {

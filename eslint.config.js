@@ -17,6 +17,8 @@ export default tseslint.config(
       "**/*.config.ts",
       "**/prisma/seed.ts",
       "scripts/**",
+      // 호스트 cron 독립 워커(npm 단독, pnpm 워크스페이스 제외와 동일 기준)
+      "services/caps-sync/**",
     ],
   },
   js.configs.recommended,

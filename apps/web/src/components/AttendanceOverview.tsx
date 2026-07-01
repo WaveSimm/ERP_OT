@@ -18,22 +18,23 @@ const ENTRY_LABELS: Record<string, string> = {
 };
 
 const ENTRY_COLORS: Record<string, string> = {
-  WORK: "bg-blue-100 text-blue-800",
-  FIELD: "bg-green-100 text-green-800",
-  TRAINING: "bg-purple-100 text-purple-800",
-  BUSINESS_TRIP: "bg-orange-100 text-orange-800",
-  HALF: "bg-yellow-100 text-yellow-800",
-  HALF_AM: "bg-yellow-100 text-yellow-800",
-  HALF_PM: "bg-yellow-100 text-yellow-800",
-  QUARTER: "bg-amber-100 text-amber-800",
-  FAMILY_DAY: "bg-emerald-100 text-emerald-800",
-  FAMILY_DAY_2H: "bg-emerald-100 text-emerald-800",
-  FAMILY: "bg-emerald-100 text-emerald-800",
-  BEREAVEMENT: "bg-rose-100 text-rose-800",
-  ANNUAL: "bg-red-100 text-red-800",
-  SICK: "bg-pink-100 text-pink-800",
-  SPECIAL: "bg-indigo-100 text-indigo-800",
-  OT: "bg-gray-200 text-gray-800",
+  WORK: "bg-sky-100 text-sky-700",              // 출근 — 파랑(sky)
+  FIELD: "bg-sky-100 text-sky-700",      // 근무군(외근·교육·출장) — 파랑(sky) (출근 숨김에 따라 파란색 사용)
+  TRAINING: "bg-sky-100 text-sky-700",
+  BUSINESS_TRIP: "bg-sky-100 text-sky-700",
+  HALF: "bg-amber-100 text-amber-700",           // 휴가군 — 노랑(amber)
+  HALF_AM: "bg-amber-100 text-amber-700",
+  HALF_PM: "bg-amber-100 text-amber-700",
+  QUARTER: "bg-amber-100 text-amber-700",
+  FAMILY_DAY: "bg-amber-100 text-amber-700",
+  FAMILY_DAY_2H: "bg-amber-100 text-amber-700",
+  FAMILY: "bg-amber-100 text-amber-700",
+  BEREAVEMENT: "bg-amber-100 text-amber-700",
+  ANNUAL: "bg-amber-100 text-amber-700",
+  SICK: "bg-amber-100 text-amber-700",
+  SPECIAL: "bg-amber-100 text-amber-700",        // 공가 — 휴가군
+  SUBSTITUTE: "bg-amber-100 text-amber-700",     // 연차대체 — 휴가군
+  OT: "bg-rose-100 text-rose-700",               // 휴일근무 — 빨강(rose)
 };
 
 const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
@@ -53,6 +54,24 @@ function fmtMonth(dateStr: string) {
 }
 
 function isToday(dateStr: string) { return dateStr === fmt(new Date()); }
+
+// 시간단위 바: 셀 폭 = 해당 멤버의 근무시간 축(유연근무 반영). 기본 09:30~18:30.
+const DAY_START_MIN = 9 * 60 + 30;   // 09:30 (기본 근무 시작)
+const DAY_END_MIN = 18 * 60 + 30;    // 18:30 (기본 근무 종료)
+function toMin(t: string): number { const [h, m] = t.split(":").map(Number); return (h ?? 0) * 60 + (m ?? 0); }
+// 시작/종료시각 → 셀 내 바의 left/width(%). 축(dayStart~dayEnd)은 멤버 근무시간. 시간 없으면 종일(0~100%).
+function barGeom(
+  startTime: string | null, endTime: string | null,
+  dayStart: number = DAY_START_MIN, dayEnd: number = DAY_END_MIN,
+): { left: number; width: number } {
+  if (!startTime || !endTime) return { left: 0, width: 100 };
+  const span = Math.max(1, dayEnd - dayStart);
+  const s = Math.max(dayStart, Math.min(dayEnd, toMin(startTime)));
+  const e = Math.max(dayStart, Math.min(dayEnd, toMin(endTime)));
+  const left = ((s - dayStart) / span) * 100;
+  const width = Math.max(6, Math.min(100 - left, ((e - s) / span) * 100));
+  return { left, width };
+}
 function isWeekend(dateStr: string) {
   const d = new Date(dateStr).getDay();
   return d === 0 || d === 6;
@@ -126,6 +145,8 @@ interface Entry {
 interface Member {
   userId: string;
   name: string;
+  workStartTime?: string;   // 본인 근무시간(유연근무). 바 축 기준. 없으면 09:30~18:30.
+  workEndTime?: string;
   entries: Entry[];
 }
 
@@ -368,11 +389,16 @@ function MemberRow({ member, days, viewMode, holidays }: { member: Member; days:
   const entriesByDate = useMemo(() => {
     const map = new Map<string, Entry[]>();
     for (const e of member.entries) {
+      // 전사근태는 출퇴근 바(WORK, attendance_records에서 합성)를 표시 — 외근/휴가 등 예외와 함께
       if (!map.has(e.date)) map.set(e.date, []);
       map.get(e.date)!.push(e);
     }
     return map;
   }, [member.entries]);
+
+  // 바 축 = 본인 근무시간(유연근무 반영). 없으면 회사 기본 09:30~18:30.
+  const dayStart = member.workStartTime ? toMin(member.workStartTime) : DAY_START_MIN;
+  const dayEnd = member.workEndTime ? toMin(member.workEndTime) : DAY_END_MIN;
 
   return (
     <tr className="border-t border-gray-100 hover:bg-gray-50/50">
@@ -380,7 +406,8 @@ function MemberRow({ member, days, viewMode, holidays }: { member: Member; days:
         {member.name}
       </td>
       {days.map((day) => {
-        const dayEntries = entriesByDate.get(day) ?? [];
+        // 출근(WORK, 파란 박스)은 전사근태에서 숨김 — 외근/휴가 등 예외만 표시
+        const dayEntries = (entriesByDate.get(day) ?? []).filter((e) => e.entryType !== "WORK");
         const isHol = !!holidays?.get(day);
         const cellBg = isToday(day)
           ? "bg-blue-50/30"
@@ -391,7 +418,7 @@ function MemberRow({ member, days, viewMode, holidays }: { member: Member; days:
           : "";
         return (
           <td key={day} className={`px-0.5 py-1 text-center border-l border-gray-50 align-top ${cellBg}`}>
-            <div className="flex flex-col items-center gap-0.5">
+            <div className={`flex flex-col gap-0.5 ${viewMode === "month" ? "items-center" : "items-start"}`}>
               {dayEntries.map((e) => {
                 const timeStr = e.startTime && e.endTime
                   ? `${e.startTime}~${e.endTime}`
@@ -405,12 +432,18 @@ function MemberRow({ member, days, viewMode, holidays }: { member: Member; days:
                     </span>
                   );
                 }
+                // 타임라인 트랙: 전체 폭 = 본인 근무시간(유연근무 반영), 바는 시작시각 위치 + 길이
+                const { left, width } = barGeom(e.startTime, e.endTime, dayStart, dayEnd);
+                const isPartial = !!(e.startTime && e.endTime);
                 return (
-                  <div key={e.id} className={`rounded px-1 py-0.5 text-left w-full ${ENTRY_COLORS[e.entryType] ?? "bg-gray-100 text-gray-600"}`}
+                  <div key={e.id} className="w-full relative h-5 rounded bg-gray-100/60"
                     title={[ENTRY_LABELS[e.entryType], timeStr, e.label].filter(Boolean).join(" / ")}>
-                    <div className="text-[10px] font-medium leading-tight truncate">{ENTRY_LABELS[e.entryType] ?? e.entryType}</div>
-                    {timeStr && <div className="text-[9px] leading-tight opacity-75 truncate">{timeStr}</div>}
-                    {e.label && <div className="text-[9px] leading-tight opacity-60 truncate">{e.label}</div>}
+                    <div className={`absolute top-0 bottom-0 rounded px-1 flex items-center overflow-hidden ${ENTRY_COLORS[e.entryType] ?? "bg-gray-100 text-gray-600"}`}
+                      style={{ left: `${left}%`, width: `${width}%` }}>
+                      <span className="text-[9px] font-medium leading-none truncate">
+                        {ENTRY_LABELS[e.entryType] ?? e.entryType}{isPartial && timeStr ? ` ${timeStr}` : ""}
+                      </span>
+                    </div>
                   </div>
                 );
               })}

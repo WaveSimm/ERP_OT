@@ -116,7 +116,7 @@ export default function WritePostPage({
             onCancel={() => router.push(`/board/${catCode}/${boardCode}`)}
             submitLabel="발행"
             showTargetDepartment={boardCode === "notice-dept"}
-            showFeatureRequest={catCode === "feature-request"}
+            showFeatureRequest={catCode === "feature-request" && boardCode === "feature-request-all"}
           />
         </div>
       </div>

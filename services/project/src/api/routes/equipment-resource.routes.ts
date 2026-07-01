@@ -22,6 +22,10 @@ const updateSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+const reorderSchema = z.object({
+  orderedIds: z.array(z.string()).min(1),
+});
+
 export async function equipmentResourceRoutes(app: FastifyInstance) {
   const svc = new EquipmentResourceService(app.prisma);
 
@@ -38,6 +42,15 @@ export async function equipmentResourceRoutes(app: FastifyInstance) {
     if (q.search) filter.search = q.search;
     const items = await svc.list(filter);
     return reply.send(items);
+  });
+
+  // PATCH /api/v1/equipment-resources/reorder (ADMIN) — 수동 정렬 순서 저장
+  // 주의: /:id 보다 먼저 등록 (정적 경로 우선)
+  app.patch("/reorder", async (req, reply) => {
+    requireAdmin(req.userRole);
+    const { orderedIds } = reorderSchema.parse(req.body);
+    await svc.reorder(orderedIds);
+    return reply.status(204).send();
   });
 
   // GET /api/v1/equipment-resources/:id

@@ -10,13 +10,6 @@ interface Props {
   onClose: () => void;
 }
 
-const STATUS_COLOR = {
-  DELAYED:   "text-red-600 bg-red-50 border-red-200",
-  AHEAD:     "text-green-600 bg-green-50 border-green-200",
-  ON_TRACK:  "text-blue-600 bg-blue-50 border-blue-200",
-  REMOVED:   "text-gray-500 bg-gray-50 border-gray-200",
-};
-
 export default function ImpactPanel({ projectId, tasks, onClose }: Props) {
   const [mode, setMode] = useState<"current" | "whatif">("current");
   const [selectedTaskId, setSelectedTaskId] = useState("");
@@ -26,18 +19,18 @@ export default function ImpactPanel({ projectId, tasks, onClose }: Props) {
   const [error, setError] = useState("");
 
   const runAnalysis = async () => {
-    if (!selectedTaskId) { setError("태스크를 선택해주세요."); return; }
-    if (delayDays < 1) { setError("지연 일수는 1 이상이어야 합니다."); return; }
-    setLoading(true);
     setError("");
     setResult(null);
+    if (mode === "whatif") {
+      if (!selectedTaskId) { setError("태스크를 선택해주세요."); return; }
+      if (delayDays < 1) { setError("지연 일수는 1 이상이어야 합니다."); return; }
+    }
+    setLoading(true);
     try {
       if (mode === "whatif") {
-        const res = await impactApi.whatIf(projectId, { taskId: selectedTaskId, delayDays });
-        setResult(res);
+        setResult(await impactApi.whatIf(projectId, { taskId: selectedTaskId, delayDays }));
       } else {
-        const res = await impactApi.analyze(projectId, { taskId: selectedTaskId, delayDays });
-        setResult(res);
+        setResult(await impactApi.analyze(projectId));
       }
     } catch (e: any) {
       setError(e.message ?? "분석 실패");
@@ -66,59 +59,67 @@ export default function ImpactPanel({ projectId, tasks, onClose }: Props) {
           {/* Mode tabs */}
           <div className="flex gap-2">
             <button
-              onClick={() => setMode("current")}
+              onClick={() => { setMode("current"); setResult(null); setError(""); }}
               className={clsx(
                 "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
                 mode === "current" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               )}
-            >현재 상태 분석</button>
+            >현재 상태</button>
             <button
-              onClick={() => setMode("whatif")}
+              onClick={() => { setMode("whatif"); setResult(null); setError(""); }}
               className={clsx(
                 "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
                 mode === "whatif" ? "bg-purple-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               )}
-            >What-If 시뮬레이션</button>
+            >What-If 가정</button>
           </div>
 
-          <div className="flex items-center gap-3">
-            <select
-              value={selectedTaskId}
-              onChange={(e) => setSelectedTaskId(e.target.value)}
-              className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">태스크 선택</option>
-              {tasks.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
+          <p className="text-xs text-gray-500">
+            {mode === "current"
+              ? "실제로 지연된 태스크(미완료·기한 초과)를 자동 탐지해 후행 일정과 완료일 영향을 분석합니다."
+              : "선택한 태스크가 지정한 일수만큼 지연된다면 어떻게 되는지 가정 시뮬레이션합니다."}
+          </p>
 
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600 whitespace-nowrap">지연</label>
-              <input
-                type="number"
-                min={1}
-                max={365}
-                value={delayDays}
-                onFocus={(e) => (e.target as HTMLInputElement).select()}
-                onChange={(e) => setDelayDays(Number(e.target.value))}
-                className="w-20 text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-500">일</span>
+          {/* What-If 입력 — 현재 상태 모드에선 숨김 */}
+          {mode === "whatif" && (
+            <div className="flex items-center gap-3">
+              <select
+                value={selectedTaskId}
+                onChange={(e) => setSelectedTaskId(e.target.value)}
+                className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="">태스크 선택</option>
+                {tasks.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+              <div className="flex items-center gap-2 shrink-0">
+                <label className="text-sm text-gray-600 whitespace-nowrap">지연</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={delayDays}
+                  onFocus={(e) => (e.target as HTMLInputElement).select()}
+                  onChange={(e) => setDelayDays(Number(e.target.value))}
+                  className="w-20 text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <span className="text-sm text-gray-500">일</span>
+              </div>
             </div>
+          )}
 
-            <button
-              onClick={runAnalysis}
-              disabled={loading}
-              className={clsx(
-                "px-4 py-1.5 rounded-lg text-sm font-medium text-white transition-colors",
-                mode === "whatif" ? "bg-purple-600 hover:bg-purple-700" : "bg-blue-600 hover:bg-blue-700",
-                loading && "opacity-60 cursor-not-allowed"
-              )}
-            >
-              {loading ? "분석 중…" : "분석 실행"}
-            </button>
-          </div>
+          <button
+            onClick={runAnalysis}
+            disabled={loading}
+            className={clsx(
+              "w-full px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors",
+              mode === "whatif" ? "bg-purple-600 hover:bg-purple-700" : "bg-blue-600 hover:bg-blue-700",
+              loading && "opacity-60 cursor-not-allowed"
+            )}
+          >
+            {loading ? "분석 중…" : mode === "current" ? "현재 지연 분석" : "시뮬레이션 실행"}
+          </button>
         </div>
 
         {/* Results */}
@@ -137,12 +138,17 @@ export default function ImpactPanel({ projectId, tasks, onClose }: Props) {
               {/* Summary */}
               <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
                 <p className="text-xs text-gray-500 mb-1">
-                  {result.isWhatIf ? "⚡ What-If 시뮬레이션 결과" : "📊 현재 상태 분석 결과"}
+                  {result.isWhatIf ? "⚡ What-If 가정 결과" : "📊 현재 상태 분석 결과"}
                 </p>
-                {result.triggeredTask && (
+                {result.isWhatIf && result.triggeredTask && (
                   <p className="text-sm font-medium text-gray-800">
-                    트리거: <span className="text-red-600">{result.triggeredTask.taskName}</span>
-                    {" "}({result.triggeredTask.delayDays > 0 ? `+${result.triggeredTask.delayDays}일 지연` : "기준"})
+                    가정: <span className="text-purple-600">{result.triggeredTask.taskName}</span>
+                    {" "}+{result.triggeredTask.delayDays}일 지연 시
+                  </p>
+                )}
+                {!result.isWhatIf && (
+                  <p className="text-sm font-medium text-gray-800">
+                    현재 지연 태스크 <span className={result.delayedTasks?.length ? "text-red-600" : "text-green-600"}>{result.delayedTasks?.length ?? 0}개</span>
                   </p>
                 )}
                 {result.projectEndDateChange && (
@@ -168,11 +174,31 @@ export default function ImpactPanel({ projectId, tasks, onClose }: Props) {
                 )}
               </div>
 
+              {/* 현재 지연된 태스크 (현재 상태 모드) */}
+              {!result.isWhatIf && result.delayedTasks?.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                    현재 지연된 태스크 ({result.delayedTasks.length}개)
+                  </p>
+                  <div className="space-y-1.5">
+                    {result.delayedTasks.map((d: any) => (
+                      <div key={d.taskId} className="flex items-center justify-between rounded-lg border border-red-100 bg-red-50/50 px-3 py-2">
+                        <span className="text-sm font-medium text-gray-800 truncate">{d.taskName}</span>
+                        <span className="flex items-center gap-2 shrink-0 ml-2">
+                          <span className="text-xs text-gray-500 font-mono">기한 {d.endDate}</span>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">{d.delayDays}일 지연</span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Affected tasks */}
               {result.affectedTasks?.length > 0 && (
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                    영향받는 태스크 ({result.affectedTasks.length}개)
+                    영향받는 후행 태스크 ({result.affectedTasks.length}개)
                   </p>
                   <div className="space-y-2">
                     {result.affectedTasks.map((t: any, i: number) => (
@@ -196,11 +222,6 @@ export default function ImpactPanel({ projectId, tasks, onClose }: Props) {
                             {t.projectedEndDate}
                           </span>
                         </div>
-                        {t.dependencyChain?.length > 0 && (
-                          <p className="mt-1 text-[10px] text-gray-400 truncate">
-                            체인: {t.dependencyChain.join(" → ")}
-                          </p>
-                        )}
                       </div>
                     ))}
                   </div>

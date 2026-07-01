@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import AppLayout from "@/components/AppLayout";
+import { getUser } from "@/lib/api";
 
 const TABS = [
   { key: "contracts", label: "계약 관리", href: "/procurement/contracts" },
@@ -36,6 +38,27 @@ function getActiveTab(pathname: string): string {
 export default function ProcurementLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+
+  // 시범 릴리즈(2026-06-23): 회계 메뉴는 관리자 전용 — 비관리자 직접 URL 접근 차단
+  const [allowed, setAllowed] = useState<boolean | null>(null);
+  useEffect(() => {
+    const u = getUser();
+    if (!u || u.role !== "ADMIN") { router.replace("/me/dashboard"); setAllowed(false); }
+    else setAllowed(true);
+  }, [router]);
+
+  // 헤더(56px) + 서브탭 바 높이를 실측해, 하위 sticky(툴바/표헤더)의 top 기준(--top-chrome)으로 내려줌
+  const chromeRef = useRef<HTMLDivElement>(null);
+  const [chrome, setChrome] = useState(157);
+  useEffect(() => {
+    const el = chromeRef.current; if (!el) return;
+    const update = () => setChrome(56 + el.offsetHeight);
+    update();
+    const ro = new ResizeObserver(update); ro.observe(el);
+    window.addEventListener("resize", update);
+    return () => { ro.disconnect(); window.removeEventListener("resize", update); };
+  }, []);
+
   const activeTab = getActiveTab(pathname);
   const isDetailPage = pathname.startsWith("/procurement/orders/") ||
     pathname.startsWith("/procurement/contracts/") ||
@@ -44,11 +67,13 @@ export default function ProcurementLayout({ children }: { children: React.ReactN
     pathname.startsWith("/procurement/settlements/") ||
     pathname.startsWith("/procurement/audits/");
 
+  if (allowed !== true) return null;
+
   return (
     <AppLayout>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6" style={{ ["--top-chrome" as any]: `${chrome}px` }}>
         {/* v1.6 (2026-05-14): 페이지 제목 + 서브 탭 sticky — 모든 서브 페이지 공통 */}
-        <div className="sticky top-0 z-30 bg-gray-50 pt-4 pb-0 -mx-4 sm:-mx-6 px-4 sm:px-6 mb-6">
+        <div ref={chromeRef} className="sticky top-14 z-30 bg-gray-50 pt-4 pb-0 -mx-4 sm:-mx-6 px-4 sm:px-6 mb-6">
           <div className="flex items-center gap-2 mb-3">
             {isDetailPage && (
               <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-600">

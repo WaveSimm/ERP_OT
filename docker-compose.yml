@@ -370,9 +370,16 @@ services:
     container_name: erp-ot-web
     restart: unless-stopped
     working_dir: /app
-    command: sh -c "rm -rf .next && npm install && npm run dev"
+    # 프로덕션 모드 (2026-06-25 web-standalone-fix 완료로 빌드 가능).
+    #   재기동 시 자동 빌드 → 항상 현재 소스 기준 유효한 프로덕션 번들 서빙.
+    #   프론트 수정 반영: 코드 변경 후 `docker compose restart web` (≈3~4분 빌드) 또는
+    #   무중단으로 `docker compose exec web sh -c "npm run build" && docker compose restart web`.
+    # NODE_ENV=production 이라도 빌드에 필요한 devDependencies(tailwindcss·postcss·
+    # autoprefixer·typescript)를 반드시 설치해야 함. --include=dev 없으면 npm 이 devDep 을
+    # 건너뛰어 "Cannot find module 'tailwindcss'" 로 빌드 실패 → 크래시 루프(2026-07-01 장애).
+    command: sh -c "npm install --include=dev && npm run build && npm run start"
     environment:
-      NODE_ENV: development
+      NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: "1"
       API_BASE_URL: http://project-service:3003
       AUTH_SERVICE_URL: http://auth-service:3001

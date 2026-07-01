@@ -10,6 +10,8 @@ type NavItem = {
   label: string;
   icon: string;
   managerOnly: boolean;
+  /** 시범 릴리즈(2026-06-23): 관리자 외 계정에서 숨김 — 회계/결재 메뉴 제한 */
+  adminOnly?: boolean;
   /** 두 줄 모드 분할 override — 자동 규칙(띄어쓰기/슬래시/floor(len/2))과 다른 결과를 강제할 때만 사용 */
   short?: [string, string];
 };
@@ -21,8 +23,8 @@ const NAV: NavItem[] = [
   { href: "/resources",      label: "자원",       icon: "👥", managerOnly: false },
   { href: "/equipment",      label: "장비",       icon: "🔧", managerOnly: false },
   { href: "/repair",         label: "수리",       icon: "🛠", managerOnly: false },
-  { href: "/procurement",    label: "회계",       icon: "📦", managerOnly: false },
-  { href: "/approval",       label: "결재",      icon: "📝", managerOnly: false },
+  { href: "/procurement",    label: "회계",       icon: "📦", managerOnly: false, adminOnly: true },
+  { href: "/approval",       label: "결재",      icon: "📝", managerOnly: false, adminOnly: true },
   { href: "/board",          label: "게시판",     icon: "📋", managerOnly: false },
 ];
 
@@ -155,8 +157,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // 프로필 모달
   const [showProfile, setShowProfile] = useState(false);
   const [profileTab, setProfileTab] = useState<"info" | "password">("info");
-  const [profileForm, setProfileForm] = useState({ name: "", phoneOffice: "", phoneMobile: "" });
-  const [originalProfileForm, setOriginalProfileForm] = useState({ name: "", phoneOffice: "", phoneMobile: "" });
+  const [profileForm, setProfileForm] = useState({ name: "", phoneOffice: "", phoneMobile: "", address: "" });
+  const [originalProfileForm, setOriginalProfileForm] = useState({ name: "", phoneOffice: "", phoneMobile: "", address: "" });
+  const [profileMeta, setProfileMeta] = useState<{ email: string; departmentName: string }>({ email: "", departmentName: "" });
   const [pwForm, setPwForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [profileSaving, setProfileSaving] = useState(false);
   const [pwSaving, setPwSaving] = useState(false);
@@ -182,14 +185,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     setProfileMsg(null);
     setPwMsg(null);
     setPwForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-    const initial = { name: user.name, phoneOffice: "", phoneMobile: "" };
+    const initial = { name: user.name, phoneOffice: "", phoneMobile: "", address: "" };
     setProfileForm(initial);
     setOriginalProfileForm(initial);
     try {
-      const profile = await myProfileApi.getProfile(user.id);
-      const loaded = { name: user.name, phoneOffice: profile?.phoneOffice ?? "", phoneMobile: profile?.phoneMobile ?? "" };
+      const data = await myProfileApi.getProfile(user.id);
+      // 응답은 {...user, profile:{ phoneOffice, ... }} 구조 — 개인정보는 profile에 중첩됨.
+      // 직원관리와 동일하게 data.profile에서 읽어 값 통일(과거엔 최상위에서 읽어 빈 값/불일치였음).
+      const p: any = (data as any)?.profile ?? data ?? {};
+      const loaded = { name: user.name, phoneOffice: p.phoneOffice ?? "", phoneMobile: p.phoneMobile ?? "", address: p.address ?? "" };
       setProfileForm(loaded);
       setOriginalProfileForm(loaded);
+      setProfileMeta({ email: (data as any)?.email ?? "", departmentName: p.departmentName ?? "" });
     } catch {}
     setShowProfile(true);
   };
@@ -210,6 +217,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       await myProfileApi.updateProfile(user.id, {
         phoneOffice: profileForm.phoneOffice || null,
         phoneMobile: profileForm.phoneMobile || null,
+        address: profileForm.address || null,
       });
       setProfileMsg({ type: "ok", text: "저장되었습니다." });
     } catch (e: any) {
@@ -280,9 +288,43 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     router.push("/login");
   };
 
+  // 30분 유휴(무활동) 시 자동 로그아웃 — 서버 세션(리프레시 토큰·쿠키)까지 종료
+  useEffect(() => {
+    if (!currentUser) return;
+    const IDLE_MS = 30 * 60 * 1000;
+    let last = Date.now();
+    const bump = () => { last = Date.now(); };
+    const events = ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "click"];
+    events.forEach((e) => window.addEventListener(e, bump, { passive: true }));
+    const iv = setInterval(() => {
+      if (Date.now() - last > IDLE_MS) {
+        clearInterval(iv);
+        events.forEach((e) => window.removeEventListener(e, bump));
+        authApi.logout().catch(() => {}).finally(() => { clearToken(); router.push("/login?idle=1"); });
+      }
+    }, 60 * 1000);
+    return () => { events.forEach((e) => window.removeEventListener(e, bump)); clearInterval(iv); };
+  }, [currentUser, router]);
+
+  // 다크모드 토글 — html.dark 클래스 + localStorage 저장. 현재 개발자 계정에서만 버튼 노출(실험).
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const dark = localStorage.getItem("erp-theme") === "dark";
+    setIsDark(dark);
+    document.documentElement.classList.toggle("dark", dark);
+  }, []);
+  const toggleTheme = () => {
+    setIsDark((prev) => {
+      const next = !prev;
+      document.documentElement.classList.toggle("dark", next);
+      localStorage.setItem("erp-theme", next ? "dark" : "light");
+      return next;
+    });
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center gap-2">
           <button
             onClick={() => router.push("/home")}
@@ -295,7 +337,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </button>
 
           <nav className="flex items-center gap-1 shrink-0">
-            {NAV.filter((n) => !n.managerOnly || isManager).map((n) => {
+            {NAV.filter((n) => (!n.managerOnly || isManager) && (!n.adminOnly || isAdmin)).map((n) => {
               const [first, second] = n.short ?? splitLabel(n.label);
               return (
                 <button
@@ -305,8 +347,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   className={clsx(
                     "flex items-center gap-0.5 px-1 xl:px-1.5 py-0.5 rounded-md text-sm font-medium transition-colors shrink-0",
                     pathname.startsWith(n.href)
-                      ? "bg-blue-50 text-blue-700"
-                      : "text-gray-600 hover:bg-gray-100",
+                      ? "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                      : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700",
                   )}
                 >
                   <span className="shrink-0">{n.icon}</span>
@@ -342,8 +384,28 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               )}
             </button>
 
+            {/* 다크모드 토글 — 개발자 계정 전용 (실험) */}
+            {currentUser?.name === "개발자" && (
+              <button
+                onClick={toggleTheme}
+                title={isDark ? "라이트 모드로" : "다크 모드로"}
+                aria-label="테마 전환"
+                className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700 rounded-md transition-colors shrink-0"
+              >
+                {isDark ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  </svg>
+                )}
+              </button>
+            )}
+
             {currentUser && (
-              <button onClick={openProfile} className="text-sm text-gray-600 hover:text-blue-600 transition-colors whitespace-nowrap shrink-0">
+              <button onClick={openProfile} className="text-sm text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors whitespace-nowrap shrink-0">
                 {currentUser.name}
               </button>
             )}
@@ -395,8 +457,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                         <button onClick={() => { router.push("/admin/activity-logs"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
                           📜 시스템 이력
                         </button>
+                        <button onClick={() => { router.push("/admin/monitoring"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                          🖥 시스템 모니터링
+                        </button>
                         <button onClick={() => { router.push("/admin/feature-requests"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
                           💡 기능 요구 관리
+                        </button>
+                        <button onClick={() => { router.push("/admin/contract-migration"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                          📥 계약 마이그레이션
+                        </button>
+                        <button onClick={() => { router.push("/admin/project-migration"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                          📊 프로젝트 마이그레이션
                         </button>
                       </>
                     )}
@@ -421,6 +492,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 {currentUser && (
                   <span className="text-xs text-gray-400">
                     {ROLE_LABELS[currentUser.role] ?? currentUser.role}
+                    {profileMeta.email && <span className="ml-1.5 text-gray-400">· {profileMeta.email}</span>}
                   </span>
                 )}
               </div>
@@ -448,6 +520,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {profileTab === "info" && (
               <form onSubmit={saveProfile} className="p-6 space-y-4">
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">부서</label>
+                  <div className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600">{profileMeta.departmentName || "—"}</div>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">이름</label>
                   <input type="text" value={profileForm.name}
                     onChange={(e) => setProfileForm((p) => ({ ...p, name: e.target.value }))}
@@ -466,6 +542,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <input type="text" value={profileForm.phoneMobile}
                     onChange={(e) => setProfileForm((p) => ({ ...p, phoneMobile: e.target.value }))}
                     placeholder="예: 010-1234-5678"
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">주소</label>
+                  <input type="text" value={profileForm.address}
+                    onChange={(e) => setProfileForm((p) => ({ ...p, address: e.target.value }))}
+                    placeholder="예: 서울시 강남구 ..."
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 {profileMsg && (

@@ -7,19 +7,36 @@ import type {
   WorkScheduleEntry, LeaveBalance, LeaveRequest, HolidayWorkRequest,
   User, Department, ApprovalLine,
   Notification, ActivityLog, DashboardConfig,
+  ProjectSummary, ProjectTemplate,
 } from "./types";
 
 
 // ─── Projects ────────────────────────────────────────────────────────────────
 
 export const projectApi = {
-  list: (params?: { search?: string; status?: string }) => {
-    const q = new URLSearchParams(params as Record<string, string>).toString();
-    return request<Paginated<ProjectListItem>>(
-      `/projects${q ? `?${q}` : ""}`,
-    );
+  // 전체 로드: 백엔드 limit 상한(100)에 맞춰 페이지를 끝까지 순회해 모든 프로젝트를 모아 반환.
+  list: async (params?: { search?: string; status?: string }) => {
+    const PAGE_SIZE = 100;
+    const items: ProjectListItem[] = [];
+    let page = 1;
+    let total = 0;
+    // 무한루프 방지용 안전장치 (최대 1000페이지 = 10만 건)
+    for (let guard = 0; guard < 1000; guard++) {
+      const q = new URLSearchParams({
+        ...(params as Record<string, string>),
+        page: String(page),
+        limit: String(PAGE_SIZE),
+      }).toString();
+      const res = await request<Paginated<ProjectListItem>>(`/projects?${q}`);
+      items.push(...res.items);
+      total = res.total;
+      if (items.length >= total || res.items.length === 0) break;
+      page++;
+    }
+    return { items, total, page: 1, limit: items.length } as Paginated<ProjectListItem>;
   },
   get: (id: string) => request<Project>(`/projects/${id}`),
+  getSummary: (id: string) => request<ProjectSummary>(`/projects/${id}/summary`),
   create: (data: { name: string; description?: string }) =>
     request<Project>("/projects", { method: "POST", body: JSON.stringify(data) }),
   update: (id: string, data: Record<string, unknown>) =>
@@ -29,6 +46,17 @@ export const projectApi = {
   runCpm: (id: string) => request<any>(`/projects/${id}/cpm`, { method: "POST", body: "{}" }),
   activities: (id: string, page = 1) =>
     request<any>(`/projects/${id}/activities?page=${page}&pageSize=20`),
+  // MS Planner 일괄 이관 (프로젝트 마이그레이션 탭, ADMIN)
+  importPlanner: (data: unknown) =>
+    request<{
+      aborted: boolean;
+      reason?: string;
+      projectId?: string;
+      tasks?: number;
+      segments?: number;
+      assignments?: number;
+      dependencies?: number;
+    }>("/projects/import-planner", { method: "POST", body: JSON.stringify(data) }),
 };
 
 // ─── Folders ─────────────────────────────────────────────────────────────────
@@ -135,6 +163,7 @@ export const taskApi = {
     allocationMode: "PERCENT" | "HOURS";
     allocationPercent?: number;
     allocationHoursPerDay?: number;
+    contributionWeight?: number;
   }) =>
     request<SegmentAssignment>(`/projects/${projectId}/tasks/${taskId}/segments/${segmentId}/assignments`, {
       method: "PUT",
@@ -144,6 +173,15 @@ export const taskApi = {
     request<void>(
       `/projects/${projectId}/tasks/${taskId}/segments/${segmentId}/assignments/${resourceId}`,
       { method: "DELETE" },
+    ),
+  // 자원-기여도-진척률: 자원 본인 진척률 갱신
+  updateAssignmentProgress: (projectId: string, taskId: string, segmentId: string, resourceId: string, data: {
+    progressPercent: number;
+    changeReason?: string;
+  }) =>
+    request<SegmentAssignment>(
+      `/projects/${projectId}/tasks/${taskId}/segments/${segmentId}/assignments/${resourceId}/progress`,
+      { method: "PATCH", body: JSON.stringify(data) },
     ),
 
   // Dependencies
@@ -225,6 +263,9 @@ export const equipmentResourceApi = {
   update: (id: string, data: { name?: string; type?: "EQUIPMENT" | "VEHICLE" | "FACILITY"; isActive?: boolean }) =>
     request<EquipmentResource>(`/equipment-resources/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   delete: (id: string) => request<void>(`/equipment-resources/${id}`, { method: "DELETE" }),
+  // 수동 정렬 순서 저장 (관리화면 ▲▼ → 예약 목록 반영)
+  reorder: (orderedIds: string[]) =>
+    request<void>("/equipment-resources/reorder", { method: "PATCH", body: JSON.stringify({ orderedIds }) }),
 };
 
 export interface EquipmentResource {
@@ -232,6 +273,7 @@ export interface EquipmentResource {
   name: string;
   type: "EQUIPMENT" | "VEHICLE" | "FACILITY";  // EQUIPMENT는 폐기됨 (2026-05-05). 신규 등록은 VEHICLE/FACILITY만
   isActive: boolean;
+  sortOrder: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -395,9 +437,12 @@ export const baselineApi = {
 export const templateApi = {
   list: (params?: { category?: string; scope?: string }) => {
     const q = params ? new URLSearchParams(params as Record<string, string>).toString() : "";
-    return request<any[]>(`/templates${q ? `?${q}` : ""}`);
+    return request<ProjectTemplate[]>(`/templates${q ? `?${q}` : ""}`);
   },
   get: (id: string) => request<any>(`/templates/${id}`),
+  update: (id: string, data: { name?: string; description?: string; category?: string; tags?: string[]; scope?: string; isRecommended?: boolean }) =>
+    request<any>(`/templates/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  delete: (id: string) => request<void>(`/templates/${id}`, { method: "DELETE" }),
   preview: (id: string, data: { startDate: string }) =>
     request<any>(`/templates/${id}/preview`, { method: "POST", body: JSON.stringify(data) }),
   instantiate: (id: string, data: {
@@ -419,10 +464,9 @@ export const templateApi = {
 // ─── Impact ──────────────────────────────────────────────────────────────────
 
 export const impactApi = {
-  analyze: (projectId: string, params?: { taskId?: string; delayDays?: number }) => {
-    const q = params ? new URLSearchParams(params as Record<string, string>).toString() : "";
-    return request<any>(`/projects/${projectId}/impact${q ? `?${q}` : ""}`);
-  },
+  // 현재 상태 분석 — 실제 지연 태스크 자동 탐지 (입력 불필요)
+  analyze: (projectId: string) => request<any>(`/projects/${projectId}/impact`),
+  // What-If — 가정 지연 입력
   whatIf: (projectId: string, data: { taskId: string; delayDays: number }) =>
     request<any>(`/projects/${projectId}/whatif`, { method: "POST", body: JSON.stringify(data) }),
 };
@@ -482,6 +526,8 @@ export const attendanceApi = {
 
 export const workScheduleApi = {
   listAll: () => request<any[]>("/policy/work-schedules"),
+  // 본인 유효 근무시간(개인 유연근무 설정 우선, 없으면 회사 기본) — 근태 입력 기본값용
+  mine: () => request<{ workStartTime: string; workEndTime: string; dailyWorkHours: number; source: string }>("/policy/work-schedule/me"),
   get: (userId: string) => request<any>(`/policy/work-schedule/${userId}`),
   set: (userId: string, data: { workStartTime: string; workEndTime: string; dailyWorkHours?: number }) =>
     request<any>(`/policy/work-schedule/${userId}`, { method: "PUT", body: JSON.stringify(data) }),
@@ -519,10 +565,12 @@ export const leaveApi = {
     const q = params ? new URLSearchParams(params as Record<string, string>).toString() : "";
     return request<LeaveRequest[]>(`/leave/requests${q ? `?${q}` : ""}`);
   },
-  create: (data: { type: string; startDate: string; endDate: string; reason: string; approverId?: string }) =>
+  create: (data: { type: string; startDate: string; endDate: string; reason: string; startTime?: string; approverId?: string; direct?: boolean }) =>
     request<LeaveRequest>("/leave/requests", { method: "POST", body: JSON.stringify(data) }),
   cancel: (id: string) =>
     request<LeaveRequest>(`/leave/requests/${id}/cancel`, { method: "PATCH", body: "{}" }),
+  remove: (id: string) =>
+    request<{ ok: boolean }>(`/leave/requests/${id}`, { method: "DELETE" }),
 };
 
 // ─── Holiday Work (휴일근무 신청, 구 OT) ───────────────────────────────────────
@@ -530,10 +578,12 @@ export const leaveApi = {
 export const holidayWorkApi = {
   list: (status?: string) =>
     request<HolidayWorkRequest[]>(`/holiday-work/requests${status ? `?status=${status}` : ""}`),
-  create: (data: { date: string; reason: string; projectId?: string; taskId?: string; approverId?: string }) =>
+  create: (data: { date: string; reason: string; projectId?: string; taskId?: string; approverId?: string; direct?: boolean }) =>
     request<HolidayWorkRequest>("/holiday-work/requests", { method: "POST", body: JSON.stringify(data) }),
   cancel: (id: string) =>
     request<HolidayWorkRequest>(`/holiday-work/requests/${id}/cancel`, { method: "PATCH", body: "{}" }),
+  remove: (id: string) =>
+    request<{ ok: boolean }>(`/holiday-work/requests/${id}`, { method: "DELETE" }),
 };
 
 // ─── Team (Manager) ──────────────────────────────────────────────────────────
@@ -561,6 +611,7 @@ export const myProfileApi = {
   updateProfile: (id: string, data: {
     phoneOffice?: string | null;
     phoneMobile?: string | null;
+    address?: string | null;
   }) => request<User>(`/users/${id}/profile`, { method: "PATCH", body: JSON.stringify(data) }),
   changeName: (name: string) =>
     request<User>("/auth/me", { method: "PATCH", body: JSON.stringify({ name }) }),
@@ -662,16 +713,14 @@ export async function listAssignableResources(): Promise<AssignableResource[]> {
   // 공용자산 정리 (2026-05-05): EquipmentResource는 프로젝트 미연계 — 자원 popover에서 제외.
   // 직원(auth_users) + 외부 인력만 자원 배정 대상.
   const [users, externals] = await Promise.all([
-    userManagementApi.list().catch(() => ({ items: [] as any[] })),
+    // 자원 배정 대상 = 활성 전직원. GET /users는 ADMIN 전용이라 OPERATOR는 403 → 전 사용자 허용인
+    // /users/members?all=true (활성 전직원 id+name) 사용. (기존엔 operator가 외부인력만 보였음)
+    userManagementApi.members(true).catch(() => [] as { id: string; name: string }[]),
     externalPersonApi.list({ status: "ACTIVE" }).catch(() => [] as ExternalPerson[]),
   ]);
   const out: AssignableResource[] = [];
-  const userList: any[] = Array.isArray((users as any).items)
-    ? (users as any).items
-    : (Array.isArray(users) ? (users as any[]) : []);
-  for (const u of userList) {
-    if (u.status === "RETIRED" || u.isActive === false) continue;
-    out.push({ id: u.id, name: u.name, category: "PERSON", type: "PERSON", email: u.email, isActive: true });
+  for (const u of users) {
+    out.push({ id: u.id, name: u.name, category: "PERSON", type: "PERSON", isActive: true });
   }
   for (const e of externals) {
     out.push({ id: e.id, name: e.name, category: "EXTERNAL", type: "PERSON", company: e.company, isActive: true });

@@ -125,6 +125,8 @@ export class TemplateService {
 
   async createTemplate(dto: CreateTemplateDto, userId: string): Promise<ProjectTemplate> {
     return this.prisma.$transaction(async (tx) => {
+      const dup = await tx.projectTemplate.findFirst({ where: { name: dto.name }, select: { id: true } });
+      if (dup) throw new AppError(409, "TEMPLATE_NAME_DUPLICATE", `이미 "${dto.name}" 이름의 템플릿이 있습니다.`);
       const template = await tx.projectTemplate.create({
         data: {
           name: dto.name,
@@ -204,6 +206,10 @@ export class TemplateService {
 
   async updateTemplate(id: string, dto: UpdateTemplateDto): Promise<ProjectTemplate> {
     await this.getTemplate(id);
+    if (dto.name !== undefined) {
+      const dup = await this.prisma.projectTemplate.findFirst({ where: { name: dto.name, id: { not: id } }, select: { id: true } });
+      if (dup) throw new AppError(409, "TEMPLATE_NAME_DUPLICATE", `이미 "${dto.name}" 이름의 템플릿이 있습니다.`);
+    }
     return this.prisma.projectTemplate.update({
       where: { id },
       data: {
@@ -336,10 +342,20 @@ export class TemplateService {
           if (dto.includeAssignments) {
             for (const ta of ts.assignments) {
               if (ta.resourceId) {
+                // 자원-모델-분리: legacy resourceId → polymorphic FK 해석 (XOR 제약 충족)
+                //   로컬 테이블(장비·외부) 확인 후 아니면 직원(personUserId)로 간주
+                const eq = await tx.equipmentResource.findUnique({ where: { id: ta.resourceId }, select: { id: true } });
+                const ext = eq ? null : await tx.externalPerson.findUnique({ where: { id: ta.resourceId }, select: { id: true } });
+                const poly = eq
+                  ? { equipmentResourceId: ta.resourceId }
+                  : ext
+                    ? { externalPersonId: ta.resourceId }
+                    : { personUserId: ta.resourceId };
                 await tx.segmentAssignment.create({
                   data: {
                     segmentId: seg.id,
                     resourceId: ta.resourceId,
+                    ...poly,
                     allocationMode: ta.allocationMode,
                     allocationPercent: ta.allocationPercent ?? null,
                     allocationHoursPerDay: ta.allocationHoursPerDay ?? null,
@@ -429,6 +445,8 @@ export class TemplateService {
     const MS_PER_DAY = 86_400_000;
 
     return this.prisma.$transaction(async (tx) => {
+      const dup = await tx.projectTemplate.findFirst({ where: { name: dto.name }, select: { id: true } });
+      if (dup) throw new AppError(409, "TEMPLATE_NAME_DUPLICATE", `이미 "${dto.name}" 이름의 템플릿이 있습니다.`);
       const template = await tx.projectTemplate.create({
         data: {
           name: dto.name,

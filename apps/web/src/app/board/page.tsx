@@ -199,20 +199,31 @@ function ProjectBoardSection({ items }: { items: WorkLogFeedItem[] }) {
         <ul className="divide-y divide-gray-100">
           {items.map((w) => (
             <li key={w.id}>
-              <Link
-                href={`/work-logs/${w.projectId}`}
-                className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 text-sm"
-              >
-                <span className="text-xs text-gray-500 w-28 shrink-0 truncate" title={w.projectName}>
+              <div className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 text-sm">
+                {/* 프로젝트명 → 해당 프로젝트, 태스크명 → 해당 태스크(drawer 자동 오픈) */}
+                <Link
+                  href={`/projects/${w.projectId}`}
+                  className="text-xs text-gray-500 hover:text-blue-600 hover:underline w-28 shrink-0 truncate"
+                  title={w.projectName}
+                >
                   {w.projectName}
-                </span>
-                <span className="text-xs text-gray-700 w-20 shrink-0 truncate" title={w.taskName}>
+                </Link>
+                <Link
+                  href={`/projects/${w.projectId}?taskId=${w.taskId}`}
+                  className="text-xs text-gray-700 hover:text-blue-600 hover:underline w-20 shrink-0 truncate"
+                  title={w.taskName}
+                >
                   {w.taskName}
-                </span>
+                </Link>
                 <span className="text-xs text-gray-600 w-16 shrink-0 truncate">{w.authorName}</span>
                 <span className="text-xs text-gray-400 w-12 shrink-0">{w.workedAt.slice(5)}</span>
-                <span className="flex-1 truncate text-gray-700">{summarize(w.content, 100)}</span>
-              </Link>
+                <Link
+                  href={`/work-logs/${w.projectId}`}
+                  className="flex-1 truncate text-gray-700 hover:text-gray-900"
+                >
+                  {summarize(w.content, 100)}
+                </Link>
+              </div>
             </li>
           ))}
         </ul>

@@ -31,38 +31,40 @@ export default function RepairLayout({ children }: { children: React.ReactNode }
   return (
     <AppLayout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="flex items-center gap-2 mb-4">
-          {isDetailPage && (
-            <button onClick={() => router.push("/repair")} className="text-gray-400 hover:text-gray-600">
-              &larr;
-            </button>
-          )}
-          <h1 className="text-2xl font-bold">수리 관리</h1>
-        </div>
+        <div className="sticky top-14 z-30 bg-gray-50 pt-4 pb-0 -mx-4 sm:-mx-6 px-4 sm:px-6 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            {isDetailPage && (
+              <button onClick={() => router.push("/repair")} className="text-gray-400 hover:text-gray-600">
+                &larr;
+              </button>
+            )}
+            <h1 className="text-2xl font-bold">수리 관리</h1>
+          </div>
 
-        <div className="flex items-center gap-1 border-b border-gray-200 mb-6">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => router.push(t.href)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === t.key
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
+          <div className="flex items-center gap-1 border-b border-gray-200">
+            {TABS.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => router.push(t.href)}
+                className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === t.key
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+            <a
+              href="/manual-as/index.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="AS 관리 사용자 매뉴얼 (새 탭)"
+              className="ml-auto px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-blue-600 border border-gray-200 hover:border-blue-300 rounded-lg transition-colors"
             >
-              {t.label}
-            </button>
-          ))}
-          <a
-            href="/manual-as/index.html"
-            target="_blank"
-            rel="noopener noreferrer"
-            title="AS 관리 사용자 매뉴얼 (새 탭)"
-            className="ml-auto px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-blue-600 border border-gray-200 hover:border-blue-300 rounded-lg transition-colors"
-          >
-            📘 매뉴얼
-          </a>
+              📘 매뉴얼
+            </a>
+          </div>
         </div>
 
         {children}

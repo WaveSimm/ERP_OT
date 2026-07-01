@@ -41,8 +41,54 @@ export class HolidayWorkService {
     );
   }
 
-  async createRequest(userId: string, data: CreateInput) {
+  // 연차대체 잔액 증감 (휴일근무 보상). 발생연도(date 기준) LeaveBalance.substituteDays.
+  private async grantSubstitute(tx: any, userId: string, dateStr: string | Date, delta: number) {
+    const year = new Date(dateStr).getFullYear();
+    await tx.leaveBalance.upsert({
+      where: { userId_year: { userId, year } },
+      create: { userId, year, totalDays: 15, substituteDays: Math.max(0, delta) },
+      update: { substituteDays: { increment: delta } },
+    });
+  }
+
+  async createRequest(userId: string, data: CreateInput, direct = false) {
     await this.assertIsHoliday(data.date);
+
+    // 중간 릴리즈(2026-06-29): 근태 직접 추가 — 승인 없이 즉시 APPROVED + 캘린더 반영
+    if (direct) {
+      const dup = await this.prisma.holidayWorkRequest.findFirst({
+        where: {
+          userId,
+          date: new Date(data.date),
+          taskId: data.taskId ?? null,
+          status: { in: ["PENDING", "PENDING_2ND", "PENDING_3RD", "APPROVED"] as ApprovalStatus[] },
+        },
+      });
+      if (dup) {
+        throw new HolidayWorkError("DUPLICATE_REQUEST", `${data.date}에 이미 휴일근무 기록이 있습니다.`, 409);
+      }
+      return this.prisma.$transaction(async (tx) => {
+        const created = await tx.holidayWorkRequest.create({
+          data: {
+            userId,
+            date: new Date(data.date),
+            reason: data.reason,
+            projectId: data.projectId ?? null,
+            taskId: data.taskId ?? null,
+            status: "APPROVED" as ApprovalStatus,
+            approvedAt: new Date(),
+          },
+        });
+        await tx.workScheduleEntry.upsert({
+          where: { userId_date_entryType_sourceId: { userId, date: new Date(data.date), entryType: "OT", sourceId: created.id } },
+          create: { userId, date: new Date(data.date), entryType: "OT", sourceType: "OT_APPROVED", sourceId: created.id, label: "휴일근무" },
+          update: {},
+        });
+        // 내규: 휴일근무 1건 → 연차대체 +1일 (발생연도 기준)
+        await this.grantSubstitute(tx, userId, data.date, 1);
+        return created;
+      });
+    }
 
     return this.prisma.holidayWorkRequest.create({
       data: {
@@ -120,6 +166,8 @@ export class HolidayWorkService {
         },
         update: {},
       });
+      // 내규: 휴일근무 승인 → 연차대체 +1일
+      await this.grantSubstitute(tx, input.userId, input.date, 1);
 
       return created;
     });
@@ -145,7 +193,22 @@ export class HolidayWorkService {
       });
       // 근태현황 엔트리 삭제 (자동 동기화로 만든 항목)
       await tx.workScheduleEntry.deleteMany({ where: { sourceId: id } });
+      // APPROVED였던 건 취소 시 연차대체 회수 (-1)
+      if (req.status === "APPROVED") await this.grantSubstitute(tx, userId, req.date, -1);
       return updated;
+    });
+  }
+
+  // 중간 릴리즈(2026-06-29): 휴일근무 삭제(상태 무관) — 캘린더 엔트리 제거 후 레코드 삭제
+  async deleteRequest(id: string, userId: string) {
+    const req = await this.prisma.holidayWorkRequest.findFirst({ where: { id, userId } });
+    if (!req) throw new HolidayWorkError("NOT_FOUND", "삭제할 수 없는 휴일근무입니다.", 404);
+    return this.prisma.$transaction(async (tx) => {
+      await tx.workScheduleEntry.deleteMany({ where: { sourceId: id } });
+      // APPROVED였던 건이면 연차대체 회수 (-1)
+      if (req.status === "APPROVED") await this.grantSubstitute(tx, userId, req.date, -1);
+      await tx.holidayWorkRequest.delete({ where: { id } });
+      return { ok: true };
     });
   }
 
@@ -189,6 +252,8 @@ export class HolidayWorkService {
           create: { userId: req.userId, date: req.date, entryType: "OT", sourceType: "OT_APPROVED", sourceId: id, label: "휴일근무" },
           update: {},
         });
+        // 내규: 휴일근무 승인 → 연차대체 +1일
+        await this.grantSubstitute(tx, req.userId, req.date, 1);
         return updated;
       });
     }

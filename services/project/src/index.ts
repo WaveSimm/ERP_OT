@@ -3,7 +3,7 @@ import { ZodError } from "zod";
 import fastifyCors from "@fastify/cors";
 import fastifyHelmet from "@fastify/helmet";
 import fastifyRateLimit from "@fastify/rate-limit";
-import { rateLimitPolicies, rateLimitErrorResponseBuilder, requireInternal } from "@erp-ot/shared";
+import { rateLimitPolicies, rateLimitErrorResponseBuilder, userRateLimitKey, requireInternal } from "@erp-ot/shared";
 import fastifyJwt from "@fastify/jwt";
 import fastifyCookie from "@fastify/cookie";
 import fastifyMultipart from "@fastify/multipart";
@@ -23,6 +23,7 @@ import { baselineRoutes } from "./api/routes/baseline.routes.js";
 import { templateRoutes } from "./api/routes/template.routes.js";
 import { resourceRoutes } from "./api/routes/resource.routes.js";
 import { collabRoutes } from "./api/routes/collab.routes.js";
+import { monitoringRoutes } from "./api/routes/monitoring.routes.js";
 import { notificationRoutes } from "./api/routes/notification.routes.js";
 import { myTasksRoutes } from "./api/routes/my-tasks.routes.js";
 import { meRoutes } from "./api/routes/me.routes.js";
@@ -140,6 +141,7 @@ async function buildApp() {
   });
   await app.register(fastifyRateLimit, {
     ...rateLimitPolicies.default,
+    keyGenerator: userRateLimitKey,   // 사용자별 버킷(쿠키 토큰 기준, 없으면 IP)
     errorResponseBuilder: rateLimitErrorResponseBuilder,
   });
 
@@ -229,6 +231,7 @@ async function buildApp() {
   app.register(equipmentReservationRoutes, { prefix: "/api/v1/equipment-reservations" });
   app.register(externalPersonRoutes, { prefix: "/api/v1/external-persons" });
   app.register(collabRoutes, { prefix: "/api/v1" });
+  app.register(monitoringRoutes, { prefix: "/api/v1/monitoring" });
   app.register(notificationRoutes, { prefix: "/api/v1/notifications" });
   app.register(myTasksRoutes, { prefix: "/api/v1/tasks" });
   app.register(workLogRoutes, { prefix: "/api/v1/tasks" });

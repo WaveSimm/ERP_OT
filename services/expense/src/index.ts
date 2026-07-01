@@ -16,6 +16,7 @@ import { z } from "zod";
 import {
   rateLimitPolicies,
   rateLimitErrorResponseBuilder,
+  userRateLimitKey,
   fastifyJwtVerifyOptions,
   type JwtPayload,
   requireAuth,
@@ -82,6 +83,7 @@ app.register(fastifyHelmet, {
 
 app.register(fastifyRateLimit, {
   ...rateLimitPolicies.default,
+  keyGenerator: userRateLimitKey,
   errorResponseBuilder: rateLimitErrorResponseBuilder,
   allowList: (req) => req.url.startsWith("/internal/"),
 });

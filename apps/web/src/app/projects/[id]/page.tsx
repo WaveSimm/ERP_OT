@@ -3,8 +3,8 @@
 import { useEffect, useState, useCallback, useRef, Fragment } from "react";
 import clsx from "clsx";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { projectApi, taskApi, resourceApi, baselineApi, commentApi, templateApi, deploymentApi, userManagementApi, folderApi, listAssignableResources } from "@/lib/api";
-import dynamic from "next/dynamic";
+import { projectApi, taskApi, resourceApi, baselineApi, commentApi, deploymentApi, userManagementApi, folderApi, listAssignableResources } from "@/lib/api";
+import nextDynamic from "next/dynamic";
 import { usePermission } from "@/hooks/usePermission";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useHolidaysMap } from "@/hooks/useHolidaysMap";
@@ -18,9 +18,9 @@ import AppLayout from "@/components/AppLayout";
 import CommentPopover from "@/components/CommentPopover";
 import ResourcePickerPopover from "@/components/ResourcePickerPopover";
 import ImpactPanel from "@/components/ImpactPanel";
-import TemplateWizard from "@/components/TemplateWizard";
+import ProjectSummaryDrawer from "@/components/ProjectSummaryDrawer";
 
-const GanttChart = dynamic(() => import("@/components/GanttChart"), { ssr: false });
+const GanttChart = nextDynamic(() => import("@/components/GanttChart"), { ssr: false });
 
 function toStr(d: Date) { return d.toISOString().slice(0, 10); }
 
@@ -159,13 +159,8 @@ export default function ProjectDetailPage() {
 
   // Panels
   const [showImpactPanel, setShowImpactPanel] = useState(false);
-  const [showTemplateWizard, setShowTemplateWizard] = useState(false);
-  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
-  const [saveTplName, setSaveTplName] = useState("");
-  const [saveTplCategory, setSaveTplCategory] = useState("");
-  const [saveTplIncludeAssignments, setSaveTplIncludeAssignments] = useState(false);
-  const [saveTplLoading, setSaveTplLoading] = useState(false);
-  const [saveTplError, setSaveTplError] = useState("");
+  const [showSummary, setShowSummary] = useState(false); // 프로젝트 요약 드로어
+  // 템플릿 적용/저장 상태는 프로젝트 목록 화면으로 이동 (2026-06-24)
 
   // Comment content map: commentId → content (for activity feed)
   const [commentContentMap, setCommentContentMap] = useState<Record<string, string>>({});
@@ -188,7 +183,10 @@ export default function ProjectDetailPage() {
     } catch { /* ignore */ }
   }, [projectId]);
   const { push: pushUndo, undo: handleUndo, redo: handleRedo, undoCount, redoCount, undoLabel, redoLabel, toast } =
-    useUndoRedo({ onAfterAction: refreshAfterUndoRedo });
+    useUndoRedo({
+      onAfterAction: refreshAfterUndoRedo,
+      onError: () => { void refreshAfterUndoRedo(); alert("작업을 되돌리지 못했습니다. 화면을 최신 상태로 새로고침했습니다."); },
+    });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -387,10 +385,25 @@ export default function ProjectDetailPage() {
         pushUndo({
           label: `태스크 "${taskName}" 삭제`,
           undo: async () => {
-            // 태스크 재생성 (세그먼트 포함)
-            const t = await taskApi.create(projectId, { name: taskData.name, parentId: taskData.parentId, sortOrder: taskData.sortOrder, description: taskData.description });
+            // 태스크 재생성 (세그먼트 포함). parentId/description은 null이면 생략 — API는 string|undefined만 허용(null 거부)
+            const t = await taskApi.create(projectId, {
+              name: taskData.name,
+              ...(taskData.parentId ? { parentId: taskData.parentId } : {}),
+              ...(taskData.sortOrder != null ? { sortOrder: taskData.sortOrder } : {}),
+              ...(taskData.description ? { description: taskData.description } : {}),
+            });
             for (const seg of (taskData.segments ?? [])) {
-              await taskApi.createSegment(projectId, t.id, { name: seg.name, startDate: seg.startDate, endDate: seg.endDate });
+              const newSeg: any = await taskApi.createSegment(projectId, t.id, { name: seg.name, startDate: seg.startDate, endDate: seg.endDate });
+              // 자원 배정 복구 (자원ID + 투입률 + 분담율)
+              for (const a of (seg.assignments ?? [])) {
+                await taskApi.upsertAssignment(projectId, t.id, newSeg.id, {
+                  resourceId: a.resourceId,
+                  allocationMode: a.allocationMode ?? "PERCENT",
+                  ...(a.allocationPercent != null ? { allocationPercent: a.allocationPercent } : {}),
+                  ...(a.allocationHoursPerDay != null ? { allocationHoursPerDay: a.allocationHoursPerDay } : {}),
+                  ...(a.contributionWeight != null ? { contributionWeight: a.contributionWeight } : {}),
+                }).catch(() => {});
+              }
             }
           },
           redo: async () => { await taskApi.delete(projectId, taskId).catch(() => {}); },
@@ -417,12 +430,55 @@ export default function ProjectDetailPage() {
     const count = selected.size;
     if (!confirm(`선택한 ${count}개 태스크를 삭제하시겠습니까?`)) return;
     const ids = Array.from(selected);
+    // 삭제 전 스냅샷 (태스크+세그먼트+자원배정)
+    const snapshot = ids
+      .map((id) => (ganttData?.tasks ?? []).find((t: any) => t.id === id))
+      .filter(Boolean) as any[];
+    const deletedIds = new Set(snapshot.map((t) => t.id));
     try {
       await Promise.all(ids.map((id) => taskApi.delete(projectId, id)));
+      let recreatedIds: string[] = [];
       pushUndo({
         label: `${count}개 태스크 일괄 삭제`,
-        undo: async () => {}, // 일괄 복원은 복잡하므로 reload만
-        redo: async () => {},
+        undo: async () => {
+          recreatedIds = [];
+          const idMap = new Map<string, string>(); // oldId → newId
+          const pending = [...snapshot];
+          let guard = 0;
+          while (pending.length > 0 && guard < 2000) {
+            guard++;
+            const t = pending.shift()!;
+            // 부모도 삭제대상인데 아직 재생성 전이면 뒤로 미룸 (부모 먼저 생성)
+            if (t.parentId && deletedIds.has(t.parentId) && !idMap.has(t.parentId)) { pending.push(t); continue; }
+            const newParentId = t.parentId
+              ? (deletedIds.has(t.parentId) ? idMap.get(t.parentId) : t.parentId)
+              : undefined;
+            const nt: any = await taskApi.create(projectId, {
+              name: t.name,
+              ...(newParentId ? { parentId: newParentId } : {}),
+              ...(t.sortOrder != null ? { sortOrder: t.sortOrder } : {}),
+              ...(t.description ? { description: t.description } : {}),
+            });
+            idMap.set(t.id, nt.id);
+            recreatedIds.push(nt.id);
+            for (const seg of (t.segments ?? [])) {
+              const newSeg: any = await taskApi.createSegment(projectId, nt.id, { name: seg.name, startDate: seg.startDate, endDate: seg.endDate });
+              for (const a of (seg.assignments ?? [])) {
+                await taskApi.upsertAssignment(projectId, nt.id, newSeg.id, {
+                  resourceId: a.resourceId,
+                  allocationMode: a.allocationMode ?? "PERCENT",
+                  ...(a.allocationPercent != null ? { allocationPercent: a.allocationPercent } : {}),
+                  ...(a.allocationHoursPerDay != null ? { allocationHoursPerDay: a.allocationHoursPerDay } : {}),
+                  ...(a.contributionWeight != null ? { contributionWeight: a.contributionWeight } : {}),
+                }).catch(() => {});
+              }
+            }
+          }
+        },
+        redo: async () => {
+          await Promise.all(recreatedIds.map((id) => taskApi.delete(projectId, id).catch(() => {})));
+          recreatedIds = [];
+        },
       });
       setSelected(new Set());
       await load();
@@ -497,6 +553,32 @@ export default function ProjectDetailPage() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const lastSelectedRef = useRef<string | null>(null);
 
+  // 선택 툴바 높이 — sticky 헤더(<thead>)의 top 오프셋 계산용 (툴바가 열 제목 위에 겹치지 않게)
+  const selToolbarRef = useRef<HTMLDivElement>(null);
+  const [selToolbarH, setSelToolbarH] = useState(0);
+  useEffect(() => {
+    setSelToolbarH(selected.size > 0 ? (selToolbarRef.current?.offsetHeight ?? 0) : 0);
+  }, [selected.size]);
+  // 상단 고정 프레임: 프로젝트명 바 + 탭 바 높이를 측정해 하위 sticky들의 top 오프셋(--top-chrome)을 계산
+  const projHeaderRef = useRef<HTMLDivElement>(null);
+  const tabsBarRef = useRef<HTMLDivElement>(null);
+  const rangeBarRef = useRef<HTMLDivElement>(null); // 간트 "지난주~" 범위 바 (간트 탭 전용)
+  const [projHeaderH, setProjHeaderH] = useState(0);
+  const [rangeBarH, setRangeBarH] = useState(0);
+  const [topChrome, setTopChrome] = useState(56);
+  useEffect(() => {
+    const measure = () => {
+      const ph = projHeaderRef.current?.offsetHeight ?? 0;
+      const th = tabsBarRef.current?.offsetHeight ?? 0;
+      setProjHeaderH(ph);
+      setTopChrome(56 + ph + th); // 56 = 글로벌 네비 높이(h-14)
+      setRangeBarH(rangeBarRef.current?.offsetHeight ?? 0);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [activeTab, ganttData]);
+
   // ── 드래그 state ─────────────────────────────────────────────────────────────
   const [dragIds, setDragIds] = useState<string[]>([]);
   const [dropGap, setDropGap] = useState<{ taskId: string; pos: "before" | "after" } | null>(null);
@@ -523,15 +605,33 @@ export default function ProjectDetailPage() {
   const [editVal, setEditVal] = useState<any>(null);
   // ref: 항상 최신 editVal 유지 (stale closure 방지)
   const editValRef = useRef<number>(0);
-  // ref: 저장 중 onBlur 이중 실행 방지
-  const progressSavingRef = useRef(false);
 
   const startEdit = (taskId: string, col: "status" | "progress" | "dates" | "note", val: any) => {
     setEditingCell({ taskId, col });
     setEditVal(val);
-    if (col === "progress") { editValRef.current = Number(val) || 0; progressSavingRef.current = false; }
+    if (col === "progress") { editValRef.current = Number(val) || 0; }
   };
   const cancelEdit = () => { setEditingCell(null); setEditVal(null); };
+
+  // 태스크 이름 인라인 편집 (이름 더블클릭)
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [editNameVal, setEditNameVal] = useState("");
+  const saveTaskName = async (taskId: string, name: string) => {
+    const task = (ganttData?.tasks ?? []).find((t: any) => t.id === taskId);
+    const oldName = task?.name ?? "";
+    const newName = name.trim();
+    setEditingNameId(null);
+    if (!newName || newName === oldName) return;
+    try {
+      await taskApi.update(projectId, taskId, { name: newName });
+      pushUndo({
+        label: `태스크 이름 "${oldName}" → "${newName}"`,
+        undo: async () => { await taskApi.update(projectId, taskId, { name: oldName }); await load(); },
+        redo: async () => { await taskApi.update(projectId, taskId, { name: newName }); await load(); },
+      });
+      await load();
+    } catch (e: any) { alert(e?.message ?? "이름 수정 실패"); }
+  };
 
   const saveStatus = async (taskId: string, status: string) => {
     const task = (ganttData?.tasks ?? []).find((t: any) => t.id === taskId);
@@ -552,34 +652,7 @@ export default function ProjectDetailPage() {
     }
   };
 
-  const saveProgress = async (taskId: string, progress: number) => {
-    if (progressSavingRef.current) return;
-    progressSavingRef.current = true;
-    const rounded = Math.round(progress);
-    const task = (ganttData?.tasks ?? []).find((t: any) => t.id === taskId);
-    const oldProgress = task?.overallProgress ?? 0;
-    const taskName = task?.name ?? taskId;
-    cancelEdit();
-    setGanttData((prev: any) => prev ? {
-      ...prev,
-      tasks: (prev.tasks ?? []).map((t: any) =>
-        t.id === taskId ? { ...t, overallProgress: rounded } : t
-      ),
-    } : prev);
-    try {
-      await taskApi.update(projectId, taskId, { overallProgress: rounded, isManualProgress: true });
-      pushUndo({
-        label: `"${taskName}" 진행률 ${oldProgress}% → ${rounded}%`,
-        undo: async () => { await taskApi.update(projectId, taskId, { overallProgress: oldProgress, isManualProgress: true }); },
-        redo: async () => { await taskApi.update(projectId, taskId, { overallProgress: rounded, isManualProgress: true }); },
-      });
-    } catch (e: any) {
-      alert(e?.message ?? "진행률 변경 실패");
-    } finally {
-      progressSavingRef.current = false;
-      await loadSilent();
-    }
-  };
+  // 자원-기여도-진척률 (D2): 진척률 수동 입력(saveProgress) 폐기 — 자원별 진척률로 자동 계산
 
   const createInlineTask = async () => {
     const name = inlineTaskName.trim();
@@ -609,19 +682,55 @@ export default function ProjectDetailPage() {
     finally { setInlineAdding(false); }
   };
 
-  const saveNote = async (taskId: string, note: string) => {
-    const task = (ganttData?.tasks ?? []).find((t: any) => t.id === taskId);
-    const oldNote = task?.description ?? "";
-    const taskName = task?.name ?? taskId;
-    const newNote = note.trim() || null;
-    cancelEdit();
-    await taskApi.update(projectId, taskId, { description: newNote }).catch(() => {});
-    pushUndo({
-      label: `"${taskName}" 비고 수정`,
-      undo: async () => { await taskApi.update(projectId, taskId, { description: oldNote || null }); },
-      redo: async () => { await taskApi.update(projectId, taskId, { description: newNote }); },
-    });
-    await load();
+  // 우클릭한 태스크 바로 아래(같은 레벨)에 새 태스크 생성
+  const createTaskBelow = async (clicked: any) => {
+    setInlineAdding(true);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const end = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
+      const name = "새 태스크";
+      const allTasks: any[] = ganttData?.tasks ?? [];
+      const parentId = clicked.parentId ?? null;
+      const siblings = allTasks
+        .filter((t: any) => (t.parentId ?? null) === parentId)
+        .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+      const ci = siblings.findIndex((t: any) => t.id === clicked.id);
+      const clickedOrder = clicked.sortOrder ?? 0;
+      const next = ci >= 0 ? siblings[ci + 1] : undefined;
+
+      let newOrder: number;
+      if (!next) {
+        newOrder = clickedOrder + 10; // 마지막이면 뒤에 append
+      } else {
+        const gap = (next.sortOrder ?? 0) - clickedOrder;
+        if (gap >= 2) {
+          newOrder = clickedOrder + Math.floor(gap / 2); // 간격 안에 삽입 (형제 미변경)
+        } else {
+          // 간격이 없으면 뒤쪽 형제만 +10 시프트 (권한상 본인 태스크만 반영될 수 있음)
+          newOrder = clickedOrder + 1;
+          await Promise.all(
+            siblings.slice(ci + 1).map((t: any) =>
+              taskApi.update(projectId, t.id, { sortOrder: (t.sortOrder ?? 0) + 10 }).catch(() => {}),
+            ),
+          );
+        }
+      }
+
+      const created: any = await taskApi.create(projectId, { name, parentId: parentId ?? undefined, sortOrder: newOrder });
+      await taskApi.createSegment(projectId, created.id, { name, startDate: today, endDate: end });
+      pushUndo({
+        label: `태스크 "${name}" 생성`,
+        undo: async () => { await taskApi.delete(projectId, created.id); },
+        redo: async () => {
+          const t: any = await taskApi.create(projectId, { name, parentId: parentId ?? undefined, sortOrder: newOrder });
+          await taskApi.createSegment(projectId, t.id, { name, startDate: today, endDate: end });
+        },
+      });
+      await load();
+      setEditingNameId(created.id);
+      setEditNameVal(name);
+    } catch { /* ignore */ }
+    finally { setInlineAdding(false); }
   };
 
   const saveDates = async (task: any, start: string, end: string) => {
@@ -727,6 +836,16 @@ export default function ProjectDetailPage() {
   // ── 타임라인 표시 범위 ──────────────────────────────────────────────────────
   const [viewStart, setViewStart] = useState("");
   const [viewEnd, setViewEnd] = useState("");
+  // 현재 구간 길이만큼 앞(-1)/뒤(+1)로 이동
+  const shiftViewRange = (dir: -1 | 1) => {
+    if (!viewStart || !viewEnd) return;
+    const s = new Date(viewStart), e = new Date(viewEnd);
+    const days = Math.round((e.getTime() - s.getTime()) / 86400000) + 1; // 포함 일수
+    s.setDate(s.getDate() + dir * days);
+    e.setDate(e.getDate() + dir * days);
+    setViewStart(toStr(s));
+    setViewEnd(toStr(e));
+  };
 
   // ── 타임라인 구간 가시성 ─────────────────────────────────────────────────────
   const [hiddenSegIds, setHiddenSegIds] = useState<Set<string>>(new Set());
@@ -1050,9 +1169,9 @@ export default function ProjectDetailPage() {
   return (
     <AppLayout>
       {/* 태스크 상세창 외부 클릭 시 닫기 — TaskDrawer/오버레이는 아래에서 별도 렌더링 */}
-      <div className="min-h-screen" onClick={() => selectedTask && setSelectedTask(null)}>
-      {/* Project header — 1줄 */}
-      <div className="bg-white border-b border-gray-200 px-6 py-2.5">
+      <div className="min-h-screen" style={{ ["--top-chrome" as any]: `${topChrome}px` }} onClick={() => selectedTask && setSelectedTask(null)}>
+      {/* Project header — 1줄, 스크롤해도 상단 고정 */}
+      <div ref={projHeaderRef} className="sticky top-14 z-[29] bg-white border-b border-gray-200 px-6 py-2.5">
         <div className="flex items-center gap-2 min-w-0">
           {/* 뒤로 */}
           <button onClick={() => router.push("/projects")} className="text-gray-400 hover:text-gray-600 text-sm shrink-0">← 목록</button>
@@ -1252,9 +1371,10 @@ export default function ProjectDetailPage() {
             <button
               onClick={handleRunCpm}
               disabled={runningCpm || tasks.length === 0}
+              title="일정 병목(크리티컬 패스) 분석 — 지연되면 프로젝트 종료가 밀리는 태스크를 찾습니다"
               className="text-sm px-3 py-1 border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-50 disabled:opacity-40 font-medium"
             >
-              {runningCpm ? "⏳..." : "🔴 CPM"}
+              {runningCpm ? "⏳..." : "이슈분석"}
             </button>
             {/* Baseline selector */}
             {baselines.length > 0 && (
@@ -1278,32 +1398,20 @@ export default function ProjectDetailPage() {
               영향 분석
             </button>
             <button
-              onClick={() => setShowTemplateWizard(true)}
-              className="text-sm px-3 py-1 border border-green-300 text-green-700 rounded-lg hover:bg-green-50 font-medium"
-              title="템플릿에서 태스크 추가"
+              onClick={() => setShowSummary(true)}
+              className="text-sm px-3 py-1 border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 font-medium"
+              title="프로젝트 요약 보기"
             >
-              템플릿 적용
+              요약
             </button>
-            <button
-              onClick={() => {
-                setSaveTplName(project?.name ?? "");
-                setSaveTplCategory("");
-                setSaveTplIncludeAssignments(false);
-                setSaveTplError("");
-                setShowSaveTemplate(true);
-              }}
-              className="text-sm px-3 py-1 border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-50 font-medium"
-              title="현재 프로젝트를 템플릿으로 저장"
-            >
-              템플릿 저장
-            </button>
+            {/* 템플릿 적용/저장 버튼은 프로젝트 목록 화면으로 이동 (2026-06-24) */}
             {/* 태스크/마일스톤 추가 버튼은 태스크 목록 하단 인라인 입력 행 아래로 이동 (혼동 방지) */}
           </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="bg-white border-b border-gray-200 px-6 flex gap-1">
+      {/* Tabs — 프로젝트명 바 아래에 고정 */}
+      <div ref={tabsBarRef} className="sticky z-[27] bg-white border-b border-gray-200 px-6 flex gap-1" style={{ top: 56 + projHeaderH }}>
         {(["gantt", "tasks", "equipment", "activity"] as const).map((tab) => (
           <button
             key={tab}
@@ -1334,9 +1442,9 @@ export default function ProjectDetailPage() {
               </button>
             </div>
           ) : (
-            <div>
-              {/* 타임라인 표시 범위 설정 */}
-              <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+            <div style={{ ["--gantt-extra" as any]: `${rangeBarH}px` }}>
+              {/* 타임라인 표시 범위 설정 — 스크롤해도 탭 아래에 고정 */}
+              <div ref={rangeBarRef} className="sticky z-[25] bg-gray-50 flex items-center gap-1.5 py-1 mb-1.5 flex-wrap" style={{ top: "var(--top-chrome, 56px)" }}>
                 {/* 빠른 선택 버튼 */}
                 {[
                   { label: "지난주",     range: () => ganttWeekRange(-1) },
@@ -1352,28 +1460,36 @@ export default function ProjectDetailPage() {
                 ))}
                 <div className="h-3 w-px bg-gray-200 mx-0.5" />
                 <span className="text-[11px] text-gray-400">범위</span>
+                <button onClick={() => shiftViewRange(-1)} disabled={!viewStart || !viewEnd}
+                  title="구간 길이만큼 앞으로 이동"
+                  className="w-6 h-6 flex items-center justify-center rounded-md border border-blue-300 bg-blue-50 text-blue-600 text-sm font-bold hover:bg-blue-100 hover:border-blue-400 disabled:opacity-40 transition-colors">◀</button>
                 <DateInput value={viewStart} onChange={(e) => setViewStart(e.target.value)}
                   className="text-[11px] px-1.5 py-0.5 border border-gray-200 rounded w-[120px]" />
                 <span className="text-[11px] text-gray-300">~</span>
                 <DateInput value={viewEnd} onChange={(e) => setViewEnd(e.target.value)}
                   className="text-[11px] px-1.5 py-0.5 border border-gray-200 rounded w-[120px]" />
+                <button onClick={() => shiftViewRange(1)} disabled={!viewStart || !viewEnd}
+                  title="구간 길이만큼 뒤로 이동"
+                  className="w-6 h-6 flex items-center justify-center rounded-md border border-blue-300 bg-blue-50 text-blue-600 text-sm font-bold hover:bg-blue-100 hover:border-blue-400 disabled:opacity-40 transition-colors">▶</button>
                 <button onClick={() => {
                   setViewStart(ganttData?.project?.effectiveStartDate || "");
                   setViewEnd(ganttData?.project?.effectiveEndDate || "");
-                }} className="text-[11px] text-gray-400 hover:text-gray-600 px-1.5 py-0.5 rounded hover:bg-gray-100">
-                  초기화
+                }} className="text-[11px] text-gray-400 hover:text-gray-600 px-1.5 py-0.5 rounded hover:bg-gray-100"
+                  title="프로젝트 전체 기간으로 보기">
+                  전체기간
                 </button>
                 <span className="text-[11px] text-gray-300 ml-auto">👆 바 클릭 시 상세 편집</span>
               </div>
               <GanttChart
                 data={computedGanttData!}
                 flatItems={flatItems}
+                canRename={isOperator}
                 viewStart={viewStart || undefined}
                 viewEnd={viewEnd || undefined}
                 onTaskClick={(task) => {
                   if (selectedTask?.id === task.id) { setSelectedTask(null); } else { handleTaskClick(task); }
                 }}
-                onTaskCopy={isManager ? (task) => setCopyTargets([{ id: task.id, name: task.name, projectId }]) : undefined}
+                onTaskCopy={isOperator ? (task) => setCopyTargets([{ id: task.id, name: task.name, projectId }]) : undefined}
                 baselineSegments={baselineSegments.length > 0 ? baselineSegments : undefined}
                 allResources={resources}
                 onRefresh={loadSilent}
@@ -1394,10 +1510,10 @@ export default function ProjectDetailPage() {
                 onDragEnd={clearDragState}
                 onIndent={handleIndent}
                 onOutdent={handleOutdent}
-                onCopySelected={isManager ? handleCopySelected : undefined}
-                onDeleteSelected={isManager ? handleDeleteSelected : undefined}
+                onCopySelected={isOperator ? handleCopySelected : undefined}
+                onDeleteSelected={isOperator ? handleDeleteSelected : undefined}
                 onClearSelection={() => setSelected(new Set())}
-                onProgressChange={isManager ? saveProgress : undefined}
+                onProgressChange={undefined}
                 onAddTask={isOperator ? () => { setAddAsMilestone(false); setShowAddTask(true); } : undefined}
                 onAddMilestone={isOperator ? () => { setAddAsMilestone(true); setShowAddTask(true); } : undefined}
                 holidays={holidays}
@@ -1408,10 +1524,10 @@ export default function ProjectDetailPage() {
 
         {/* ── Tasks ── */}
         {activeTab === "tasks" && (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            {/* Multi-select toolbar */}
+          <div className="bg-white rounded-xl border border-gray-200 overflow-clip">
+            {/* Multi-select toolbar — 스크롤해도 상단(글로벌 헤더 h-14 아래)에 고정 */}
             {selected.size > 0 && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border-b border-blue-100">
+              <div ref={selToolbarRef} className="sticky z-[25] flex items-center gap-2 px-4 py-2 bg-blue-50 border-b border-blue-100" style={{ top: "var(--top-chrome, 56px)" }}>
                 <span className="text-xs font-semibold text-blue-700">{selected.size}개 선택됨</span>
                 <span className="text-[10px] text-blue-400">— 드래그 핸들(⠿)로 이동</span>
                 <div className="h-3 w-px bg-blue-200" />
@@ -1424,7 +1540,7 @@ export default function ProjectDetailPage() {
                   → 들여쓰기
                 </button>
                 <div className="h-3 w-px bg-blue-200" />
-                {isManager && (
+                {isOperator && (
                   <button
                     onClick={handleCopySelected}
                     className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded border border-blue-200"
@@ -1433,7 +1549,7 @@ export default function ProjectDetailPage() {
                     📋 복사
                   </button>
                 )}
-                {isManager && (
+                {isOperator && (
                   <button onClick={handleDeleteSelected}
                     className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded border border-red-200">
                     🗑 선택 삭제
@@ -1445,7 +1561,8 @@ export default function ProjectDetailPage() {
             )}
 
             <table className="w-full text-sm select-none">
-              <thead>
+              {/* 열 제목 — 스크롤해도 상단 고정. top = 상단 고정프레임 + 선택 툴바 높이 */}
+              <thead className="sticky z-[23] bg-gray-50" style={{ top: `calc(var(--top-chrome, 56px) + ${selToolbarH}px)` }}>
                 <tr className="border-b border-gray-200 bg-gray-50">
                   <th className="w-6" />
                   <th className="px-3 py-2 w-8" onClick={toggleAll}>
@@ -1494,17 +1611,17 @@ export default function ProjectDetailPage() {
                   const gapAfter  = dropGap !== null && dropGap.taskId === task.id && dropGap.pos === "after";
                   const isEditStatus   = editingCell !== null && editingCell.taskId === task.id && editingCell.col === "status";
                   const isEditDates    = editingCell !== null && editingCell.taskId === task.id && editingCell.col === "dates";
-                  const isEditProgress = editingCell !== null && editingCell.taskId === task.id && editingCell.col === "progress";
-                  const isLeafTask     = !task.isMilestone && !parentTaskIds.has(task.id);
                   return (
                     <Fragment key={task.id}>
                     <RowContextMenu
                       fallbackToBrowser
                       items={[
-                        { label: "편집/상세", icon: "✏️", onClick: () => handleTaskClick(task) },
-                        { label: "복사", icon: "📋", onClick: () => setCopyTargets([{ id: task.id, name: task.name, projectId }]), visible: !parentTaskIds.has(task.id) && !!isManager },
-                        { separator: true, visible: !!isManager },
-                        { label: "삭제", icon: "🗑", onClick: () => handleDeleteTask(task.id, task.name), destructive: true, visible: !!isManager },
+                        { label: "편집/상세", icon: "📄", onClick: () => handleTaskClick(task) },
+                        { label: "아래에 태스크 추가", icon: "➕", onClick: () => createTaskBelow(task), visible: !!isOperator },
+                        { label: "이름 수정", icon: "✏️", onClick: () => { setEditingNameId(task.id); setEditNameVal(task.name); }, visible: !!isOperator },
+                        { label: "복사", icon: "📋", onClick: () => setCopyTargets([{ id: task.id, name: task.name, projectId }]), visible: !parentTaskIds.has(task.id) && !!isOperator },
+                        { separator: true, visible: !!isOperator },
+                        { label: "삭제", icon: "🗑", onClick: () => handleDeleteTask(task.id, task.name), destructive: true, visible: !!isOperator },
                       ]}
                     >
                     <tr
@@ -1540,7 +1657,9 @@ export default function ProjectDetailPage() {
                         <input type="checkbox" readOnly checked={isSel} className="pointer-events-none" />
                       </td>
                       {/* 태스크명 */}
-                      <td className="px-2 cursor-pointer hover:bg-blue-50/60" onClick={(e) => handleTaskClick(task, e)}>
+                      <td className="px-2 cursor-pointer hover:bg-blue-50/60"
+                        onClick={(e) => { if (e.detail > 1) return; handleTaskClick(task, e); }}
+                        onDoubleClick={isOperator ? (e) => { e.stopPropagation(); setEditingNameId(task.id); setEditNameVal(task.name); } : undefined}>
                         <div className="flex items-center" style={{ paddingLeft: depth * 16 }}>
                           {hasChildren ? (
                             <button
@@ -1554,10 +1673,23 @@ export default function ProjectDetailPage() {
                               {depth > 0 && <span className="w-2 h-px bg-gray-300 inline-block" />}
                             </span>
                           )}
-                          <span className={`text-xs font-medium truncate ${task.isMilestone ? "text-purple-700" : task.isCritical ? "text-red-600" : depth === 0 ? "text-gray-900" : "text-gray-600"}`}>
-                            {task.isMilestone && <span className="mr-1 text-purple-400">◆</span>}
-                            {task.name}
-                          </span>
+                          {editingNameId === task.id ? (
+                            <input
+                              autoFocus
+                              value={editNameVal}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => setEditNameVal(e.target.value)}
+                              onBlur={() => saveTaskName(task.id, editNameVal)}
+                              onKeyDown={(e) => { if (e.key === "Enter") saveTaskName(task.id, editNameVal); if (e.key === "Escape") setEditingNameId(null); }}
+                              className="text-xs font-medium border border-blue-400 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500 min-w-0 flex-1"
+                            />
+                          ) : (
+                            <span
+                              className={`text-xs font-medium truncate ${task.isMilestone ? "text-purple-700" : task.isCritical ? "text-red-600" : depth === 0 ? "text-gray-900" : "text-gray-600"}`}>
+                              {task.isMilestone && <span className="mr-1 text-purple-400">◆</span>}
+                              {task.name}
+                            </span>
+                          )}
                           {task.commentCount > 0 && (
                             <span className="ml-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                               <CommentPopover taskId={task.id} count={task.commentCount} />
@@ -1609,27 +1741,8 @@ export default function ProjectDetailPage() {
                           </td>
                         );
                         if (col === "progress") return (
-                          <td key="progress" className={clsx("px-3", isLeafTask && !isEditProgress && "cursor-pointer hover:bg-blue-50/60")}
-                            onClick={isLeafTask && !isEditProgress
-                              ? (e) => { e.stopPropagation(); startEdit(task.id, "progress", task.overallProgress); }
-                              : undefined}
-                          >
-                            {isEditProgress ? (
-                              <input
-                                type="number" min={0} max={100} step={5}
-                                autoFocus
-                                defaultValue={Math.round(task.overallProgress)}
-                                onFocus={(e) => e.target.select()}
-                                onChange={(e) => { editValRef.current = Number(e.target.value); }}
-                                onBlur={() => saveProgress(task.id, editValRef.current)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") saveProgress(task.id, editValRef.current);
-                                  if (e.key === "Escape") cancelEdit();
-                                }}
-                                onClick={(e) => e.stopPropagation()}
-                                className="w-14 px-1 py-0.5 text-[11px] border border-blue-400 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                              />
-                            ) : task.isMilestone ? (
+                          <td key="progress" className="px-3">
+                            {task.isMilestone ? (
                               <div className="flex items-center gap-1.5" title="하위 태스크 평균 진행율">
                                 <div className="w-14 h-1 bg-gray-200 rounded-full overflow-hidden">
                                   <div className="h-full bg-purple-400 rounded-full" style={{ width: `${task.overallProgress ?? 0}%` }} />
@@ -1644,7 +1757,7 @@ export default function ProjectDetailPage() {
                                 <span className="text-[11px] text-gray-400 tabular-nums">{task.overallProgress.toFixed(0)}%</span>
                               </div>
                             ) : (
-                              <div className="flex items-center gap-1.5" title="클릭해서 수동 입력 (구간별 평균은 자동 계산)">
+                              <div className="flex items-center gap-1.5" title="자원별 분담율 가중 진척률(자동 계산)">
                                 <div className="w-14 h-1 bg-gray-200 rounded-full overflow-hidden">
                                   <div className="h-full bg-blue-500 rounded-full" style={{ width: `${task.overallProgress}%` }} />
                                 </div>
@@ -1661,31 +1774,25 @@ export default function ProjectDetailPage() {
                               allResources={resources}
                               onRefresh={load}
                               displayResources={parentTaskIds.has(task.id) ? (task._rolledUpResources ?? []) : undefined}
+                              pushUndo={pushUndo}
                             />
                           </td>
                         );
                         if (col === "note") {
-                          const isEditNote = editingCell !== null && editingCell.taskId === task.id && editingCell.col === "note";
+                          // 비고 = 최신 작업일지(workLog). 없으면 기존 description 폴백. 클릭 시 행→드로어(작업일지 탭)로 추가/편집.
+                          const wl = task.latestWorkLog;
+                          const text = wl?.content ?? task.description ?? "";
+                          const tip = wl
+                            ? `${wl.workedAt} · ${wl.authorName}\n${wl.content}`
+                            : (task.description ? `(이전 비고)\n${task.description}` : "작업일지 없음 — 클릭해 추가");
                           return (
-                            <td key="note" className="px-2"
-                              onClick={(e) => { e.stopPropagation(); if (!isEditNote) { setEditingCell({ taskId: task.id, col: "note" }); setEditVal(task.description ?? ""); } }}
-                            >
-                              {isEditNote ? (
-                                <input
-                                  autoFocus
-                                  type="text"
-                                  value={editVal}
-                                  onChange={(e) => setEditVal(e.target.value)}
-                                  onKeyDown={(e) => { if (e.key === "Enter") saveNote(task.id, editVal); if (e.key === "Escape") cancelEdit(); }}
-                                  onBlur={() => saveNote(task.id, editVal)}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="w-full text-[11px] border border-blue-400 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                  placeholder="비고 입력..."
-                                />
-                              ) : task.description ? (
-                                <span className="text-[11px] text-gray-600 truncate block max-w-[120px]" title={task.description}>{task.description}</span>
+                            <td key="note" className="px-2" title={tip}>
+                              {text ? (
+                                <span className="text-[11px] text-gray-600 truncate block max-w-[120px]">
+                                  {text}
+                                </span>
                               ) : (
-                                <span className="text-[11px] text-gray-300 hover:text-gray-400">—</span>
+                                <span className="text-[11px] text-gray-300 hover:text-gray-400">+ 작업일지</span>
                               )}
                             </td>
                           );
@@ -1693,7 +1800,7 @@ export default function ProjectDetailPage() {
                         return null;
                       })}
                       <td className="px-1 text-center" onClick={(e) => e.stopPropagation()}>
-                        {isManager && (
+                        {isOperator && (
                           <button onClick={() => handleDeleteTask(task.id, task.name)}
                             className="text-gray-300 hover:text-red-500 text-xs opacity-0 group-hover/row:opacity-100" title="삭제">🗑</button>
                         )}
@@ -1740,6 +1847,8 @@ export default function ProjectDetailPage() {
                 })}
               </tbody>
             </table>
+            {/* 하단 추가영역 — 스크롤해도 화면 하단에 고정 */}
+            <div className="sticky bottom-0 z-[25] bg-white">
             {/* 인라인 태스크 추가 행 */}
             <div className="border-t border-gray-100">
               <div className="flex items-center gap-2 px-3 py-1.5">
@@ -1780,6 +1889,7 @@ export default function ProjectDetailPage() {
                 <span className="text-[10px] text-gray-400 ml-2">상세 옵션이 필요할 때</span>
               </div>
             )}
+            </div>
           </div>
         )}
 
@@ -2155,97 +2265,9 @@ export default function ProjectDetailPage() {
         />
       )}
 
-      {showTemplateWizard && (
-        <TemplateWizard
-          projectId={projectId}
-          onClose={() => setShowTemplateWizard(false)}
-          onSuccess={load}
-        />
-      )}
+      {/* 프로젝트 요약 드로어 */}
+      {showSummary && <ProjectSummaryDrawer projectId={projectId} onClose={() => setShowSummary(false)} />}
 
-      {showSaveTemplate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setShowSaveTemplate(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">템플릿으로 저장</h2>
-                <p className="text-xs text-gray-500 mt-0.5">현재 프로젝트 구조를 템플릿으로 저장합니다</p>
-              </div>
-              <button onClick={() => setShowSaveTemplate(false)} className="text-gray-400 hover:text-gray-600 text-xl font-light">×</button>
-            </div>
-
-            <div className="px-6 py-5 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">템플릿 이름 <span className="text-red-500">*</span></label>
-                <input
-                  type="text"
-                  value={saveTplName}
-                  onChange={(e) => setSaveTplName(e.target.value)}
-                  placeholder="템플릿 이름 입력"
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">카테고리 <span className="text-red-500">*</span></label>
-                <input
-                  type="text"
-                  value={saveTplCategory}
-                  onChange={(e) => setSaveTplCategory(e.target.value)}
-                  placeholder="예: 건설, IT, 제조"
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
-              </div>
-
-              <label className="flex items-center gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={saveTplIncludeAssignments}
-                  onChange={(e) => setSaveTplIncludeAssignments(e.target.checked)}
-                  className="w-4 h-4 rounded accent-orange-500"
-                />
-                <span className="text-sm text-gray-700">자원 배정 포함</span>
-              </label>
-
-              {saveTplError && <p className="text-sm text-red-500">{saveTplError}</p>}
-            </div>
-
-            <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50">
-              <button
-                onClick={() => setShowSaveTemplate(false)}
-                className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100"
-              >
-                취소
-              </button>
-              <button
-                disabled={saveTplLoading}
-                onClick={async () => {
-                  if (!saveTplName.trim()) { setSaveTplError("템플릿 이름을 입력해주세요."); return; }
-                  if (!saveTplCategory.trim()) { setSaveTplError("카테고리를 입력해주세요."); return; }
-                  setSaveTplLoading(true);
-                  setSaveTplError("");
-                  try {
-                    await templateApi.saveAsTemplate(projectId, {
-                      name: saveTplName.trim(),
-                      category: saveTplCategory.trim(),
-                      includeAssignments: saveTplIncludeAssignments,
-                    });
-                    setShowSaveTemplate(false);
-                    alert("템플릿으로 저장되었습니다.");
-                  } catch (e: any) {
-                    setSaveTplError(e.message ?? "저장 실패");
-                  } finally {
-                    setSaveTplLoading(false);
-                  }
-                }}
-                className="px-4 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {saveTplLoading ? "저장 중…" : "저장"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {/* Undo/Redo toast */}
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] bg-gray-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg">

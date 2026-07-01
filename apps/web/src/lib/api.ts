@@ -7,3 +7,4 @@ export * from "./api/client";
 export * from "./api/core-domains";
 export * from "./api/equipment";
 export * from "./api/collab";
+export * from "./api/monitoring";

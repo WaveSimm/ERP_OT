@@ -2,8 +2,9 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { attendanceApi, leaveApi, holidayWorkApi, approvalLineApi, userManagementApi, attendanceOverviewApi, getUser } from "@/lib/api";
+import { attendanceApi, leaveApi, holidayWorkApi, approvalLineApi, approvalApi, userManagementApi, attendanceOverviewApi, workScheduleApi, getUser } from "@/lib/api";
 import { DateInput } from "@/components/ui/DateInput";
+import { TimeInput } from "@/components/ui/TimeInput";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,10 +35,20 @@ interface CalendarDay {
 }
 
 interface LeaveBalance {
-  totalDays: number;
+  totalDays: number;        // 정기 연차 (기본 15일)
+  longServiceDays?: number; // 장기근속 휴가
+  adjustedDays?: number;    // 임시 조정
   usedDays: number;
   pendingDays: number;
   remainingDays: number;
+  // 가정의 날 (매월 4시간, 이월 없음) — 이번 달 기준
+  familyDayTotal?: number;
+  familyDayUsed?: number;
+  familyDayRemaining?: number;
+  // 연차대체 (휴일근무 보상, 발생연도 다음해 3월말까지)
+  substituteTotal?: number;
+  substituteUsed?: number;
+  substituteRemaining?: number;
 }
 
 interface WorkScheduleEntry {
@@ -49,6 +60,7 @@ interface WorkScheduleEntry {
   label: string | null;
   groupId: string | null;
   sourceType: string;
+  sourceId: string | null;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -70,25 +82,27 @@ const ENTRY_LABELS: Record<string, string> = {
   FAMILY: "가정의날",            // legacy 호환
   BEREAVEMENT: "경조사",         // v1.5
   ANNUAL: "연차", SICK: "병가", SPECIAL: "공가", OT: "휴일근무",
+  SUBSTITUTE: "연차대체",
 };
 
 const ENTRY_COLORS: Record<string, string> = {
-  WORK: "bg-blue-100 text-blue-800",
-  FIELD: "bg-green-100 text-green-800",
-  TRAINING: "bg-purple-100 text-purple-800",
-  BUSINESS_TRIP: "bg-orange-100 text-orange-800",
-  HALF: "bg-yellow-100 text-yellow-800",
-  HALF_AM: "bg-yellow-100 text-yellow-800",
-  HALF_PM: "bg-yellow-100 text-yellow-800",
-  QUARTER: "bg-amber-100 text-amber-800",
-  FAMILY_DAY: "bg-emerald-100 text-emerald-800",
-  FAMILY_DAY_2H: "bg-emerald-100 text-emerald-800",
-  FAMILY: "bg-emerald-100 text-emerald-800",
-  BEREAVEMENT: "bg-rose-100 text-rose-800",
-  ANNUAL: "bg-red-100 text-red-800",
-  SICK: "bg-pink-100 text-pink-800",
-  SPECIAL: "bg-indigo-100 text-indigo-800",
-  OT: "bg-gray-200 text-gray-800",
+  WORK: "bg-sky-100 text-sky-700",              // 출근 — 파랑(sky)
+  FIELD: "bg-green-100 text-green-800",      // 근무군(외근·교육·출장) — 초록(emerald)
+  TRAINING: "bg-green-100 text-green-800",
+  BUSINESS_TRIP: "bg-green-100 text-green-800",
+  HALF: "bg-amber-100 text-amber-700",           // 휴가군 — 노랑(amber)
+  HALF_AM: "bg-amber-100 text-amber-700",
+  HALF_PM: "bg-amber-100 text-amber-700",
+  QUARTER: "bg-amber-100 text-amber-700",
+  FAMILY_DAY: "bg-amber-100 text-amber-700",
+  FAMILY_DAY_2H: "bg-amber-100 text-amber-700",
+  FAMILY: "bg-amber-100 text-amber-700",
+  BEREAVEMENT: "bg-amber-100 text-amber-700",
+  ANNUAL: "bg-amber-100 text-amber-700",
+  SICK: "bg-amber-100 text-amber-700",
+  SPECIAL: "bg-amber-100 text-amber-700",        // 공가 — 휴가군
+  SUBSTITUTE: "bg-amber-100 text-amber-700",     // 연차대체 — 휴가군
+  OT: "bg-rose-100 text-rose-700",               // 휴일근무 — 빨강(rose)
 };
 
 const ALL_ENTRY_TYPES = [
@@ -277,12 +291,15 @@ function getDatesInRange(start: string, end: string): string[] {
   return dates;
 }
 
-function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete }: {
+function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete, onDeleteLeave, defaultStart = "09:30", defaultEnd = "18:30" }: {
   date: string;
   entry?: WorkScheduleEntry | null;
   onClose: () => void;
   onSuccess: () => void;
   onDelete?: (id: string) => void;
+  onDeleteLeave?: (leaveId: string) => void;   // 휴가 파생(LEAVE_APPROVED) 항목 삭제 — 휴가 레코드 제거
+  defaultStart?: string;   // 본인 근무시간(유연근무 반영). 신규 입력 기본값.
+  defaultEnd?: string;
 }) {
   const isEdit = !!entry;
   const isEditable = !entry || entry.sourceType === "MANUAL";
@@ -290,18 +307,37 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete }: {
   const [startDate, setStartDate] = useState(date);
   const [endDate, setEndDate] = useState(date);
   const [entryType, setEntryType] = useState(entry?.entryType ?? "FIELD");
-  const [startTime, setStartTime] = useState(entry?.startTime ?? "09:30");
-  const [endTime, setEndTime] = useState(entry?.endTime ?? "18:30");
+  const [startTime, setStartTime] = useState(entry?.startTime ?? defaultStart);
+  const [endTime, setEndTime] = useState(entry?.endTime ?? defaultEnd);
   const endTimeHRef = useRef<HTMLInputElement>(null);
   const [label, setLabel] = useState(entry?.label ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [groupAction, setGroupAction] = useState<"single" | "group">(hasGroup ? "group" : "single");
+  // 중간 릴리즈(2026-06-29): 근태 추가 모달에서 휴가/휴일근무도 직접 등록(승인 없이 즉시 반영)
+  const [category, setCategory] = useState<"WORK" | "LEAVE" | "HOLIDAY">("WORK");
+  const [leaveType, setLeaveType] = useState("ANNUAL");
+  const leaveSingle = leaveType === "HALF" || leaveType === "QUARTER" || leaveType === "FAMILY_DAY" || leaveType === "FAMILY_DAY_2H";
+  const LEAVE_OPTS: { v: string; l: string }[] = [
+    { v: "ANNUAL", l: "연차" }, { v: "HALF", l: "반차(4시간)" }, { v: "QUARTER", l: "1/4연차(2시간)" },
+    { v: "FAMILY_DAY", l: "가정의날(1시간)" }, { v: "FAMILY_DAY_2H", l: "가정의날(2시간)" },
+    { v: "SUBSTITUTE", l: "연차대체" },
+    { v: "BEREAVEMENT", l: "경조사" }, { v: "SICK", l: "병가" }, { v: "SPECIAL", l: "공가" },
+  ];
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true); setError(null);
     try {
+      // 휴가/휴일근무 직접 등록 (추가 모드) — 승인 없이 즉시 반영
+      if (!isEdit && category === "LEAVE") {
+        await leaveApi.create({ type: leaveType, startDate, endDate: leaveSingle ? startDate : (endDate || startDate), reason: label.trim() || "휴가", direct: true, ...(leaveSingle ? { startTime } : {}) });
+        onSuccess(); onClose(); return;
+      }
+      if (!isEdit && category === "HOLIDAY") {
+        await holidayWorkApi.create({ date: startDate, reason: label.trim() || "휴일근무", direct: true });
+        onSuccess(); onClose(); return;
+      }
       if (isEdit && entry) {
         if (hasGroup && groupAction === "group") {
           await attendanceOverviewApi.updateGroup(entry.groupId!, {
@@ -365,9 +401,20 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete }: {
               <p className="font-medium mb-1">{ENTRY_LABELS[entry!.entryType] ?? entry!.entryType}</p>
               {(entry!.startTime || entry!.endTime) && <p className="text-xs">{entry!.startTime ? entry!.startTime : ""}{entry!.startTime && entry!.endTime ? " ~ " : ""}{entry!.endTime ? (entry!.startTime ? entry!.endTime : `~${entry!.endTime}`) : ""}</p>}
               {entry!.label && <p className="text-xs text-gray-500">{entry!.label}</p>}
-              <p className="text-[10px] text-gray-400 mt-2">자동 생성된 항목은 수정할 수 없습니다.</p>
+              <p className="text-[10px] text-gray-400 mt-2">
+                {entry!.sourceType === "LEAVE_APPROVED"
+                  ? "휴가 항목은 여기서 수정은 불가하며, 필요 시 삭제할 수 있습니다."
+                  : "자동 생성된 항목은 수정할 수 없습니다."}
+              </p>
             </div>
-            <button type="button" onClick={onClose} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">닫기</button>
+            <div className="flex gap-2">
+              {entry!.sourceType === "LEAVE_APPROVED" && entry!.sourceId && onDeleteLeave && (
+                <button type="button"
+                  onClick={() => { if (window.confirm("이 휴가 항목을 삭제하시겠습니까? 연차가 복원됩니다.")) { onDeleteLeave(entry!.sourceId!); onClose(); } }}
+                  className="flex-1 px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-100">삭제</button>
+              )}
+              <button type="button" onClick={onClose} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">닫기</button>
+            </div>
           </div>
         ) : (
           <form onSubmit={submit} className="space-y-3">
@@ -384,6 +431,20 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete }: {
                 </button>
               </div>
             )}
+            {/* 구분 (추가 모드만): 근무 / 휴가 / 휴일근무 */}
+            {!isEdit && (
+              <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
+                {([["WORK", "근무"], ["LEAVE", "휴가"], ["HOLIDAY", "휴일근무"]] as const).map(([v, l]) => (
+                  <button key={v} type="button" onClick={() => setCategory(v)}
+                    className={`flex-1 text-xs py-1.5 rounded-md font-medium transition-colors ${category === v ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"}`}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* ── 근무 (외근/교육/출장) ── */}
+            {category === "WORK" && (<>
             <div>
               <label className="block text-xs text-gray-600 mb-1">근태 유형</label>
               <select value={entryType} onChange={(e) => setEntryType(e.target.value)}
@@ -417,12 +478,14 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete }: {
             ))}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-xs text-gray-600 mb-1">시작 시간</label>
-                <ClockTimeInput value={startTime} onChange={setStartTime} nextRef={endTimeHRef} />
+                <label className="block text-xs text-gray-600 mb-1">시작 시간 (30분 단위)</label>
+                <TimeInput value={startTime} step={1800} onChange={(e) => setStartTime(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
               </div>
               <div>
-                <label className="block text-xs text-gray-600 mb-1">종료 시간</label>
-                <ClockTimeInput value={endTime} onChange={setEndTime} hInputRef={endTimeHRef} />
+                <label className="block text-xs text-gray-600 mb-1">종료 시간 (30분 단위)</label>
+                <TimeInput value={endTime} step={1800} onChange={(e) => setEndTime(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
               </div>
             </div>
             <div>
@@ -431,6 +494,74 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete }: {
                 placeholder="예: 강남 현장, 안전교육"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
             </div>
+            </>)}
+
+            {/* ── 휴가 (즉시 반영) ── */}
+            {category === "LEAVE" && (<>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">휴가 종류</label>
+              <select value={leaveType} onChange={(e) => setLeaveType(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                {LEAVE_OPTS.map((t) => <option key={t.v} value={t.v}>{t.l}</option>)}
+              </select>
+            </div>
+            {leaveSingle ? (
+              <div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">날짜</label>
+                    <DateInput value={startDate} required onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">시작시간 (30분 단위)</label>
+                    <TimeInput value={startTime} step={1800} onChange={(e) => setStartTime(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                  </div>
+                </div>
+                {(() => {
+                  const dur = leaveType === "HALF" ? 4 : leaveType === "QUARTER" ? 2 : leaveType === "FAMILY_DAY_2H" ? 2 : leaveType === "FAMILY_DAY" ? 1 : 0;
+                  if (!dur || !startTime) return null;
+                  const [h, m] = startTime.split(":").map(Number);
+                  const t = h * 60 + m + dur * 60;
+                  const et = `${String(Math.floor(t / 60) % 24).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
+                  return <p className="text-[11px] text-teal-600 mt-1">⏱ {startTime} ~ {et} ({dur}시간)</p>;
+                })()}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">시작일</label>
+                  <DateInput value={startDate} required onChange={(e) => { setStartDate(e.target.value); if (e.target.value > endDate) setEndDate(e.target.value); }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">종료일</label>
+                  <DateInput value={endDate} required min={startDate} onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+                </div>
+              </div>
+            )}
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">사유</label>
+              <input type="text" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="사유"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            </div>
+            </>)}
+
+            {/* ── 휴일근무 (즉시 반영, 휴일/주말만) ── */}
+            {category === "HOLIDAY" && (<>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">날짜 (휴일/주말)</label>
+              <DateInput value={startDate} required onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">사유</label>
+              <input type="text" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="사유"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
+            </div>
+            </>)}
             {error && <p className="text-xs text-red-500">{error}</p>}
             <div className="flex gap-2 pt-1">
               {isEdit && onDelete && (
@@ -460,11 +591,13 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete }: {
 
 // ─── Monthly Calendar with Work Schedule Entries ─────────────────────────────
 
-function MonthlyCalendar({ year, month, refresh, onEntryChanged }: {
+function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, defaultEnd }: {
   year: number;
   month: number;
   refresh: number;
   onEntryChanged: () => void;
+  defaultStart?: string;
+  defaultEnd?: string;
 }) {
   const [days, setDays] = useState<CalendarDay[]>([]);
   const [summary, setSummary] = useState<any>(null);
@@ -528,6 +661,15 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged }: {
     } catch {}
   };
 
+  // 휴가 파생(가정의날 등 LEAVE_APPROVED) 항목 삭제 — 휴가 레코드 제거(캘린더 엔트리도 함께 삭제됨)
+  const handleDeleteLeave = async (leaveId: string) => {
+    try {
+      await leaveApi.remove(leaveId);
+      setEntries((prev) => prev.filter((e) => e.sourceId !== leaveId));
+      onEntryChanged();
+    } catch {}
+  };
+
   if (loading) return <div className="text-sm text-gray-400 py-6 text-center">불러오는 중...</div>;
 
   const firstDay = new Date(year, month - 1, 1).getDay();
@@ -560,7 +702,8 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged }: {
             const dayNum = parseInt(cell.date.slice(8));
             const isToday = cell.date === todayStr;
             const dow = new Date(cell.date).getDay();
-            const dayEntries = entriesByDate.get(cell.date) ?? [];
+            // 출근(WORK)은 위 회색 출퇴근 글씨로 이미 표시 → 바 중복 방지 위해 제외. 외근/휴가 등만 바로 표시.
+            const dayEntries = (entriesByDate.get(cell.date) ?? []).filter((e) => e.entryType !== "WORK");
 
             return (
               <div key={cell.date}
@@ -570,14 +713,14 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged }: {
                 }`}>
                 {/* 날짜 헤더 + 출퇴근 — 고정 높이로 엔트리 시작 위치 통일 */}
                 <div className="h-[40px] flex-shrink-0">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1">
                     <span className={`text-xs font-medium leading-none ${
                       isToday ? "text-blue-700 font-bold" :
                       dow === 0 || cell.isHoliday ? "text-red-500" :
                       dow === 6 ? "text-blue-500" : "text-gray-700"
                     }`}>{dayNum}</span>
                     <button onClick={() => setAddingDate(cell.date)}
-                      className="text-gray-300 hover:text-teal-600 hover:bg-teal-50 rounded text-xs leading-none transition-colors w-4 h-4 flex items-center justify-center opacity-0 group-hover:opacity-100"
+                      className="text-red-500 hover:text-white hover:bg-red-500 rounded text-base font-bold leading-none transition-colors w-5 h-5 flex items-center justify-center shrink-0"
                       title="근태 추가">+</button>
                   </div>
                   {cell.isHoliday
@@ -635,6 +778,8 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged }: {
           date={addingDate}
           onClose={() => setAddingDate(null)}
           onSuccess={() => { onEntryChanged(); }}
+          defaultStart={defaultStart}
+          defaultEnd={defaultEnd}
         />
       )}
 
@@ -646,6 +791,7 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged }: {
           onClose={() => setEditingEntry(null)}
           onSuccess={() => { onEntryChanged(); }}
           onDelete={(id) => { handleDeleteEntry(id); }}
+          onDeleteLeave={(leaveId) => { handleDeleteLeave(leaveId); }}
         />
       )}
     </div>
@@ -654,26 +800,41 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged }: {
 
 // ─── Leave Balance Card ───────────────────────────────────────────────────────
 
+// 연차 현황 — 상단 슬림 바 (한 줄: 잔여/전체 · 사용 · 대기 · 가정의 날)
 function LeaveBalanceCard({ balance }: { balance: LeaveBalance | null }) {
   if (!balance) return null;
-  const pct = balance.totalDays > 0 ? Math.round((balance.usedDays / balance.totalDays) * 100) : 0;
+  const longSvc = balance.longServiceDays ?? 0;
+  const adj = balance.adjustedDays ?? 0;
+  const subTotal = balance.substituteTotal ?? 0;        // 연차대체 발생(유효)
+  const subRem = balance.substituteRemaining ?? 0;
+  const total = balance.totalDays + longSvc + adj + subTotal;
+  const used = balance.usedDays + (balance.substituteUsed ?? 0);
+  const remaining = balance.remainingDays + subRem;
+  // 전체 구성: 정기 · 대체 · 근속 (조정은 0 아닐 때만)
+  const breakdown = [`정기 ${balance.totalDays}일`, `대체 ${subTotal}일`, `근속 ${longSvc}일`];
+  if (adj !== 0) breakdown.push(`조정 ${adj > 0 ? "+" : ""}${adj}일`);
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-900">연차 현황</h3>
-        <span className="text-xs text-gray-400">{new Date().getFullYear()}년</span>
-      </div>
-      <div className="flex items-end gap-1 mb-2">
-        <span className="text-2xl font-bold text-blue-600">{balance.remainingDays}</span>
-        <span className="text-sm text-gray-500 mb-0.5">일 잔여</span>
-        <span className="text-xs text-gray-400 mb-0.5 ml-1">/ {balance.totalDays}일</span>
-      </div>
-      <div className="w-full bg-gray-100 rounded-full h-2 mb-2">
-        <div className="bg-blue-500 h-2 rounded-full transition-all" style={{ width: `${pct}%` }} />
-      </div>
-      <div className="flex justify-between text-xs text-gray-500">
-        <span>사용: {balance.usedDays}일</span>
-        {balance.pendingDays > 0 && <span className="text-amber-600">대기: {balance.pendingDays}일</span>}
+    <div className="bg-white border border-gray-200 rounded-xl px-4 py-2.5">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+        <span className="text-sm font-semibold text-gray-900">
+          연차 현황 <span className="text-xs font-normal text-gray-400">{new Date().getFullYear()}</span>
+        </span>
+        <span className="text-xs text-gray-500">사용 <span className="font-medium text-gray-700">{used}일</span></span>
+        <span className="flex items-baseline gap-1 text-xs">
+          <span className="text-gray-500">잔여</span>
+          <span className="text-base font-bold text-blue-600 leading-none">{remaining}일</span>
+          <span className="text-gray-400">/ 전체 {total}일</span>
+          <span className="text-gray-400">({breakdown.join(" · ")})</span>
+        </span>
+        {balance.pendingDays > 0 && <span className="text-xs text-amber-600">대기 {balance.pendingDays}일</span>}
+        {typeof balance.familyDayTotal === "number" && (
+          <span className="text-xs text-gray-500 sm:ml-auto flex items-baseline gap-1.5 sm:border-l sm:border-gray-200 sm:pl-4">
+            <span className="text-gray-600 font-medium">가정의 날</span>
+            <span className="text-gray-400">(이번 달)</span>
+            <span>사용 {balance.familyDayUsed ?? 0}시간</span>
+            <span>· 잔여 <span className="font-semibold text-rose-600">{balance.familyDayRemaining}</span>시간</span>
+          </span>
+        )}
       </div>
     </div>
   );
@@ -682,19 +843,20 @@ function LeaveBalanceCard({ balance }: { balance: LeaveBalance | null }) {
 // ─── Leave Request Form ───────────────────────────────────────────────────────
 
 const LEAVE_TYPES = [
-  { value: "ANNUAL", label: "연차 (1일)" },
-  { value: "HALF_AM", label: "반차-오전 (0.5일)" },
-  { value: "HALF_PM", label: "반차-오후 (0.5일)" },
-  { value: "QUARTER", label: "1/4차 (2시간)" },
-  { value: "FAMILY", label: "가정의날 (1시간)" },
+  { value: "ANNUAL", label: "연차" },
+  { value: "HALF", label: "반차(4시간)" },
+  { value: "QUARTER", label: "1/4연차(2시간)" },
+  { value: "FAMILY_DAY", label: "가정의날(1시간)" },
+  { value: "FAMILY_DAY_2H", label: "가정의날(2시간)" },
+  { value: "SUBSTITUTE", label: "연차대체" },
+  { value: "BEREAVEMENT", label: "경조사" },
   { value: "SICK", label: "병가" },
-  { value: "SPECIAL", label: "특별휴가" },
+  { value: "SPECIAL", label: "공가" },
 ];
 
-// ─── 휴가 신청 버튼 (전자결재 시스템으로 redirect) ─────────────────────────────
-// 근태현황 design v1.4 + 옵션 (라): 진입은 근태에서 자연스럽게, 실제 신청은 전자결재로 통합
-// 모든 결재 신청은 /approval/new가 single source of truth (OT와 동일 패턴)
-
+// ─── 휴가/휴일근무 신청 버튼 (전자결재 redirect) ──────────────────────────────
+// 중간 릴리즈(2026-06-29): 전자결재 미사용 → 버튼 정의 비활성화. 재개 시 아래 함수 + 렌더 블록 복원.
+/*
 function LeaveRequestForm({ onSuccess: _onSuccess }: { onSuccess: () => void }) {
   const router = useRouter();
   return (
@@ -707,10 +869,6 @@ function LeaveRequestForm({ onSuccess: _onSuccess }: { onSuccess: () => void }) 
   );
 }
 
-// ─── 휴일근무 신청 버튼 (전자결재 시스템으로 redirect) ──────────────────────────
-// 근태현황 design v1.3 + 옵션 (라): 진입은 근태에서 자연스럽게, 실제 신청은 전자결재로 통합
-// 모든 결재 신청은 /approval/new가 single source of truth
-
 function HolidayWorkRequestForm({ onSuccess: _onSuccess }: { onSuccess: () => void }) {
   const router = useRouter();
   return (
@@ -722,6 +880,7 @@ function HolidayWorkRequestForm({ onSuccess: _onSuccess }: { onSuccess: () => vo
     </button>
   );
 }
+*/
 
 // ─── Leave / 휴일근무 History ─────────────────────────────────────────────────
 
@@ -735,15 +894,40 @@ const APPROVAL_STATUS: Record<string, { label: string; color: string }> = {
 function LeaveHistory({ refresh }: { refresh: number }) {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     setLoading(true);
-    leaveApi.list().then((list) => setItems(list.filter((i: any) => i.status !== "CANCELLED"))).catch(() => {}).finally(() => setLoading(false));
+    Promise.all([
+      leaveApi.list().catch(() => [] as any[]),
+      approvalApi.getSentDocuments(1, 50).then((r: any) => r?.items ?? []).catch(() => [] as any[]),
+    ]).then(([list, sent]: [any[], any[]]) => {
+      const rows = (list ?? []).filter((i: any) => i.status !== "CANCELLED");
+      // 승인 전 전자결재 휴가 결재(아직 근태에 미반영) 병합 — APPROVED는 위 휴가 레코드로 표시되므로 제외
+      const pendingDocs = (sent ?? [])
+        .filter((d: any) => d.template?.code === "LEAVE" && d.status !== "APPROVED" && d.status !== "DRAFT")
+        .map((d: any) => ({
+          id: d.id,
+          type: d.content?.leaveType,
+          startDate: d.content?.startDate,
+          endDate: d.content?.endDate,
+          status: d.status === "REJECTED" ? "REJECTED" : "PENDING",
+          _docId: d.id,
+        }));
+      // 가정의 날은 매월 정산이라 휴가 내역 목록에서는 제외(잔액 카드에서 월별 관리)
+      const FAMILY_DAY_TYPES = ["FAMILY_DAY", "FAMILY_DAY_2H", "FAMILY"];
+      setItems([...pendingDocs, ...rows]
+        .filter((i: any) => !FAMILY_DAY_TYPES.includes(i.type))
+        .sort((a: any, b: any) => (b.startDate ?? "").localeCompare(a.startDate ?? "")));  // 최근 날짜 상단
+    }).finally(() => setLoading(false));
   }, [refresh]);
 
-  const cancel = async (id: string) => {
-    await leaveApi.cancel(id);
+  // 중간 릴리즈(2026-06-29): 승인 개념 제거 → 삭제(연차 복원 + 캘린더 제거)
+  const del = async (id: string) => {
+    if (!window.confirm("이 휴가를 삭제하시겠습니까? 연차가 복원됩니다.")) return;
+    await leaveApi.remove(id);
     setItems((prev) => prev.filter((i) => i.id !== id));
+    window.dispatchEvent(new CustomEvent("attendance-updated"));
   };
 
   if (loading) return <div className="text-xs text-gray-400 py-4 text-center">불러오는 중...</div>;
@@ -755,12 +939,16 @@ function LeaveHistory({ refresh }: { refresh: number }) {
         return (
           <div key={item.id} className="flex items-center gap-3 px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm">
             <div className="flex-1 min-w-0">
-              <div className="font-medium text-gray-900">{LEAVE_TYPES.find((t) => t.value === item.type)?.label ?? item.type}</div>
+              <div className="font-medium text-gray-900">{LEAVE_TYPES.find((t) => t.value === item.type)?.label ?? item.type ?? "휴가"}</div>
               <div className="text-xs text-gray-400">{item.startDate?.slice(0, 10)} ~ {item.endDate?.slice(0, 10)}</div>
             </div>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.color}`}>{st.label}</span>
-            {item.status === "PENDING" && (
-              <button onClick={() => cancel(item.id)} className="text-xs text-gray-400 hover:text-red-500">취소</button>
+            {item._docId ? (
+              <>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.color}`}>{st.label}</span>
+                <button onClick={() => router.push(`/approval/${item._docId}`)} className="text-xs text-blue-500 hover:text-blue-700">보기</button>
+              </>
+            ) : (
+              <button onClick={() => del(item.id)} className="text-xs text-red-500 hover:text-red-700">삭제</button>
             )}
           </div>
         );
@@ -772,15 +960,39 @@ function LeaveHistory({ refresh }: { refresh: number }) {
 function HolidayWorkHistory({ refresh }: { refresh: number }) {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     setLoading(true);
-    holidayWorkApi.list().then(setItems).catch(() => {}).finally(() => setLoading(false));
+    Promise.all([
+      holidayWorkApi.list().catch(() => [] as any[]),
+      approvalApi.getSentDocuments(1, 50).then((r: any) => r?.items ?? []).catch(() => [] as any[]),
+    ]).then(([list, sent]: [any[], any[]]) => {
+      // 승인 전 전자결재 휴일근무 결재(아직 근태에 미반영) 병합
+      const pendingDocs = (sent ?? [])
+        .filter((d: any) => d.template?.code === "OT" && d.status !== "APPROVED" && d.status !== "DRAFT")
+        .map((d: any) => {
+          const wd = d.content?.workDates;
+          const firstDate = Array.isArray(wd) ? wd[0] : (d.content?.workDate ?? "");
+          return {
+            id: d.id,
+            date: firstDate,
+            reason: d.content?.reason,
+            status: d.status === "REJECTED" ? "REJECTED" : "PENDING",
+            _docId: d.id,
+          };
+        });
+      setItems([...pendingDocs, ...(list ?? [])]
+        .sort((a: any, b: any) => (b.date ?? "").localeCompare(a.date ?? "")));  // 최근 날짜 상단
+    }).finally(() => setLoading(false));
   }, [refresh]);
 
-  const cancel = async (id: string) => {
-    await holidayWorkApi.cancel(id);
-    setItems((prev) => prev.map((i) => i.id === id ? { ...i, status: "CANCELLED" } : i));
+  // 중간 릴리즈(2026-06-29): 승인 개념 제거 → 삭제(캘린더 제거)
+  const del = async (id: string) => {
+    if (!window.confirm("이 휴일근무를 삭제하시겠습니까?")) return;
+    await holidayWorkApi.remove(id);
+    setItems((prev) => prev.filter((i) => i.id !== id));
+    window.dispatchEvent(new CustomEvent("attendance-updated"));
   };
 
   if (loading) return <div className="text-xs text-gray-400 py-4 text-center">불러오는 중...</div>;
@@ -796,9 +1008,13 @@ function HolidayWorkHistory({ refresh }: { refresh: number }) {
                 <div className="font-medium text-gray-900">{item.date?.slice(0, 10)} · 휴일근무</div>
                 <div className="text-xs text-gray-400 truncate">{item.reason}</div>
               </div>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.color}`}>{st.label}</span>
-              {item.status === "PENDING" && (
-                <button onClick={() => cancel(item.id)} className="text-xs text-gray-400 hover:text-red-500">취소</button>
+              {item._docId ? (
+                <>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.color}`}>{st.label}</span>
+                  <button onClick={() => router.push(`/approval/${item._docId}`)} className="text-xs text-blue-500 hover:text-blue-700">보기</button>
+                </>
+              ) : (
+                <button onClick={() => del(item.id)} className="text-xs text-red-500 hover:text-red-700">삭제</button>
               )}
             </div>
           </div>
@@ -811,10 +1027,13 @@ function HolidayWorkHistory({ refresh }: { refresh: number }) {
 // ─── AttendanceView (exported) ────────────────────────────────────────────────
 
 export default function AttendanceView() {
+  const router = useRouter();
   const [today, setToday] = useState<TodayRecord | null>(null);
   const [balance, setBalance] = useState<LeaveBalance | null>(null);
   const [refresh, setRefresh] = useState(0);
   const [activeTab, setActiveTab] = useState<"leave" | "ot">("leave");
+  // 본인 근무시간(유연근무 반영). 근태 추가 모달 기본값으로 사용. 로딩 전 회사 기본값.
+  const [sched, setSched] = useState<{ start: string; end: string }>({ start: "09:30", end: "18:30" });
 
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
@@ -828,13 +1047,19 @@ export default function AttendanceView() {
     try { setBalance(await leaveApi.getBalance()); } catch {}
   }, []);
 
-  useEffect(() => { loadToday(); loadBalance(); }, []);
+  useEffect(() => {
+    loadToday();
+    loadBalance();
+    workScheduleApi.mine()
+      .then((s) => { if (s?.workStartTime && s?.workEndTime) setSched({ start: s.workStartTime, end: s.workEndTime }); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
-    const handler = () => { loadToday(); setRefresh((r) => r + 1); };
+    const handler = () => { loadToday(); loadBalance(); setRefresh((r) => r + 1); };
     window.addEventListener("attendance-updated", handler);
     return () => window.removeEventListener("attendance-updated", handler);
-  }, [loadToday]);
+  }, [loadToday, loadBalance]);
 
   const navigateMonth = (dir: -1 | 1) => {
     let m = month + dir, y = year;
@@ -847,30 +1072,30 @@ export default function AttendanceView() {
 
   return (
     <div className="space-y-6">
-      {/* 신청 버튼 */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <LeaveRequestForm onSuccess={() => { setRefresh((r) => r + 1); loadBalance(); }} />
-        <HolidayWorkRequestForm onSuccess={() => setRefresh((r) => r + 1)} />
-      </div>
+      {/* 중간 릴리즈(2026-06-29): 전자결재 미사용 → 휴가/휴일근무는 캘린더 날짜별 "+" 버튼(근태 추가)에서 직접 등록 */}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="md:col-span-2">
-          <CheckInWidget today={today} onAction={handleAction} />
-        </div>
-        <LeaveBalanceCard balance={balance} />
-      </div>
+      {/* 연차 현황 — 상단 슬림 바(한 줄) */}
+      <LeaveBalanceCard balance={balance} />
+
+      <CheckInWidget today={today} onAction={handleAction} />
 
       {/* 월간 달력 (근태 통합) */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-gray-900">월간 근태 현황</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-gray-900">월간 근태 현황</h2>
+            <button onClick={() => router.push("/resources?tab=attendance")}
+              className="text-xs px-2 py-0.5 rounded border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors">
+              전사근태 →
+            </button>
+          </div>
           <div className="flex items-center gap-2">
             <button onClick={() => navigateMonth(-1)} className="p-1 text-gray-400 hover:text-gray-700 border border-gray-200 rounded">‹</button>
             <span className="text-sm font-medium text-gray-700">{year}년 {month}월</span>
             <button onClick={() => navigateMonth(1)} className="p-1 text-gray-400 hover:text-gray-700 border border-gray-200 rounded">›</button>
           </div>
         </div>
-        <MonthlyCalendar year={year} month={month} refresh={refresh} onEntryChanged={() => setRefresh((r) => r + 1)} />
+        <MonthlyCalendar year={year} month={month} refresh={refresh} onEntryChanged={() => { setRefresh((r) => r + 1); loadBalance(); }} defaultStart={sched.start} defaultEnd={sched.end} />
         <p className="text-[10px] text-gray-400 mt-1.5 ml-1">날짜를 클릭하여 근태를 추가할 수 있습니다</p>
       </div>
 

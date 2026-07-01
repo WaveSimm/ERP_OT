@@ -5,7 +5,7 @@
 // 공용자산 정리 (2026-05-05): EQUIPMENT 타입 폐기, 프로젝트 미연계 단순 마스터.
 //   "장비"는 /equipment 페이지의 Equipment 모델로 분리.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { equipmentResourceApi, type EquipmentResource } from "@/lib/api";
 
 // EQUIPMENT는 폐기된 레거시 타입(2026-05-05) — 신규는 VEHICLE/FACILITY만이라 Partial.
@@ -13,9 +13,6 @@ const TYPE_LABEL: Partial<Record<EquipmentResource["type"], string>> = {
   VEHICLE: "🚗 차량",
   FACILITY: "🏭 시설",
 };
-
-type SortKey = "name" | "type" | "isActive";
-type SortDir = "asc" | "desc";
 
 export function EquipmentResourcesPanel({ isAdmin }: { isAdmin: boolean }) {
   const [items, setItems] = useState<EquipmentResource[]>([]);
@@ -26,34 +23,46 @@ export function EquipmentResourcesPanel({ isAdmin }: { isAdmin: boolean }) {
   const [typeFilter, setTypeFilter] = useState<"" | EquipmentResource["type"]>("");
   const [activeFilter, setActiveFilter] = useState<"" | "true" | "false">("");
 
-  // 컬럼 정렬 — 기본 이름 오름차순
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  // 수동 정렬 — 목록은 백엔드 sortOrder 순서 그대로 표시. 행 드래그로 변경 → 예약 목록에 반영.
+  // 필터/검색 적용 중엔 부분 재정렬 방지를 위해 비활성. (프로젝트 태스크 드래그와 동일 방식)
+  const canReorder = isAdmin && !search && !typeFilter && !activeFilter;
 
-  const sortedItems = useMemo(() => {
-    const arr = [...items];
-    arr.sort((a, b) => {
-      let cmp = 0;
-      if (sortKey === "name") cmp = a.name.localeCompare(b.name, "ko");
-      else if (sortKey === "type") cmp = a.type.localeCompare(b.type);
-      else cmp = (a.isActive === b.isActive) ? 0 : a.isActive ? -1 : 1; // 활성이 위
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-    return arr;
-  }, [items, sortKey, sortDir]);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropGap, setDropGap] = useState<{ id: string; pos: "before" | "after" } | null>(null);
+  const clearDrag = () => { setDragId(null); setDropGap(null); };
 
-  function toggleSort(key: SortKey) {
-    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortKey(key);
-      setSortDir("asc");
+  const onDragStart = (e: React.DragEvent, id: string) => {
+    setDragId(id);
+    e.dataTransfer.effectAllowed = "move";
+  };
+  const onRowDragOver = (e: React.DragEvent, id: string) => {
+    e.preventDefault();
+    if (!dragId || id === dragId) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const pos = (e.clientY - rect.top) / rect.height < 0.5 ? "before" : "after";
+    if (dropGap?.id !== id || dropGap.pos !== pos) setDropGap({ id, pos });
+  };
+  const onRowDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!dragId || !dropGap) { clearDrag(); return; }
+    const ids = items.map((r) => r.id);
+    const without = ids.filter((x) => x !== dragId);
+    const targetIdx = without.indexOf(dropGap.id);
+    if (targetIdx === -1) { clearDrag(); return; }
+    const insertAt = dropGap.pos === "before" ? targetIdx : targetIdx + 1;
+    const newOrder = [...without];
+    newOrder.splice(insertAt, 0, dragId);
+    clearDrag();
+    if (newOrder.join() === ids.join()) return; // 순서 변화 없음
+    const reordered = newOrder.map((id) => items.find((r) => r.id === id)!);
+    setItems(reordered); // 낙관적 반영
+    try {
+      await equipmentResourceApi.reorder(newOrder);
+    } catch (err: any) {
+      alert("순서 변경 실패: " + (err.message ?? "오류"));
+      load();
     }
-  }
-
-  function sortIndicator(key: SortKey): string {
-    if (sortKey !== key) return "";
-    return sortDir === "asc" ? " ▲" : " ▼";
-  }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -149,39 +158,42 @@ export function EquipmentResourcesPanel({ isAdmin }: { isAdmin: boolean }) {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-xs text-gray-500 select-none">
               <tr>
-                <th className="text-left px-4 py-2 font-medium">
-                  <button
-                    type="button"
-                    onClick={() => toggleSort("name")}
-                    className="hover:text-gray-700 inline-flex items-center"
-                  >
-                    이름{sortIndicator("name")}
-                  </button>
-                </th>
-                <th className="text-left px-4 py-2 font-medium">
-                  <button
-                    type="button"
-                    onClick={() => toggleSort("type")}
-                    className="hover:text-gray-700 inline-flex items-center"
-                  >
-                    유형{sortIndicator("type")}
-                  </button>
-                </th>
-                <th className="text-left px-4 py-2 font-medium">
-                  <button
-                    type="button"
-                    onClick={() => toggleSort("isActive")}
-                    className="hover:text-gray-700 inline-flex items-center"
-                  >
-                    상태{sortIndicator("isActive")}
-                  </button>
-                </th>
+                {isAdmin && <th className="px-2 py-2 font-medium w-14 text-center">순서</th>}
+                <th className="text-left px-4 py-2 font-medium">이름</th>
+                <th className="text-left px-4 py-2 font-medium">유형</th>
+                <th className="text-left px-4 py-2 font-medium">상태</th>
                 {isAdmin && <th className="text-right px-4 py-2 font-medium">관리</th>}
               </tr>
             </thead>
             <tbody>
-              {sortedItems.map((r) => (
-                <tr key={r.id} className="border-t border-gray-100 hover:bg-gray-50">
+              {items.map((r) => (
+                <tr
+                  key={r.id}
+                  draggable={canReorder}
+                  onDragStart={canReorder ? (e) => onDragStart(e, r.id) : undefined}
+                  onDragOver={canReorder ? (e) => onRowDragOver(e, r.id) : undefined}
+                  onDrop={canReorder ? onRowDrop : undefined}
+                  onDragEnd={canReorder ? clearDrag : undefined}
+                  className={`border-t border-gray-100 hover:bg-gray-50 transition-opacity ${
+                    dragId === r.id ? "opacity-40" : ""
+                  } ${
+                    dropGap?.id === r.id
+                      ? dropGap.pos === "before"
+                        ? "border-t-2 border-t-blue-500"
+                        : "border-b-2 border-b-blue-500"
+                      : ""
+                  }`}
+                >
+                  {isAdmin && (
+                    <td className="px-2 py-2 text-center whitespace-nowrap">
+                      {canReorder ? (
+                        <span className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing select-none"
+                          title="드래그하여 순서 변경">⠿</span>
+                      ) : (
+                        <span className="text-gray-300 text-xs" title="필터·검색 해제 후 순서 변경 가능">–</span>
+                      )}
+                    </td>
+                  )}
                   <td className="px-4 py-2 font-medium">{r.name}</td>
                   <td className="px-4 py-2 text-xs text-gray-600">{TYPE_LABEL[r.type] ?? r.type}</td>
                   <td className="px-4 py-2">

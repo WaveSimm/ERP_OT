@@ -170,9 +170,12 @@ export default function ApprovalLinesPage() {
   const activeUsers = allUsers.filter((u) => u.isActive !== false);
 
   // 이사·대표 후보 계산
-  const execDepts = departments.filter((d) => d.name.endsWith(" 이사"));
-  const execDeptIds = new Set(execDepts.map((d) => d.id));
-  const soukwalCandidates = activeUsers.filter((u) => u.profile?.departmentId && execDeptIds.has(u.profile.departmentId));
+  // 이사(소관) 후보 = "임원" 그룹 부서 소속 (대표이사 후보가 "대표이사" 부서 기준인 것과 동일 패턴).
+  // (과거엔 "○○ 이사" 개인부서 소속 기준이었으나, 임원을 "임원" 그룹으로 묶으면서 비게 되어 변경)
+  const execGroupDept = departments.find((d) => d.name === "임원");
+  const soukwalCandidates = execGroupDept
+    ? activeUsers.filter((u) => u.profile?.departmentId === execGroupDept.id)
+    : [];
   const ceoDept = departments.find((d) => d.name === "대표이사");
   const daepyoCandidates = ceoDept ? activeUsers.filter((u) => u.profile?.departmentId === ceoDept.id) : [];
 

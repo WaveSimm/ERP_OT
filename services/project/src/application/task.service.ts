@@ -1,6 +1,6 @@
 import { PrismaClient, Task, TaskStatus, ProjectStatus, TaskSegment, SegmentAssignment, AllocationMode, Prisma } from "@prisma/client";
 import { AppError } from "@erp-ot/shared";
-import { TaskEntity } from "../domain/entities/task.entity.js";
+import { TaskEntity, calculateSegmentProgress } from "../domain/entities/task.entity.js";
 import { ProjectCacheService } from "../infrastructure/cache/project.cache.js";
 import { ProjectGateway } from "../infrastructure/websocket/project.gateway.js";
 import { AggregateService } from "./aggregate.service.js";
@@ -12,9 +12,9 @@ const STATUS_KO: Record<string, string> = {
 // 옵셔널 필드는 Zod `.optional()`이 산출하는 `T | undefined`와 정합하도록 명시
 // (tsconfig exactOptionalPropertyTypes: true 환경)
 export interface CreateTaskDto {
-  parentId?: string | undefined;
+  parentId?: string | null | undefined;
   name: string;
-  description?: string | undefined;
+  description?: string | null | undefined;
   sortOrder?: number | undefined;
   isMilestone?: boolean | undefined;
 }
@@ -51,6 +51,7 @@ export interface UpsertAssignmentDto {
   allocationMode: AllocationMode;
   allocationPercent?: number | undefined;
   allocationHoursPerDay?: number | undefined;
+  contributionWeight?: number | undefined; // 자원-기여도-진척률: 분담율 0~100
 }
 
 export class TaskService {
@@ -124,10 +125,9 @@ export class TaskService {
     const existing = await this.prisma.task.findUnique({ where: { id: taskId } });
     if (!existing) throw new AppError(404, "TASK_NOT_FOUND", "태스크를 찾을 수 없습니다.");
 
-    // 완료-작업일지-필수 검증 (수동 100%/DONE 진입 시 work log 1개 이상 필수)
-    // - Q1=(1a) 둘 다 차단, Q2=(2b) 수동만, Q4=(4a) 1개라도 존재
+    // 완료-작업일지-필수 검증 (DONE 진입 시 work log 1개 이상 필수)
+    // 자원-기여도-진척률 (D2): 진척률 수동 입력 폐기 — overallProgress는 derived 라 status DONE 만 검증
     const enteringComplete =
-      (dto.overallProgress !== undefined && dto.overallProgress >= 100 && existing.overallProgress < 100) ||
       (dto.status !== undefined && dto.status === "DONE" && existing.status !== "DONE");
     if (enteringComplete) {
       const hasWorkLog = await this.prisma.workLog.findFirst({
@@ -158,8 +158,7 @@ export class TaskService {
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.status !== undefined && { status: dto.status }),
         ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
-        ...(dto.overallProgress !== undefined && { overallProgress: dto.overallProgress }),
-        ...(dto.isManualProgress !== undefined && { isManualProgress: dto.isManualProgress }),
+        // 자원-기여도-진척률 (D2): overallProgress/isManualProgress 수동 입력 폐기 — 진척률은 derived
         ...(dto.parentId !== undefined && { parentId: dto.parentId }),
         ...(dto.isMilestone !== undefined && { isMilestone: dto.isMilestone }),
       },
@@ -239,21 +238,8 @@ export class TaskService {
       throw new AppError(400, "INVALID_DATE_RANGE", "시작일이 종료일보다 늦을 수 없습니다.");
     }
 
-    // 같은 태스크 내 세그먼트 날짜 중복 검증
-    const entity = new TaskEntity(
-      task.id,
-      task.projectId,
-      task.name,
-      task.status,
-      task.overallProgress,
-      task.isCritical,
-      task.createdBy,
-      task.segments,
-    );
-
-    if (entity.hasSegmentOverlap(newStart, newEnd)) {
-      throw new AppError(409, "SEGMENT_DATE_OVERLAP", "같은 태스크 내 세그먼트 날짜가 중복됩니다.");
-    }
+    // 구간 날짜 중복 허용 (2026-06-29): 여러 담당자가 겹치는 세부 구간을 동시에 진행 가능.
+    //   기존 SEGMENT_DATE_OVERLAP 검증 제거.
 
     const segment = await this.prisma.taskSegment.create({
       data: {
@@ -326,9 +312,16 @@ export class TaskService {
   ): Promise<TaskSegment> {
     const segment = await this.prisma.taskSegment.findUnique({
       where: { id: segmentId },
-      include: { task: { include: { segments: true } } },
+      include: { task: { include: { segments: true } }, assignments: { select: { id: true } } },
     });
     if (!segment) throw new AppError(404, "SEGMENT_NOT_FOUND", "세그먼트를 찾을 수 없습니다.");
+
+    // 자원-기여도-진척률 (D6): 진척률 직접 입력은 자원 0명 세그먼트에서만 허용.
+    //   자원 1명↑이면 배정별 진척률(updateAssignmentProgress)로만 변경 — derived 캐시 보호.
+    if (dto.progressPercent !== undefined && segment.assignments.length > 0) {
+      throw new AppError(409, "SEGMENT_PROGRESS_DERIVED",
+        "자원이 배정된 세그먼트의 진척률은 자원별 진척률로 자동 계산됩니다. 각 자원의 진척률을 수정하세요.");
+    }
 
     const newStart = dto.startDate ? new Date(dto.startDate) : segment.startDate;
     let newEnd = dto.endDate ? new Date(dto.endDate) : segment.endDate;
@@ -342,22 +335,7 @@ export class TaskService {
       throw new AppError(400, "INVALID_DATE_RANGE", "시작일이 종료일보다 늦을 수 없습니다.");
     }
 
-    // 날짜 변경 시 중복 검증
-    if (dto.startDate || dto.endDate) {
-      const entity = new TaskEntity(
-        segment.task.id,
-        segment.task.projectId,
-        segment.task.name,
-        segment.task.status,
-        segment.task.overallProgress,
-        segment.task.isCritical,
-        segment.task.createdBy,
-        segment.task.segments,
-      );
-      if (entity.hasSegmentOverlap(newStart, newEnd, segmentId)) {
-        throw new AppError(409, "SEGMENT_DATE_OVERLAP", "같은 태스크 내 세그먼트 날짜가 중복됩니다.");
-      }
-    }
+    // 구간 날짜 중복 허용 (2026-06-29): 겹치는 세부 구간 허용 — SEGMENT_DATE_OVERLAP 검증 제거.
 
     // 완료-작업일지-필수 검증 (Q2=(2a) 변경: segment progressPercent 변경으로 task 100% 도달 시도도 차단)
     // - 다른 segment들 + 본 segment 새 값으로 평균 계산
@@ -502,11 +480,13 @@ export class TaskService {
         allocationMode: dto.allocationMode,
         allocationPercent: dto.allocationPercent ?? null,
         allocationHoursPerDay: dto.allocationHoursPerDay ?? null,
+        ...(dto.contributionWeight !== undefined && { contributionWeight: dto.contributionWeight }),
       },
       update: {
         allocationMode: dto.allocationMode,
         allocationPercent: dto.allocationPercent ?? null,
         allocationHoursPerDay: dto.allocationHoursPerDay ?? null,
+        ...(dto.contributionWeight !== undefined && { contributionWeight: dto.contributionWeight }),
         ...resolved.polymorphic,
       },
     });
@@ -527,6 +507,8 @@ export class TaskService {
       `자원 배정: ${resolved.name}`,
       { taskName: segment.task.name, resourceName: resolved.name });
 
+    // 분담율 변경 가능 → 세그먼트 진척률(derived) 재계산
+    await this.recalculateSegmentProgress(segmentId);
     await this.cache.invalidateProjectSummary(segment.task.projectId);
     return assignment;
   }
@@ -539,6 +521,9 @@ export class TaskService {
     await this.prisma.segmentAssignment.delete({
       where: { segmentId_resourceId: { segmentId, resourceId } },
     });
+
+    // 자원 제거 → 세그먼트 진척률(derived) 재계산 (남은 배정 기준, 0개면 0/직접입력 fallback)
+    await this.recalculateSegmentProgress(segmentId);
 
     if (requesterId && segment) {
       const resolved = await this.resolveResourceCategory(resourceId);
@@ -569,6 +554,87 @@ export class TaskService {
       orderBy: { changedAt: "desc" },
       take: 100,
     });
+  }
+
+  // 자원-기여도-진척률: 세그먼트 진척률(derived) 재계산 → 태스크 롤업 연쇄
+  //   배정 1개↑: Σ(분담율×자원진척)/Σ분담율. 배정 0개(D6): 직접 입력값 유지(덮어쓰지 않음).
+  private async recalculateSegmentProgress(segmentId: string): Promise<void> {
+    const segment = await this.prisma.taskSegment.findUnique({
+      where: { id: segmentId },
+      include: { assignments: true, task: true },
+    });
+    if (!segment) return;
+
+    if (segment.assignments.length > 0) {
+      const derived = calculateSegmentProgress(segment.assignments);
+      if (derived !== segment.progressPercent) {
+        await this.prisma.taskSegment.update({
+          where: { id: segmentId },
+          data: { progressPercent: derived },
+        });
+      }
+    }
+
+    await this.recalculateTaskProgress(segment.taskId);
+    await this.aggregate.recomputeTaskAndProject(segment.taskId, segment.task.projectId);
+    await this.cache.invalidateProjectSummary(segment.task.projectId);
+    this.gateway.emitToProject(segment.task.projectId, "segment:updated", {
+      projectId: segment.task.projectId,
+      taskId: segment.taskId,
+      segmentId,
+    });
+  }
+
+  // 자원-기여도-진척률: 자원 본인 진척률 갱신 (본인/관리자 권한은 라우트에서 검증)
+  async updateAssignmentProgress(
+    segmentId: string,
+    resourceId: string,
+    progressPercent: number,
+    requesterId: string,
+    changeReason?: string,
+  ): Promise<SegmentAssignment> {
+    const assignment = await this.prisma.segmentAssignment.findUnique({
+      where: { segmentId_resourceId: { segmentId, resourceId } },
+      include: { segment: { include: { task: true } } },
+    });
+    if (!assignment) throw new AppError(404, "ASSIGNMENT_NOT_FOUND", "자원 배정을 찾을 수 없습니다.");
+
+    const segment = assignment.segment;
+    const task = segment.task;
+
+    // 자원-기여도-진척률 (D3 개정): 진척률을 100%로 완료할 때, "그 자원 본인"의 작업일지 1건 이상 필수.
+    //   각자 자기 작업 내역을 기록하게 강제하는 게 이 기능의 목적 → 요청자가 아니라 해당 자원(personUserId) 기준.
+    //   PERSON 자원만 적용(외부인력/장비는 로그인·작업일지 개념 없음). 태스크/세그먼트 진척률은 derived라 별도 검증 없음.
+    if (progressPercent >= 100 && assignment.progressPercent < 100 && assignment.personUserId) {
+      const hasOwnWorkLog = await this.prisma.workLog.findFirst({
+        where: { taskId: task.id, authorId: assignment.personUserId, isDeleted: false },
+        select: { id: true },
+      });
+      if (!hasOwnWorkLog) {
+        throw new AppError(409, "WORK_LOG_REQUIRED_FOR_COMPLETION",
+          "진척률을 100%로 완료하려면 해당 자원 본인의 작업일지가 1건 이상 필요합니다.");
+      }
+    }
+
+    const updated = await this.prisma.segmentAssignment.update({
+      where: { segmentId_resourceId: { segmentId, resourceId } },
+      data: { progressPercent },
+    });
+
+    await this.prisma.taskScheduleHistory.create({
+      data: {
+        taskId: task.id, segmentId, changedBy: requesterId,
+        changeReason: changeReason ?? "자원 진척률 변경",
+        changeType: "PROGRESS_UPDATED", field: "assignment.progressPercent",
+        oldValue: String(assignment.progressPercent), newValue: String(progressPercent),
+      },
+    });
+    await this.logActivity(task.projectId, requesterId, "TASK_SCHEDULE_CHANGED", "task", task.id,
+      `자원 진척률 → ${progressPercent}%`,
+      { taskName: task.name, segmentName: segment.name });
+
+    await this.recalculateSegmentProgress(segmentId);
+    return updated;
   }
 
   private async recalculateTaskProgress(taskId: string): Promise<void> {

@@ -6,11 +6,13 @@ interface MySegmentView {
   segmentName: string;
   startDate: string | null;
   endDate: string | null;
-  progressPercent: number;
+  progressPercent: number;        // 세그먼트 derived 진척률 (참고용)
+  myProgressPercent: number;      // 자원-기여도-진척률: 내 배정의 본인 진척률
   resourceId: string;
   allocationMode: AllocationMode;
   allocationPercent: number | null;
   allocationHoursPerDay: number | null;
+  contributionWeight: number;     // 자원-기여도-진척률: 분담율
 }
 
 interface MyTaskView {
@@ -95,10 +97,12 @@ export async function myTasksRoutes(fastify: FastifyInstance) {
         startDate: seg.startDate ? new Date(seg.startDate).toISOString().slice(0, 10) : null,
         endDate: seg.endDate ? new Date(seg.endDate).toISOString().slice(0, 10) : null,
         progressPercent: seg.progressPercent ?? 0,
+        myProgressPercent: a.progressPercent ?? 0,
         resourceId: resource.id,
         allocationMode: a.allocationMode,
         allocationPercent: a.allocationPercent,
         allocationHoursPerDay: a.allocationHoursPerDay,
+        contributionWeight: a.contributionWeight ?? 0,
       });
     }
 
