@@ -265,10 +265,17 @@ export async function taskRoutes(fastify: FastifyInstance) {
   });
 
   // DELETE /api/v1/.../assignments/:resourceId
-  fastify.delete("/:taskId/segments/:segmentId/assignments/:resourceId", {
-    preHandler: requireRole("ADMIN", "MANAGER"),
-  }, async (req, reply) => {
-    const { segmentId, resourceId } = req.params as { projectId: string; taskId: string; segmentId: string; resourceId: string };
+  fastify.delete("/:taskId/segments/:segmentId/assignments/:resourceId", async (req, reply) => {
+    const { taskId, segmentId, resourceId } = req.params as { projectId: string; taskId: string; segmentId: string; resourceId: string };
+
+    // OPERATOR: 본인이 생성했거나 배정된 태스크면 자원 제거 가능 (배정 PUT과 동일 권한)
+    if (!["ADMIN", "MANAGER"].includes(req.userRole)) {
+      const allowed = await isTaskMember(fastify, taskId, req);
+      if (!allowed) {
+        return reply.status(403).send({ code: "FORBIDDEN", message: "본인이 배정된 태스크만 수정할 수 있습니다." });
+      }
+    }
+
     await taskService.removeAssignment(segmentId, resourceId, req.userId);
     return reply.status(204).send();
   });
