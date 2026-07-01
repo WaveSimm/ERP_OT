@@ -111,6 +111,8 @@ model AttendanceRecord {
   breakMinutes   Int              @default(0)
   netWorkMinutes Int              @default(0)
   note           String?
+  checkInSource  String           @default("CAPS")  // 'CAPS' | 'MANUAL' — 사람이 수정하면 MANUAL로 잠금
+  checkOutSource String           @default("CAPS")
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
@@ -253,6 +255,30 @@ model AttendancePolicy {
   updatedAt            DateTime @updatedAt
 
   @@map("attendance_policies")
+  @@schema("attendance")
+}
+
+// 캡스(ADT) e_id ↔ ERP 사용자 매핑 (caps-sync 워커가 사용)
+model CapsUserMap {
+  eId       Int      @id
+  userId    String
+  capsName  String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("caps_user_map")
+  @@schema("attendance")
+}
+
+// 캡스 증분 동기화 워터마크
+model CapsSyncState {
+  id         Int      @id
+  lastUptime String   @default("00000000000000") @db.VarChar(14)
+  updatedAt  DateTime @default(now())
+
+  @@map("caps_sync_state")
   @@schema("attendance")
 }
 

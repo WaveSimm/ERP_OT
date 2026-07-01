@@ -389,7 +389,7 @@ function MemberRow({ member, days, viewMode, holidays }: { member: Member; days:
   const entriesByDate = useMemo(() => {
     const map = new Map<string, Entry[]>();
     for (const e of member.entries) {
-      if (e.entryType === "WORK") continue;   // 출근 바 숨김 — 외근·교육·출장·휴가 등 예외만 표시
+      // 전사근태는 출퇴근 바(WORK, attendance_records에서 합성)를 표시 — 외근/휴가 등 예외와 함께
       if (!map.has(e.date)) map.set(e.date, []);
       map.get(e.date)!.push(e);
     }
