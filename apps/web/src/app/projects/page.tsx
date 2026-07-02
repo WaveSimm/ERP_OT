@@ -10,6 +10,7 @@ import TemplateWizard from "@/components/TemplateWizard";
 import TemplateManagerModal from "@/components/TemplateManagerModal";
 import UndoRedoControls from "@/components/UndoRedoControls";
 import { usePermission } from "@/hooks/usePermission";
+import { useFillHeight } from "@/hooks/useFillHeight";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import clsx from "clsx";
 
@@ -92,6 +93,7 @@ export default function ProjectsPage() {
 
   // API data
   const [projects, setProjects] = useState<Project[]>([]);
+  const { ref: tableBoxRef, maxHeight: tableMaxH } = useFillHeight();
   const [summaryId, setSummaryId] = useState<string | null>(null); // 프로젝트 요약 드로어
   const [showTemplateWizard, setShowTemplateWizard] = useState(false); // 새 프로젝트 - 템플릿으로 만들기
   const [showTemplateManager, setShowTemplateManager] = useState(false); // 템플릿 관리
@@ -937,10 +939,10 @@ export default function ProjectsPage() {
         </div>
 
         {/* Tree table */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div ref={tableBoxRef} className="bg-white rounded-xl border border-gray-200 overflow-auto" style={{ maxHeight: tableMaxH }}>
           {/* Column headers */}
           <div
-            className="flex items-center border-b border-gray-200 bg-gray-50/80 text-[11px] font-semibold text-gray-400 uppercase tracking-wider"
+            className="sticky top-0 z-10 flex items-center border-b border-gray-200 bg-gray-50 text-[11px] font-semibold text-gray-400 uppercase tracking-wider"
             style={{ height: 30 }}
           >
             <div className="flex-1 pl-4">프로젝트명</div>

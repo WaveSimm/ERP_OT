@@ -6,6 +6,7 @@ import { repairApi, getUser } from "@/lib/api";
 import SearchableSelect from "@/components/SearchableSelect";
 import FilterableSelect from "@/components/FilterableSelect";
 import Pagination from "@/components/Pagination";
+import { useFillHeight } from "@/hooks/useFillHeight";
 
 const STATUS_LABELS: Record<string, string> = {
   RECEIVED: "접수", INSPECTING_1ST: "1차점검", QUOTED: "견적발행",
@@ -57,6 +58,7 @@ type SortKey = "orderNumber" | "customer" | "asset" | "serialNumber" | "status" 
 export default function RepairOrdersPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<any[]>([]);
+  const { ref: tableBoxRef, maxHeight: tableMaxH } = useFillHeight();
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [statusGroup, setStatusGroup] = useState("");
@@ -132,8 +134,8 @@ export default function RepairOrdersPage() {
       </div>
 
       {/* 목록 테이블 */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
+      <div ref={tableBoxRef} className="bg-white border border-gray-200 rounded-lg overflow-auto" style={{ maxHeight: tableMaxH }}>
+        <div>
           <table className="w-full text-sm table-fixed">
             <colgroup>
               <col className="w-[88px]" />   {/* 접수번호: max12자 */}
@@ -146,7 +148,7 @@ export default function RepairOrdersPage() {
               <col className="w-[60px]" />   {/* 접수일 */}
               <col className="w-[48px]" />   {/* 경과 */}
             </colgroup>
-            <thead>
+            <thead className="sticky top-0 z-10 bg-gray-50">
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th onClick={() => handleSort("orderNumber")}  className="px-2 py-2.5 text-left   text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">접수번호{sortIndicator("orderNumber")}</th>
                 <th onClick={() => handleSort("customer")}     className="px-2 py-2.5 text-left   text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">고객{sortIndicator("customer")}</th>

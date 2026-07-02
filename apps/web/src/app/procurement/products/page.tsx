@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useFillHeight } from "@/hooks/useFillHeight";
 import { procurementApi, supplierApi, productVariantApi, inventoryApi } from "@/lib/api";
 import SearchableSelect from "@/components/SearchableSelect";
 import Pagination from "@/components/Pagination";
@@ -12,6 +13,7 @@ const PAGE_SIZE = 50;
 
 export default function ProductMasterPage() {
   const [products, setProducts] = useState<any[]>([]);
+  const { ref: tableBoxRef, maxHeight: tableMaxH } = useFillHeight();
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -149,7 +151,7 @@ export default function ProductMasterPage() {
         )}
       </div>
 
-      <div className="bg-white rounded-lg border overflow-hidden">
+      <div ref={tableBoxRef} className="bg-white rounded-lg border overflow-auto" style={{ maxHeight: tableMaxH }}>
         <table className="w-full text-sm table-fixed">
           <colgroup>
             <col className="w-[20%]" />
@@ -162,7 +164,7 @@ export default function ProductMasterPage() {
             <col className="w-[4%]" />
             <col className="w-[14%]" />
           </colgroup>
-          <thead className="bg-gray-50 border-b">
+          <thead className="sticky top-0 z-10 bg-gray-50 [&>tr>th]:border-b [&>tr>th]:border-gray-200">
             <tr>
               <SortableHeader sortKey="name" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">품명</SortableHeader>
               <SortableHeader sortKey="masterCode" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">SKU 코드</SortableHeader>

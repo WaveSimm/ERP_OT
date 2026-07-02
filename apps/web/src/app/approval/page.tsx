@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { approvalApi } from "@/lib/api";
+import { useFillHeight } from "@/hooks/useFillHeight";
 
 function getStatusStyle(status: string) {
   if (status === "DRAFT") return "bg-gray-100 text-gray-700";
@@ -27,6 +28,7 @@ export default function ApprovalPage() {
   const tabParam = (searchParams.get("tab") as Tab) || "pending";
 
   const [tab, setTab] = useState<Tab>(tabParam);
+  const { ref: tableBoxRef, maxHeight: tableMaxH } = useFillHeight();
   const [documents, setDocuments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -59,9 +61,9 @@ export default function ApprovalPage() {
            tab === "sent" ? "상신한 문서가 없습니다." : "완료된 문서가 없습니다."}
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div ref={tableBoxRef} className="bg-white rounded-lg border border-gray-200 overflow-auto" style={{ maxHeight: tableMaxH }}>
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-600">
+            <thead className="sticky top-0 z-10 bg-gray-50 text-gray-600 [&>tr>th]:border-b [&>tr>th]:border-gray-200">
               <tr>
                 <th className="text-left px-4 py-3 font-medium">문서번호</th>
                 <th className="text-left px-4 py-3 font-medium">양식</th>

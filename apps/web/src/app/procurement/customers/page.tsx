@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useFillHeight } from "@/hooks/useFillHeight";
 import { useRouter, usePathname } from "next/navigation";
 import { repairApi } from "@/lib/api";
 import Pagination from "@/components/Pagination";
@@ -12,6 +13,7 @@ export default function CustomersPage() {
   const pathname = usePathname();
   const basePath = pathname.startsWith("/repair") ? "/repair/customers" : "/procurement/customers";
   const [customers, setCustomers] = useState<any[]>([]);
+  const { ref: tableBoxRef, maxHeight: tableMaxH } = useFillHeight();
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -149,9 +151,9 @@ export default function CustomersPage() {
         </button>
       </div>
 
-      <div className="bg-white rounded-lg border overflow-hidden">
+      <div ref={tableBoxRef} className="bg-white rounded-lg border overflow-auto" style={{ maxHeight: tableMaxH }}>
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b">
+          <thead className="sticky top-0 z-10 bg-gray-50 [&>tr>th]:border-b [&>tr>th]:border-gray-200">
             <tr>
               <SortableHeader sortKey="name" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">고객사명</SortableHeader>
               <th className="px-4 py-3 text-left font-medium text-gray-600">사업자번호</th>

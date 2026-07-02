@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useFillHeight } from "@/hooks/useFillHeight";
 import Link from "next/link";
 import { bundleShipmentApi, procurementApi, inventoryApi } from "@/lib/api";
 import { fmtDate } from "@/lib/datetime";
@@ -29,6 +30,7 @@ export default function BundlesPage() {
 // ─── 출고 이력 탭 ───────────────────────────────────────────
 function ShipmentTab() {
   const [list, setList] = useState<any[]>([]);
+  const { ref: tableBoxRef, maxHeight: tableMaxH } = useFillHeight();
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<any | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -61,9 +63,9 @@ function ShipmentTab() {
         </button>
       </div>
 
-      <div className="bg-white rounded-lg border overflow-hidden">
+      <div ref={tableBoxRef} className="bg-white rounded-lg border overflow-auto" style={{ maxHeight: tableMaxH }}>
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b">
+          <thead className="sticky top-0 z-10 bg-gray-50 [&>tr>th]:border-b [&>tr>th]:border-gray-200">
             <tr>
               <SortableHeader sortKey="code" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-2 text-left font-medium text-gray-600">번들 코드</SortableHeader>
               <SortableHeader sortKey="customer" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-2 text-left font-medium text-gray-600">고객사</SortableHeader>

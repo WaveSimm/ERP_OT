@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useFillHeight } from "@/hooks/useFillHeight";
 import { inventoryApi } from "@/lib/api";
 import Pagination from "@/components/Pagination";
 import SortableHeader from "@/components/SortableHeader";
@@ -10,6 +11,7 @@ const PAGE_SIZE = 50;
 
 export default function LocationsPage() {
   const [locations, setLocations] = useState<any[]>([]);
+  const { ref: tableBoxRef, maxHeight: tableMaxH } = useFillHeight();
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -120,7 +122,7 @@ export default function LocationsPage() {
 
       <p className="text-xs text-gray-400 mb-3">고객사 위치는 고객사 관리 탭에서 관리됩니다.</p>
 
-      <div className="bg-white rounded-lg border overflow-hidden">
+      <div ref={tableBoxRef} className="bg-white rounded-lg border overflow-auto" style={{ maxHeight: tableMaxH }}>
         <table className="w-full text-sm table-fixed">
           <colgroup>
             <col className="w-[40%]" />
@@ -128,7 +130,7 @@ export default function LocationsPage() {
             <col className="w-[10%]" />
             <col className="w-[15%]" />
           </colgroup>
-          <thead className="bg-gray-50 border-b">
+          <thead className="sticky top-0 z-10 bg-gray-50 [&>tr>th]:border-b [&>tr>th]:border-gray-200">
             <tr>
               <SortableHeader sortKey="name" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">위치명</SortableHeader>
               <th className="px-4 py-3 text-left font-medium text-gray-600">설명</th>
