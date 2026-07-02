@@ -7,6 +7,7 @@
 //    ※ 실데이터를 읽어오지만 편집은 로컬 상태(저장 안 됨). UX 검증용.
 // ─────────────────────────────────────────────────────────────────────────────
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { notFound } from "next/navigation";
 import AppLayout from "@/components/AppLayout";
 import { DateInput } from "@/components/ui/DateInput";
 import { resourceApi } from "@/lib/api";
@@ -43,6 +44,9 @@ interface Row {
 }
 
 export default function AllocationLabPage() {
+  // 실험 페이지 가드: 프로덕션 빌드에선 404 — 미리보기 dev 서버(:3009) 전용.
+  //   NODE_ENV는 빌드타임 상수라 운영 번들에선 항상 notFound. 정식 반영 시 이 가드만 제거.
+  if (process.env.NODE_ENV === "production") notFound();
   const init = useMemo(() => { const a = weekRange(0); const b = weekRange(1); return { start: a.start, end: b.end }; }, []);
   const [startDate, setStartDate] = useState(init.start);
   const [endDate, setEndDate] = useState(init.end);
@@ -148,7 +152,8 @@ export default function AllocationLabPage() {
             <table className="text-xs border-collapse">
               <thead>
                 <tr className="bg-gray-50">
-                  <th className="sticky left-0 z-10 bg-gray-50 border-b border-r border-gray-200 px-3 py-2 text-left min-w-[280px]">태스크 · 평균 투입율(%)</th>
+                  <th className="sticky left-0 z-10 bg-gray-50 border-b border-r border-gray-200 px-3 py-2 text-left w-[140px] min-w-[140px] max-w-[140px]">프로젝트</th>
+                  <th className="sticky left-[140px] z-10 bg-gray-50 border-b border-r border-gray-200 px-3 py-2 text-left min-w-[280px]">태스크 · 평균 투입율(%)</th>
                   {days.map((d) => (
                     <th key={d.date} className={`border-b border-gray-200 px-1 py-1 text-center min-w-[42px] ${d.isWeekend || d.isHoliday ? "bg-gray-100 text-gray-400" : "text-gray-500"}`}
                       title={d.holidayName || d.leaveLabel || ""}>
@@ -162,7 +167,10 @@ export default function AllocationLabPage() {
                 {assignments.map((a) => {
                   return (
                     <tr key={a.segmentId} className="hover:bg-blue-50/30">
-                      <td className="sticky left-0 z-10 bg-white border-b border-r border-gray-200 px-3 py-1 whitespace-nowrap">
+                      <td className="sticky left-0 z-10 bg-white border-b border-r border-gray-200 px-3 py-1 w-[140px] min-w-[140px] max-w-[140px]">
+                        <div className="truncate text-gray-500" title={a.projectName}>{a.projectName}</div>
+                      </td>
+                      <td className="sticky left-[140px] z-10 bg-white border-b border-r border-gray-200 px-3 py-1 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-gray-700 truncate max-w-[150px]" title={`${a.projectName} · ${a.taskName}`}>{a.taskName}</span>
                           <input type="number" value={currentAvg(a)} onChange={(e) => setAvg(a, Number(e.target.value))}
@@ -190,7 +198,7 @@ export default function AllocationLabPage() {
               </tbody>
               <tfoot>
                 <tr className="bg-gray-50 font-medium">
-                  <td className="sticky left-0 z-10 bg-gray-50 border-t border-r border-gray-200 px-3 py-2 text-gray-600">일 합계 (%)</td>
+                  <td colSpan={2} className="sticky left-0 z-10 bg-gray-50 border-t border-r border-gray-200 px-3 py-2 text-gray-600">일 합계 (%)</td>
                   {days.map((d) => {
                     const t = Math.round(dayTotal(d.date) * 10) / 10;
                     return (
