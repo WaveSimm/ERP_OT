@@ -158,6 +158,9 @@ model LeaveRequest {
   approvedAt        DateTime?
   rejectReason      String?
   cancelledAt       DateTime?
+  // ecount(외부 전자결재) 결재 확인 — 관리부서가 대조 후 체크 (관리>근태현황)
+  ecountCheckedAt   DateTime?      @map("ecount_checked_at")
+  ecountCheckedById String?        @map("ecount_checked_by_id")
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
@@ -209,6 +212,9 @@ model HolidayWorkRequest {
   rejectReason     String?
   projectId        String?        // 옵션 — 어느 프로젝트 위해
   taskId           String?        // 옵션 — 어느 task 위해 (segment 자동 추론)
+  // ecount(외부 전자결재) 결재 확인 — 관리부서가 대조 후 체크 (관리>근태현황)
+  ecountCheckedAt   DateTime?     @map("ecount_checked_at")
+  ecountCheckedById String?       @map("ecount_checked_by_id")
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 

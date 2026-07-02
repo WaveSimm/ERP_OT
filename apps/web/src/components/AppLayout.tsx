@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { clearToken, getUser, setUser, myProfileApi, notificationApi, attendanceApi, authApi } from "@/lib/api";
+import { isManagementUser } from "@/lib/management";
 import clsx from "clsx";
 
 type NavItem = {
@@ -12,6 +13,8 @@ type NavItem = {
   managerOnly: boolean;
   /** 시범 릴리즈(2026-06-23): 관리자 외 계정에서 숨김 — 회계/결재 메뉴 제한 */
   adminOnly?: boolean;
+  /** 관리부서(회계·경영지원·임원·대표이사) + ADMIN만 — lib/management.ts 게이트 */
+  mgmtOnly?: boolean;
   /** 두 줄 모드 분할 override — 자동 규칙(띄어쓰기/슬래시/floor(len/2))과 다른 결과를 강제할 때만 사용 */
   short?: [string, string];
 };
@@ -23,6 +26,7 @@ const NAV: NavItem[] = [
   { href: "/resources",      label: "자원",       icon: "👥", managerOnly: false },
   { href: "/equipment",      label: "장비",       icon: "🔧", managerOnly: false },
   { href: "/repair",         label: "수리",       icon: "🛠", managerOnly: false },
+  { href: "/management/attendance", label: "관리", icon: "🗄", managerOnly: false, mgmtOnly: true },
   { href: "/procurement",    label: "회계",       icon: "📦", managerOnly: false, adminOnly: true },
   { href: "/approval",       label: "결재",      icon: "📝", managerOnly: false, adminOnly: true },
   { href: "/board",          label: "게시판",     icon: "📋", managerOnly: false },
@@ -136,6 +140,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<{ id: string; name: string; role: string; isTeamLeader?: boolean } | null>(null);
   const isManager = currentUser?.role === "ADMIN" || currentUser?.role === "MANAGER";
   const isAdmin = currentUser?.role === "ADMIN";
+  // 관리 메뉴(관리부서 전용) 게이트 — 부서 확인은 비동기(프로필 조회)라 확인 전엔 숨김
+  const [isMgmt, setIsMgmt] = useState(false);
+  useEffect(() => {
+    if (!currentUser) return;
+    let alive = true;
+    isManagementUser().then((ok) => { if (alive) setIsMgmt(ok); });
+    return () => { alive = false; };
+  }, [currentUser?.id]);
   const isTeamLeader = !!currentUser?.isTeamLeader;
   const showAdminDropdown = isAdmin || isTeamLeader;
   const [unreadCount, setUnreadCount] = useState(0);
@@ -337,7 +349,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </button>
 
           <nav className="flex items-center gap-1 shrink-0">
-            {NAV.filter((n) => (!n.managerOnly || isManager) && (!n.adminOnly || isAdmin)).map((n) => {
+            {NAV.filter((n) => (!n.managerOnly || isManager) && (!n.adminOnly || isAdmin) && (!n.mgmtOnly || isMgmt)).map((n) => {
               const [first, second] = n.short ?? splitLabel(n.label);
               return (
                 <button
