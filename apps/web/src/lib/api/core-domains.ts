@@ -552,6 +552,35 @@ export const attendanceOverviewApi = {
     request<any>(`/work-schedule/group/${groupId}`, { method: "DELETE" }),
 };
 
+// ─── Attendance Admin (관리>근태현황 — ecount 결재 확인) ────────────────────
+
+export interface ApprovalCheckRow {
+  kind: "LEAVE" | "HOLIDAY_WORK";
+  id: string;
+  userId: string;
+  userName: string;
+  departmentName: string | null;
+  type: string;
+  startDate: string;
+  endDate: string;
+  startTime: string | null;
+  days: number | null;
+  status: string;
+  ecountCheckedAt: string | null;
+  ecountCheckedById: string | null;
+  ecountCheckedByName: string | null;
+}
+
+export const attendanceAdminApi = {
+  listApprovalChecks: (year: number, month: number) =>
+    request<{ year: number; month: number; total: number; unchecked: number; rows: ApprovalCheckRow[] }>(
+      `/attendance-admin/approval-checks?year=${year}&month=${month}`),
+  setEcountCheck: (kind: "LEAVE" | "HOLIDAY_WORK", id: string, checked: boolean) =>
+    request<{ id: string; ecountCheckedAt: string | null; ecountCheckedById: string | null }>(
+      `/attendance-admin/approval-checks/${kind === "LEAVE" ? "leave" : "holiday-work"}/${id}/ecount`,
+      { method: "PATCH", body: JSON.stringify({ checked }) }),
+};
+
 // ─── Leave ────────────────────────────────────────────────────────────────────
 
 export const leaveApi = {
