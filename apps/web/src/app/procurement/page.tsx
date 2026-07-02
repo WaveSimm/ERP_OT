@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { procurementApi } from "@/lib/api";
 import Pagination from "@/components/Pagination";
 import SortableHeader from "@/components/SortableHeader";
+import { useFillHeight } from "@/hooks/useFillHeight";
 import { useSortPreference } from "@/hooks/useSortPreference";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -68,6 +69,7 @@ function fmtDate(d: string | null) {
 export default function ProcurementPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<any[]>([]);
+  const { ref: tableBoxRef, maxHeight: tableMaxH } = useFillHeight();
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
@@ -215,9 +217,9 @@ export default function ProcurementPage() {
       {/* /sticky 영역 끝 */}
 
       {/* Orders Table */}
-      <div className="bg-white rounded-lg border overflow-hidden">
+      <div ref={tableBoxRef} className="bg-white rounded-lg border overflow-auto" style={{ maxHeight: tableMaxH }}>
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b">
+          <thead className="sticky top-0 z-10 bg-gray-50 [&>tr>th]:border-b [&>tr>th]:border-gray-200">
             <tr>
               <SortableHeader sortKey="orderNumber" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">발주번호</SortableHeader>
               <th className="px-4 py-3 text-left font-medium text-gray-600">품목명</th>

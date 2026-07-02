@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { useFillHeight } from "@/hooks/useFillHeight";
 import { useRouter, useSearchParams } from "next/navigation";
 import { equipmentApi, sensorApi, equipmentCategoryApi, equipmentScheduleApi, supplierApi } from "@/lib/api";
 import SearchableSelect from "@/components/SearchableSelect";
@@ -554,6 +555,7 @@ function ScheduleTab() {
     return d;
   });
   const [data, setData] = useState<any>(null);
+  const { ref: tableBoxRef, maxHeight: tableMaxH } = useFillHeight();
   const [loading, setLoading] = useState(true);
   const [assetType, setAssetType] = useState("ALL");
 
@@ -623,11 +625,11 @@ function ScheduleTab() {
       ) : !data?.assets?.length ? (
         <div className="text-center py-12 text-gray-400">일정이 없습니다.</div>
       ) : (
-        <div className="bg-white border rounded-lg overflow-x-auto">
+        <div ref={tableBoxRef} className="bg-white border rounded-lg overflow-auto" style={{ maxHeight: tableMaxH }}>
           <table className="w-full text-sm" style={{ minWidth: `${200 + daysInMonth * 28}px` }}>
-            <thead>
+            <thead className="sticky top-0 z-20">
               <tr className="bg-gray-50 border-b">
-                <th className="p-2 text-left w-48 sticky left-0 bg-gray-50 z-10">자산</th>
+                <th className="p-2 text-left w-48 sticky left-0 bg-gray-50 z-30">자산</th>
                 {Array.from({ length: daysInMonth }, (_, i) => (
                   <th key={i} className="p-1 text-center text-xs text-gray-400 w-7">
                     {i + 1}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useFillHeight } from "@/hooks/useFillHeight";
 import { expenseFollowupApi } from "@/lib/api";
 import SortableHeader from "@/components/SortableHeader";
 import { useSortPreference } from "@/hooks/useSortPreference";
@@ -62,6 +63,7 @@ export default function ExpensesPage() {
 
 function ExpenseApprovalTab() {
   const [items, setItems] = useState<any[]>([]);
+  const { ref: tableBoxRef, maxHeight: tableMaxH } = useFillHeight();
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
   const { sortBy, sortOrder, handleSort } = useSortPreference("expenses-approval", "", "desc");
@@ -227,9 +229,9 @@ function ExpenseApprovalTab() {
           <p className="text-xs mt-2">지출결의서·개인정산 결재 승인 후 자동으로 등록됩니다.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-lg border overflow-hidden">
+        <div ref={tableBoxRef} className="bg-white rounded-lg border overflow-auto" style={{ maxHeight: tableMaxH }}>
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="sticky top-0 z-10 bg-gray-50 [&>tr>th]:border-b [&>tr>th]:border-gray-200">
               <tr>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">문서번호</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">제목</th>

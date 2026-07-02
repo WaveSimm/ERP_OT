@@ -31,6 +31,16 @@ export class WorkScheduleService {
       orderBy: { date: "asc" },
     });
 
+    // 2-0. 휴일근무(OT) 엔트리의 사유 — entry.label은 고정문자열("휴일근무")이라
+    //      신청서(HolidayWorkRequest.reason)를 sourceId로 조인해 동봉 (전사근태 바 2줄 표시용)
+    const otIds = [...new Set(entries.filter((e) => e.sourceType === "OT_APPROVED" && e.sourceId).map((e) => e.sourceId as string))];
+    const otReqs = otIds.length
+      ? await this.prisma.holidayWorkRequest.findMany({ where: { id: { in: otIds } }, select: { id: true, reason: true } })
+      : [];
+    const otReasonMap = new Map(otReqs.map((r) => [r.id, r.reason]));
+    const reasonOf = (e: { sourceType: string; sourceId: string | null }): string | null =>
+      e.sourceType === "OT_APPROVED" && e.sourceId ? otReasonMap.get(e.sourceId) ?? null : null;
+
     // 2-1. 출근(WORK) 바는 attendance_records(출퇴근 시각)에서 합성 — 단일 출처.
     //      work_schedule의 WORK 엔트리는 무시(이중표시 방지).
     const records = await this.prisma.attendanceRecord.findMany({
@@ -107,6 +117,7 @@ export class WorkScheduleService {
               startTime: e.startTime,
               endTime: e.endTime,
               label: e.label,
+              reason: reasonOf(e),
               groupId: e.groupId,
               sourceType: e.sourceType,
               sourceId: e.sourceId,
@@ -129,6 +140,7 @@ export class WorkScheduleService {
           startTime: e.startTime,
           endTime: e.endTime,
           label: e.label,
+          reason: reasonOf(e),
           groupId: e.groupId,
           sourceType: e.sourceType,
           sourceId: e.sourceId,

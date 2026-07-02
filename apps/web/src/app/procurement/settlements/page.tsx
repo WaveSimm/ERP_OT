@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { settlementApi } from "@/lib/api";
 import SortableHeader from "@/components/SortableHeader";
 import { useSortPreference } from "@/hooks/useSortPreference";
+import { useFillHeight } from "@/hooks/useFillHeight";
 
 export default function SettlementsPage() {
   const router = useRouter();
   const [items, setItems] = useState<any[]>([]);
+  const { ref: tableBoxRef, maxHeight: tableMaxH } = useFillHeight();
   const [loading, setLoading] = useState(true);
   const { sortBy, sortOrder, handleSort } = useSortPreference("settlements", "", "desc");
 
@@ -35,9 +37,9 @@ export default function SettlementsPage() {
       ) : items.length === 0 ? (
         <div className="text-center py-12 text-gray-400">수입원가정산 데이터가 없습니다.</div>
       ) : (
-        <div className="bg-white rounded-lg border overflow-hidden">
+        <div ref={tableBoxRef} className="bg-white rounded-lg border overflow-auto" style={{ maxHeight: tableMaxH }}>
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-600">
+            <thead className="sticky top-0 z-10 bg-gray-50 text-gray-600 [&>tr>th]:border-b [&>tr>th]:border-gray-200">
               <tr>
                 <SortableHeader sortKey="declarationNo" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="text-left px-4 py-3 font-medium">신고번호</SortableHeader>
                 <SortableHeader sortKey="supplier" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="text-left px-4 py-3 font-medium">공급업체</SortableHeader>

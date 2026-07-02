@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useFillHeight } from "@/hooks/useFillHeight";
 import { useRouter } from "next/navigation";
 import { inboundRequestApi, supplierApi, procurementApi, inventoryApi, productVariantApi } from "@/lib/api";
 import { fmtDateTime24 } from "@/lib/datetime";
@@ -49,6 +50,7 @@ interface ReceiveRow {
 
 export default function InboundRequestPage() {
   const [list, setList] = useState<any[]>([]);
+  const { ref: tableBoxRef, maxHeight: tableMaxH } = useFillHeight();
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("PENDING");
   const router = useRouter();
@@ -220,9 +222,9 @@ export default function InboundRequestPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border overflow-hidden">
+      <div ref={tableBoxRef} className="bg-white rounded-lg border overflow-auto" style={{ maxHeight: tableMaxH }}>
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b">
+          <thead className="sticky top-0 z-10 bg-gray-50 [&>tr>th]:border-b [&>tr>th]:border-gray-200">
             <tr>
               <SortableHeader sortKey="code" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-2 text-left font-medium text-gray-600">코드</SortableHeader>
               <SortableHeader sortKey="status" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-2 text-left font-medium text-gray-600">상태</SortableHeader>
