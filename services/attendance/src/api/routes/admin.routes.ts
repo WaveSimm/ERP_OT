@@ -47,7 +47,12 @@ export async function adminRoutes(fastify: FastifyInstance) {
 
     const [leaves, holidayWorks, users] = await Promise.all([
       fastify.prisma.leaveRequest.findMany({
-        where: { startDate: { lte: end }, endDate: { gte: start } },
+        // 가정의날(1h·2h)은 ecount 결재 대상 아님 — 확인 목록에서 제외 (2026-07-02 관리부서 방침)
+        where: {
+          startDate: { lte: end },
+          endDate: { gte: start },
+          type: { notIn: [LeaveType.FAMILY_DAY, LeaveType.FAMILY_DAY_2H] },
+        },
       }),
       fastify.prisma.holidayWorkRequest.findMany({
         where: { date: { gte: start, lte: end } },
