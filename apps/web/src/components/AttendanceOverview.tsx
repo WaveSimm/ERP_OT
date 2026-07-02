@@ -138,8 +138,16 @@ interface Entry {
   startTime: string | null;
   endTime: string | null;
   label: string | null;
+  reason: string | null;  // 휴일근무(OT): 신청 사유 (백엔드가 신청서에서 조인)
   groupId: string | null;
   sourceType: string;
+}
+
+// 바 2번째 줄에 내역(사유)을 표시하는 유형 — 근무군(수동입력 label)·휴일근무(신청 reason)
+function entryDetail(e: Entry): string | null {
+  if (e.entryType === "OT") return e.reason || null;
+  if (e.entryType === "FIELD" || e.entryType === "TRAINING" || e.entryType === "BUSINESS_TRIP") return e.label || null;
+  return null;
 }
 
 interface Member {
@@ -424,10 +432,11 @@ function MemberRow({ member, days, viewMode, holidays }: { member: Member; days:
                   ? `${e.startTime}~${e.endTime}`
                   : e.startTime ? `${e.startTime}~`
                   : e.endTime ? `~${e.endTime}` : "";
+                const detail = entryDetail(e);
                 if (viewMode === "month") {
                   return (
                     <span key={e.id} className={`text-[10px] px-0.5 py-px rounded whitespace-nowrap ${ENTRY_COLORS[e.entryType] ?? "bg-gray-100 text-gray-600"}`}
-                      title={[ENTRY_LABELS[e.entryType], timeStr, e.label].filter(Boolean).join(" / ")}>
+                      title={[ENTRY_LABELS[e.entryType], timeStr, detail ?? e.label].filter(Boolean).join(" / ")}>
                       {(ENTRY_LABELS[e.entryType] ?? e.entryType).slice(0, 1)}
                     </span>
                   );
@@ -435,14 +444,18 @@ function MemberRow({ member, days, viewMode, holidays }: { member: Member; days:
                 // 타임라인 트랙: 전체 폭 = 본인 근무시간(유연근무 반영), 바는 시작시각 위치 + 길이
                 const { left, width } = barGeom(e.startTime, e.endTime, dayStart, dayEnd);
                 const isPartial = !!(e.startTime && e.endTime);
+                // 근무군·휴일근무는 2줄 바 — 1줄=유형·시간, 2줄=내역(사유)
                 return (
-                  <div key={e.id} className="w-full relative h-5 rounded bg-gray-100/60"
-                    title={[ENTRY_LABELS[e.entryType], timeStr, e.label].filter(Boolean).join(" / ")}>
-                    <div className={`absolute top-0 bottom-0 rounded px-1 flex items-center overflow-hidden ${ENTRY_COLORS[e.entryType] ?? "bg-gray-100 text-gray-600"}`}
+                  <div key={e.id} className={`w-full relative rounded bg-gray-100/60 ${detail ? "h-9" : "h-5"}`}
+                    title={[ENTRY_LABELS[e.entryType], timeStr, detail ?? e.label].filter(Boolean).join(" / ")}>
+                    <div className={`absolute top-0 bottom-0 rounded px-1 flex flex-col justify-center overflow-hidden ${ENTRY_COLORS[e.entryType] ?? "bg-gray-100 text-gray-600"}`}
                       style={{ left: `${left}%`, width: `${width}%` }}>
                       <span className="text-[9px] font-medium leading-none truncate">
                         {ENTRY_LABELS[e.entryType] ?? e.entryType}{isPartial && timeStr ? ` ${timeStr}` : ""}
                       </span>
+                      {detail && (
+                        <span className="text-[9px] leading-none truncate opacity-75 mt-0.5">{detail}</span>
+                      )}
                     </div>
                   </div>
                 );
