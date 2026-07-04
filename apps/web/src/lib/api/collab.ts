@@ -321,11 +321,25 @@ export const workLogApi = {
 
   myProjects: () => request<any[]>("/me/work-log-projects"),
 
-  feed: (params?: { limit?: number }) => {
+  feed: (params?: {
+    limit?: number;
+    offset?: number;
+    from?: string;
+    to?: string;
+    authorId?: string;
+    projectId?: string;
+    q?: string;
+  }) => {
     const q = new URLSearchParams();
     if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.offset) q.set("offset", String(params.offset));
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
+    if (params?.authorId) q.set("authorId", params.authorId);
+    if (params?.projectId) q.set("projectId", params.projectId);
+    if (params?.q) q.set("q", params.q);
     const qs = q.toString();
-    return request<any[]>(`/me/work-log-feed${qs ? `?${qs}` : ""}`);
+    return request<{ items: any[]; total: number }>(`/me/work-log-feed${qs ? `?${qs}` : ""}`);
   },
 };
 

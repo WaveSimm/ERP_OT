@@ -354,14 +354,37 @@ export async function meRoutes(fastify: FastifyInstance) {
   });
 
   // ─── GET /api/v1/me/work-log-feed ─────────────────────────────────────────
+  // 페이지네이션 + 서버 필터 (2026-07-04): { items, total } 반환
   fastify.get("/work-log-feed", async (req, reply) => {
-    const q = req.query as { limit?: string };
-    const params: { limit?: number } = {};
+    const q = req.query as {
+      limit?: string;
+      offset?: string;
+      from?: string;
+      to?: string;
+      authorId?: string;
+      projectId?: string;
+      q?: string;
+    };
+    const params: {
+      limit?: number;
+      offset?: number;
+      from?: string;
+      to?: string;
+      authorId?: string;
+      projectId?: string;
+      q?: string;
+    } = {};
     if (q.limit) params.limit = parseInt(q.limit, 10);
-    const items = await fastify.workLogService.listFeed(
+    if (q.offset) params.offset = parseInt(q.offset, 10);
+    if (q.from) params.from = q.from;
+    if (q.to) params.to = q.to;
+    if (q.authorId) params.authorId = q.authorId;
+    if (q.projectId) params.projectId = q.projectId;
+    if (q.q) params.q = q.q;
+    const result = await fastify.workLogService.listFeed(
       { id: req.userId, email: req.userEmail, role: req.userRole },
       params,
     );
-    return reply.send(items);
+    return reply.send(result);
   });
 }

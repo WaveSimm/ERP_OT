@@ -60,13 +60,13 @@ export default function BoardLandingPage() {
     Promise.all([
       postApi.feed({ categoryCode: "notice", limit: 5 }).catch(() => ({ items: [] })),
       postApi.feed({ categoryCode: "wiki", limit: 5 }).catch(() => ({ items: [] })),
-      workLogApi.feed({ limit: 10 }).catch(() => []),
+      workLogApi.feed({ limit: 10 }).catch(() => ({ items: [] })),
     ])
       .then(([notice, wiki, workLogs]: any) => {
         if (cancelled) return;
         setNoticeItems((notice.items ?? []) as FeedItem[]);
         setWikiItems((wiki.items ?? []) as FeedItem[]);
-        setWorkLogItems((workLogs ?? []) as WorkLogFeedItem[]);
+        setWorkLogItems((workLogs.items ?? []) as WorkLogFeedItem[]);
       })
       .finally(() => !cancelled && setLoading(false));
     return () => {

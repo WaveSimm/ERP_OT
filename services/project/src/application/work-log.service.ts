@@ -389,32 +389,68 @@ export class WorkLogService {
 
   // 최근 비고 피드 (게시판 랜딩·통합 목록용)
   // 전사 공유 (2026-07-04): 프로젝트 비고는 전 직원 공개, 작성일(createdAt) 최신순
-  async listFeed(_user: AuthUser & { email: string }, params: { limit?: number | undefined }) {
+  // 페이지네이션 (2026-07-04): offset/limit + 서버 필터(기간=작성일 KST·작성자·프로젝트·검색어), total 반환
+  async listFeed(
+    _user: AuthUser & { email: string },
+    params: {
+      limit?: number | undefined;
+      offset?: number | undefined;
+      from?: string | undefined;
+      to?: string | undefined;
+      authorId?: string | undefined;
+      projectId?: string | undefined;
+      q?: string | undefined;
+    },
+  ) {
     const limit = Math.min(200, params.limit ?? 10);
+    const offset = Math.max(0, params.offset ?? 0);
 
-    const items = await this.prisma.workLog.findMany({
-      where: { isDeleted: false },
-      orderBy: [{ createdAt: "desc" }],
-      take: limit,
-      include: {
-        task: {
-          select: {
-            id: true,
-            name: true,
-            projectId: true,
-            project: { select: { name: true } },
+    const where: Prisma.WorkLogWhereInput = { isDeleted: false };
+    if (params.from) {
+      where.createdAt = { ...((where.createdAt as object) ?? {}), gte: new Date(`${params.from}T00:00:00+09:00`) };
+    }
+    if (params.to) {
+      where.createdAt = { ...((where.createdAt as object) ?? {}), lte: new Date(`${params.to}T23:59:59.999+09:00`) };
+    }
+    if (params.authorId) where.authorId = params.authorId;
+    if (params.projectId) where.task = { projectId: params.projectId };
+    if (params.q) {
+      where.OR = [
+        { content: { contains: params.q, mode: "insensitive" } },
+        { task: { name: { contains: params.q, mode: "insensitive" } } },
+      ];
+    }
+
+    const [total, items] = await Promise.all([
+      this.prisma.workLog.count({ where }),
+      this.prisma.workLog.findMany({
+        where,
+        orderBy: [{ createdAt: "desc" }],
+        skip: offset,
+        take: limit,
+        include: {
+          task: {
+            select: {
+              id: true,
+              name: true,
+              projectId: true,
+              project: { select: { name: true } },
+            },
           },
+          segment: { select: { id: true, name: true } },
         },
-        segment: { select: { id: true, name: true } },
-      },
-    });
+      }),
+    ]);
 
-    return items.map((w) => ({
-      ...this.toDto(w),
-      taskName: w.task.name,
-      projectId: w.task.projectId,
-      projectName: w.task.project?.name ?? "",
-    }));
+    return {
+      total,
+      items: items.map((w) => ({
+        ...this.toDto(w),
+        taskName: w.task.name,
+        projectId: w.task.projectId,
+        projectName: w.task.project?.name ?? "",
+      })),
+    };
   }
 
   // 프로젝트 게시판 사이드바용 프로젝트 + WorkLog 통계

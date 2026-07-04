@@ -24,12 +24,7 @@ function dateAdd(days: number) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function localDate(iso: string) {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-const LIMIT = 50;
+const PAGE_SIZES = [20, 50, 100] as const;
 
 export default function ProjectBoardLandingPage() {
   const router = useRouter();
@@ -37,6 +32,9 @@ export default function ProjectBoardLandingPage() {
   const [me, setMe] = useState<{ id: string; role: string } | null>(null);
 
   const [logs, setLogs] = useState<AllWorkLog[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(20);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [from, setFrom] = useState<string>(dateAdd(-30));
@@ -67,29 +65,33 @@ export default function ProjectBoardLandingPage() {
       .catch(() => {});
   }, [router]);
 
+  // 필터·검색·페이지 크기 변경 시 1페이지로 (서버 사이드 필터+페이지네이션)
+  useEffect(() => {
+    setPage(1);
+  }, [from, to, authorFilter, projectFilter, appliedSearch, pageSize]);
+
   const reload = useCallback(async () => {
     if (!mounted) return;
     setLoading(true);
     setError(null);
     try {
-      const limit = 200;
-      const data = await workLogApi.feed({ limit });
-      // 기간 필터는 작성일(createdAt, 로컬 날짜) 기준
-      const filtered = (data ?? []).filter((w: any) => {
-        const created = localDate(w.createdAt);
-        if (from && created < from) return false;
-        if (to && created > to) return false;
-        if (authorFilter && w.authorId !== authorFilter) return false;
-        if (projectFilter && w.projectId !== projectFilter) return false;
-        return true;
-      }) as AllWorkLog[];
-      setLogs(filtered.slice(0, LIMIT * 4));
+      const data = await workLogApi.feed({
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
+        from: from || undefined,
+        to: to || undefined,
+        authorId: authorFilter || undefined,
+        projectId: projectFilter || undefined,
+        q: appliedSearch || undefined,
+      });
+      setLogs((data.items ?? []) as AllWorkLog[]);
+      setTotal(data.total ?? 0);
     } catch (e: any) {
       setError(e?.message ?? "조회 실패");
     } finally {
       setLoading(false);
     }
-  }, [mounted, from, to, authorFilter, projectFilter]);
+  }, [mounted, page, pageSize, from, to, authorFilter, projectFilter, appliedSearch]);
 
   useEffect(() => {
     void reload();
@@ -104,15 +106,7 @@ export default function ProjectBoardLandingPage() {
     await reload();
   };
 
-  const visibleLogs = appliedSearch
-    ? logs.filter((l) => {
-        const q = appliedSearch.toLowerCase();
-        return (
-          (l.content ?? "").toLowerCase().includes(q) ||
-          (l.taskName ?? "").toLowerCase().includes(q)
-        );
-      })
-    : logs;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const authorOptions = fullAuthors.length > 0
     ? fullAuthors
@@ -199,7 +193,9 @@ export default function ProjectBoardLandingPage() {
                   </div>
                 </div>
               </div>
-              <div className="text-xs text-gray-400 mt-2">총 {visibleLogs.length}건{appliedSearch && ` (전체 ${logs.length}건 중)`}</div>
+              <div className="text-xs text-gray-400 mt-2">
+                총 {total.toLocaleString()}건 · {page}/{totalPages} 페이지
+              </div>
             </div>
 
             <form
@@ -247,20 +243,82 @@ export default function ProjectBoardLandingPage() {
                 <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
               </div>
             ) : (
-              <WorkLogTimeline
-                logs={visibleLogs as any}
-                currentUserId={userId}
-                isAdmin={isAdmin}
-                showTaskName
-                showProjectName
-                groupBy="createdAt"
-                onUpdate={handleUpdate}
-                onDelete={handleDelete}
-              />
+              <>
+                <WorkLogTimeline
+                  logs={logs as any}
+                  currentUserId={userId}
+                  isAdmin={isAdmin}
+                  showTaskName
+                  showProjectName
+                  groupBy="createdAt"
+                  onUpdate={handleUpdate}
+                  onDelete={handleDelete}
+                />
+                <Pagination
+                  page={page}
+                  totalPages={totalPages}
+                  pageSize={pageSize}
+                  onPageChange={setPage}
+                  onPageSizeChange={setPageSize}
+                />
+              </>
             )}
           </div>
         </div>
       </div>
     </AppLayout>
+  );
+}
+
+function pageWindow(page: number, totalPages: number, size = 5): number[] {
+  let start = Math.max(1, page - Math.floor(size / 2));
+  const end = Math.min(totalPages, start + size - 1);
+  start = Math.max(1, end - size + 1);
+  return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+}
+
+function Pagination({
+  page,
+  totalPages,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+}: {
+  page: number;
+  totalPages: number;
+  pageSize: number;
+  onPageChange: (p: number) => void;
+  onPageSizeChange: (s: number) => void;
+}) {
+  const btn = "px-2.5 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-white";
+  return (
+    <div className="flex items-center justify-center gap-1 mt-5 flex-wrap">
+      <button className={btn} disabled={page <= 1} onClick={() => onPageChange(1)}>«</button>
+      <button className={btn} disabled={page <= 1} onClick={() => onPageChange(page - 1)}>‹</button>
+      {pageWindow(page, totalPages).map((p) => (
+        <button
+          key={p}
+          onClick={() => onPageChange(p)}
+          className={`px-2.5 py-1 text-sm border rounded ${
+            p === page
+              ? "bg-blue-600 border-blue-600 text-white font-medium"
+              : "border-gray-300 hover:bg-gray-50"
+          }`}
+        >
+          {p}
+        </button>
+      ))}
+      <button className={btn} disabled={page >= totalPages} onClick={() => onPageChange(page + 1)}>›</button>
+      <button className={btn} disabled={page >= totalPages} onClick={() => onPageChange(totalPages)}>»</button>
+      <select
+        value={pageSize}
+        onChange={(e) => onPageSizeChange(Number(e.target.value))}
+        className="ml-2 border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+      >
+        {PAGE_SIZES.map((s) => (
+          <option key={s} value={s}>{s}개씩</option>
+        ))}
+      </select>
+    </div>
   );
 }
