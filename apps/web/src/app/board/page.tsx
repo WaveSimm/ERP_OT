@@ -216,7 +216,7 @@ function ProjectBoardSection({ items }: { items: WorkLogFeedItem[] }) {
                   {w.taskName}
                 </Link>
                 <span className="text-xs text-gray-600 w-16 shrink-0 truncate">{w.authorName}</span>
-                <span className="text-xs text-gray-400 w-12 shrink-0">{w.workedAt.slice(5)}</span>
+                <span className="text-xs text-gray-400 w-12 shrink-0">{fmtDate(w.createdAt)}</span>
                 <Link
                   href={`/work-logs/${w.projectId}`}
                   className="flex-1 truncate text-gray-700 hover:text-gray-900"

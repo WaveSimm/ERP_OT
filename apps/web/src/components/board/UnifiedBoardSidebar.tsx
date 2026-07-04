@@ -128,7 +128,7 @@ export default function UnifiedBoardSidebar() {
           <nav className="py-1 max-h-[260px] overflow-y-auto">
             {projects.length === 0 ? (
               <div className="px-4 py-3 text-xs text-gray-400">
-                참여 프로젝트 없음
+                프로젝트 없음
               </div>
             ) : (
               projects.map((p) => {

@@ -24,6 +24,11 @@ function dateAdd(days: number) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+function localDate(iso: string) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 const LIMIT = 50;
 
 export default function ProjectBoardLandingPage() {
@@ -69,9 +74,11 @@ export default function ProjectBoardLandingPage() {
     try {
       const limit = 200;
       const data = await workLogApi.feed({ limit });
+      // 기간 필터는 작성일(createdAt, 로컬 날짜) 기준
       const filtered = (data ?? []).filter((w: any) => {
-        if (from && w.workedAt < from) return false;
-        if (to && w.workedAt > to) return false;
+        const created = localDate(w.createdAt);
+        if (from && created < from) return false;
+        if (to && created > to) return false;
         if (authorFilter && w.authorId !== authorFilter) return false;
         if (projectFilter && w.projectId !== projectFilter) return false;
         return true;
@@ -139,7 +146,7 @@ export default function ProjectBoardLandingPage() {
             </div>
             <h2 className="text-xl font-bold text-gray-900 mt-1">📝 프로젝트 게시판</h2>
             <p className="text-sm text-gray-500 mt-0.5">
-              본인 참여 프로젝트{isAdmin && " (ADMIN: 전체 프로젝트)"}의 모든 비고 통합
+              전사 프로젝트 비고 통합 — 작성일 최신순 (전 직원 공유)
             </p>
           </div>
         </div>
@@ -246,6 +253,7 @@ export default function ProjectBoardLandingPage() {
                 isAdmin={isAdmin}
                 showTaskName
                 showProjectName
+                groupBy="createdAt"
                 onUpdate={handleUpdate}
                 onDelete={handleDelete}
               />

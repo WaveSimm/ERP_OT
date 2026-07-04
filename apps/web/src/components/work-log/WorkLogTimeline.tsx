@@ -24,8 +24,14 @@ interface Props {
   showTaskName?: boolean;
   showProjectName?: boolean;
   projectId?: string;   // 단일 프로젝트 뷰의 기본 projectId(항목에 없을 때 폴백)
+  groupBy?: "workedAt" | "createdAt";   // 그룹 기준: 작업일(기본) | 작성일
   onUpdate: (id: string, v: WorkLogFormValue) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+}
+
+function localDate(iso: string) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 export default function WorkLogTimeline({
@@ -36,6 +42,7 @@ export default function WorkLogTimeline({
   showTaskName,
   showProjectName,
   projectId,
+  groupBy = "workedAt",
   onUpdate,
   onDelete,
 }: Props) {
@@ -45,11 +52,12 @@ export default function WorkLogTimeline({
     );
   }
 
-  // 작업일별 그룹
+  // 날짜별 그룹 (작업일 또는 작성일)
   const groups: Record<string, ProjectWorkLogItem[]> = {};
   for (const l of logs) {
-    if (!groups[l.workedAt]) groups[l.workedAt] = [];
-    groups[l.workedAt]!.push(l);
+    const key = groupBy === "createdAt" ? localDate(l.createdAt) : l.workedAt;
+    if (!groups[key]) groups[key] = [];
+    groups[key]!.push(l);
   }
   const sortedDates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
 

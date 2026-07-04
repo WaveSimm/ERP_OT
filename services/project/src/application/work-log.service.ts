@@ -5,7 +5,6 @@ import {
   canCreateWorkLog,
   canEditWorkLog,
   canDeleteWorkLog,
-  isProjectMember,
 } from "./work-log-permissions";
 import type { EmbeddingService } from "./embedding.service";
 import { searchConfig } from "./search-config";
@@ -193,13 +192,9 @@ export class WorkLogService {
   async listByProject(
     projectId: string,
     params: { from?: string; to?: string; authorId?: string; taskId?: string; limit?: number; cursor?: string },
-    user: AuthUser & { email: string },
+    _user: AuthUser & { email: string },
   ) {
-    if (user.role !== "ADMIN" && user.role !== "MANAGER") {
-      const member = await isProjectMember(this.prisma, user.id, projectId);
-      if (!member) throw new WorkLogError("FORBIDDEN_READ", "프로젝트 조회 권한이 없습니다.", 403);
-    }
-
+    // 전사 공유 (2026-07-04): 프로젝트 비고 읽기는 전 직원 허용 (쓰기/수정 권한은 별도 유지)
     const limit = Math.min(500, params.limit ?? 200);
     const where: Prisma.WorkLogWhereInput = {
       isDeleted: false,
@@ -392,45 +387,14 @@ export class WorkLogService {
     }));
   }
 
-  // 최근 비고 피드 (게시판 랜딩용) — 본인 참여 프로젝트 또는 ADMIN: 전체
-  async listFeed(user: AuthUser & { email: string }, params: { limit?: number | undefined }) {
-    const limit = Math.min(50, params.limit ?? 10);
-
-    let projectIds: string[];
-    if (user.role === "ADMIN") {
-      const projs = await this.prisma.project.findMany({ select: { id: true } });
-      projectIds = projs.map((p) => p.id);
-    } else {
-      const projectIdSet = new Set<string>();
-
-      // Phase 4 (2026-05-13): legacy resource → auth_user id 직접 사용
-      const resource = { id: user.id };
-      if (resource) {
-        const assignments = await this.prisma.segmentAssignment.findMany({
-          where: { resourceId: resource.id },
-          select: { segment: { select: { task: { select: { projectId: true } } } } },
-        });
-        for (const a of assignments) projectIdSet.add(a.segment.task.projectId);
-      }
-
-      // 본인이 작성한 비고가 있는 프로젝트도 포함
-      const myLogs = await this.prisma.workLog.findMany({
-        where: { authorId: user.id, isDeleted: false },
-        select: { task: { select: { projectId: true } } },
-      });
-      for (const l of myLogs) projectIdSet.add(l.task.projectId);
-
-      projectIds = Array.from(projectIdSet);
-    }
-
-    if (projectIds.length === 0) return [];
+  // 최근 비고 피드 (게시판 랜딩·통합 목록용)
+  // 전사 공유 (2026-07-04): 프로젝트 비고는 전 직원 공개, 작성일(createdAt) 최신순
+  async listFeed(_user: AuthUser & { email: string }, params: { limit?: number | undefined }) {
+    const limit = Math.min(200, params.limit ?? 10);
 
     const items = await this.prisma.workLog.findMany({
-      where: {
-        isDeleted: false,
-        task: { projectId: { in: projectIds } },
-      },
-      orderBy: [{ workedAt: "desc" }, { createdAt: "desc" }],
+      where: { isDeleted: false },
+      orderBy: [{ createdAt: "desc" }],
       take: limit,
       include: {
         task: {
@@ -453,86 +417,19 @@ export class WorkLogService {
     }));
   }
 
-  // 본인 참여 프로젝트 + WorkLog 통계 (사이드바용)
-  async listMyProjects(user: AuthUser & { email: string }) {
-    if (user.role === "ADMIN") {
-      // ADMIN: 전체 프로젝트
-      const projects = await this.prisma.project.findMany({
-        select: { id: true, name: true, status: true },
-        orderBy: { name: "asc" },
-      });
-      const projectIds = projects.map((p) => p.id);
-      const stats = await this.prisma.workLog.groupBy({
-        by: ["taskId"],
-        where: { isDeleted: false, task: { projectId: { in: projectIds } } },
-        _count: { id: true },
-        _max: { workedAt: true },
-      });
-      // taskId → projectId 매핑
-      const tasks = await this.prisma.task.findMany({
-        where: { id: { in: stats.map((s) => s.taskId) } },
-        select: { id: true, projectId: true },
-      });
-      const taskToProject = new Map(tasks.map((t) => [t.id, t.projectId]));
-      const acc = new Map<string, { logCount: number; lastLogAt: Date | null }>();
-      for (const s of stats) {
-        const pid = taskToProject.get(s.taskId);
-        if (!pid) continue;
-        const cur = acc.get(pid) ?? { logCount: 0, lastLogAt: null };
-        cur.logCount += s._count.id;
-        if (s._max.workedAt && (!cur.lastLogAt || s._max.workedAt > cur.lastLogAt)) {
-          cur.lastLogAt = s._max.workedAt;
-        }
-        acc.set(pid, cur);
-      }
-      return projects.map((p) => ({
-        projectId: p.id,
-        projectName: p.name,
-        status: p.status,
-        logCount: acc.get(p.id)?.logCount ?? 0,
-        lastLogAt: acc.get(p.id)?.lastLogAt?.toISOString().slice(0, 10) ?? null,
-      }));
-    }
-
-    // OPERATOR/MANAGER: 본인 참여 프로젝트 + 본인이 글 작성한 프로젝트
-    // Phase 4 (2026-05-13): legacy resource → auth_user id 직접 사용
-    const resource = { id: user.id };
-
-    const memberProjectIds = new Set<string>();
-    if (resource) {
-      const assignments = await this.prisma.segmentAssignment.findMany({
-        where: { resourceId: resource.id },
-        select: { segment: { select: { task: { select: { projectId: true } } } } },
-      });
-      for (const a of assignments) {
-        memberProjectIds.add(a.segment.task.projectId);
-      }
-    }
-
-    // 본인이 글 작성한 프로젝트도 포함
-    const myLogs = await this.prisma.workLog.findMany({
-      where: { authorId: user.id, isDeleted: false },
-      select: { task: { select: { projectId: true } } },
-    });
-    for (const l of myLogs) {
-      memberProjectIds.add(l.task.projectId);
-    }
-
-    if (memberProjectIds.size === 0) return [];
-
+  // 프로젝트 게시판 사이드바용 프로젝트 + WorkLog 통계
+  // 전사 공유 (2026-07-04): 역할 무관 전체 프로젝트 노출
+  async listMyProjects(_user: AuthUser & { email: string }) {
     const projects = await this.prisma.project.findMany({
-      where: { id: { in: Array.from(memberProjectIds) } },
       select: { id: true, name: true, status: true },
       orderBy: { name: "asc" },
     });
+    const projectIds = projects.map((p) => p.id);
 
     // 통계
     const stats = await this.prisma.workLog.groupBy({
       by: ["taskId"],
-      where: {
-        isDeleted: false,
-        task: { projectId: { in: Array.from(memberProjectIds) } },
-      },
+      where: { isDeleted: false, task: { projectId: { in: projectIds } } },
       _count: { id: true },
       _max: { workedAt: true },
     });
