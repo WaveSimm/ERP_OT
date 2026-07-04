@@ -916,7 +916,9 @@ export default function ProjectDetailPage() {
   };
 
 
-  if (loading) {
+  // 초기 로드/프로젝트 전환(데이터 없음) 때만 전체 스피너. 편집 후 재로딩(데이터 있음)은
+  // 콘텐츠를 언마운트하지 않아 스크롤 위치가 유지됨. (load() 호출 시 스크롤 맨 위로 튀는 문제 해결)
+  if (loading && !ganttData) {
     return (
       <AppLayout>
         <div className="flex items-center justify-center py-32">

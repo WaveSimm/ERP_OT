@@ -351,7 +351,8 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
     }
   };
 
-  if (loading) {
+  // 최초 로드 때만 전체 스피너. 편집 후 재로딩(이미 목록 있음)은 언마운트 안 해 스크롤 유지.
+  if (loading && users.length === 0) {
     return (
       <div className="flex items-center justify-center py-16">
         <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
