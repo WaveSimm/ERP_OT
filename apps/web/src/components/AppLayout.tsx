@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { clearToken, getUser, setUser, myProfileApi, notificationApi, attendanceApi, authApi } from "@/lib/api";
+import { clearToken, getUser, setUser, myProfileApi, notificationApi, authApi } from "@/lib/api";
 import { isManagementUser } from "@/lib/management";
 import clsx from "clsx";
 
@@ -62,77 +62,6 @@ const ROLE_LABELS: Record<string, string> = {
   OPERATOR: "운영자",
   VIEWER: "조회자",
 };
-
-function CheckInWidget() {
-  const [today, setToday] = useState<any>(null);
-  const [loaded, setLoaded] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  const load = useCallback(async () => {
-    try { setToday(await attendanceApi.getToday()); } catch {}
-    finally { setLoaded(true); }
-  }, []);
-
-  useEffect(() => { load(); }, []);
-
-  // 다른 컴포넌트(예: 홈 카드)에서 근태 변경 이벤트 발신 시 동기화
-  useEffect(() => {
-    const handler = () => { void load(); };
-    window.addEventListener("attendance-updated", handler);
-    return () => window.removeEventListener("attendance-updated", handler);
-  }, [load]);
-
-  const act = async (fn: () => Promise<any>) => {
-    setSaving(true);
-    try { await fn(); } catch {}
-    finally {
-      await load();
-      window.dispatchEvent(new CustomEvent("attendance-updated"));
-      setSaving(false);
-    }
-  };
-
-  if (!loaded) return null;
-
-  const state: string = today?.checkState ?? "NOT_STARTED";
-
-  return (
-    <div className="hidden sm:flex items-center gap-1.5 ml-auto shrink-0">
-      {/* 액션 버튼 */}
-      {state === "NOT_STARTED" && (
-        <button onClick={() => { if (confirm("출근 처리하시겠습니까?")) act(() => attendanceApi.checkIn({ workType: "OFFICE" })); }} disabled={saving}
-          title="출근"
-          className="px-1.5 py-1 text-xs font-semibold bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors">
-          🟢 출근
-        </button>
-      )}
-      {state === "CHECKED_IN" && (
-        <>
-          <button onClick={() => { if (confirm("외출 처리하시겠습니까?")) act(() => attendanceApi.breakOut()); }} disabled={saving}
-            title="외출"
-            className="px-1.5 py-1 text-xs font-semibold border border-orange-300 text-orange-600 rounded-md hover:bg-orange-50 disabled:opacity-50 transition-colors">
-            🟡 외출
-          </button>
-          <button onClick={() => { if (confirm("퇴근 처리하시겠습니까?\n퇴근 후에는 되돌릴 수 없습니다.")) act(() => attendanceApi.checkOut()); }} disabled={saving}
-            title="퇴근"
-            className="px-1 py-1 text-xs font-semibold bg-gray-700 text-white rounded-md hover:bg-gray-800 disabled:opacity-50 transition-colors">
-            🔴 퇴근
-          </button>
-        </>
-      )}
-      {state === "ON_BREAK" && (
-        <>
-          <span className="text-xs text-orange-500 font-medium">🟡 외출중</span>
-          <button onClick={() => { if (confirm("복귀 처리하시겠습니까?")) act(() => attendanceApi.breakIn()); }} disabled={saving}
-            title="복귀"
-            className="px-1.5 py-1 text-xs font-semibold bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors">
-            🟢 복귀
-          </button>
-        </>
-      )}
-    </div>
-  );
-}
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -377,9 +306,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             })}
           </nav>
 
-          <CheckInWidget />
-
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 ml-auto">
             {/* 알림 벨 */}
             <button
               onClick={() => router.push("/me/notifications")}
