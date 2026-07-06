@@ -655,6 +655,57 @@ export default function ProjectDetailPage() {
     finally { setInlineAdding(false); }
   };
 
+  // 우클릭한 태스크 바로 위(같은 레벨·같은 순위 자리)에 새 태스크 생성 — 클릭 태스크는 한 칸 아래로
+  const createTaskAbove = async (clicked: any) => {
+    setInlineAdding(true);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const end = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
+      const name = "새 태스크";
+      const allTasks: any[] = ganttData?.tasks ?? [];
+      const parentId = clicked.parentId ?? null;
+      const siblings = allTasks
+        .filter((t: any) => (t.parentId ?? null) === parentId)
+        .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+      const ci = siblings.findIndex((t: any) => t.id === clicked.id);
+      const clickedOrder = clicked.sortOrder ?? 0;
+      const prev = ci > 0 ? siblings[ci - 1] : undefined;
+
+      let newOrder: number;
+      if (!prev) {
+        newOrder = clickedOrder - 10; // 첫 항목이면 앞에 삽입
+      } else {
+        const gap = clickedOrder - (prev.sortOrder ?? 0);
+        if (gap >= 2) {
+          newOrder = clickedOrder - Math.floor(gap / 2); // 간격 안에 삽입 (형제 미변경)
+        } else {
+          // 간격이 없으면 클릭 태스크부터 뒤쪽을 +10 시프트하고 클릭 태스크의 자리를 차지
+          newOrder = clickedOrder;
+          await Promise.all(
+            siblings.slice(ci).map((t: any) =>
+              taskApi.update(projectId, t.id, { sortOrder: (t.sortOrder ?? 0) + 10 }).catch(() => {}),
+            ),
+          );
+        }
+      }
+
+      const created: any = await taskApi.create(projectId, { name, parentId: parentId ?? undefined, sortOrder: newOrder });
+      await taskApi.createSegment(projectId, created.id, { name, startDate: today, endDate: end });
+      pushUndo({
+        label: `태스크 "${name}" 생성`,
+        undo: async () => { await taskApi.delete(projectId, created.id); },
+        redo: async () => {
+          const t: any = await taskApi.create(projectId, { name, parentId: parentId ?? undefined, sortOrder: newOrder });
+          await taskApi.createSegment(projectId, t.id, { name, startDate: today, endDate: end });
+        },
+      });
+      await load();
+      setEditingNameId(created.id);
+      setEditNameVal(name);
+    } catch { /* ignore */ }
+    finally { setInlineAdding(false); }
+  };
+
   const saveDates = async (task: any, start: string, end: string) => {
     if (!start || !end || start > end) { cancelEdit(); return; }
     const segs: any[] = task.segments ?? [];
@@ -1089,6 +1140,9 @@ export default function ProjectDetailPage() {
                   if (selectedTask?.id === task.id) { setSelectedTask(null); } else { handleTaskClick(task); }
                 }}
                 onTaskCopy={isOperator ? (task) => setCopyTargets([{ id: task.id, name: task.name, projectId }]) : undefined}
+                onTaskAddAbove={isOperator ? createTaskAbove : undefined}
+                onTaskAddBelow={isOperator ? createTaskBelow : undefined}
+                onTaskDelete={isOperator ? (task) => handleDeleteTask(task.id, task.name) : undefined}
                 baselineSegments={baselineSegments.length > 0 ? baselineSegments : undefined}
                 allResources={resources}
                 onRefresh={loadSilent}
@@ -1160,6 +1214,7 @@ export default function ProjectDetailPage() {
             clearDragState={clearDragState}
             handleDragStart={handleDragStart}
             handleTaskClick={handleTaskClick}
+            createTaskAbove={createTaskAbove}
             createTaskBelow={createTaskBelow}
             setEditingNameId={setEditingNameId}
             setEditNameVal={setEditNameVal}

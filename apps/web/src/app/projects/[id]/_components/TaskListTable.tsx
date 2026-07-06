@@ -48,6 +48,7 @@ interface TaskListTableProps {
   clearDragState: () => void;
   handleDragStart: (e: React.DragEvent, taskId: string) => void;
   handleTaskClick: (task: any, e?: React.MouseEvent) => void;
+  createTaskAbove: (clicked: any) => void;
   createTaskBelow: (clicked: any) => void;
   setEditingNameId: Dispatch<SetStateAction<string | null>>;
   setEditNameVal: Dispatch<SetStateAction<string>>;
@@ -106,6 +107,7 @@ export default function TaskListTable({
   clearDragState,
   handleDragStart,
   handleTaskClick,
+  createTaskAbove,
   createTaskBelow,
   setEditingNameId,
   setEditNameVal,
@@ -220,6 +222,7 @@ export default function TaskListTable({
                 fallbackToBrowser
                 items={[
                   { label: "편집/상세", icon: "📄", onClick: () => handleTaskClick(task) },
+                  { label: "위에 태스크 추가", icon: "➕", onClick: () => createTaskAbove(task), visible: !!isOperator },
                   { label: "아래에 태스크 추가", icon: "➕", onClick: () => createTaskBelow(task), visible: !!isOperator },
                   { label: "이름 수정", icon: "✏️", onClick: () => { setEditingNameId(task.id); setEditNameVal(task.name); }, visible: !!isOperator },
                   { label: "복사", icon: "📋", onClick: () => setCopyTargets([{ id: task.id, name: task.name, projectId }]), visible: !parentTaskIds.has(task.id) && !!isOperator },
