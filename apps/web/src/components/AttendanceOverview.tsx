@@ -435,7 +435,7 @@ function MemberRow({ member, days, viewMode, holidays }: { member: Member; days:
                 const detail = entryDetail(e);
                 if (viewMode === "month") {
                   return (
-                    <span key={e.id} className={`text-[10px] px-0.5 py-px rounded whitespace-nowrap ${ENTRY_COLORS[e.entryType] ?? "bg-gray-100 text-gray-600"}`}
+                    <span key={e.id} className={`text-xs px-0.5 py-px rounded whitespace-nowrap ${ENTRY_COLORS[e.entryType] ?? "bg-gray-100 text-gray-600"}`}
                       title={[ENTRY_LABELS[e.entryType], timeStr, detail ?? e.label].filter(Boolean).join(" / ")}>
                       {(ENTRY_LABELS[e.entryType] ?? e.entryType).slice(0, 1)}
                     </span>
@@ -450,11 +450,11 @@ function MemberRow({ member, days, viewMode, holidays }: { member: Member; days:
                     title={[ENTRY_LABELS[e.entryType], timeStr, detail ?? e.label].filter(Boolean).join(" / ")}>
                     <div className={`absolute top-0 bottom-0 rounded px-1 flex flex-col justify-center overflow-hidden ${ENTRY_COLORS[e.entryType] ?? "bg-gray-100 text-gray-600"}`}
                       style={{ left: `${left}%`, width: `${width}%` }}>
-                      <span className="text-[9px] font-medium leading-none truncate">
+                      <span className="text-xs font-medium leading-none truncate">
                         {ENTRY_LABELS[e.entryType] ?? e.entryType}{isPartial && timeStr ? ` ${timeStr}` : ""}
                       </span>
                       {detail && (
-                        <span className="text-[9px] leading-none truncate opacity-75 mt-0.5">{detail}</span>
+                        <span className="text-xs leading-none truncate mt-0.5">{detail}</span>
                       )}
                     </div>
                   </div>
