@@ -408,16 +408,48 @@ function MemberRow({ member, days, viewMode, holidays }: { member: Member; days:
   const dayStart = member.workStartTime ? toMin(member.workStartTime) : DAY_START_MIN;
   const dayEnd = member.workEndTime ? toMin(member.workEndTime) : DAY_END_MIN;
 
+  // 연속 병합 (2026-07-07): 같은 입력(그룹 등록 groupId, 또는 유형·시간·내용 동일)이
+  //   연속된 날에 반복되면 colSpan 한 칸으로 합쳐 한 줄로 표시.
+  //   그 날 표시할 엔트리가 해당 항목 하나뿐인 날끼리만 병합(다른 항목 섞인 날은 제외).
+  const entrySig = (e: Entry) =>
+    e.groupId ?? `${e.entryType}|${e.startTime ?? ""}|${e.endTime ?? ""}|${e.label ?? ""}|${e.reason ?? ""}`;
+  const cellPlans = useMemo(() => {
+    const visibleOf = (d: string) => (entriesByDate.get(d) ?? []).filter((e) => e.entryType !== "WORK");
+    const plans: { day: string; endDay: string; span: number; entries: Entry[]; merged: boolean }[] = [];
+    let i = 0;
+    while (i < days.length) {
+      const day = days[i]!;
+      const es = visibleOf(day);
+      if (es.length === 1) {
+        const s = entrySig(es[0]!);
+        let j = i + 1;
+        while (j < days.length) {
+          const es2 = visibleOf(days[j]!);
+          if (es2.length === 1 && entrySig(es2[0]!) === s) j++;
+          else break;
+        }
+        if (j - i > 1) {
+          plans.push({ day, endDay: days[j - 1]!, span: j - i, entries: es, merged: true });
+          i = j;
+          continue;
+        }
+      }
+      plans.push({ day, endDay: day, span: 1, entries: es, merged: false });
+      i++;
+    }
+    return plans;
+  }, [entriesByDate, days]);
+
   return (
     <tr className="border-t border-gray-100 hover:bg-gray-50/50">
       <td className="px-3 py-1.5 text-sm font-medium text-gray-800 bg-white sticky left-0 z-10 whitespace-nowrap">
         {member.name}
       </td>
-      {days.map((day) => {
-        // 출근(WORK, 파란 박스)은 전사근태에서 숨김 — 외근/휴가 등 예외만 표시
-        const dayEntries = (entriesByDate.get(day) ?? []).filter((e) => e.entryType !== "WORK");
+      {cellPlans.map(({ day, endDay, span, entries: dayEntries, merged }) => {
         const isHol = !!holidays?.get(day);
-        const cellBg = isToday(day)
+        const cellBg = merged
+          ? ""
+          : isToday(day)
           ? "bg-blue-50/30"
           : isHol
           ? "bg-red-50/40"
@@ -425,18 +457,39 @@ function MemberRow({ member, days, viewMode, holidays }: { member: Member; days:
           ? "bg-gray-50/50"
           : "";
         return (
-          <td key={day} className={`px-0.5 py-1 text-center border-l border-gray-50 align-top ${cellBg}`}>
-            <div className={`flex flex-col gap-0.5 ${viewMode === "month" ? "items-center" : "items-start"}`}>
+          <td key={day} colSpan={span > 1 ? span : undefined} className={`px-0.5 py-1 text-center border-l border-gray-50 align-top ${cellBg}`}>
+            <div className={`flex flex-col gap-0.5 ${viewMode === "month" && !merged ? "items-center" : "items-stretch"}`}>
               {dayEntries.map((e) => {
                 const timeStr = e.startTime && e.endTime
                   ? `${e.startTime}~${e.endTime}`
                   : e.startTime ? `${e.startTime}~`
                   : e.endTime ? `~${e.endTime}` : "";
                 const detail = entryDetail(e);
+                const tip = [
+                  ENTRY_LABELS[e.entryType],
+                  merged ? `${fmtShort(day)}~${fmtShort(endDay)} (${span}일)` : "",
+                  timeStr,
+                  detail ?? e.label,
+                ].filter(Boolean).join(" / ");
+                // 병합 바 — 기간 전체를 한 줄로 (유형·시간 + 내역)
+                if (merged) {
+                  return (
+                    <div key={e.id}
+                      className={`w-full rounded px-1 py-0.5 flex flex-col justify-center overflow-hidden ${ENTRY_COLORS[e.entryType] ?? "bg-gray-100 text-gray-600"}`}
+                      title={tip}>
+                      <span className="text-xs font-medium leading-none truncate">
+                        {ENTRY_LABELS[e.entryType] ?? e.entryType}{timeStr ? ` ${timeStr}` : ""}
+                      </span>
+                      {detail && viewMode !== "month" && (
+                        <span className="text-xs leading-none truncate mt-0.5">{detail}</span>
+                      )}
+                    </div>
+                  );
+                }
                 if (viewMode === "month") {
                   return (
                     <span key={e.id} className={`text-xs px-0.5 py-px rounded whitespace-nowrap ${ENTRY_COLORS[e.entryType] ?? "bg-gray-100 text-gray-600"}`}
-                      title={[ENTRY_LABELS[e.entryType], timeStr, detail ?? e.label].filter(Boolean).join(" / ")}>
+                      title={tip}>
                       {(ENTRY_LABELS[e.entryType] ?? e.entryType).slice(0, 1)}
                     </span>
                   );
@@ -447,7 +500,7 @@ function MemberRow({ member, days, viewMode, holidays }: { member: Member; days:
                 // 근무군·휴일근무는 2줄 바 — 1줄=유형·시간, 2줄=내역(사유)
                 return (
                   <div key={e.id} className={`w-full relative rounded bg-gray-100/60 ${detail ? "h-9" : "h-5"}`}
-                    title={[ENTRY_LABELS[e.entryType], timeStr, detail ?? e.label].filter(Boolean).join(" / ")}>
+                    title={tip}>
                     <div className={`absolute top-0 bottom-0 rounded px-1 flex flex-col justify-center overflow-hidden ${ENTRY_COLORS[e.entryType] ?? "bg-gray-100 text-gray-600"}`}
                       style={{ left: `${left}%`, width: `${width}%` }}>
                       <span className="text-xs font-medium leading-none truncate">
