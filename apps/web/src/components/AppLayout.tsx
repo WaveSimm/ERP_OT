@@ -21,7 +21,7 @@ type NavItem = {
 
 const NAV: NavItem[] = [
   { href: "/me/dashboard",   label: "내 대시보드", icon: "🗂", managerOnly: false, short: ["내대시", "보드"] },
-  { href: "/dashboard",      label: "지휘센터",   icon: "🎯", managerOnly: false },
+  { href: "/dashboard",      label: "전사 대시보드",   icon: "🎯", managerOnly: false },
   { href: "/projects",       label: "프로젝트",   icon: "📋", managerOnly: false },
   { href: "/resources",      label: "자원",       icon: "👥", managerOnly: false },
   { href: "/equipment",      label: "장비",       icon: "🔧", managerOnly: false },
