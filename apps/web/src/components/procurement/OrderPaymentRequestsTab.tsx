@@ -124,7 +124,7 @@ export default function OrderPaymentRequestsTab() {
               {displayItems.map((p: any) => (
                 <tr key={p.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-mono">
-                    <a href={`/procurement/orders/${p.order?.id}`} className="text-blue-600 hover:underline">{p.order?.orderNumber}</a>
+                    <a href={`/procurement/orders/${p.order?.id}`} className="text-blue-600 hover:underline dark:text-blue-400">{p.order?.orderNumber}</a>
                   </td>
                   <td className="px-4 py-3">{p.order?.manufacturer || "-"}</td>
                   <td className="px-4 py-3 text-gray-600">{p.order?.customer || "-"}</td>
@@ -132,7 +132,7 @@ export default function OrderPaymentRequestsTab() {
                   <td className="px-4 py-3 text-right font-mono font-medium">{fmtAmount(p.amount, p.currency)}</td>
                   <td className="px-4 py-3 text-gray-600 text-xs">{fmtDateTime(p.requestedAt)}</td>
                   <td className="px-4 py-3 text-gray-600 text-xs">
-                    {statusTab === "REJECTED" && p.rejectReason ? <span className="text-red-600">반려: {p.rejectReason}</span> : (p.notes || "")}
+                    {statusTab === "REJECTED" && p.rejectReason ? <span className="text-red-600 dark:text-red-400">반려: {p.rejectReason}</span> : (p.notes || "")}
                   </td>
                   <td className="px-4 py-3 text-right">
                     {statusTab === "REQUESTED" && (
@@ -144,7 +144,7 @@ export default function OrderPaymentRequestsTab() {
                     {statusTab === "COMPLETED" && (
                       <button
                         onClick={() => setSelected({ ...p, _editMode: true })}
-                        className="text-xs px-3 py-1 border border-blue-500 text-blue-600 rounded hover:bg-blue-50"
+                        className="text-xs px-3 py-1 border border-blue-500 text-blue-600 rounded hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950"
                       >정정</button>
                     )}
                   </td>
@@ -245,7 +245,7 @@ function ProcessRequestModal({
         <h3 className="text-lg font-bold mb-1">{isEditMode ? "송금 내역 정정" : "송금 요청 처리"}</h3>
         <p className="text-xs text-gray-500 mb-4">
           발주: <a href={`/procurement/orders/${payment.order?.id}`} target="_blank" rel="noreferrer"
-            className="text-blue-600 hover:underline font-mono">{payment.order?.orderNumber}</a>
+            className="text-blue-600 hover:underline font-mono dark:text-blue-400">{payment.order?.orderNumber}</a>
           {" · "}{payment.order?.manufacturer}
           {payment.order?.customer && ` · ${payment.order.customer}`}
         </p>
@@ -285,10 +285,10 @@ function ProcessRequestModal({
               <input type="number" step="0.01" min={0} value={form.amount}
                 onChange={(e) => setForm({ ...form, amount: e.target.value })}
                 className={`w-full border rounded-lg px-3 py-2 text-sm text-right font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
-                  isPartial ? "border-amber-400 bg-amber-50/30" : ""
+                  isPartial ? "border-amber-400 bg-amber-50/30 dark:bg-amber-500/10" : ""
                 }`} />
               {isPartial && (
-                <div className="text-xs text-amber-700 mt-1">
+                <div className="text-xs text-amber-700 mt-1 dark:text-amber-300">
                   ⚠ 부분 결제 — 잔여 <span className="font-mono font-medium">{remaining.toLocaleString()} {payment.currency}</span>는 새 송금 요청으로 자동 생성됩니다
                 </div>
               )}

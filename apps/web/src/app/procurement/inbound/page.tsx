@@ -257,7 +257,7 @@ export default function InboundRequestPage() {
                     ? r.inventoryItems.map((inv: any) => (
                         <a key={inv.id} href={`/procurement/inventory/${inv.id}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="inline-block mr-1 mb-0.5 px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded font-mono text-[10px] hover:bg-blue-100">
+                          className="inline-block mr-1 mb-0.5 px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded font-mono text-[10px] hover:bg-blue-100 dark:text-blue-300">
                           {inv.inventoryNo}
                         </a>
                       ))
@@ -418,7 +418,7 @@ export default function InboundRequestPage() {
 
                 <div className="flex justify-end gap-2 mt-4">
                   <button onClick={handleCancel} disabled={saving}
-                    className="px-4 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50">
+                    className="px-4 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950">
                     요청 취소
                   </button>
                   <button onClick={() => setDetail(null)}
@@ -459,7 +459,7 @@ export default function InboundRequestPage() {
                     <div className="text-sm font-medium mb-1">생성된 재고</div>
                     <div className="flex flex-wrap gap-1">
                       {detail.inventoryItems.map((inv: any) => (
-                        <span key={inv.id} className="px-2 py-0.5 bg-green-50 text-green-700 rounded text-xs font-mono">
+                        <span key={inv.id} className="px-2 py-0.5 bg-green-50 text-green-700 rounded text-xs font-mono dark:text-green-300">
                           {inv.inventoryNo}
                         </span>
                       ))}
@@ -552,7 +552,7 @@ export default function InboundRequestPage() {
                         <button onClick={() => {
                           const items = manualForm.items.filter((_, i) => i !== idx);
                           setManualForm({ ...manualForm, items: items.length > 0 ? items : [{ itemNameRaw: "", description: "", quantity: 1, unitPrice: "" }] });
-                        }} className="text-red-500 text-xs">×</button>
+                        }} className="text-red-500 text-xs dark:text-red-400">×</button>
                       </td>
                     </tr>
                   ))}
@@ -560,7 +560,7 @@ export default function InboundRequestPage() {
               </table>
             </div>
             <button onClick={() => setManualForm({ ...manualForm, items: [...manualForm.items, { itemNameRaw: "", description: "", quantity: 1, unitPrice: "" }] })}
-              className="text-blue-600 text-xs hover:underline mb-3">+ 품목 추가</button>
+              className="text-blue-600 text-xs hover:underline mb-3 dark:text-blue-400">+ 품목 추가</button>
 
             <div className="flex justify-end gap-2 mt-4">
               <button onClick={() => setShowManualForm(false)} className="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50">취소</button>

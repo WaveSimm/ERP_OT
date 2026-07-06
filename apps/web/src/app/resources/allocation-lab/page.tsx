@@ -134,11 +134,11 @@ export default function AllocationLabPage() {
               className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors whitespace-nowrap">{label}</button>
           ))}
           <span className="text-xs text-gray-400 ml-1">범위</span>
-          <button onClick={() => shiftRange(-1)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-blue-300 bg-blue-50 text-blue-600 font-bold hover:bg-blue-100 transition-colors">◀</button>
+          <button onClick={() => shiftRange(-1)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-blue-300 bg-blue-50 text-blue-600 font-bold hover:bg-blue-100 transition-colors dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-950">◀</button>
           <DateInput value={startDate} onChange={(e) => setStartDate(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm" />
           <span className="text-gray-400 text-sm">~</span>
           <DateInput value={endDate} onChange={(e) => setEndDate(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm" />
-          <button onClick={() => shiftRange(1)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-blue-300 bg-blue-50 text-blue-600 font-bold hover:bg-blue-100 transition-colors">▶</button>
+          <button onClick={() => shiftRange(1)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-blue-300 bg-blue-50 text-blue-600 font-bold hover:bg-blue-100 transition-colors dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-950">▶</button>
         </div>
 
         {loading ? (
@@ -166,7 +166,7 @@ export default function AllocationLabPage() {
               <tbody>
                 {assignments.map((a) => {
                   return (
-                    <tr key={a.segmentId} className="hover:bg-blue-50/30">
+                    <tr key={a.segmentId} className="hover:bg-blue-50/30 dark:hover:bg-blue-500/10">
                       <td className="sticky left-0 z-10 bg-white border-b border-r border-gray-200 px-3 py-1 w-[140px] min-w-[140px] max-w-[140px]">
                         <div className="truncate text-gray-500" title={a.projectName}>{a.projectName}</div>
                       </td>
@@ -188,7 +188,7 @@ export default function AllocationLabPage() {
                           <td key={d.date} className={`border-b border-gray-100 p-0 text-center ${d.isWeekend || d.isHoliday ? "bg-gray-50" : ""}`}>
                             <input type="number" value={v || ""} placeholder={inRange ? "" : "·"}
                               onChange={(e) => setCell(a.segmentId, d.date, Number(e.target.value))}
-                              className={`w-[42px] py-1 text-center text-[11px] outline-none bg-transparent focus:bg-blue-100 ${v > 0 ? "text-blue-700 font-medium bg-blue-50/60" : "text-gray-300"}`} />
+                              className={`w-[42px] py-1 text-center text-[11px] outline-none bg-transparent focus:bg-blue-100 ${v > 0 ? "text-blue-700 font-medium bg-blue-50/60 dark:text-blue-300 dark:bg-blue-500/10" : "text-gray-300"}`} />
                           </td>
                         );
                       })}

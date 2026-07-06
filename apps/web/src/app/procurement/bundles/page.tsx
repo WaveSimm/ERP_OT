@@ -17,7 +17,7 @@ export default function BundlesPage() {
       <div className="flex items-center gap-3 mb-4">
         <h2 className="text-lg font-bold">번들 출고</h2>
         <Link href="/procurement/products?itemType=BUNDLE"
-          className="ml-auto text-xs text-amber-700 hover:underline">
+          className="ml-auto text-xs text-amber-700 hover:underline dark:text-amber-300">
           📦 번들 마스터 관리 →
         </Link>
       </div>
@@ -114,7 +114,7 @@ function ShipmentDetail({ detail, onClose }: { detail: any; onClose: () => void 
               {detail.customer?.name} · {fmtDate(detail.shippedAt)} · {detail.shipTo || ""}
             </div>
             {detail.warrantyUntil && (
-              <div className="text-xs text-amber-600 mt-1">보증만료: {fmtDate(detail.warrantyUntil)}</div>
+              <div className="text-xs text-amber-600 mt-1 dark:text-amber-400">보증만료: {fmtDate(detail.warrantyUntil)}</div>
             )}
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-2xl leading-none">×</button>
@@ -141,7 +141,7 @@ function ShipmentDetail({ detail, onClose }: { detail: any; onClose: () => void 
                     <td className="px-2 py-1.5 font-mono text-[10px]">{it.variant?.skuCode || "-"}</td>
                     <td className="px-2 py-1.5 text-center">{it.quantity}</td>
                     <td className="px-2 py-1.5 text-center">
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] ${it.slotType === "MAIN" ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-600"}`}>
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] ${it.slotType === "MAIN" ? "bg-blue-50 text-blue-700 dark:text-blue-300" : "bg-gray-100 text-gray-600"}`}>
                         {it.slotType}
                       </span>
                     </td>
@@ -162,7 +162,7 @@ function ShipmentDetail({ detail, onClose }: { detail: any; onClose: () => void 
             <div className="text-sm font-medium mb-2">생성된 고객 자산 ({detail.customerAssets.length}건)</div>
             <div className="grid grid-cols-2 gap-2">
               {detail.customerAssets.map((a: any) => (
-                <div key={a.id} className="border rounded-lg p-2 text-xs bg-emerald-50">
+                <div key={a.id} className="border rounded-lg p-2 text-xs bg-emerald-50 dark:bg-emerald-950">
                   <div className="font-medium">{a.name}</div>
                   <div className="text-gray-500 text-[10px]">SN: {a.serialNumber || "-"} · 역할: {a.bundleRole || "-"}</div>
                 </div>
@@ -252,14 +252,14 @@ function ShipmentCreate({ onClose, onSaved }: { onClose: () => void; onSaved: ()
         <h3 className="text-lg font-bold mb-1">번들 출고 생성</h3>
         <p className="text-xs text-gray-500 mb-4">사전 조립된 번들 재고(INV-...) 1건을 차감합니다. 조립이 안 된 번들은 [품목 관리] → [조립]에서 먼저 만드십시오.</p>
 
-        <div className="border rounded-lg p-3 bg-emerald-50/30 mb-4">
+        <div className="border rounded-lg p-3 bg-emerald-50/30 mb-4 dark:bg-emerald-500/10">
           <label className="block text-xs text-gray-500 mb-1">번들 재고번호 *</label>
           <input type="text" value={inventoryNoSearch}
             onChange={e => onSearchInv(e.target.value)}
             placeholder="INV-YYMM-NNNN"
             className="w-full border rounded px-3 py-2 text-sm font-mono" />
           {inv && (
-            <div className="mt-2 text-xs text-emerald-700">
+            <div className="mt-2 text-xs text-emerald-700 dark:text-emerald-300">
               ✓ {inv.productMaster?.name} · 재고 {inv.quantity}건
               {inv.serialNumber && <span> · SN: <span className="font-mono">{inv.serialNumber}</span></span>}
             </div>

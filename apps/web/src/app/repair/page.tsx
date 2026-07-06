@@ -35,7 +35,7 @@ const PRIORITY_LABELS: Record<string, string> = {
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
-  LOW: "text-gray-400", NORMAL: "text-gray-600", HIGH: "text-orange-600", URGENT: "text-red-600",
+  LOW: "text-gray-400", NORMAL: "text-gray-600", HIGH: "text-orange-600 dark:text-orange-400", URGENT: "text-red-600 dark:text-red-400",
 };
 
 const FILTER_GROUPS = [
@@ -114,7 +114,7 @@ export default function RepairOrdersPage() {
           {FILTER_GROUPS.map((f) => (
             <button key={f.key} onClick={() => { setStatusGroup(f.key); setPage(1); }}
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                statusGroup === f.key ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                statusGroup === f.key ? "bg-white text-blue-600 shadow-sm dark:text-blue-400" : "text-gray-500 hover:text-gray-700"
               }`}>
               {f.label}
             </button>
@@ -174,7 +174,7 @@ export default function RepairOrdersPage() {
                 return (
                   <tr key={o.id} onClick={() => router.push(`/repair/${o.id}`)}
                     className="border-t border-gray-100 hover:bg-blue-50/50 cursor-pointer">
-                    <td className="px-2 py-2 font-medium text-blue-600 truncate">{o.orderNumber}</td>
+                    <td className="px-2 py-2 font-medium text-blue-600 truncate dark:text-blue-400">{o.orderNumber}</td>
                     <td className="px-2 py-2 text-gray-800 truncate" title={o.customer?.name}>{o.customer?.name || "-"}</td>
                     <td className="px-2 py-2 text-gray-700 truncate" title={assetName}>{assetName}</td>
                     <td className="px-2 py-2 text-gray-500 text-xs truncate" title={serialNumber}>{serialNumber}</td>
@@ -381,7 +381,7 @@ function RepairOrderForm({ onClose, onSaved }: { onClose: () => void; onSaved: (
               rows={2} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none" />
           </div>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose}

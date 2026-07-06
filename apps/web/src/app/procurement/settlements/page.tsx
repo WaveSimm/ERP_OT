@@ -61,7 +61,7 @@ export default function SettlementsPage() {
                     <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{s.currency || "USD"}</span>
                   </td>
                   <td className="px-4 py-3 text-right font-medium">₩{Number(s.totalImportCost).toLocaleString()}</td>
-                  <td className="px-4 py-3 text-right text-orange-600">
+                  <td className="px-4 py-3 text-right text-orange-600 dark:text-orange-400">
                     {Number(s.totalExtraCost) > 0 ? `₩${Number(s.totalExtraCost).toLocaleString()}` : "-"}
                   </td>
                   <td className="px-4 py-3 text-right">₩{Number(s.supplyAmount).toLocaleString()}</td>

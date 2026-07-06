@@ -267,7 +267,7 @@ export default function AttendanceOverview({ holidays }: Props = {}) {
               <button key={m.key} onClick={() => switchMode(m.key)}
                 className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
                   viewMode === m.key
-                    ? "bg-white text-blue-600 shadow-sm"
+                    ? "bg-white text-blue-600 shadow-sm dark:text-blue-400"
                     : "text-gray-500 hover:text-gray-700"
                 }`}>
                 {m.label}
@@ -299,7 +299,7 @@ export default function AttendanceOverview({ holidays }: Props = {}) {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 text-sm text-red-700">{error}</div>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 text-sm text-red-700 dark:border-red-800 dark:text-red-300">{error}</div>
       )}
 
       {loading && !data && (
@@ -357,9 +357,9 @@ function DeptSection({ dept, days, viewMode, isExpanded, onToggle, holidays }: {
                   const holidayName = holidays?.get(day);
                   const isHol = !!holidayName;
                   const colorCls = isToday(day)
-                    ? "bg-blue-50 text-blue-700"
+                    ? "bg-blue-50 text-blue-700 dark:text-blue-300"
                     : isHol
-                    ? "bg-red-50 text-red-600 font-bold"
+                    ? "bg-red-50 text-red-600 font-bold dark:text-red-400"
                     : isWeekend(day)
                     ? "bg-gray-50 text-gray-400"
                     : "text-gray-500";
@@ -418,11 +418,11 @@ function MemberRow({ member, days, viewMode, holidays }: { member: Member; days:
         const dayEntries = (entriesByDate.get(day) ?? []).filter((e) => e.entryType !== "WORK");
         const isHol = !!holidays?.get(day);
         const cellBg = isToday(day)
-          ? "bg-blue-50/30"
+          ? "bg-blue-50/30 dark:bg-blue-500/10"
           : isHol
-          ? "bg-red-50/40"
+          ? "bg-red-50/40 dark:bg-red-500/10"
           : isWeekend(day)
-          ? "bg-gray-50/50"
+          ? "bg-gray-50/50 dark:bg-gray-500/10"
           : "";
         return (
           <td key={day} className={`px-0.5 py-1 text-center border-l border-gray-50 align-top ${cellBg}`}>
@@ -446,7 +446,7 @@ function MemberRow({ member, days, viewMode, holidays }: { member: Member; days:
                 const isPartial = !!(e.startTime && e.endTime);
                 // 근무군·휴일근무는 2줄 바 — 1줄=유형·시간, 2줄=내역(사유)
                 return (
-                  <div key={e.id} className={`w-full relative rounded bg-gray-100/60 ${detail ? "h-9" : "h-5"}`}
+                  <div key={e.id} className={`w-full relative rounded bg-gray-100/60 dark:bg-gray-500/10 ${detail ? "h-9" : "h-5"}`}
                     title={[ENTRY_LABELS[e.entryType], timeStr, detail ?? e.label].filter(Boolean).join(" / ")}>
                     <div className={`absolute top-0 bottom-0 rounded px-1 flex flex-col justify-center overflow-hidden ${ENTRY_COLORS[e.entryType] ?? "bg-gray-100 text-gray-600"}`}
                       style={{ left: `${left}%`, width: `${width}%` }}>

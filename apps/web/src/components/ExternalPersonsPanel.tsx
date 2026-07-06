@@ -142,7 +142,7 @@ export function ExternalPersonsPanel({ isAdmin }: { isAdmin: boolean }) {
                   <td className="px-4 py-2">
                     <span className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[11px] font-medium ${
                       p.status === "ACTIVE"
-                        ? "bg-green-50 text-green-700 border-green-200"
+                        ? "bg-green-50 text-green-700 border-green-200 dark:text-green-300"
                         : "bg-gray-100 text-gray-500 border-gray-200"
                     }`}>
                       {p.status === "ACTIVE" ? "활성" : "종료"}
@@ -150,11 +150,11 @@ export function ExternalPersonsPanel({ isAdmin }: { isAdmin: boolean }) {
                   </td>
                   {isAdmin && (
                     <td className="px-4 py-2 text-right space-x-2">
-                      <button onClick={() => setEditing(p)} className="text-xs text-blue-600 hover:text-blue-800">수정</button>
+                      <button onClick={() => setEditing(p)} className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800">수정</button>
                       {p.status === "ACTIVE" ? (
-                        <button onClick={() => handleArchive(p)} className="text-xs text-orange-600 hover:text-orange-800">종료</button>
+                        <button onClick={() => handleArchive(p)} className="text-xs text-orange-600 dark:text-orange-400 hover:text-orange-800">종료</button>
                       ) : (
-                        <button onClick={() => handleReactivate(p)} className="text-xs text-emerald-600 hover:text-emerald-800">활성</button>
+                        <button onClick={() => handleReactivate(p)} className="text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-800">활성</button>
                       )}
                       <button onClick={() => handleDelete(p)} className="text-xs text-red-400 hover:text-red-600">삭제</button>
                     </td>

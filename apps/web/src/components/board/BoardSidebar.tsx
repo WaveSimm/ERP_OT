@@ -32,7 +32,7 @@ export default function BoardSidebar({
           <Link
             href={`/board/${catCode}`}
             className={`block px-4 py-2 text-sm hover:bg-gray-50 ${
-              pathname === `/board/${catCode}` ? "bg-blue-50 text-blue-700 font-medium" : "text-gray-600"
+              pathname === `/board/${catCode}` ? "bg-blue-50 text-blue-700 dark:text-blue-300 font-medium" : "text-gray-600"
             }`}
           >
             <span>📂 전체</span>
@@ -45,7 +45,7 @@ export default function BoardSidebar({
                 key={b.code}
                 href={`/board/${catCode}/${b.code}`}
                 className={`block px-4 py-2 text-sm hover:bg-gray-50 ${
-                  active ? "bg-blue-50 text-blue-700 font-medium" : "text-gray-600"
+                  active ? "bg-blue-50 text-blue-700 dark:text-blue-300 font-medium" : "text-gray-600"
                 }`}
               >
                 <div className="flex items-center justify-between">

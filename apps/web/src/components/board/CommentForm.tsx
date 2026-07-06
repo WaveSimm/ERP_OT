@@ -47,7 +47,7 @@ export default function CommentForm({
         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
       />
       {error && (
-        <div className="mt-1 text-xs text-red-600">{error}</div>
+        <div className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</div>
       )}
       <div className="flex items-center justify-between mt-2">
         <span className="text-xs text-gray-400">{content.length}/2000</span>

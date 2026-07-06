@@ -84,7 +84,7 @@ export default function UnifiedBoardSidebar() {
           }`}
         >
           <span className="text-base">🔎</span>
-          <span className={`text-sm font-semibold ${pathname === "/board/knowledge" ? "text-blue-700" : "text-gray-700"}`}>NAS 통합검색</span>
+          <span className={`text-sm font-semibold ${pathname === "/board/knowledge" ? "text-blue-700 dark:text-blue-300" : "text-gray-700"}`}>NAS 통합검색</span>
         </Link>
         {categories.map((cat) => (
           <div key={cat.code} className="border-b border-gray-100 last:border-b-0">
@@ -104,7 +104,7 @@ export default function UnifiedBoardSidebar() {
                     key={b.code}
                     href={`/board/${cat.code}/${b.code}`}
                     className={`block px-4 py-1.5 text-sm hover:bg-gray-50 ${
-                      active ? "bg-blue-50 text-blue-700 font-medium" : "text-gray-600"
+                      active ? "bg-blue-50 text-blue-700 dark:text-blue-300 font-medium" : "text-gray-600"
                     }`}
                   >
                     <span className="truncate">{b.name}</span>
@@ -143,7 +143,7 @@ export default function UnifiedBoardSidebar() {
                   >
                     <div className="flex items-center gap-2">
                       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_COLOR[p.status] ?? "bg-gray-300"}`} />
-                      <span className={`text-sm truncate ${active ? "text-blue-700 font-medium" : "text-gray-600"}`}>
+                      <span className={`text-sm truncate ${active ? "text-blue-700 dark:text-blue-300 font-medium" : "text-gray-600"}`}>
                         {p.projectName}
                       </span>
                       {p.logCount > 0 && (

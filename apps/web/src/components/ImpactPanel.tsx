@@ -124,7 +124,7 @@ export default function ImpactPanel({ projectId, tasks, onClose }: Props) {
 
         {/* Results */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
-          {error && <p className="text-sm text-red-500 mb-4">{error}</p>}
+          {error && <p className="text-sm text-red-500 mb-4 dark:text-red-400">{error}</p>}
 
           {!result && !loading && (
             <div className="text-center py-12 text-gray-400">
@@ -142,13 +142,13 @@ export default function ImpactPanel({ projectId, tasks, onClose }: Props) {
                 </p>
                 {result.isWhatIf && result.triggeredTask && (
                   <p className="text-sm font-medium text-gray-800">
-                    가정: <span className="text-purple-600">{result.triggeredTask.taskName}</span>
+                    가정: <span className="text-purple-600 dark:text-purple-400">{result.triggeredTask.taskName}</span>
                     {" "}+{result.triggeredTask.delayDays}일 지연 시
                   </p>
                 )}
                 {!result.isWhatIf && (
                   <p className="text-sm font-medium text-gray-800">
-                    현재 지연 태스크 <span className={result.delayedTasks?.length ? "text-red-600" : "text-green-600"}>{result.delayedTasks?.length ?? 0}개</span>
+                    현재 지연 태스크 <span className={result.delayedTasks?.length ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}>{result.delayedTasks?.length ?? 0}개</span>
                   </p>
                 )}
                 {result.projectEndDateChange && (
@@ -158,7 +158,7 @@ export default function ImpactPanel({ projectId, tasks, onClose }: Props) {
                     <span className="text-gray-400">→</span>
                     <span className={clsx(
                       "font-mono font-semibold",
-                      result.projectEndDateChange.deviationDays > 0 ? "text-red-600" : "text-green-600"
+                      result.projectEndDateChange.deviationDays > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"
                     )}>
                       {result.projectEndDateChange.projected}
                     </span>
@@ -182,7 +182,7 @@ export default function ImpactPanel({ projectId, tasks, onClose }: Props) {
                   </p>
                   <div className="space-y-1.5">
                     {result.delayedTasks.map((d: any) => (
-                      <div key={d.taskId} className="flex items-center justify-between rounded-lg border border-red-100 bg-red-50/50 px-3 py-2">
+                      <div key={d.taskId} className="flex items-center justify-between rounded-lg border border-red-100 bg-red-50/50 px-3 py-2 dark:border-red-900 dark:bg-red-500/10">
                         <span className="text-sm font-medium text-gray-800 truncate">{d.taskName}</span>
                         <span className="flex items-center gap-2 shrink-0 ml-2">
                           <span className="text-xs text-gray-500 font-mono">기한 {d.endDate}</span>
@@ -210,7 +210,7 @@ export default function ImpactPanel({ projectId, tasks, onClose }: Props) {
                           </span>
                           <span className={clsx(
                             "text-xs px-2 py-0.5 rounded-full border font-medium",
-                            t.propagatedDelayDays > 0 ? "text-red-600 bg-red-50 border-red-200" : "text-gray-500 bg-gray-50 border-gray-200"
+                            t.propagatedDelayDays > 0 ? "text-red-600 bg-red-50 border-red-200 dark:text-red-400 dark:border-red-900" : "text-gray-500 bg-gray-50 border-gray-200"
                           )}>
                             +{t.propagatedDelayDays}일
                           </span>
@@ -218,7 +218,7 @@ export default function ImpactPanel({ projectId, tasks, onClose }: Props) {
                         <div className="flex items-center gap-2 text-xs text-gray-500">
                           <span className="font-mono">{t.originalEndDate}</span>
                           <span>→</span>
-                          <span className={clsx("font-mono font-medium", t.propagatedDelayDays > 0 ? "text-red-600" : "text-gray-700")}>
+                          <span className={clsx("font-mono font-medium", t.propagatedDelayDays > 0 ? "text-red-600 dark:text-red-400" : "text-gray-700")}>
                             {t.projectedEndDate}
                           </span>
                         </div>

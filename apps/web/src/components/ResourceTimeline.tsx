@@ -102,7 +102,7 @@ export function ResourceTimeline({ rows }: Props) {
               const isWeekend = dow === 0 || dow === 6;
               const isHoliday = d.isHoliday;
               const colorCls = isHoliday
-                ? "text-red-500 font-medium"
+                ? "text-red-500 font-medium dark:text-red-400"
                 : isWeekend
                 ? "text-gray-400"
                 : "text-gray-500";
@@ -137,7 +137,7 @@ export function ResourceTimeline({ rows }: Props) {
                     </button>
                   </td>
                   <td
-                    className={`text-right px-2 py-2 font-medium cursor-help ${row.isOverloaded ? "text-red-600" : row.totalAllocationPercent === 0 ? "text-gray-400" : "text-blue-600"}`}
+                    className={`text-right px-2 py-2 font-medium cursor-help ${row.isOverloaded ? "text-red-600 dark:text-red-400" : row.totalAllocationPercent === 0 ? "text-gray-400" : "text-blue-600 dark:text-blue-400"}`}
                     title={`최대 투입률 ${row.totalAllocationPercent}% — 기간 중 가장 바쁜 하루의 누적 투입(겹치는 배정 합산의 최댓값). 100% 초과 시 과부하.`}
                   >
                     {row.totalAllocationPercent}%
@@ -165,7 +165,7 @@ export function ResourceTimeline({ rows }: Props) {
 
                 {/* 펼침 — task별 gantt bar */}
                 {isOpen && taskCount === 0 && (
-                  <tr className="border-b border-gray-100 bg-gray-50/40">
+                  <tr className="border-b border-gray-100 bg-gray-50/40 dark:bg-gray-500/10">
                     <td colSpan={days.length + 2} className="px-3 py-3 text-center text-xs text-gray-400">
                       배정된 작업이 없습니다
                     </td>
@@ -174,8 +174,8 @@ export function ResourceTimeline({ rows }: Props) {
                 {isOpen && (row.assignments ?? []).slice().sort((a, b) =>
                   a.projectName.localeCompare(b.projectName) || a.taskName.localeCompare(b.taskName) || a.startDate.localeCompare(b.startDate)
                 ).map((a, idx) => (
-                  <tr key={`${row.resourceId}-${a.segmentId}-${idx}`} className="border-b border-gray-50 bg-gray-50/30">
-                    <td className="px-3 py-1.5 sticky left-0 bg-gray-50/30">
+                  <tr key={`${row.resourceId}-${a.segmentId}-${idx}`} className="border-b border-gray-50 bg-gray-50/30 dark:bg-gray-500/10">
+                    <td className="px-3 py-1.5 sticky left-0 bg-gray-50/30 dark:bg-gray-500/10">
                       <button
                         onClick={() => {
                           try { sessionStorage.setItem(`erp_tab_${a.projectId}`, "tasks"); } catch {}
@@ -184,7 +184,7 @@ export function ResourceTimeline({ rows }: Props) {
                         className="flex items-center gap-2 pl-5 text-left hover:underline"
                         title="클릭하여 해당 태스크로 이동"
                       >
-                        <span className="text-[11px] text-blue-600 truncate max-w-[100px]">{a.projectName}</span>
+                        <span className="text-[11px] text-blue-600 truncate max-w-[100px] dark:text-blue-400">{a.projectName}</span>
                         <span className="text-gray-300">·</span>
                         <span className="text-[11px] text-gray-700 truncate max-w-[120px]">{a.taskName}</span>
                       </button>

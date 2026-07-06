@@ -459,7 +459,7 @@ export default function NewApprovalPage() {
       {/* v1.6.4 (2026-05-16): TRIP_REPORT — 관련 출장신청서 연결 (선택) */}
       {selectedTemplate.code === "TRIP_REPORT" && (
         <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-          <label className="block text-sm font-medium text-amber-900 mb-1">✈️ 관련 출장신청서 (선택)</label>
+          <label className="block text-sm font-medium text-amber-900 dark:text-amber-300 mb-1">✈️ 관련 출장신청서 (선택)</label>
           <select
             value={selectedTripDocId}
             onChange={(e) => setSelectedTripDocId(e.target.value)}
@@ -475,7 +475,7 @@ export default function NewApprovalPage() {
               );
             })}
           </select>
-          <p className="text-[11px] text-amber-700 mt-1">
+          <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-1">
             연결하면 출장지·기간·목적이 자동 채워지고, 결재 상세에서 출장신청서로 바로 이동할 수 있습니다.
           </p>
         </div>
@@ -484,7 +484,7 @@ export default function NewApprovalPage() {
       {/* v1.6.4 (2026-05-16): 정산 묶음 연결 (선택). itemsTableConfig가 있는 양식에서만 노출 */}
       {selectedTemplate.itemsTableConfig && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <label className="block text-sm font-medium text-blue-900 mb-1">📦 정산 묶음 연결 (선택)</label>
+          <label className="block text-sm font-medium text-blue-900 dark:text-blue-300 mb-1">📦 정산 묶음 연결 (선택)</label>
           <select
             value={selectedSettlementId}
             onChange={(e) => setSelectedSettlementId(e.target.value)}
@@ -501,7 +501,7 @@ export default function NewApprovalPage() {
               <option value={preselectedSettlementId}>(prefilled) {preselectedSettlementId}</option>
             )}
           </select>
-          <p className="text-[11px] text-blue-700 mt-1">
+          <p className="text-[11px] text-blue-700 dark:text-blue-300 mt-1">
             연결하면 거래 명세·합계가 자동 채워지고, 결재 작성·상신·완료 흐름에 따라 정산 묶음 상태가 동기화됩니다.
           </p>
         </div>
@@ -557,7 +557,7 @@ export default function NewApprovalPage() {
         {(selectedTemplate.fields || []).filter((f: any) => f.type !== "approval-ref").map((f: any) => (
           <div key={f.key} className={getFieldClass(f)}>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              {f.label} {f.required && <span className="text-red-500">*</span>}
+              {f.label} {f.required && <span className="text-red-500 dark:text-red-400">*</span>}
             </label>
             {f.key === "project" ? (
               <div className="relative" onBlur={() => setTimeout(() => setShowProjectDropdown(false), 200)}>
@@ -812,7 +812,7 @@ export default function NewApprovalPage() {
                   <td className="px-1 py-1">
                     <div className="flex flex-col items-center gap-1">
                       {(item.attachments || []).map((att: any) => (
-                        <div key={att.id} className="flex items-center gap-1 text-xs text-blue-600 max-w-[120px]">
+                        <div key={att.id} className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 max-w-[120px]">
                           <span className="truncate" title={att.fileName}>{att.fileName}</span>
                           <button onClick={() => removeItemAttachment(idx, att.id)} className="text-red-400 hover:text-red-600 shrink-0">✕</button>
                         </div>
@@ -841,7 +841,7 @@ export default function NewApprovalPage() {
               </tr>
             </tfoot>
           </table>
-          <button onClick={addItem} className="mt-1 text-xs text-blue-600 hover:underline">+ 항목 추가</button>
+          <button onClick={addItem} className="mt-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">+ 항목 추가</button>
         </div>
       )}
 
@@ -850,13 +850,13 @@ export default function NewApprovalPage() {
         <div className="flex items-center gap-2 mb-2">
           <label className="text-sm font-medium text-gray-700">결재선</label>
           {lineLoading && <span className="text-xs text-gray-400">로딩중...</span>}
-          <button onClick={loadMyApprovalLine} className="text-xs text-blue-500 hover:underline">부서 기본선 불러오기</button>
+          <button onClick={loadMyApprovalLine} className="text-xs text-blue-500 dark:text-blue-400 hover:underline">부서 기본선 불러오기</button>
         </div>
         {approvalLine.length > 0 && (
           <div className="flex gap-2 flex-wrap mb-2">
             {approvalLine.map((a, i) => (
               <div key={i} className="flex items-center gap-1 bg-blue-50 rounded-full px-3 py-1 text-sm">
-                <span className="text-xs text-blue-500">{i + 1}차</span>
+                <span className="text-xs text-blue-500 dark:text-blue-300">{i + 1}차</span>
                 <span>{a.userName}</span>
                 <span className="text-xs text-gray-400">({a.role === "APPROVER" ? "결재" : "합의"})</span>
                 <button onClick={() => removeApprover(i)} className="text-gray-400 hover:text-red-500 ml-1">✕</button>
@@ -865,7 +865,7 @@ export default function NewApprovalPage() {
           </div>
         )}
         {approvalLine.length === 0 && !lineLoading && (
-          <p className="text-xs text-orange-500 mb-2">결재선이 설정되지 않았습니다. 부서 기본선을 불러오거나 직접 추가하세요.</p>
+          <p className="text-xs text-orange-500 dark:text-orange-400 mb-2">결재선이 설정되지 않았습니다. 부서 기본선을 불러오거나 직접 추가하세요.</p>
         )}
         <div className="flex gap-2 items-end flex-wrap">
           <div>

@@ -196,7 +196,7 @@ export default function ResourcePickerPopover({ task, projectId, allResources, o
                   <div className={`w-6 h-6 rounded-full ${avatarColor(r.name)} flex items-center justify-center text-white text-[10px] font-bold shrink-0`}>
                     {r.name.slice(0, 2)}
                   </div>
-                  <span className={`flex-1 text-left text-xs truncate ${isAssigned ? "font-semibold text-blue-600" : "text-gray-700"}`}>
+                  <span className={`flex-1 text-left text-xs truncate ${isAssigned ? "font-semibold text-blue-600 dark:text-blue-400" : "text-gray-700"}`}>
                     {r.name}
                   </span>
                   {isAssigned && (

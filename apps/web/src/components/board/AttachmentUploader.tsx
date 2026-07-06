@@ -104,7 +104,7 @@ export default function AttachmentUploader({ attachments, onAdd, onRemove, onIns
       </div>
 
       {error && (
-        <div className="mt-2 px-3 py-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+        <div className="mt-2 px-3 py-2 bg-red-50 border border-red-200 rounded text-sm text-red-700 dark:text-red-300">
           {error}
         </div>
       )}

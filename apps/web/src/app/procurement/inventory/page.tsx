@@ -372,7 +372,7 @@ export default function InventoryPage() {
             <div className="space-y-3">
               {/* 품목 검색 (필수) */}
               <div className="relative">
-                <label className="text-sm text-gray-600 mb-1 block">품목 <span className="text-red-500">*</span></label>
+                <label className="text-sm text-gray-600 mb-1 block">품목 <span className="text-red-500 dark:text-red-400">*</span></label>
                 <div className="flex gap-2">
                   <input value={pmSearch} onChange={(e) => searchProductMaster(e.target.value)}
                     onFocus={() => pmResults.length > 0 && setShowPmDropdown(true)}
@@ -397,7 +397,7 @@ export default function InventoryPage() {
                         <div className="text-[10px] text-gray-500 mt-0.5">
                           {pm.manufacturer || ""}
                           {pm.stockSummary && (
-                            <span className={`ml-2 ${pm.stockSummary.items > 0 ? "text-emerald-600" : "text-gray-400"}`}>
+                            <span className={`ml-2 ${pm.stockSummary.items > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-gray-400"}`}>
                               {pm.stockSummary.items > 0
                                 ? `재고 ${pm.stockSummary.items}건·${pm.stockSummary.quantity}개`
                                 : "재고 없음"}
@@ -421,11 +421,11 @@ export default function InventoryPage() {
 
               {/* v1.6 B안 (2026-05-13): BUNDLE이면 구성품 매칭 섹션 */}
               {form.itemType === "BUNDLE" && form.productMasterId && (
-                <div className="border-2 border-amber-200 rounded-lg p-3 bg-amber-50/30">
+                <div className="border-2 border-amber-200 rounded-lg p-3 bg-amber-50/30 dark:bg-amber-500/10 dark:border-amber-900">
                   <div className="text-sm font-medium text-amber-800 mb-2">📦 번들 조립 — 구성품 재고 지정</div>
                   {bundleComponents.length === 0 ? (
                     <div className="text-xs text-gray-400 py-3 text-center">
-                      구성품이 정의되지 않았습니다. <a href="/procurement/products?itemType=BUNDLE" className="text-amber-700 underline">[품목 관리]</a>의 [구성품] 버튼으로 먼저 등록하십시오.
+                      구성품이 정의되지 않았습니다. <a href="/procurement/products?itemType=BUNDLE" className="text-amber-700 underline dark:text-amber-300">[품목 관리]</a>의 [구성품] 버튼으로 먼저 등록하십시오.
                     </div>
                   ) : (
                     <div className="border rounded bg-white overflow-hidden">
@@ -445,7 +445,7 @@ export default function InventoryPage() {
                               <td className="px-2 py-1.5">
                                 <div>{c.productMasterName}</div>
                                 <div className="text-[10px] text-gray-400">
-                                  <span className={`px-1 py-0.5 rounded ${c.slotType === "MAIN" ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-600"}`}>
+                                  <span className={`px-1 py-0.5 rounded ${c.slotType === "MAIN" ? "bg-blue-50 text-blue-700 dark:text-blue-300" : "bg-gray-100 text-gray-600"}`}>
                                     {c.slotType}
                                   </span>
                                 </div>
@@ -488,7 +488,7 @@ export default function InventoryPage() {
                                   }}
                                 />
                                 {c.inventoryItemId && (
-                                  <div className="text-[10px] text-emerald-600 mt-0.5">
+                                  <div className="text-[10px] text-emerald-600 mt-0.5 dark:text-emerald-400">
                                     ✓ {c.inventoryNo}
                                     {c.locationName && <span className="text-gray-500 ml-1">@ {c.locationName}</span>}
                                   </div>
@@ -574,7 +574,7 @@ export default function InventoryPage() {
                 <label className="text-sm text-gray-600 mb-1 block">
                   공급사
                   {form.trackingMode === "BULK" && (
-                    <span className="text-xs text-amber-600 ml-2">※ 같은 마스터+단가+공급사면 오늘 입고분에 수량 누적</span>
+                    <span className="text-xs text-amber-600 ml-2 dark:text-amber-400">※ 같은 마스터+단가+공급사면 오늘 입고분에 수량 누적</span>
                   )}
                 </label>
                 <div className="flex gap-2">

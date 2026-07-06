@@ -93,7 +93,7 @@ export default function LocationSelect({ value, onChange, className = "", placeh
         <div className="absolute z-20 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-56 overflow-y-auto">
           {warehouses.length > 0 && (
             <>
-              <div className="px-3 py-1 text-xs font-semibold text-blue-600 bg-blue-50 sticky top-0">창고</div>
+              <div className="px-3 py-1 text-xs font-semibold text-blue-600 dark:text-blue-300 bg-blue-50 sticky top-0">창고</div>
               {warehouses.map((l) => (
                 <button key={l.id} onClick={() => handleSelect(l.name)}
                   className={`w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 ${l.name === value ? "bg-blue-50 font-medium" : ""}`}>
@@ -105,7 +105,7 @@ export default function LocationSelect({ value, onChange, className = "", placeh
           )}
           {customers.length > 0 && (
             <>
-              <div className="px-3 py-1 text-xs font-semibold text-purple-600 bg-purple-50 sticky top-0">고객사</div>
+              <div className="px-3 py-1 text-xs font-semibold text-purple-600 bg-purple-50 dark:bg-purple-950 dark:text-purple-300 sticky top-0">고객사</div>
               {customers.map((l) => (
                 <button key={l.id} onClick={() => handleSelect(l.name)}
                   className={`w-full text-left px-3 py-1.5 text-sm hover:bg-purple-50 ${l.name === value ? "bg-purple-50 font-medium" : ""}`}>
@@ -117,7 +117,7 @@ export default function LocationSelect({ value, onChange, className = "", placeh
           )}
           {employees.length > 0 && (
             <>
-              <div className="px-3 py-1 text-xs font-semibold text-green-600 bg-green-50 sticky top-0">사원</div>
+              <div className="px-3 py-1 text-xs font-semibold text-green-600 dark:text-green-300 bg-green-50 sticky top-0">사원</div>
               {employees.map((l) => (
                 <button key={l.id} onClick={() => handleSelect(l.name)}
                   className={`w-full text-left px-3 py-1.5 text-sm hover:bg-green-50 ${l.name === value ? "bg-green-50 font-medium" : ""}`}>

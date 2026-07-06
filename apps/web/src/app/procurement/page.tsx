@@ -246,7 +246,7 @@ export default function ProcurementPage() {
                   onClick={() => router.push(`/procurement/orders/${o.id}`)}
                   className="hover:bg-gray-50 cursor-pointer"
                 >
-                  <td className="px-4 py-3 font-mono text-blue-600 whitespace-nowrap min-w-[14ch]">{o.orderNumber}</td>
+                  <td className="px-4 py-3 font-mono text-blue-600 dark:text-blue-400 whitespace-nowrap min-w-[14ch]">{o.orderNumber}</td>
                   <td className="px-4 py-3 text-gray-700">
                     {o.firstItemName ? (
                       <span className="truncate inline-block max-w-[16ch]" title={o.firstItemName}>

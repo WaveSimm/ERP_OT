@@ -400,7 +400,7 @@ export default function OrderDetailPage() {
           <p className="text-sm text-gray-400">
             결재라인이 지정되지 않았습니다.
             {order.status === "DRAFT" ? " 편집에서 결재라인을 지정하거나, " : " "}
-            <a href="/approval-lines" className="text-blue-600 hover:underline">결재선 설정</a>에서 기본 결재선을 등록하십시오.
+            <a href="/approval-lines" className="text-blue-600 dark:text-blue-400 hover:underline">결재선 설정</a>에서 기본 결재선을 등록하십시오.
           </p>
         )}
       </div>
@@ -424,7 +424,7 @@ export default function OrderDetailPage() {
           {!["DRAFT", "PENDING_APPROVAL", "REJECTED"].includes(order.status) && (
             <button
               onClick={() => window.open(`/procurement/orders/${id}/po-print`, "_blank")}
-              className="px-3 py-1.5 text-sm border border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50"
+              className="px-3 py-1.5 text-sm border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950"
               title="발주서 PDF (새 탭에서 인쇄 → PDF 저장 → 이메일로 발송)"
             >
               📄 발주서 PDF
@@ -469,7 +469,7 @@ export default function OrderDetailPage() {
               <button
                 onClick={handleDelete}
                 disabled={transitioning}
-                className="px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50"
+                className="px-3 py-1.5 text-sm text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-950 disabled:opacity-50"
               >
                 삭제
               </button>
@@ -480,7 +480,7 @@ export default function OrderDetailPage() {
             <button
               onClick={handleCancelSubmission}
               disabled={transitioning}
-              className="px-3 py-1.5 text-sm text-amber-700 border border-amber-200 rounded-lg hover:bg-amber-50 disabled:opacity-50"
+              className="px-3 py-1.5 text-sm text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950 disabled:opacity-50"
             >
               상신 취소
             </button>
@@ -599,7 +599,7 @@ export default function OrderDetailPage() {
               ) : (
                 <button
                   onClick={() => setShowRejectForm(true)}
-                  className="px-4 py-1.5 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50"
+                  className="px-4 py-1.5 text-sm border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-950"
                 >
                   반려
                 </button>
@@ -638,14 +638,14 @@ export default function OrderDetailPage() {
           {/* v1.6 (2026-05-14): 일정·입고장소·통관담당은 전 상태에서 수정 가능 */}
           <button
             onClick={() => setShowLogisticsEdit(true)}
-            className="text-xs text-blue-600 hover:underline"
+            className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
           >
             일정 편집 ✏
           </button>
         </div>
         <div className="grid grid-cols-3 gap-x-12 gap-y-4 text-sm">
           {/* 1줄: 계약번호 / 계약명 / 고객사 */}
-          <div><span className="text-gray-500">계약번호:</span> {order.contract ? <a href={`/procurement/contracts/${order.contract.id}`} className="ml-2 text-blue-600 hover:underline">{order.contract.contractNumber}</a> : <span className="ml-2">-</span>}</div>
+          <div><span className="text-gray-500">계약번호:</span> {order.contract ? <a href={`/procurement/contracts/${order.contract.id}`} className="ml-2 text-blue-600 dark:text-blue-400 hover:underline">{order.contract.contractNumber}</a> : <span className="ml-2">-</span>}</div>
           <div><span className="text-gray-500">계약명:</span> <span className="ml-2">{order.contract?.name || "-"}</span></div>
           <div><span className="text-gray-500">고객사:</span> <span className="ml-2">{order.customer || order.contract?.client || order.contract?.customer || "-"}</span></div>
 
@@ -655,7 +655,7 @@ export default function OrderDetailPage() {
               const s = await supplierApi.findByName(order.manufacturer);
               if (s?.id) router.push(`/procurement/suppliers/${s.id}`);
             } catch { router.push(`/procurement/suppliers?search=${encodeURIComponent(order.manufacturer)}`); }
-          }} className="ml-2 text-blue-600 hover:underline">{order.manufacturer}</button></div>
+          }} className="ml-2 text-blue-600 dark:text-blue-400 hover:underline">{order.manufacturer}</button></div>
           <div><span className="text-gray-500">통화:</span> <span className="ml-2">{order.currency}</span></div>
           <div><span className="text-gray-500">견적금액:</span> <span className="ml-2 font-mono">{fmtAmount(order.totalAmount, order.currency)}</span></div>
 
@@ -724,7 +724,7 @@ export default function OrderDetailPage() {
               <div>{order.customsTax.paidAt ? fmtDate(order.customsTax.paidAt) : "-"}</div>
             </div>
             {order.customsTax.rejectReason && (
-              <div className="col-span-4 text-xs text-red-600">반려 사유: {order.customsTax.rejectReason}</div>
+              <div className="col-span-4 text-xs text-red-600 dark:text-red-400">반려 사유: {order.customsTax.rejectReason}</div>
             )}
             {order.customsTax.notes && (
               <div className="col-span-4 text-xs text-gray-600">메모: {order.customsTax.notes}</div>
@@ -776,7 +776,7 @@ export default function OrderDetailPage() {
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap items-center gap-1">
                     {item.inventoryItems?.map((inv: any) => (
-                      <span key={inv.id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">
+                      <span key={inv.id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 dark:text-blue-300 rounded text-xs">
                         <a href={`/inventory/${inv.id}`} className="hover:underline font-mono">{inv.inventoryNo}</a>
                         <button
                           onClick={() => handleUnlinkInventory(item.id, inv.id)}
@@ -796,7 +796,7 @@ export default function OrderDetailPage() {
                           className="w-20 border rounded px-1.5 py-0.5 text-xs font-mono"
                           autoFocus
                         />
-                        <button onClick={handleLinkInventory} className="text-green-600 hover:text-green-800 text-xs font-bold">&#10003;</button>
+                        <button onClick={handleLinkInventory} className="text-green-600 dark:text-green-400 hover:text-green-800 text-xs font-bold">&#10003;</button>
                         <button onClick={() => { setLinkItemId(null); setLinkInvNo(""); }} className="text-gray-400 hover:text-gray-600 text-xs">&times;</button>
                       </span>
                     ) : (

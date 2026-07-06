@@ -77,7 +77,7 @@ export default function EditPostPage({
       <AppLayout>
         <div className="max-w-4xl mx-auto px-6 py-12 text-center text-gray-500">
           <p>글을 찾을 수 없습니다.</p>
-          <Link href={`/board/${catCode}/${boardCode}`} className="text-blue-600 hover:underline text-sm mt-3 inline-block">
+          <Link href={`/board/${catCode}/${boardCode}`} className="text-blue-600 dark:text-blue-400 hover:underline text-sm mt-3 inline-block">
             ← 목록으로
           </Link>
         </div>
@@ -90,7 +90,7 @@ export default function EditPostPage({
       <AppLayout>
         <div className="max-w-4xl mx-auto px-6 py-12 text-center text-gray-500">
           <p>이 글을 수정할 권한이 없습니다.</p>
-          <Link href={`/board/${catCode}/${boardCode}/${postId}`} className="text-blue-600 hover:underline text-sm mt-3 inline-block">
+          <Link href={`/board/${catCode}/${boardCode}/${postId}`} className="text-blue-600 dark:text-blue-400 hover:underline text-sm mt-3 inline-block">
             ← 글로 돌아가기
           </Link>
         </div>

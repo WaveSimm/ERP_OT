@@ -81,7 +81,7 @@ export default function MonthCalendar({ year, month, entries, onDayClick, onEntr
           <div
             key={w}
             className={`px-2 py-2 text-center text-xs font-semibold ${
-              i === 0 ? "text-red-600" : i === 6 ? "text-blue-600" : "text-gray-700"
+              i === 0 ? "text-red-600 dark:text-red-400" : i === 6 ? "text-blue-600 dark:text-blue-400" : "text-gray-700"
             }`}
           >
             {w}
@@ -109,16 +109,16 @@ export default function MonthCalendar({ year, month, entries, onDayClick, onEntr
             <div
               key={idx}
               onClick={() => onDayClick?.(dateStr)}
-              className={`border-r border-b border-gray-100 last:border-r-0 px-1.5 py-1 cursor-pointer hover:bg-blue-50/40 ${
-                !isCurrentMonth ? "bg-gray-50/50" : ""
+              className={`border-r border-b border-gray-100 last:border-r-0 px-1.5 py-1 cursor-pointer hover:bg-blue-50/40 dark:hover:bg-blue-500/10 ${
+                !isCurrentMonth ? "bg-gray-50/50 dark:bg-gray-500/10" : ""
               }`}
             >
               <div
                 className={`text-xs font-medium mb-1 ${
                   !isCurrentMonth ? "text-gray-400" :
                   isToday ? "text-white bg-blue-600 rounded-full w-5 h-5 flex items-center justify-center" :
-                  dow === 0 ? "text-red-600" :
-                  dow === 6 ? "text-blue-600" :
+                  dow === 0 ? "text-red-600 dark:text-red-400" :
+                  dow === 6 ? "text-blue-600 dark:text-blue-400" :
                   "text-gray-700"
                 }`}
               >

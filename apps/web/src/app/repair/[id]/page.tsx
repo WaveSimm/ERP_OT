@@ -186,13 +186,13 @@ export default function RepairOrderDetailPage() {
             </span>
             {order.status === "CANCELLED" && getUser()?.role !== "VIEWER" && (
               <button onClick={restoreOrder}
-                className="px-3 py-1 text-xs text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 hover:border-blue-300">
+                className="px-3 py-1 text-xs text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 dark:text-blue-400 dark:border-blue-700 dark:hover:bg-blue-950">
                 복구
               </button>
             )}
             {isAdmin && (
               <button onClick={deleteOrder}
-                className="px-3 py-1 text-xs text-red-500 border border-red-200 rounded-lg hover:bg-red-50 hover:border-red-300">
+                className="px-3 py-1 text-xs text-red-500 border border-red-200 rounded-lg hover:bg-red-50 hover:border-red-300 dark:text-red-400 dark:border-red-700 dark:hover:bg-red-950">
                 삭제
               </button>
             )}
@@ -236,7 +236,7 @@ export default function RepairOrderDetailPage() {
         {TABS.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              tab === t.key ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"
+              tab === t.key ? "border-blue-600 text-blue-600 dark:text-blue-400" : "border-transparent text-gray-500 hover:text-gray-700"
             }`}>
             {t.label}
           </button>
@@ -463,14 +463,14 @@ function SiblingAssetsPanel({ bundleShipmentId, currentAssetId }: { bundleShipme
     <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
       <div className="flex items-center justify-between mb-2">
         <div>
-          <div className="text-sm font-semibold text-amber-800">
+          <div className="text-sm font-semibold text-amber-800 dark:text-amber-200">
             🔗 번들 출고 자산 ({data.bundleShipment?.code})
           </div>
-          <div className="text-xs text-amber-700 mt-0.5">
+          <div className="text-xs text-amber-700 mt-0.5 dark:text-amber-300">
             {data.bundleShipment?.customer?.name} · 출고 {fmtDateTime24(data.bundleShipment?.shippedAt, { short: true })}
           </div>
         </div>
-        <div className="text-xs text-amber-700">
+        <div className="text-xs text-amber-700 dark:text-amber-300">
           형제 자산 <span className="font-semibold">{siblings.length}</span>건
         </div>
       </div>
@@ -665,7 +665,7 @@ function InspectionTab({ order, onUpdate, onReload }: { order: any; onUpdate: (f
               onChange={(e) => { void handlePhaseFiles(phase, e.target.files); e.target.value = ""; }} />
           </label>
           {atts.length > 0 && <span className="text-xs text-gray-500">{atts.length}건</span>}
-          {isUploading && <span className="text-[10px] text-blue-500">업로드 중...</span>}
+          {isUploading && <span className="text-[10px] text-blue-500 dark:text-blue-400">업로드 중...</span>}
         </div>
         {atts.length > 0 && (
           <div className="flex gap-2 flex-wrap">
@@ -704,8 +704,8 @@ function InspectionTab({ order, onUpdate, onReload }: { order: any; onUpdate: (f
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none" />
           <span className="text-xs text-gray-500">점검자: {order.inspector1stName || "-"}</span>
         </div>
-        <div className="bg-blue-50/30 border border-blue-100 rounded-lg p-3 space-y-2">
-          <label className="block text-sm font-medium text-gray-700">1차 판단 <span className="text-red-500">*</span></label>
+        <div className="bg-blue-50/30 border border-blue-100 rounded-lg p-3 space-y-2 dark:bg-blue-500/10">
+          <label className="block text-sm font-medium text-gray-700">1차 판단 <span className="text-red-500 dark:text-red-400">*</span></label>
           <DecisionRadio name="decision1st" value={decision1st} onChange={setDecision1st} />
           <input value={decision1stReason} onChange={(e) => setDecision1stReason(e.target.value)}
             placeholder="판단 사유(선택)" className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
@@ -770,7 +770,7 @@ function InspectionTab({ order, onUpdate, onReload }: { order: any; onUpdate: (f
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none" />
             <span className="text-xs text-gray-500">점검자: {order.inspector2ndName || "-"}</span>
           </div>
-          <div className="bg-blue-50/30 border border-blue-100 rounded-lg p-3 space-y-2">
+          <div className="bg-blue-50/30 border border-blue-100 rounded-lg p-3 space-y-2 dark:bg-blue-500/10">
             <label className="block text-sm font-medium text-gray-700">2차 판단</label>
             <DecisionRadio name="decision2nd" value={decision2nd} onChange={setDecision2nd} />
             <input value={decision2ndReason} onChange={(e) => setDecision2ndReason(e.target.value)}
@@ -783,7 +783,7 @@ function InspectionTab({ order, onUpdate, onReload }: { order: any; onUpdate: (f
       {/* legacy inspectionSteps — read-only 백워드 호환 */}
       {legacySteps.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-          <div className="text-xs font-medium text-amber-700 mb-2">
+          <div className="text-xs font-medium text-amber-700 mb-2 dark:text-amber-300">
             ⚠ 이전 버전 점검 단계 데이터 ({legacySteps.length}건) — 신규 입력 불가, 표시만 보존
           </div>
           <ol className="pl-5 space-y-1 text-xs text-gray-700 list-decimal">
@@ -862,7 +862,7 @@ function PhaseBasedReportSection({ order, report }: { order: any; report: any })
         📎 {files.map((f, i) => (
           <span key={f.id}>
             {i > 0 && ", "}
-            <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{f.fileName}</a>
+            <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline dark:text-blue-400">{f.fileName}</a>
           </span>
         ))}
       </div>
@@ -1061,8 +1061,8 @@ function ReportTab({ order, onReload }: { order: any; onReload: () => void }) {
       <div className="flex items-center justify-between">
         <div className="text-xs text-gray-500">
           {saveStatus === "saving" && "💾 저장 중..."}
-          {saveStatus === "saved" && <span className="text-green-600">✓ 자동 저장됨</span>}
-          {saveStatus === "error" && <span className="text-red-600">⚠ 저장 실패</span>}
+          {saveStatus === "saved" && <span className="text-green-600 dark:text-green-400">✓ 자동 저장됨</span>}
+          {saveStatus === "error" && <span className="text-red-600 dark:text-red-400">⚠ 저장 실패</span>}
           {saveStatus === "idle" && <span className="text-gray-400">변경 시 자동 저장됩니다</span>}
         </div>
         <a href={`/repair/${order.id}/report/print`}
@@ -1166,7 +1166,7 @@ function ReportTab({ order, onReload }: { order: any; onReload: () => void }) {
                       📎 {files.map((f: any, i: number) => (
                         <span key={f.id}>
                           {i > 0 && ", "}
-                          <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{f.fileName}</a>
+                          <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline dark:text-blue-400">{f.fileName}</a>
                         </span>
                       ))}
                     </div>
@@ -1284,11 +1284,11 @@ function CostTab({ order, onReload }: { order: any; onReload: () => void }) {
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold text-sm text-gray-800">비용 항목</h3>
           <button onClick={() => setShowCostForm(!showCostForm)}
-            className="text-xs text-blue-600 hover:underline">{showCostForm ? "취소" : "+ 비용 추가"}</button>
+            className="text-xs text-blue-600 hover:underline dark:text-blue-400">{showCostForm ? "취소" : "+ 비용 추가"}</button>
         </div>
 
         {showCostForm && (
-          <div className="border border-blue-100 rounded-lg p-3 mb-3 bg-blue-50/30 space-y-2">
+          <div className="border border-blue-100 rounded-lg p-3 mb-3 bg-blue-50/30 space-y-2 dark:bg-blue-500/10">
             <div className="grid grid-cols-3 gap-2">
               <select value={costForm.costType} onChange={(e) => setCostForm({ ...costForm, costType: e.target.value })}
                 className="px-2 py-1.5 border border-gray-300 rounded text-sm">
@@ -1334,7 +1334,7 @@ function CostTab({ order, onReload }: { order: any; onReload: () => void }) {
               <tfoot>
                 <tr className="border-t-2 border-gray-300">
                   <td colSpan={2} className="py-2 font-semibold text-sm">합계</td>
-                  <td className="py-2 text-right font-bold text-blue-600">{totalCost.toLocaleString()} KRW</td>
+                  <td className="py-2 text-right font-bold text-blue-600 dark:text-blue-400">{totalCost.toLocaleString()} KRW</td>
                   <td></td>
                 </tr>
               </tfoot>
@@ -1350,11 +1350,11 @@ function CostTab({ order, onReload }: { order: any; onReload: () => void }) {
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold text-sm text-gray-800">견적</h3>
           <button onClick={() => setShowQuoteForm(!showQuoteForm)}
-            className="text-xs text-blue-600 hover:underline">{showQuoteForm ? "취소" : "+ 견적 작성"}</button>
+            className="text-xs text-blue-600 hover:underline dark:text-blue-400">{showQuoteForm ? "취소" : "+ 견적 작성"}</button>
         </div>
 
         {showQuoteForm && (
-          <div className="border border-blue-100 rounded-lg p-3 mb-3 bg-blue-50/30 space-y-2">
+          <div className="border border-blue-100 rounded-lg p-3 mb-3 bg-blue-50/30 space-y-2 dark:bg-blue-500/10">
             <div className="grid grid-cols-2 gap-2">
               <input value={quoteForm.quoteNumber} onChange={(e) => setQuoteForm({ ...quoteForm, quoteNumber: e.target.value })}
                 placeholder="견적번호" className="px-2 py-1.5 border border-gray-300 rounded text-sm" />
@@ -1388,14 +1388,14 @@ function CostTab({ order, onReload }: { order: any; onReload: () => void }) {
                 <div className="flex gap-1">
                   {q.status === "DRAFT" && (
                     <button onClick={() => changeQuoteStatus(q.id, "SENT")}
-                      className="text-xs text-blue-600 hover:underline">발송</button>
+                      className="text-xs text-blue-600 hover:underline dark:text-blue-400">발송</button>
                   )}
                   {q.status === "SENT" && (
                     <>
                       <button onClick={() => changeQuoteStatus(q.id, "APPROVED")}
-                        className="text-xs text-green-600 hover:underline">승인</button>
+                        className="text-xs text-green-600 hover:underline dark:text-green-400">승인</button>
                       <button onClick={() => changeQuoteStatus(q.id, "REJECTED")}
-                        className="text-xs text-red-600 hover:underline">반려</button>
+                        className="text-xs text-red-600 hover:underline dark:text-red-400">반려</button>
                     </>
                   )}
                   {q.status === "DRAFT" && (
@@ -1467,11 +1467,11 @@ function ManufacturerTab({ order, onReload }: { order: any; onReload: () => void
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-semibold text-sm text-gray-800">제조사 발송/입고 이력</h3>
         <button onClick={() => setShowForm(!showForm)}
-          className="text-xs text-blue-600 hover:underline">{showForm ? "취소" : "+ 발송/입고 등록"}</button>
+          className="text-xs text-blue-600 hover:underline dark:text-blue-400">{showForm ? "취소" : "+ 발송/입고 등록"}</button>
       </div>
 
       {showForm && (
-        <div className="border border-blue-100 rounded-lg p-3 mb-3 bg-blue-50/30 space-y-2">
+        <div className="border border-blue-100 rounded-lg p-3 mb-3 bg-blue-50/30 space-y-2 dark:bg-blue-500/10">
           <div className="grid grid-cols-4 gap-2">
             <select value={form.direction} onChange={(e) => setForm({ ...form, direction: e.target.value })}
               className="px-2 py-1.5 border border-gray-300 rounded text-sm">
@@ -1769,13 +1769,13 @@ function ShipmentCard({ s, onReload }: { s: any; onReload: () => void }) {
         </div>
         <div className="flex gap-2 items-center">
           {!editing && s.status === "PREPARING" && (
-            <button onClick={() => changeStatus("SHIPPED")} className="text-xs text-blue-600 hover:underline">발송완료</button>
+            <button onClick={() => changeStatus("SHIPPED")} className="text-xs text-blue-600 hover:underline dark:text-blue-400">발송완료</button>
           )}
           {!editing && s.status === "SHIPPED" && (
-            <button onClick={() => changeStatus("DELIVERED")} className="text-xs text-green-600 hover:underline">수령완료</button>
+            <button onClick={() => changeStatus("DELIVERED")} className="text-xs text-green-600 hover:underline dark:text-green-400">수령완료</button>
           )}
           {!editing && s.status === "IN_TRANSIT" && (
-            <button onClick={() => changeStatus("DELIVERED")} className="text-xs text-green-600 hover:underline">수령완료</button>
+            <button onClick={() => changeStatus("DELIVERED")} className="text-xs text-green-600 hover:underline dark:text-green-400">수령완료</button>
           )}
           {!editing ? (
             <>
@@ -1868,7 +1868,7 @@ function HistoryTab({ order }: { order: any }) {
           <h4 className="text-xs font-semibold text-gray-500 mb-2">발송/입고</h4>
           {order.shipments.map((s: any) => (
             <div key={s.id} className="flex items-center gap-2 text-xs text-gray-600 mb-1">
-              <span className={`whitespace-nowrap ${s.direction === "OUTBOUND" ? "text-orange-600" : "text-green-600"}`}>
+              <span className={`whitespace-nowrap ${s.direction === "OUTBOUND" ? "text-orange-600 dark:text-orange-400" : "text-green-600 dark:text-green-400"}`}>
                 {s.direction === "OUTBOUND" ? "제조사로 발송" : "본사 입고"}
               </span>
               <span className="whitespace-nowrap">{shipmentStatusLabel(s)}</span>

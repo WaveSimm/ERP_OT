@@ -39,10 +39,10 @@ const ROW_H = 34;
 
 const STATUS_CFG: Record<string, { label: string; dot: string; text: string }> = {
   PLANNING:    { label: "계획",   dot: "bg-gray-400",   text: "text-gray-500" },
-  IN_PROGRESS: { label: "진행중", dot: "bg-blue-500",   text: "text-blue-600" },
-  ON_HOLD:     { label: "보류",   dot: "bg-yellow-500", text: "text-yellow-600" },
-  COMPLETED:   { label: "완료",   dot: "bg-green-500",  text: "text-green-600" },
-  CANCELLED:   { label: "취소",   dot: "bg-red-400",    text: "text-red-500" },
+  IN_PROGRESS: { label: "진행중", dot: "bg-blue-500",   text: "text-blue-600 dark:text-blue-400" },
+  ON_HOLD:     { label: "보류",   dot: "bg-yellow-500", text: "text-yellow-600 dark:text-yellow-400" },
+  COMPLETED:   { label: "완료",   dot: "bg-green-500",  text: "text-green-600 dark:text-green-400" },
+  CANCELLED:   { label: "취소",   dot: "bg-red-400",    text: "text-red-500 dark:text-red-400" },
 };
 
 // ─── localStorage helpers (UI preferences only) ──────────────────────────────
@@ -626,7 +626,7 @@ export default function ProjectsPage() {
         <div
           className={clsx(
             "flex items-center border-b border-gray-100 group/row cursor-pointer transition-colors",
-            isDragging ? "opacity-30" : "hover:bg-blue-50/40",
+            isDragging ? "opacity-30" : "hover:bg-blue-50/40 dark:hover:bg-blue-500/10",
           )}
           style={{ height: ROW_H }}
           draggable
@@ -649,7 +649,7 @@ export default function ProjectsPage() {
           {/* 프로젝트 요약 버튼 — 항상 표시, 진한 파랑 */}
           <button
             onClick={e => { e.stopPropagation(); setSummaryId(p.id); }}
-            className="ml-1.5 px-1.5 h-5 flex items-center justify-center rounded border border-blue-200 text-blue-600 bg-blue-50 hover:bg-blue-100 hover:border-blue-300 shrink-0 transition-colors text-[11px] font-medium"
+            className="ml-1.5 px-1.5 h-5 flex items-center justify-center rounded border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-300 bg-blue-50 hover:bg-blue-100 dark:hover:bg-blue-900 hover:border-blue-300 shrink-0 transition-colors text-[11px] font-medium"
             title="프로젝트 요약 보기"
           >
             요약
@@ -741,7 +741,7 @@ export default function ProjectsPage() {
         <div
           className={clsx(
             "flex items-center border-b border-gray-100 group/row select-none transition-colors",
-            isDropping ? "bg-blue-50 outline outline-1 outline-blue-300 outline-offset-[-1px]" : "hover:bg-gray-50/60",
+            isDropping ? "bg-blue-50 outline outline-1 outline-blue-300 outline-offset-[-1px]" : "hover:bg-gray-50/60 dark:hover:bg-gray-500/10",
           )}
           style={{ height: ROW_H, paddingLeft: 8 + depth * 18 }}
           draggable
@@ -906,7 +906,7 @@ export default function ProjectsPage() {
                     setTplCategories(Array.from(new Set(l.map((t) => t.category).filter(Boolean))));
                   }).catch(() => {});
                 }}
-                className="px-3 py-1.5 border border-orange-300 text-orange-700 rounded-lg text-sm hover:bg-orange-50 flex items-center gap-1.5 transition-colors"
+                className="px-3 py-1.5 border border-orange-300 dark:border-orange-700 text-orange-700 dark:text-orange-400 rounded-lg text-sm hover:bg-orange-50 dark:hover:bg-orange-950 flex items-center gap-1.5 transition-colors"
                 title="기존 프로젝트를 템플릿으로 저장"
               >
                 <span>💾</span> 템플릿저장
@@ -962,7 +962,7 @@ export default function ProjectsPage() {
             </div>
           ) : (
             <div
-              className={clsx("min-h-[160px] transition-colors", isRootDrop && "bg-blue-50/30")}
+              className={clsx("min-h-[160px] transition-colors", isRootDrop && "bg-blue-50/30 dark:bg-blue-500/10")}
               onDragOver={e => { e.preventDefault(); setDropTarget("root"); setDropGap(null); }}
               onDrop={onRootDrop}
             >
@@ -972,7 +972,7 @@ export default function ProjectsPage() {
               {rootFolders.length === 0 && rootProjects.length === 0 && (
                 <div className="text-center py-14 text-gray-400 text-sm">
                   프로젝트가 없습니다.{" "}
-                  <button onClick={() => setShowCreate(true)} className="text-blue-600 hover:underline">
+                  <button onClick={() => setShowCreate(true)} className="text-blue-600 dark:text-blue-400 hover:underline">
                     만들기 →
                   </button>
                 </div>
@@ -1078,7 +1078,7 @@ export default function ProjectsPage() {
                   전체 선택 ({filtered.length})
                 </label>
                 {pickerSelected.size > 0 && (
-                  <span className="ml-auto text-[11px] text-blue-600 font-medium">{pickerSelected.size}개 선택됨</span>
+                  <span className="ml-auto text-[11px] text-blue-600 dark:text-blue-400 font-medium">{pickerSelected.size}개 선택됨</span>
                 )}
               </div>
 
@@ -1094,8 +1094,8 @@ export default function ProjectsPage() {
                       <label
                         key={p.id}
                         className={clsx(
-                          "flex items-center gap-3 px-5 cursor-pointer hover:bg-blue-50/50 transition-colors border-b border-gray-50",
-                          checked && "bg-blue-50/30"
+                          "flex items-center gap-3 px-5 cursor-pointer hover:bg-blue-50/50 dark:hover:bg-blue-500/10 transition-colors border-b border-gray-50",
+                          checked && "bg-blue-50/30 dark:bg-blue-500/10"
                         )}
                         style={{ height: 40 }}
                       >
@@ -1225,7 +1225,7 @@ export default function ProjectsPage() {
                       <button
                         className={clsx(
                           "w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 transition-colors",
-                          u.id === editingProject?.ownerId ? "font-semibold text-blue-600" : "text-gray-700"
+                          u.id === editingProject?.ownerId ? "font-semibold text-blue-600 dark:text-blue-400" : "text-gray-700"
                         )}
                         onClick={() => handleOwnerChange(ownerEditId, u.id, u.name)}
                       >
@@ -1289,7 +1289,7 @@ export default function ProjectsPage() {
                   className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500" />
                 <datalist id="save-tpl-names">{tplNames.map(n => <option key={n} value={n} />)}</datalist>
                 {saveTplName.trim() && tplNames.some(n => n.toLowerCase() === saveTplName.trim().toLowerCase()) && (
-                  <p className="text-[11px] text-red-500 mt-1">이미 존재하는 이름입니다.</p>
+                  <p className="text-[11px] text-red-500 dark:text-red-400 mt-1">이미 존재하는 이름입니다.</p>
                 )}
               </div>
               <div>
@@ -1305,7 +1305,7 @@ export default function ProjectsPage() {
                   className="w-4 h-4 rounded accent-orange-500" />
                 <span className="text-sm text-gray-700">자원 배정 포함</span>
               </label>
-              {saveTplError && <p className="text-sm text-red-500">{saveTplError}</p>}
+              {saveTplError && <p className="text-sm text-red-500 dark:text-red-400">{saveTplError}</p>}
             </div>
             <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50">
               <button onClick={() => setShowSaveTemplate(false)} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-100">취소</button>

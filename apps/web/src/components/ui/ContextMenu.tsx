@@ -43,7 +43,7 @@ export const ContextMenuItem = React.forwardRef<
       "focus:bg-gray-100 focus:text-gray-900",
       "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       inset && "pl-8",
-      destructive ? "text-red-600 focus:bg-red-50 focus:text-red-700" : "text-gray-700",
+      destructive ? "text-red-600 dark:text-red-400 focus:bg-red-50 focus:text-red-700" : "text-gray-700",
       className,
     )}
     {...props}

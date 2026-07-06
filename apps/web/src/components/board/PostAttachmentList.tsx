@@ -47,7 +47,7 @@ export default function PostAttachmentList({ attachments }: { attachments: Attac
             <span>{fileIcon(a.mimeType)}</span>
             <span className="flex-1 truncate text-gray-800">{a.fileName}</span>
             <span className="text-xs text-gray-400">{formatSize(a.fileSize)}</span>
-            <span className="text-xs text-blue-600 font-medium">다운로드</span>
+            <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">다운로드</span>
           </a>
         ))}
       </div>

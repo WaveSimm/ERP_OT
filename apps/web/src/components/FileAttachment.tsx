@@ -116,7 +116,7 @@ export default function FileAttachment({ referenceType, referenceId, readOnly }:
             accept="image/*,application/pdf,.xlsx,.xls,.docx,.doc"
           />
           {uploading ? (
-            <p className="text-sm text-blue-600">업로드 중...</p>
+            <p className="text-sm text-blue-600 dark:text-blue-400">업로드 중...</p>
           ) : (
             <div>
               <p className="text-sm text-gray-500">파일을 드래그하거나 클릭하여 첨부</p>
@@ -136,7 +136,7 @@ export default function FileAttachment({ referenceType, referenceId, readOnly }:
               </span>
               <button
                 onClick={() => handleDownload(f)}
-                className="text-sm text-blue-600 hover:underline truncate text-left flex-1"
+                className="text-sm text-blue-600 dark:text-blue-400 hover:underline truncate text-left flex-1"
                 title={f.fileName}
               >
                 {f.fileName}

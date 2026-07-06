@@ -101,7 +101,7 @@ export default function TemplateWizard({ projectId, onClose, onSuccess }: Props)
                   </div>
                   <span className={clsx(
                     "text-xs transition-colors",
-                    step === i + 1 ? "text-blue-600 font-medium" : "text-gray-400"
+                    step === i + 1 ? "text-blue-600 font-medium dark:text-blue-400" : "text-gray-400"
                   )}>{label}</span>
                   {i < stepLabels.length - 1 && <span className="text-gray-200 text-xs mx-0.5">›</span>}
                 </div>
@@ -207,22 +207,22 @@ export default function TemplateWizard({ projectId, onClose, onSuccess }: Props)
                 </div>
               </label>
 
-              {error && <p className="text-sm text-red-500">{error}</p>}
+              {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
             </div>
           )}
 
           {/* Step 3: 확인 및 미리보기 */}
           {step === 3 && (
             <div className="space-y-4">
-              <div className="rounded-xl bg-blue-50 border border-blue-200 p-4 text-sm">
-                <p className="font-medium text-blue-800 mb-1">새 프로젝트 생성 요약</p>
-                <ul className="text-blue-700 space-y-0.5 text-xs">
+              <div className="rounded-xl bg-blue-50 border border-blue-200 p-4 text-sm dark:border-blue-800">
+                <p className="font-medium text-blue-800 mb-1 dark:text-blue-200">새 프로젝트 생성 요약</p>
+                <ul className="text-blue-700 space-y-0.5 text-xs dark:text-blue-300">
                   <li>프로젝트명: <strong>{projectName.trim() || selectedTemplate?.name}</strong></li>
                   <li>템플릿: <strong>{selectedTemplate?.name}</strong></li>
                   <li>시작일: <strong>{startDate}</strong></li>
                   <li>포함: {includeAssignments ? "자원배정" : "태스크만"}</li>
                 </ul>
-                <p className="mt-2 text-xs text-blue-500">확인 후 새 프로젝트 페이지로 이동합니다.</p>
+                <p className="mt-2 text-xs text-blue-500 dark:text-blue-300">확인 후 새 프로젝트 페이지로 이동합니다.</p>
               </div>
 
               {loadingPreview && (
@@ -252,7 +252,7 @@ export default function TemplateWizard({ projectId, onClose, onSuccess }: Props)
                 </div>
               )}
 
-              {error && <p className="text-sm text-red-500">{error}</p>}
+              {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
             </div>
           )}
         </div>

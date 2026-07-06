@@ -285,7 +285,7 @@ export default function EditApprovalPage() {
   };
 
   if (loading) return <div className="text-center py-12 text-gray-400">로딩 중...</div>;
-  if (!doc) return <div className="text-center py-12 text-red-500">문서를 찾을 수 없습니다.</div>;
+  if (!doc) return <div className="text-center py-12 text-red-500 dark:text-red-400">문서를 찾을 수 없습니다.</div>;
 
   // 경비정산 결재 문서 (EXPENSE + referenceType=EXPENSE_SETTLEMENT)는
   // 정산서에서 자동 생성. 결재 문서 자체 편집 불가.
@@ -298,13 +298,13 @@ export default function EditApprovalPage() {
           <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">{doc.template?.name}</span>
           <span className="text-sm font-medium">문서 편집</span>
         </div>
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-5 text-sm text-amber-900">
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-5 text-sm text-amber-900 dark:text-amber-300">
           <p className="font-bold mb-2">📋 경비정산서는 결재 문서에서 직접 편집할 수 없습니다</p>
           <p className="mb-3">
             이 문서의 거래 내역·금액은 <strong>경비정산서</strong>에서 자동으로 생성되며,
             결재 상신 후에는 정산서 자체도 잠겨 수정 불가합니다.
           </p>
-          <div className="space-y-1 text-xs text-amber-800 mb-4">
+          <div className="space-y-1 text-xs text-amber-800 dark:text-amber-300 mb-4">
             <p>• 거래/금액 수정: 결재를 회수(취소)한 뒤 정산서를 DRAFT로 복귀 → 거래 페이지에서 수정 → 재상신</p>
             <p>• 단순 메모 추가: 결재 진행 중인 문서의 의견란 사용</p>
           </div>
@@ -382,7 +382,7 @@ export default function EditApprovalPage() {
             {templateFields.map((f: any) => (
               <div key={f.key} className={getFieldClass(f)}>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {f.label} {f.required && <span className="text-red-500">*</span>}
+                  {f.label} {f.required && <span className="text-red-500 dark:text-red-400">*</span>}
                 </label>
                 {f.key === "project" ? (
                   <div className="relative" onBlur={() => setTimeout(() => setShowProjectDropdown(false), 200)}>
@@ -642,7 +642,7 @@ export default function EditApprovalPage() {
               </tr>
             </tfoot>
           </table>
-          <button onClick={addItem} className="mt-1 text-xs text-blue-600 hover:underline">+ 항목 추가</button>
+          <button onClick={addItem} className="mt-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">+ 항목 추가</button>
         </div>
       )}
 
@@ -650,13 +650,13 @@ export default function EditApprovalPage() {
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-2">
           <label className="text-sm font-medium text-gray-700">결재선</label>
-          <button onClick={loadMyApprovalLine} className="text-xs text-blue-500 hover:underline">부서 기본선 불러오기</button>
+          <button onClick={loadMyApprovalLine} className="text-xs text-blue-500 dark:text-blue-400 hover:underline">부서 기본선 불러오기</button>
         </div>
         {approvalLine.length > 0 && (
           <div className="flex gap-2 flex-wrap mb-2">
             {approvalLine.map((a, i) => (
               <div key={i} className="flex items-center gap-1 bg-blue-50 rounded-full px-3 py-1 text-sm">
-                <span className="text-xs text-blue-500">{i + 1}차</span>
+                <span className="text-xs text-blue-500 dark:text-blue-300">{i + 1}차</span>
                 <span>{a.userName}</span>
                 <span className="text-xs text-gray-400">({a.role === "APPROVER" ? "결재" : "합의"})</span>
                 <button onClick={() => removeApprover(i)} className="text-gray-400 hover:text-red-500 ml-1">✕</button>

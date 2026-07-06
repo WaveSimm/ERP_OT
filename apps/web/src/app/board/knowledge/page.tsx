@@ -161,7 +161,7 @@ export default function KnowledgeSearchPage() {
                 "2021년 7월 27일 찍은 사진",
               ].map((ex) => (
                 <button key={ex} type="button" onClick={() => { setQ(ex); void runSearch(ex); }}
-                  className="text-xs px-2.5 py-1 rounded-full border border-violet-200 text-violet-600 bg-violet-50 hover:bg-violet-100 hover:border-violet-300 transition-colors">
+                  className="text-xs px-2.5 py-1 rounded-full border border-violet-200 text-violet-600 bg-violet-50 dark:border-violet-900 dark:text-violet-300 dark:bg-violet-950 hover:bg-violet-100 hover:border-violet-300 transition-colors">
                   {ex}
                 </button>
               ))}
@@ -174,7 +174,7 @@ export default function KnowledgeSearchPage() {
 
           <div className="flex-1 min-w-0">
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 mb-3">{error}</div>
+              <div className="bg-red-50 border border-red-200 dark:border-red-900 rounded-xl px-4 py-3 text-sm text-red-700 dark:text-red-300 mb-3">{error}</div>
             )}
 
             {!data && !error && (
@@ -187,7 +187,7 @@ export default function KnowledgeSearchPage() {
               <>
                 <div className="flex items-center gap-3 mb-3 text-xs text-gray-500">
                   <span>결과 <b className="text-gray-700">{data.count}</b>건{took != null && ` · ${took}ms`}</span>
-                  {!data.hasExact && <span className="text-amber-600">정확 일치 없음 — 의미 유사 결과</span>}
+                  {!data.hasExact && <span className="text-amber-600 dark:text-amber-400">정확 일치 없음 — 의미 유사 결과</span>}
                   {data.tokenWeights && data.tokenWeights.length > 0 && (
                     <span className="ml-auto text-gray-400">
                       가중치: {data.tokenWeights.map((w) => `${w.token} ${w.weight}`).join(" · ")}
@@ -196,7 +196,7 @@ export default function KnowledgeSearchPage() {
                 </div>
 
                 {data.dateMatched === false && (
-                  <div className="mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
+                  <div className="mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 dark:border-amber-900 text-xs text-amber-700 dark:text-amber-300">
                     🗓 <b>{data.dateLabel}</b>에 해당하는 결과가 없어 <b>전 기간</b> 결과를 표시합니다. (날짜가 기록된 사진·문서가 없거나 그 시기 자료가 없을 수 있습니다)
                   </div>
                 )}
@@ -214,7 +214,7 @@ export default function KnowledgeSearchPage() {
                           <div className="min-w-0 flex-1">
                             <button
                               onClick={() => openNasFile(r.nasPath)}
-                              className="text-sm font-medium text-blue-700 hover:underline break-all text-left"
+                              className="text-sm font-medium text-blue-700 dark:text-blue-300 hover:underline break-all text-left"
                               title="클릭하면 파일이 열립니다 — PDF·이미지·텍스트는 브라우저 미리보기, 그 외는 다운로드"
                             >
                               {r.fileName}
@@ -234,7 +234,7 @@ export default function KnowledgeSearchPage() {
                             <div className="flex items-center gap-3 mt-1.5">
                               <button
                                 onClick={() => openNasFile(r.nasPath)}
-                                className="text-[11px] text-blue-700 hover:underline font-medium"
+                                className="text-[11px] text-blue-700 dark:text-blue-300 hover:underline font-medium"
                                 title="파일 열기 (미리보기/다운로드)"
                               >
                                 📄 열기

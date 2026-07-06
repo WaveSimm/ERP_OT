@@ -95,7 +95,7 @@ export default function Pagination({
             }
           }}
           onBlur={submitPageInput}
-          className="w-10 text-center px-0.5 py-1 border border-blue-300 rounded text-blue-600 font-semibold focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-10 text-center px-0.5 py-1 border border-blue-300 dark:border-blue-800 rounded text-blue-600 dark:text-blue-400 font-semibold focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
 
         {/* 다음 */}

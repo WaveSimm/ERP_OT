@@ -161,7 +161,7 @@ export default function SupplierDetailPage() {
           ) : (
             <>
               <button onClick={() => setEditing(true)} className="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50">수정</button>
-              <button onClick={handleDelete} className="px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50">삭제</button>
+              <button onClick={handleDelete} className="px-3 py-1.5 text-sm text-red-600 dark:text-red-400 border border-red-200 dark:border-red-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-950">삭제</button>
             </>
           )}
         </div>
@@ -225,7 +225,7 @@ export default function SupplierDetailPage() {
             <div><span className="text-gray-500">담당자:</span> <span className="ml-2">{supplier.contactName || "-"}</span></div>
             <div><span className="text-gray-500">전화:</span> <span className="ml-2">{supplier.phone || "-"}</span></div>
             <div><span className="text-gray-500">이메일:</span> <span className="ml-2">{supplier.email || "-"}</span></div>
-            <div><span className="text-gray-500">웹사이트:</span> {supplier.website ? <a href={supplier.website} target="_blank" rel="noopener noreferrer" className="ml-2 text-blue-600 hover:underline">{supplier.website}</a> : <span className="ml-2">-</span>}</div>
+            <div><span className="text-gray-500">웹사이트:</span> {supplier.website ? <a href={supplier.website} target="_blank" rel="noopener noreferrer" className="ml-2 text-blue-600 dark:text-blue-400 hover:underline">{supplier.website}</a> : <span className="ml-2">-</span>}</div>
             <div className="col-span-full"><span className="text-gray-500">주소:</span> <span className="ml-2">{supplier.address || "-"}</span></div>
             <div><span className="text-gray-500">사업자등록번호:</span> <span className="ml-2">{supplier.businessNumber || "-"}</span></div>
             {supplier.notes && (
@@ -240,7 +240,7 @@ export default function SupplierDetailPage() {
         <div className="px-4 py-3 border-b bg-gray-50 flex items-center">
           <h3 className="font-medium">담당자 ({supplier.contacts?.length || 0})</h3>
           <button onClick={() => { resetContactForm(); setShowContactForm(true); }}
-            className="ml-auto text-sm text-blue-600 hover:underline">+ 추가</button>
+            className="ml-auto text-sm text-blue-600 dark:text-blue-400 hover:underline">+ 추가</button>
         </div>
         {supplier.contacts?.length > 0 ? (
           <table className="w-full text-sm">
@@ -263,8 +263,8 @@ export default function SupplierDetailPage() {
                   <td className="px-4 py-2.5 text-gray-500">{c.email || "-"}</td>
                   <td className="px-4 py-2.5 text-gray-400 text-xs">{c.notes || "-"}</td>
                   <td className="px-4 py-2.5 text-center">
-                    <button onClick={() => handleContactEdit(c)} className="text-blue-600 hover:underline text-xs mr-2">수정</button>
-                    <button onClick={() => handleContactDelete(c.id)} className="text-red-500 hover:underline text-xs">삭제</button>
+                    <button onClick={() => handleContactEdit(c)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs mr-2">수정</button>
+                    <button onClick={() => handleContactDelete(c.id)} className="text-red-500 dark:text-red-400 hover:underline text-xs">삭제</button>
                   </td>
                 </tr>
               ))}
@@ -339,7 +339,7 @@ export default function SupplierDetailPage() {
             <tbody className="divide-y">
               {supplier.contracts.map((c: any) => (
                 <tr key={c.id} onClick={() => router.push(`/procurement/contracts/${c.id}`)} className="hover:bg-gray-50 cursor-pointer">
-                  <td className="px-4 py-2.5 font-mono text-blue-600">{c.contractNumber}</td>
+                  <td className="px-4 py-2.5 font-mono text-blue-600 dark:text-blue-400">{c.contractNumber}</td>
                   <td className="px-4 py-2.5">{c.name || "-"}</td>
                   <td className="px-4 py-2.5 text-gray-500">{c.client || "-"}</td>
                   <td className="px-4 py-2.5 text-center">
@@ -373,10 +373,10 @@ export default function SupplierDetailPage() {
             <tbody className="divide-y">
               {supplier.orders.map((o: any) => (
                 <tr key={o.id} onClick={() => router.push(`/procurement/orders/${o.id}`)} className="hover:bg-gray-50 cursor-pointer">
-                  <td className="px-4 py-2.5 font-mono text-blue-600">{o.orderNumber}</td>
+                  <td className="px-4 py-2.5 font-mono text-blue-600 dark:text-blue-400">{o.orderNumber}</td>
                   <td className="px-4 py-2.5 text-center">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                      o.orderType === "DUTY_FREE" ? "bg-teal-100 text-teal-700" : "bg-blue-50 text-blue-600"
+                      o.orderType === "DUTY_FREE" ? "bg-teal-100 text-teal-700" : "bg-blue-50 text-blue-600 dark:text-blue-300"
                     }`}>
                       {o.orderType === "DUTY_FREE" ? "무환" : "유환"}
                     </span>

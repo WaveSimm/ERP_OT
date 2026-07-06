@@ -71,7 +71,7 @@ export default function WritePostPage({
       <AppLayout>
         <div className="max-w-4xl mx-auto px-6 py-12 text-center text-gray-500">
           <p>보드를 찾을 수 없습니다.</p>
-          <Link href={`/board/${catCode}`} className="text-blue-600 hover:underline text-sm mt-3 inline-block">
+          <Link href={`/board/${catCode}`} className="text-blue-600 dark:text-blue-400 hover:underline text-sm mt-3 inline-block">
             ← {catCode}로 돌아가기
           </Link>
         </div>
@@ -84,7 +84,7 @@ export default function WritePostPage({
       <AppLayout>
         <div className="max-w-4xl mx-auto px-6 py-12 text-center text-gray-500">
           <p>이 보드에 글을 작성할 권한이 없습니다.</p>
-          <Link href={`/board/${catCode}/${boardCode}`} className="text-blue-600 hover:underline text-sm mt-3 inline-block">
+          <Link href={`/board/${catCode}/${boardCode}`} className="text-blue-600 dark:text-blue-400 hover:underline text-sm mt-3 inline-block">
             ← 목록으로
           </Link>
         </div>

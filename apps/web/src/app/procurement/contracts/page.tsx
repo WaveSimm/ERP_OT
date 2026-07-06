@@ -175,7 +175,7 @@ export default function ContractsPage() {
               <tr><td colSpan={11} className="px-4 py-8 text-center text-gray-400">계약이 없습니다.</td></tr>
             ) : contracts.map((c) => (
               <tr key={c.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/procurement/contracts/${c.id}`)}>
-                <td className="px-3 py-2.5 font-mono text-blue-600">
+                <td className="px-3 py-2.5 font-mono text-blue-600 dark:text-blue-400">
                   {c.status === "PROSPECTIVE" && <span className="mr-1 px-1.5 py-0.5 rounded text-[10px] bg-amber-100 text-amber-700">예정</span>}
                   {c.contractNumber}
                 </td>
@@ -189,7 +189,7 @@ export default function ContractsPage() {
                         if (match) router.push(`/repair/customers/${match.id}`);
                         else router.push(`/repair/customers?search=${encodeURIComponent(c.client)}`);
                       } catch { router.push(`/repair/customers?search=${encodeURIComponent(c.client)}`); }
-                    }} className="text-blue-600 hover:underline">{c.client}</button>
+                    }} className="text-blue-600 hover:underline dark:text-blue-400">{c.client}</button>
                   ) : "-"}
                 </td>
                 <td className="px-3 py-2.5 text-gray-500">{c.clientContact || "-"}</td>
@@ -206,20 +206,20 @@ export default function ContractsPage() {
                 </td>
                 <td className="px-3 py-2.5">{c.name}</td>
                 <td className="px-3 py-2.5 text-center">
-                  <span className={`text-xs ${c.category === "용역" ? "text-purple-600" : "text-gray-600"}`}>{c.category}</span>
+                  <span className={`text-xs ${c.category === "용역" ? "text-purple-600 dark:text-purple-400" : "text-gray-600"}`}>{c.category}</span>
                 </td>
                 <td className="px-3 py-2.5 text-center">
-                  <span className={`text-xs ${c.contractType === "외자" ? "text-orange-600 font-medium" : "text-gray-500"}`}>{c.contractType}</span>
+                  <span className={`text-xs ${c.contractType === "외자" ? "text-orange-600 font-medium dark:text-orange-400" : "text-gray-500"}`}>{c.contractType}</span>
                 </td>
                 <td className="px-3 py-2.5 text-center text-gray-500 text-xs">{fmtDate(c.contractDate)}</td>
                 <td className="px-3 py-2.5 text-center text-gray-500 text-xs">{fmtDate(c.deadline)}</td>
                 <td className="px-3 py-2.5 text-gray-600">{c.manager || "-"}</td>
                 <td className="px-3 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
                   {c.status === "PROSPECTIVE" && (
-                    <button onClick={() => setFinalizing(c)} className="text-emerald-600 hover:underline text-xs mr-2">확정</button>
+                    <button onClick={() => setFinalizing(c)} className="text-emerald-600 hover:underline text-xs mr-2 dark:text-emerald-400">확정</button>
                   )}
-                  <button onClick={() => handleEdit(c)} className="text-blue-600 hover:underline text-xs mr-2">수정</button>
-                  <button onClick={() => handleDelete(c.id)} className="text-red-500 hover:underline text-xs">삭제</button>
+                  <button onClick={() => handleEdit(c)} className="text-blue-600 hover:underline text-xs mr-2 dark:text-blue-400">수정</button>
+                  <button onClick={() => handleDelete(c.id)} className="text-red-500 hover:underline text-xs dark:text-red-400">삭제</button>
                 </td>
               </tr>
             ))}

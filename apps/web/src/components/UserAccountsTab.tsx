@@ -385,7 +385,7 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
           <>
             <button
               onClick={openCreateDept}
-              className="border border-blue-300 text-blue-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-50"
+              className="border border-blue-300 text-blue-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-950"
             >
               + 부서 추가
             </button>
@@ -416,7 +416,7 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
                     <span className="text-sm font-semibold text-gray-700">{dept.name}</span>
                     <span className="text-xs text-gray-400 font-normal">{deptUsers.length}명</span>
                     {dept.headName && (
-                      <span className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full ml-2">
+                      <span className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full ml-2 dark:text-green-300">
                         팀장: {dept.headName}
                       </span>
                     )}
@@ -541,7 +541,7 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="0" />
               </div>
               {deptError && (
-                <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2">{deptError}</div>
+                <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2 dark:border-red-800 dark:text-red-300">{deptError}</div>
               )}
               <div className="flex gap-2 pt-2">
                 <button type="button" onClick={() => setShowDeptModal(false)}
@@ -593,7 +593,7 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
                 </select>
               </div>
               {createError && (
-                <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2">{createError}</div>
+                <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2 dark:border-red-800 dark:text-red-300">{createError}</div>
               )}
               <div className="flex gap-2 pt-2">
                 <button type="button" onClick={() => setShowCreate(false)}
@@ -648,7 +648,7 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
                   placeholder="서울시 강남구..." className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
               </div>
               {profileError && (
-                <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2 cursor-pointer hover:bg-red-100"
+                <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2 dark:border-red-800 dark:text-red-300 cursor-pointer hover:bg-red-100 dark:hover:bg-red-900"
                   onClick={() => { setProfileForm(originalProfileForm); setProfileError(""); }}>
                   {profileError} <span className="underline text-xs ml-1">되돌리기</span>
                 </div>
@@ -719,7 +719,7 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
               초기 비밀번호: <code className="bg-gray-100 px-1.5 py-0.5 rounded font-mono">oceantech</code>
             </p>
             {resetError && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2 mb-3">{resetError}</div>
+              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2 dark:border-red-800 dark:text-red-300 mb-3">{resetError}</div>
             )}
             <form onSubmit={handleResetPassword} className="flex gap-2">
               <button type="button" onClick={() => setResetId(null)}
@@ -846,10 +846,10 @@ function LeaveBalanceModal({ userId, userName, onClose }: { userId: string; user
             <div className="bg-gray-50 rounded-lg p-3 mb-4 text-xs grid grid-cols-3 gap-2">
               <div><span className="text-gray-500">사용</span> <strong className="ml-1">{Number(balance?.usedDays ?? 0)}일</strong></div>
               <div><span className="text-gray-500">대기</span> <strong className="ml-1">{Number(balance?.pendingDays ?? 0)}일</strong></div>
-              <div><span className="text-gray-500">잔여</span> <strong className="ml-1 text-emerald-600">{Math.max(0, remaining)}일</strong></div>
+              <div><span className="text-gray-500">잔여</span> <strong className="ml-1 text-emerald-600 dark:text-emerald-400">{Math.max(0, remaining)}일</strong></div>
             </div>
 
-            {error && <p className="text-xs text-red-500 mb-2">{error}</p>}
+            {error && <p className="text-xs text-red-500 mb-2 dark:text-red-400">{error}</p>}
 
             <div className="flex gap-2">
               <button onClick={onClose} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">취소</button>
@@ -903,7 +903,7 @@ function UserRow({ user, departments, editingId, setEditingId, onToggleActive, o
               {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
             </select>
           ) : (
-            <button onClick={() => setEditingId(user.id)} className="text-blue-600 hover:underline text-xs">
+            <button onClick={() => setEditingId(user.id)} className="text-blue-600 hover:underline text-xs dark:text-blue-400">
               {ROLE_LABELS[user.role]}
             </button>
           )}
@@ -924,14 +924,14 @@ function UserRow({ user, departments, editingId, setEditingId, onToggleActive, o
       <span className="flex-1" />
       {isAdmin && (
         <div className="flex items-center gap-3 whitespace-nowrap">
-          <button onClick={() => onOpenProfile(user)} className="text-xs text-blue-600 hover:text-blue-800 font-medium">개인정보</button>
-          <button onClick={() => onOpenSchedule(user)} className="text-xs text-purple-600 hover:text-purple-800 font-medium">근무시간</button>
-          <button onClick={() => onOpenLeaveBalance(user)} className="text-xs text-emerald-600 hover:text-emerald-800 font-medium">연차</button>
+          <button onClick={() => onOpenProfile(user)} className="text-xs text-blue-600 hover:text-blue-800 font-medium dark:text-blue-400">개인정보</button>
+          <button onClick={() => onOpenSchedule(user)} className="text-xs text-purple-600 hover:text-purple-800 font-medium dark:text-purple-400">근무시간</button>
+          <button onClick={() => onOpenLeaveBalance(user)} className="text-xs text-emerald-600 hover:text-emerald-800 font-medium dark:text-emerald-400">연차</button>
           <button onClick={() => onResetPw(user)} className="text-xs text-gray-400 hover:text-gray-600">비밀번호</button>
           {user.status === "RETIRED" ? (
-            <button onClick={() => onReactivate(user)} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">복귀</button>
+            <button onClick={() => onReactivate(user)} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium dark:text-emerald-400">복귀</button>
           ) : (
-            <button onClick={() => onRetire(user)} className="text-xs text-orange-600 hover:text-orange-700 font-medium">퇴직</button>
+            <button onClick={() => onRetire(user)} className="text-xs text-orange-600 hover:text-orange-700 font-medium dark:text-orange-400">퇴직</button>
           )}
           <button onClick={() => onDelete(user)} className="text-xs text-red-400 hover:text-red-600">삭제</button>
         </div>

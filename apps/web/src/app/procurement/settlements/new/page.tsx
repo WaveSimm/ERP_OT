@@ -245,12 +245,12 @@ export default function NewSettlementPage() {
             }));
           }}
         />
-        <p className="text-xs text-blue-700 mt-1">발주 선택 시 계약·공급업체·통화·송금 내역·품목 명세가 자동 채워집니다.</p>
+        <p className="text-xs text-blue-700 mt-1 dark:text-blue-300">발주 선택 시 계약·공급업체·통화·송금 내역·품목 명세가 자동 채워집니다.</p>
         {linkedContract && (
           <div className="mt-2 px-3 py-2 bg-white border border-blue-300 rounded">
             <div className="text-xs text-gray-500">연결 계약</div>
             <div className="text-sm font-medium">
-              <span className="font-mono text-blue-700">{linkedContract.contractNumber}</span>
+              <span className="font-mono text-blue-700 dark:text-blue-300">{linkedContract.contractNumber}</span>
               {linkedContract.name && <span className="text-gray-700 ml-2">{linkedContract.name}</span>}
               {linkedContract.client && <span className="text-gray-400 text-xs ml-2">({linkedContract.client})</span>}
             </div>
@@ -293,7 +293,7 @@ export default function NewSettlementPage() {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-medium">4-(1) 송금 내역</h3>
-          <button onClick={addRemittance} className="text-xs text-blue-600 hover:underline">+ 추가</button>
+          <button onClick={addRemittance} className="text-xs text-blue-600 hover:underline dark:text-blue-400">+ 추가</button>
         </div>
         {remittances.length === 0 ? (
           <p className="text-xs text-gray-400">송금 내역을 추가하세요.</p>
@@ -336,7 +336,7 @@ export default function NewSettlementPage() {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-medium">4-(2) 관세 / 부대비용</h3>
-          <button onClick={addDuty} className="text-xs text-blue-600 hover:underline">+ 추가</button>
+          <button onClick={addDuty} className="text-xs text-blue-600 hover:underline dark:text-blue-400">+ 추가</button>
         </div>
         {duties.length === 0 ? (
           <p className="text-xs text-gray-400">관세/부대비용을 추가하세요.</p>
@@ -376,11 +376,11 @@ export default function NewSettlementPage() {
           <h3 className="text-sm font-medium">6. 품목 명세 (모델/규격)</h3>
           <div className="flex gap-2">
             {avgRate > 0 && (
-              <button onClick={applyExchangeRate} className="text-xs text-green-600 hover:underline">
+              <button onClick={applyExchangeRate} className="text-xs text-green-600 hover:underline dark:text-green-400">
                 환율 적용 (×{avgRate.toFixed(2)})
               </button>
             )}
-            <button onClick={addItem} className="text-xs text-blue-600 hover:underline">+ 추가</button>
+            <button onClick={addItem} className="text-xs text-blue-600 hover:underline dark:text-blue-400">+ 추가</button>
           </div>
         </div>
         {items.length === 0 ? (

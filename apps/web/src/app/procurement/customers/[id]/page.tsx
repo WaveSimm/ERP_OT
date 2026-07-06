@@ -133,11 +133,11 @@ function CompanyInfoSection({ customer, onReload }: { customer: any; onReload: (
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-gray-800">회사 대표정보</h3>
         {!editing ? (
-          <button onClick={() => setEditing(true)} className="text-xs text-blue-600 hover:text-blue-800 font-medium">수정</button>
+          <button onClick={() => setEditing(true)} className="text-xs text-blue-600 hover:text-blue-800 font-medium dark:text-blue-400">수정</button>
         ) : (
           <div className="flex gap-2">
             <button onClick={cancel} className="text-xs text-gray-500 hover:text-gray-700">취소</button>
-            <button onClick={save} disabled={saving} className="text-xs text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50">
+            <button onClick={save} disabled={saving} className="text-xs text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50 dark:text-blue-400">
               {saving ? "저장 중..." : "저장"}
             </button>
           </div>
@@ -395,7 +395,7 @@ function AssetsSection({ customer, onDelete }: {
                 <td className="py-2 text-gray-500 break-all">
                   {a.otInventoryNo
                     ? (a.inventoryItemId
-                        ? <Link href={`/procurement/inventory/${a.inventoryItemId}`} className="text-blue-600 hover:text-blue-800 hover:underline" title="재고관리에서 보기">{a.otInventoryNo}</Link>
+                        ? <Link href={`/procurement/inventory/${a.inventoryItemId}`} className="text-blue-600 hover:text-blue-800 hover:underline dark:text-blue-400" title="재고관리에서 보기">{a.otInventoryNo}</Link>
                         : a.otInventoryNo)
                     : "-"}
                 </td>
@@ -436,7 +436,7 @@ function RepairHistorySection({ customer }: { customer: any }) {
             {customer.repairOrders.map((o: any) => (
               <tr key={o.id} className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer"
                 onClick={() => router.push(`/repair/${o.id}`)}>
-                <td className="py-2 text-blue-600 font-medium">{o.orderNumber}</td>
+                <td className="py-2 text-blue-600 font-medium dark:text-blue-400">{o.orderNumber}</td>
                 <td className="py-2">{o.customerAsset?.name || "-"}</td>
                 <td className="py-2 text-gray-600 truncate max-w-[200px]">{o.symptom || "-"}</td>
                 <td className="py-2 text-center text-xs">{STATUS_LABELS[o.status] || o.status}</td>

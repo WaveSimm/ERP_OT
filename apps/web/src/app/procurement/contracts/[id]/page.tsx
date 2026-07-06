@@ -86,11 +86,11 @@ export default function ContractDetailPage() {
               <button onClick={async () => {
                 if (!confirm("이 계약을 완료 처리하시겠습니까?")) return;
                 await procurementApi.updateContract(id, { status: "COMPLETED" }); load();
-              }} className="px-3 py-1.5 text-sm border border-green-300 text-green-600 rounded-lg hover:bg-green-50">완료</button>
+              }} className="px-3 py-1.5 text-sm border border-green-300 text-green-600 rounded-lg hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-950">완료</button>
               <button onClick={async () => {
                 if (!confirm("이 계약을 취소 처리하시겠습니까?")) return;
                 await procurementApi.updateContract(id, { status: "CANCELLED" }); load();
-              }} className="px-3 py-1.5 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50">취소</button>
+              }} className="px-3 py-1.5 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950">취소</button>
             </>
           )}
           {contract.status !== "CANCELLED" && (
@@ -125,7 +125,7 @@ export default function ContractDetailPage() {
                 if (match) router.push(`/repair/customers/${match.id}`);
                 else router.push(`/repair/customers?search=${encodeURIComponent(contract.client)}`);
               } catch { router.push(`/repair/customers?search=${encodeURIComponent(contract.client)}`); }
-            }} className="ml-2 text-blue-600 hover:underline">{contract.client}</button>
+            }} className="ml-2 text-blue-600 hover:underline dark:text-blue-400">{contract.client}</button>
           ) : <span className="ml-2">-</span>}</div>
           <div><span className="text-gray-500">담당:</span> <span className="ml-2">{contract.clientContact || "-"}</span></div>
           <div><span className="text-gray-500">제작사:</span> {contract.manufacturer ? (
@@ -135,7 +135,7 @@ export default function ContractDetailPage() {
                 if (s?.id) router.push(`/procurement/suppliers/${s.id}`);
                 else router.push(`/procurement/suppliers?search=${encodeURIComponent(contract.manufacturer)}`);
               } catch { router.push(`/procurement/suppliers?search=${encodeURIComponent(contract.manufacturer)}`); }
-            }} className="ml-2 text-blue-600 hover:underline">{contract.manufacturer}</button>
+            }} className="ml-2 text-blue-600 hover:underline dark:text-blue-400">{contract.manufacturer}</button>
           ) : <span className="ml-2">-</span>}</div>
           <div><span className="text-gray-500">구분:</span> <span className="ml-2">{contract.category} / {contract.contractType}</span></div>
           <div><span className="text-gray-500">계약일:</span> <span className="ml-2">{fmtDate(contract.contractDate)}</span></div>
@@ -168,7 +168,7 @@ export default function ContractDetailPage() {
               <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">발주가 없습니다.</td></tr>
             ) : contract.orders?.map((o: any) => (
               <tr key={o.id} onClick={() => router.push(`/procurement/orders/${o.id}`)} className="hover:bg-gray-50 cursor-pointer">
-                <td className="px-4 py-3 font-mono text-blue-600">{o.orderNumber}</td>
+                <td className="px-4 py-3 font-mono text-blue-600 dark:text-blue-400">{o.orderNumber}</td>
                 <td className="px-4 py-3">{o.manufacturer}</td>
                 <td className="px-4 py-3 text-center">{o.currency}</td>
                 <td className="px-4 py-3 text-right font-mono">{fmtAmount(o.totalAmount, o.currency)}</td>

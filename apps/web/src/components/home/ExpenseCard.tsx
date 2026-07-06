@@ -23,7 +23,7 @@ export default function ExpenseCard() {
     <div className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-bold text-gray-700">💳 경비</h3>
-        <Link href={link} className="text-xs text-blue-600 hover:underline">경비정산 →</Link>
+        <Link href={link} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">경비정산 →</Link>
       </div>
       {loading ? (
         <div className="text-xs text-gray-400">불러오는 중...</div>
@@ -43,7 +43,7 @@ function Row({ label, count, href }: { label: string; count: number; href: strin
   return (
     <Link href={href} className="flex items-center justify-between text-sm hover:bg-gray-50 px-2 py-1 rounded -mx-2">
       <span className="text-gray-600">{label}</span>
-      <span className={`tabular-nums font-semibold ${count > 0 ? "text-blue-600" : "text-gray-400"}`}>{count}</span>
+      <span className={`tabular-nums font-semibold ${count > 0 ? "text-blue-600 dark:text-blue-400" : "text-gray-400"}`}>{count}</span>
     </Link>
   );
 }

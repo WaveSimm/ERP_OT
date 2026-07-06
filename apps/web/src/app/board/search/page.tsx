@@ -207,7 +207,7 @@ export default function SearchPage() {
                       onClick={() => setScope(s)}
                       className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                         scope === s
-                          ? "border-blue-600 text-blue-600"
+                          ? "border-blue-600 text-blue-600 dark:text-blue-400"
                           : "border-transparent text-gray-500 hover:text-gray-700"
                       }`}
                     >
@@ -240,7 +240,7 @@ export default function SearchPage() {
                       <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
                     </div>
                   ) : nasError ? (
-                    <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{nasError}</div>
+                    <div className="px-3 py-2 bg-red-50 border border-red-200 dark:border-red-900 rounded-lg text-sm text-red-700 dark:text-red-300">{nasError}</div>
                   ) : nasItems.length === 0 ? (
                     <div className="bg-white border border-gray-200 rounded-xl py-16 text-center text-sm text-gray-400">
                       NAS에서 관련 파일을 찾지 못했습니다.
@@ -254,7 +254,7 @@ export default function SearchPage() {
                             <div className="min-w-0 flex-1">
                               <button
                                 onClick={() => openNasFile(r.nasPath)}
-                                className="text-sm font-medium text-blue-700 hover:underline break-all text-left"
+                                className="text-sm font-medium text-blue-700 dark:text-blue-300 hover:underline break-all text-left"
                                 title="클릭하면 파일이 열립니다 — PDF·이미지·텍스트는 브라우저 미리보기, 그 외는 다운로드"
                               >
                                 {r.fileName}
@@ -268,7 +268,7 @@ export default function SearchPage() {
                               <div className="mt-1.5 flex items-center gap-3">
                                 <button
                                   onClick={() => openNasFile(r.nasPath)}
-                                  className="text-[11px] text-blue-700 hover:underline font-medium"
+                                  className="text-[11px] text-blue-700 dark:text-blue-300 hover:underline font-medium"
                                   title="파일 열기 (미리보기/다운로드)"
                                 >
                                   📄 열기
@@ -295,7 +295,7 @@ export default function SearchPage() {
                     </ul>
                   )
                 ) : error ? (
-                  <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 mb-4">{error}</div>
+                  <div className="px-3 py-2 bg-red-50 border border-red-200 dark:border-red-900 rounded-lg text-sm text-red-700 dark:text-red-300 mb-4">{error}</div>
                 ) : loading ? (
                   <div className="flex items-center justify-center py-16">
                     <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />

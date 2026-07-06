@@ -98,7 +98,7 @@ function CommentItem({
               <button
                 type="button"
                 onClick={() => setReplying((v) => !v)}
-                className="text-blue-600 hover:text-blue-700"
+                className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
               >
                 답글
               </button>
@@ -115,7 +115,7 @@ function CommentItem({
                 <button
                   type="button"
                   onClick={handleDelete}
-                  className="text-red-500 hover:text-red-700"
+                  className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                 >
                   삭제
                 </button>

@@ -52,10 +52,10 @@ export default function SortableHeader({
         type="button"
         onClick={handleClick}
         title={isActive ? (order === "asc" ? "오름차순" : "내림차순") : "클릭하여 정렬"}
-        className={`flex items-center gap-1 w-full whitespace-nowrap ${alignClass} hover:text-blue-600 transition-colors ${isActive ? "text-blue-600 font-semibold" : "text-inherit"}`}
+        className={`flex items-center gap-1 w-full whitespace-nowrap ${alignClass} hover:text-blue-600 transition-colors ${isActive ? "text-blue-600 dark:text-blue-400 font-semibold" : "text-inherit"}`}
       >
         <span className="truncate">{children}</span>
-        <span className={`text-[10px] ${isActive ? "text-blue-600" : "text-gray-300"}`}>{indicator}</span>
+        <span className={`text-[10px] ${isActive ? "text-blue-600 dark:text-blue-400" : "text-gray-300"}`}>{indicator}</span>
       </button>
     </th>
   );

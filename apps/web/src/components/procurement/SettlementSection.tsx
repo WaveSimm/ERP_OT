@@ -71,7 +71,7 @@ export default function SettlementSection({ orderId, orderCurrency, orderStatus,
           {editable && (
             <button
               onClick={() => setShowInvoiceModal(true)}
-              className="text-xs text-blue-600 hover:underline"
+              className="text-xs text-blue-600 hover:underline dark:text-blue-400"
             >
               {invoice ? "편집" : "+ Invoice 등록"}
             </button>
@@ -117,7 +117,7 @@ export default function SettlementSection({ orderId, orderCurrency, orderStatus,
               <div className="col-span-full mt-2">
                 <button
                   onClick={() => setShowAmendmentHistory((v) => !v)}
-                  className="text-xs text-blue-600 hover:underline"
+                  className="text-xs text-blue-600 hover:underline dark:text-blue-400"
                 >
                   수정 이력 {invoice.amendments.length}건 {showAmendmentHistory ? "▲ 접기" : "▼ 펼치기"}
                 </button>
@@ -173,7 +173,7 @@ export default function SettlementSection({ orderId, orderCurrency, orderStatus,
                     <td className="py-1.5 pl-3">{p.paymentMethod || "-"}</td>
                     <td className="py-1.5 font-mono text-xs">{p.bankReference || "-"}</td>
                     <td className="py-1.5 text-gray-600 text-xs">
-                      {p.status === "REJECTED" && p.rejectReason ? <span className="text-red-600">반려사유: {p.rejectReason}</span> : (p.notes || "")}
+                      {p.status === "REJECTED" && p.rejectReason ? <span className="text-red-600 dark:text-red-400">반려사유: {p.rejectReason}</span> : (p.notes || "")}
                     </td>
                     {editable && (
                       <td className="py-1.5 text-right">
@@ -184,7 +184,7 @@ export default function SettlementSection({ orderId, orderCurrency, orderStatus,
                               try { await procurementApi.deletePayment(p.id); await load(); }
                               catch (e: any) { alert(e.message || "취소 실패"); }
                             }}
-                            className="text-xs text-red-500 hover:underline"
+                            className="text-xs text-red-500 hover:underline dark:text-red-400"
                           >취소</button>
                         ) : null}
                       </td>
@@ -207,17 +207,17 @@ export default function SettlementSection({ orderId, orderCurrency, orderStatus,
         </div>
         <div>
           <div className="text-gray-500 text-xs">송금 완료</div>
-          <div className="font-mono font-bold text-blue-700">{fmtAmount(summary.totalPaid, displayCurrency)}</div>
+          <div className="font-mono font-bold text-blue-700 dark:text-blue-300">{fmtAmount(summary.totalPaid, displayCurrency)}</div>
         </div>
         <div>
           <div className="text-gray-500 text-xs">요청중</div>
-          <div className="font-mono font-bold text-amber-700">{fmtAmount(summary.totalRequested || 0, displayCurrency)}</div>
+          <div className="font-mono font-bold text-amber-700 dark:text-amber-300">{fmtAmount(summary.totalRequested || 0, displayCurrency)}</div>
         </div>
         <div>
           <div className="text-gray-500 text-xs">잔여</div>
-          <div className={`font-mono font-bold ${summary.fullyPaid ? "text-green-700" : "text-amber-700"}`}>
+          <div className={`font-mono font-bold ${summary.fullyPaid ? "text-green-700 dark:text-green-300" : "text-amber-700 dark:text-amber-300"}`}>
             {fmtAmount(summary.outstanding, displayCurrency)}
-            {summary.fullyPaid && <span className="ml-1 text-xs text-green-600">✓ 완납</span>}
+            {summary.fullyPaid && <span className="ml-1 text-xs text-green-600 dark:text-green-400">✓ 완납</span>}
           </div>
         </div>
       </div>
@@ -505,9 +505,9 @@ function InvoiceModal({
         </div>
 
         {amountChanged && (
-          <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-3">
+          <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-3 dark:border-amber-800">
             <div className="text-sm">
-              <span className="text-amber-700 font-medium">⚠ 금액 변경 감지 — 수정 이력에 기록됩니다</span>
+              <span className="text-amber-700 font-medium dark:text-amber-300">⚠ 금액 변경 감지 — 수정 이력에 기록됩니다</span>
               <span className="ml-2 font-mono text-gray-600">{previousAmount.toLocaleString()} → {newAmount.toLocaleString()}</span>
             </div>
             <div>

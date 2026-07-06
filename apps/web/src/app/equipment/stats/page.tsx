@@ -144,7 +144,7 @@ export default function EquipmentStatsPage() {
                     <tr key={b.id} className="border-t">
                       <td className="p-2 font-medium">{b.name}</td>
                       <td className="p-2 text-gray-500">{b.type === "EQUIPMENT" ? "장비" : "센서"}</td>
-                      <td className="p-2 text-right font-medium text-red-600">{b.count}회</td>
+                      <td className="p-2 text-right font-medium text-red-600 dark:text-red-400">{b.count}회</td>
                     </tr>
                   ))}
                 </tbody>
@@ -177,7 +177,7 @@ export default function EquipmentStatsPage() {
                     <td className="p-2 text-right">{p.intervalDays}일</td>
                     <td className="p-2">{new Date(p.nextDue).toLocaleDateString()}</td>
                     <td className="p-2 text-right">
-                      <span className={p.daysUntilDue <= 0 ? "text-red-600 font-semibold" : p.daysUntilDue <= 7 ? "text-orange-600 font-semibold" : ""}>
+                      <span className={p.daysUntilDue <= 0 ? "text-red-600 font-semibold dark:text-red-400" : p.daysUntilDue <= 7 ? "text-orange-600 font-semibold dark:text-orange-400" : ""}>
                         {p.daysUntilDue <= 0 ? "기한 초과" : `D-${p.daysUntilDue}`}
                       </span>
                     </td>
@@ -231,7 +231,7 @@ function Card({ label, value, sub, color }: { label: string; value: number; sub?
   const colorMap: Record<string, string> = {
     blue: "bg-blue-50 border-blue-200",
     green: "bg-green-50 border-green-200",
-    indigo: "bg-indigo-50 border-indigo-200",
+    indigo: "bg-indigo-50 border-indigo-200 dark:bg-indigo-950 dark:border-indigo-900",
     yellow: "bg-yellow-50 border-yellow-200",
     red: "bg-red-50 border-red-200",
   };

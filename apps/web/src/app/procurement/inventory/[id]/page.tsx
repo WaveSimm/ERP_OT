@@ -151,7 +151,7 @@ export default function InventoryDetailPage() {
   };
 
   if (loading) return <div className="text-center py-12 text-gray-400">로딩 중...</div>;
-  if (!item) return <div className="text-center py-12 text-red-500">재고를 찾을 수 없습니다.</div>;
+  if (!item) return <div className="text-center py-12 text-red-500 dark:text-red-400">재고를 찾을 수 없습니다.</div>;
 
   return (
     <div className="space-y-6">
@@ -167,7 +167,7 @@ export default function InventoryDetailPage() {
           <div className="text-xs text-gray-500">TCO (총소유비용)</div>
           <div className="text-xl font-bold">₩{Number(item.totalCostOfOwnership).toLocaleString()}</div>
           {Number(item.totalAdditionalCost) > 0 && (
-            <div className="text-xs text-orange-600">추가비용: ₩{Number(item.totalAdditionalCost).toLocaleString()}</div>
+            <div className="text-xs text-orange-600 dark:text-orange-400">추가비용: ₩{Number(item.totalAdditionalCost).toLocaleString()}</div>
           )}
         </div>
       </div>
@@ -188,7 +188,7 @@ export default function InventoryDetailPage() {
               {isAdmin && (
                 <button onClick={handleDelete} disabled={deleting}
                   title="운용 전 정리용 — 의존 이력도 함께 영구 삭제됨"
-                  className="px-3 py-1 text-xs border border-red-300 text-red-600 rounded hover:bg-red-50 disabled:opacity-50">
+                  className="px-3 py-1 text-xs border border-red-300 text-red-600 rounded hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950">
                   {deleting ? "삭제 중..." : "🗑 삭제 (ADMIN)"}
                 </button>
               )}
@@ -263,7 +263,7 @@ export default function InventoryDetailPage() {
                   <InfoField label="수입원가정산">
                     <button
                       onClick={() => router.push(`/procurement/settlements/${item.costSettlement.id}`)}
-                      className="text-sm font-medium text-blue-600 hover:underline"
+                      className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
                     >
                       {item.costSettlement.declarationNo}
                     </button>
@@ -273,7 +273,7 @@ export default function InventoryDetailPage() {
                     <InfoField label="계약번호">
                       <button
                         onClick={() => router.push(`/procurement/contracts/${item.costSettlement.contract.id}`)}
-                        className="text-sm font-medium text-blue-600 hover:underline"
+                        className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
                       >
                         {item.costSettlement.contract.contractNumber}
                       </button>
@@ -469,7 +469,7 @@ export default function InventoryDetailPage() {
                     {ai.audit?.plannedDate ? new Date(ai.audit.plannedDate).toLocaleDateString("ko-KR") : ""}
                   </span>
                   <span className="text-xs text-gray-400 whitespace-nowrap ml-auto">
-                    {ai.systemQuantity}개{ai.actualQuantity !== null && <span className={ai.status === "MATCHED" ? " text-green-600" : " text-red-600"}> → {ai.actualQuantity}개</span>}
+                    {ai.systemQuantity}개{ai.actualQuantity !== null && <span className={ai.status === "MATCHED" ? " text-green-600 dark:text-green-400" : " text-red-600 dark:text-red-400"}> → {ai.actualQuantity}개</span>}
                   </span>
                 </div>
               ))}

@@ -71,11 +71,11 @@ export default function WorkLogCard({ log, segments, canEdit, onUpdate, onDelete
         <span className="text-sm font-medium text-gray-800">{log.authorName || "익명"}</span>
         {projectName && (projectId ? (
           <Link href={`/projects/${projectId}`}
-            className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:underline">
+            className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 hover:underline">
             {projectName}
           </Link>
         ) : (
-          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700">
+          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
             {projectName}
           </span>
         ))}
@@ -91,7 +91,7 @@ export default function WorkLogCard({ log, segments, canEdit, onUpdate, onDelete
         ))}
         {/* 구간명이 태스크명/프로젝트명과 같으면 중복이라 숨김(임포트가 동명 구간 생성) */}
         {log.segmentName && log.segmentName !== taskName && log.segmentName !== projectName && (
-          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">
+          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 dark:text-blue-300">
             {log.segmentName}
           </span>
         )}
@@ -121,7 +121,7 @@ export default function WorkLogCard({ log, segments, canEdit, onUpdate, onDelete
                 }
               }}
               disabled={deleting}
-              className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
+              className="text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 disabled:opacity-50"
             >
               삭제
             </button>

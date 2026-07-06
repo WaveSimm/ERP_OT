@@ -59,7 +59,7 @@ export default function ProjectBoardSidebar({
                 >
                   <div className="flex items-center gap-2">
                     <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_COLOR[p.status] ?? "bg-gray-300"}`} />
-                    <span className={`text-sm truncate ${active ? "text-blue-700 font-medium" : "text-gray-800"}`}>
+                    <span className={`text-sm truncate ${active ? "text-blue-700 dark:text-blue-300 font-medium" : "text-gray-800"}`}>
                       {p.projectName}
                     </span>
                   </div>

@@ -38,19 +38,19 @@ export default function ExpensesPage() {
         <button
           onClick={() => setSubTab("approval")}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            subTab === "approval" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"
+            subTab === "approval" ? "border-blue-600 text-blue-600 dark:text-blue-400" : "border-transparent text-gray-500 hover:text-gray-700"
           }`}
         >결재송금</button>
         <button
           onClick={() => setSubTab("order")}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            subTab === "order" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"
+            subTab === "order" ? "border-blue-600 text-blue-600 dark:text-blue-400" : "border-transparent text-gray-500 hover:text-gray-700"
           }`}
         >발주송금</button>
         <button
           onClick={() => setSubTab("customsTax")}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            subTab === "customsTax" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"
+            subTab === "customsTax" ? "border-blue-600 text-blue-600 dark:text-blue-400" : "border-transparent text-gray-500 hover:text-gray-700"
           }`}
         >관부가세</button>
       </div>
@@ -268,7 +268,7 @@ function ExpenseApprovalTab() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       {item.paymentCompletedAt
-                        ? <span className="text-xs text-emerald-600 font-medium">✓ {new Date(item.paymentCompletedAt).toLocaleDateString("ko-KR")}</span>
+                        ? <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">✓ {new Date(item.paymentCompletedAt).toLocaleDateString("ko-KR")}</span>
                         : <span className="text-xs text-gray-400">미처리</span>}
                     </td>
                   </tr>
@@ -307,7 +307,7 @@ function ExpenseApprovalTab() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">총액</span>
-                  <span className="font-semibold text-blue-700">{fmtMoney(doc?.itemsTotal || doc?.items_total || doc?.amount)}</span>
+                  <span className="font-semibold text-blue-700 dark:text-blue-300">{fmtMoney(doc?.itemsTotal || doc?.items_total || doc?.amount)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">처리상태</span>
@@ -324,7 +324,7 @@ function ExpenseApprovalTab() {
                     <h4 className="text-sm font-semibold text-gray-700">지출 내역 ({itemsData.length}건)</h4>
                     {selectedItem.status === "FINANCE_RECEIVED" && (
                       <button onClick={() => toggleAll(itemsData)}
-                        className="text-xs text-blue-600 hover:underline">
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
                         {checkedItems.length === itemsData.length ? "전체 해제" : "전체 선택"}
                       </button>
                     )}
@@ -377,7 +377,7 @@ function ExpenseApprovalTab() {
                     </table>
                   </div>
                   {selectedItem.status === "FINANCE_RECEIVED" && checkedItems.length > 0 && (
-                    <p className="text-xs text-blue-600 mt-1">{checkedItems.length}건 재고 대상 선택됨</p>
+                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">{checkedItems.length}건 재고 대상 선택됨</p>
                   )}
                 </div>
               )}
@@ -387,7 +387,7 @@ function ExpenseApprovalTab() {
                 <div className="bg-gray-50 rounded-lg p-4 space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-500">재고 대상</span>
-                    <span className={selectedItem.isInventoryTarget ? "text-blue-600 font-medium" : "text-gray-500"}>
+                    <span className={selectedItem.isInventoryTarget ? "text-blue-600 dark:text-blue-400 font-medium" : "text-gray-500"}>
                       {selectedItem.isInventoryTarget ? "예" : "아니오"}
                     </span>
                   </div>
@@ -439,9 +439,9 @@ function ExpenseApprovalTab() {
                 <div className="border-t pt-4">
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-amber-800 font-semibold text-sm">📦 입고 대기 중</span>
+                      <span className="text-amber-800 dark:text-amber-200 font-semibold text-sm">📦 입고 대기 중</span>
                     </div>
-                    <p className="text-xs text-amber-700">
+                    <p className="text-xs text-amber-700 dark:text-amber-300">
                       이 건은 자동으로 <a href="/procurement/inbound" className="underline font-medium">입고 큐</a>에 등록되었습니다.
                       자재 담당자가 큐에서 receive 처리하면 재고가 생성되고 본 항목도 자동으로 완료 처리됩니다.
                     </p>
@@ -469,7 +469,7 @@ function ExpenseApprovalTab() {
                     {getPaymentType(selectedItem).label}
                   </span>
                   {selectedItem.paymentCompletedAt && (
-                    <span className="text-xs text-emerald-600 ml-auto">✓ 송금 완료</span>
+                    <span className="text-xs text-emerald-600 dark:text-emerald-400 ml-auto">✓ 송금 완료</span>
                   )}
                 </div>
                 <div className="space-y-2">
@@ -499,7 +499,7 @@ function ExpenseApprovalTab() {
                     </button>
                     {selectedItem.paymentCompletedAt && (
                       <button disabled={acting} onClick={handleClearPayment}
-                        className="px-3 py-2 border border-red-300 text-red-600 rounded-lg text-sm disabled:opacity-50">
+                        className="px-3 py-2 border border-red-300 text-red-600 rounded-lg text-sm disabled:opacity-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950">
                         해제
                       </button>
                     )}
@@ -516,7 +516,7 @@ function ExpenseApprovalTab() {
                 {previewReceipt && (
                   <a href={`/api/v1/expense/receipts/${previewReceipt.id}/download`}
                     target="_blank" rel="noopener"
-                    className="text-xs text-blue-600 hover:underline">새 창</a>
+                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline">새 창</a>
                 )}
               </div>
               {previewReceipt ? (

@@ -111,7 +111,7 @@ export default function EntryModal({ entry, defaultDate, onClose, onSaved }: Pro
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {isKasiReadonly && (
-            <div className="px-3 py-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
+            <div className="px-3 py-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800 dark:border-blue-800 dark:text-blue-300">
               🔄 한국 공휴일 자동 갱신 항목입니다. 직접 수정·삭제할 수 없으며, "한국 공휴일 갱신" 버튼으로만 변경됩니다.
             </div>
           )}
@@ -210,7 +210,7 @@ export default function EntryModal({ entry, defaultDate, onClose, onSaved }: Pro
           </div>
 
           {error && (
-            <div className="px-3 py-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+            <div className="px-3 py-2 bg-red-50 border border-red-200 rounded text-sm text-red-700 dark:border-red-800 dark:text-red-300">
               {error}
             </div>
           )}
@@ -221,7 +221,7 @@ export default function EntryModal({ entry, defaultDate, onClose, onSaved }: Pro
                 type="button"
                 onClick={handleDelete}
                 disabled={saving}
-                className="px-3 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50"
+                className="px-3 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950"
               >
                 삭제
               </button>

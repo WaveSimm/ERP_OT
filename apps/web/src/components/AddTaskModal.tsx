@@ -130,7 +130,7 @@ export default function AddTaskModal({ projectId, defaultParentId, defaultSortOr
           {isMilestone ? (
             /* Milestone: single date */
             <div className="border-t border-purple-100 pt-4">
-              <p className="text-xs font-semibold text-purple-500 uppercase mb-3">◆ 시점</p>
+              <p className="text-xs font-semibold text-purple-500 dark:text-purple-400 uppercase mb-3">◆ 시점</p>
               <div className="max-w-xs">
                 <label className="block text-sm font-medium text-gray-700 mb-1">날짜 *</label>
                 <DateInput
@@ -221,7 +221,7 @@ export default function AddTaskModal({ projectId, defaultParentId, defaultSortOr
           )}
 
           {error && (
-            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+            <p className="text-sm text-red-600 dark:text-red-300 bg-red-50 rounded-lg px-3 py-2">{error}</p>
           )}
 
           <div className="flex gap-3 pt-2">

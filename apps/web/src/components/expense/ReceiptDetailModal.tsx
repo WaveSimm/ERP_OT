@@ -362,7 +362,7 @@ export default function ReceiptDetailModal({ receiptId, onClose, onChange, onSpl
                 <button onClick={() => setZoom(1)}
                   className="px-2 py-0.5 bg-white border rounded">100%</button>
                 <a href={expenseApi.receiptDownloadUrl(r.id)} target="_blank" rel="noreferrer"
-                  className="ml-auto text-xs text-blue-600 hover:underline">새 창에서 보기</a>
+                  className="ml-auto text-xs text-blue-600 dark:text-blue-400 hover:underline">새 창에서 보기</a>
               </div>
               <div className="flex-1 overflow-auto bg-white rounded border">
                 <div style={{
@@ -449,7 +449,7 @@ export default function ReceiptDetailModal({ receiptId, onClose, onChange, onSpl
 
               {confirmedMatches.length > 0 ? (
                 <section className="bg-green-50 border border-green-200 rounded p-3">
-                  <h3 className="font-semibold mb-1 text-sm text-green-800">✓ 매칭됨</h3>
+                  <h3 className="font-semibold mb-1 text-sm text-green-800 dark:text-green-300">✓ 매칭됨</h3>
                   {confirmedMatches.map((m: any) => (
                     <div key={m.id} className="flex items-center justify-between text-sm">
                       <span>
@@ -458,13 +458,13 @@ export default function ReceiptDetailModal({ receiptId, onClose, onChange, onSpl
                           <span className="text-gray-500"> ({m.transaction.category.name})</span>
                         )}
                       </span>
-                      <button onClick={() => unmatch(m.id)} className="text-xs text-red-600 hover:underline">매칭 해제</button>
+                      <button onClick={() => unmatch(m.id)} className="text-xs text-red-600 dark:text-red-400 hover:underline">매칭 해제</button>
                     </div>
                   ))}
                 </section>
               ) : (
                 <section className="bg-blue-50 border border-blue-200 rounded p-3 space-y-2">
-                  <h3 className="font-semibold text-sm text-blue-800">거래 매칭</h3>
+                  <h3 className="font-semibold text-sm text-blue-800 dark:text-blue-300">거래 매칭</h3>
                   <select
                     value={selectedTxId}
                     onChange={(e) => setSelectedTxId(e.target.value)}

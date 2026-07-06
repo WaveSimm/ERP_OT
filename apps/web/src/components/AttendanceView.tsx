@@ -194,7 +194,7 @@ function CheckInWidget({ today, onAction }: { today: TodayRecord | null; onActio
         <span>출근: <strong className="text-gray-800">{fmtTime(today.checkIn)}</strong></span>
         <span>퇴근: <strong className="text-gray-800">{fmtTime(today.checkOut)}</strong></span>
         {today.netWorkMinutes > 0 && (
-          <span>근무: <strong className="text-blue-600">{fmtMinutes(today.netWorkMinutes)}</strong></span>
+          <span>근무: <strong className="text-blue-600 dark:text-blue-400">{fmtMinutes(today.netWorkMinutes)}</strong></span>
         )}
       </div>
       {error && <div className="text-xs text-red-500 mb-2">{error}</div>}
@@ -426,7 +426,7 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete, onDeleteLea
                   이 항목만
                 </button>
                 <button type="button" onClick={() => setGroupAction("group")}
-                  className={`flex-1 text-xs py-1.5 rounded-md font-medium transition-colors ${groupAction === "group" ? "bg-white shadow text-teal-700" : "text-gray-500 hover:text-gray-700"}`}>
+                  className={`flex-1 text-xs py-1.5 rounded-md font-medium transition-colors ${groupAction === "group" ? "bg-white shadow text-teal-700 dark:text-teal-300" : "text-gray-500 hover:text-gray-700"}`}>
                   전체 일정
                 </button>
               </div>
@@ -525,7 +525,7 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete, onDeleteLea
                   const [h, m] = startTime.split(":").map(Number);
                   const t = h * 60 + m + dur * 60;
                   const et = `${String(Math.floor(t / 60) % 24).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
-                  return <p className="text-[11px] text-teal-600 mt-1">⏱ {startTime} ~ {et} ({dur}시간)</p>;
+                  return <p className="text-[11px] text-teal-600 dark:text-teal-300 mt-1">⏱ {startTime} ~ {et} ({dur}시간)</p>;
                 })()}
               </div>
             ) : (
@@ -683,11 +683,11 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
       {summary && (
         <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex flex-wrap gap-4 text-xs text-gray-600">
           <span>출근 <strong className="text-gray-900">{summary.normalCount ?? 0}일</strong></span>
-          <span>지각 <strong className="text-orange-600">{summary.lateCount ?? 0}일</strong></span>
-          <span>결근 <strong className="text-red-600">{summary.absentCount ?? 0}일</strong></span>
-          <span>휴가 <strong className="text-blue-600">{summary.leaveCount ?? 0}일</strong></span>
-          <span>총 근무 <strong className="text-blue-700">{fmtMinutes(summary.totalWorkMinutes ?? 0)}</strong></span>
-          <span>휴일근무 <strong className="text-purple-600">{(summary.totalOtHours ?? 0).toFixed(1)}h</strong></span>
+          <span>지각 <strong className="text-orange-600 dark:text-orange-400">{summary.lateCount ?? 0}일</strong></span>
+          <span>결근 <strong className="text-red-600 dark:text-red-400">{summary.absentCount ?? 0}일</strong></span>
+          <span>휴가 <strong className="text-blue-600 dark:text-blue-400">{summary.leaveCount ?? 0}일</strong></span>
+          <span>총 근무 <strong className="text-blue-700 dark:text-blue-300">{fmtMinutes(summary.totalWorkMinutes ?? 0)}</strong></span>
+          <span>휴일근무 <strong className="text-purple-600 dark:text-purple-400">{(summary.totalOtHours ?? 0).toFixed(1)}h</strong></span>
         </div>
       )}
       <div className="p-3">
@@ -715,7 +715,7 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
                 <div className="h-[40px] flex-shrink-0">
                   <div className="flex items-center gap-1">
                     <span className={`text-xs font-medium leading-none ${
-                      isToday ? "text-blue-700 font-bold" :
+                      isToday ? "text-blue-700 dark:text-blue-300 font-bold" :
                       dow === 0 || cell.isHoliday ? "text-red-500" :
                       dow === 6 ? "text-blue-500" : "text-gray-700"
                     }`}>{dayNum}</span>
@@ -822,7 +822,7 @@ function LeaveBalanceCard({ balance }: { balance: LeaveBalance | null }) {
         <span className="text-xs text-gray-500">사용 <span className="font-medium text-gray-700">{used}일</span></span>
         <span className="flex items-baseline gap-1 text-xs">
           <span className="text-gray-500">잔여</span>
-          <span className="text-base font-bold text-blue-600 leading-none">{remaining}일</span>
+          <span className="text-base font-bold text-blue-600 dark:text-blue-400 leading-none">{remaining}일</span>
           <span className="text-gray-400">/ 전체 {total}일</span>
           <span className="text-gray-400">({breakdown.join(" · ")})</span>
         </span>
@@ -945,7 +945,7 @@ function LeaveHistory({ refresh }: { refresh: number }) {
             {item._docId ? (
               <>
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.color}`}>{st.label}</span>
-                <button onClick={() => router.push(`/approval/${item._docId}`)} className="text-xs text-blue-500 hover:text-blue-700">보기</button>
+                <button onClick={() => router.push(`/approval/${item._docId}`)} className="text-xs text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">보기</button>
               </>
             ) : (
               <button onClick={() => del(item.id)} className="text-xs text-red-500 hover:text-red-700">삭제</button>
@@ -1011,7 +1011,7 @@ function HolidayWorkHistory({ refresh }: { refresh: number }) {
               {item._docId ? (
                 <>
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.color}`}>{st.label}</span>
-                  <button onClick={() => router.push(`/approval/${item._docId}`)} className="text-xs text-blue-500 hover:text-blue-700">보기</button>
+                  <button onClick={() => router.push(`/approval/${item._docId}`)} className="text-xs text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">보기</button>
                 </>
               ) : (
                 <button onClick={() => del(item.id)} className="text-xs text-red-500 hover:text-red-700">삭제</button>
@@ -1085,7 +1085,7 @@ export default function AttendanceView() {
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-semibold text-gray-900">월간 근태 현황</h2>
             <button onClick={() => router.push("/resources?tab=attendance")}
-              className="text-xs px-2 py-0.5 rounded border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors">
+              className="text-xs px-2 py-0.5 rounded border border-blue-200 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 transition-colors">
               전사근태 →
             </button>
           </div>

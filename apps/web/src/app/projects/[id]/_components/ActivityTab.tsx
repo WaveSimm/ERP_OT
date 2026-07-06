@@ -88,7 +88,7 @@ export default function ActivityTab({
     <div className="max-w-2xl">
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs text-gray-400">최근 활동 {allActivities.length}건</span>
-        <button onClick={onRefresh} className="text-xs text-blue-500 hover:underline">새로고침</button>
+        <button onClick={onRefresh} className="text-xs text-blue-500 dark:text-blue-400 hover:underline">새로고침</button>
       </div>
 
       {allActivities.length === 0 ? (
