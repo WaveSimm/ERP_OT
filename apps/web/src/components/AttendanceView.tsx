@@ -1,24 +1,13 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { attendanceApi, leaveApi, holidayWorkApi, approvalLineApi, approvalApi, userManagementApi, attendanceOverviewApi, workScheduleApi, getUser } from "@/lib/api";
+import { attendanceApi, leaveApi, holidayWorkApi, approvalLineApi, userManagementApi, attendanceOverviewApi, workScheduleApi, getUser } from "@/lib/api";
 import { DateInput } from "@/components/ui/DateInput";
+import AttendanceOverview from "@/components/AttendanceOverview";
+import { useHolidaysMap } from "@/hooks/useHolidaysMap";
 import { TimeInput } from "@/components/ui/TimeInput";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-interface TodayRecord {
-  id: string;
-  date: string;
-  checkState: "NOT_STARTED" | "CHECKED_IN" | "ON_BREAK" | "CHECKED_OUT";
-  checkIn: string | null;
-  checkOut: string | null;
-  workType: string;
-  isLate: boolean;
-  netWorkMinutes: number;
-  note: string | null;
-}
 
 interface CalendarDay {
   date: string;
@@ -34,23 +23,6 @@ interface CalendarDay {
   isWeekend: boolean;
 }
 
-interface LeaveBalance {
-  totalDays: number;        // 정기 연차 (기본 15일)
-  longServiceDays?: number; // 장기근속 휴가
-  adjustedDays?: number;    // 임시 조정
-  usedDays: number;
-  pendingDays: number;
-  remainingDays: number;
-  // 가정의 날 (매월 4시간, 이월 없음) — 이번 달 기준
-  familyDayTotal?: number;
-  familyDayUsed?: number;
-  familyDayRemaining?: number;
-  // 연차대체 (휴일근무 보상, 발생연도 다음해 3월말까지)
-  substituteTotal?: number;
-  substituteUsed?: number;
-  substituteRemaining?: number;
-}
-
 interface WorkScheduleEntry {
   id: string;
   date: string;
@@ -64,13 +36,6 @@ interface WorkScheduleEntry {
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
-
-const WORK_ENTRY_TYPES = [
-  { value: "WORK", label: "사무실 출근" },
-  { value: "FIELD", label: "외근" },
-  { value: "TRAINING", label: "교육" },
-  { value: "BUSINESS_TRIP", label: "출장" },
-];
 
 const ENTRY_LABELS: Record<string, string> = {
   WORK: "출근", FIELD: "외근", TRAINING: "교육",
@@ -126,106 +91,6 @@ function fmtMinutes(mins: number) {
 }
 
 function toDateStr(d: Date) { return d.toISOString().slice(0, 10); }
-
-// ─── CheckIn Widget ───────────────────────────────────────────────────────────
-
-function CheckInWidget({ today, onAction }: { today: TodayRecord | null; onAction: () => void }) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [entryType, setEntryType] = useState("WORK");
-
-  const doAction = async (action: () => Promise<any>) => {
-    setLoading(true);
-    setError(null);
-    try { await action(); }
-    catch (e: any) { setError(e.message); }
-    finally {
-      onAction();
-      window.dispatchEvent(new CustomEvent("attendance-updated"));
-      setLoading(false);
-    }
-  };
-
-  const handleCheckIn = async () => {
-    // entryType(UI) → workType(backend enum: OFFICE/REMOTE/FIELD) 매핑
-    const workType =
-      entryType === "FIELD" || entryType === "BUSINESS_TRIP" ? "FIELD" :
-      entryType === "TRAINING" ? "OFFICE" :
-      "OFFICE";
-    await doAction(async () => {
-      await attendanceApi.checkIn({ workType });
-      try {
-        const now = new Date();
-        const hh = String(now.getHours()).padStart(2, "0");
-        const mm = String(now.getMinutes()).padStart(2, "0");
-        await attendanceOverviewApi.createEntry({ date: toDateStr(now), entryType, startTime: `${hh}:${mm}` });
-      } catch {}
-    });
-  };
-
-  if (!today) return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between">
-      <div className="text-sm text-gray-400">출퇴근 상태를 불러오는 중...</div>
-    </div>
-  );
-
-  const state = today.checkState;
-  return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <div className={`w-2.5 h-2.5 rounded-full ${
-            state === "CHECKED_IN" ? "bg-green-500 animate-pulse" :
-            state === "ON_BREAK"   ? "bg-orange-500 animate-pulse" :
-            state === "CHECKED_OUT"? "bg-gray-400" : "bg-gray-200"
-          }`} />
-          <span className="text-sm font-semibold text-gray-900">
-            {state === "NOT_STARTED" ? "출근 전" :
-             state === "CHECKED_IN"  ? "근무 중" :
-             state === "ON_BREAK"    ? "외출 중" : "퇴근 완료"}
-          </span>
-          {today.isLate && state !== "NOT_STARTED" && (
-            <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">지각</span>
-          )}
-        </div>
-        <div className="text-sm text-gray-500">{today.date}</div>
-      </div>
-      <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
-        <span>출근: <strong className="text-gray-800">{fmtTime(today.checkIn)}</strong></span>
-        <span>퇴근: <strong className="text-gray-800">{fmtTime(today.checkOut)}</strong></span>
-        {today.netWorkMinutes > 0 && (
-          <span>근무: <strong className="text-blue-600">{fmtMinutes(today.netWorkMinutes)}</strong></span>
-        )}
-      </div>
-      {error && <div className="text-xs text-red-500 mb-2">{error}</div>}
-      <div className="flex gap-2">
-        {state === "NOT_STARTED" && (<>
-          <select value={entryType} onChange={(e) => setEntryType(e.target.value)}
-            className="px-2 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-500">
-            {WORK_ENTRY_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
-          <button onClick={() => { if (confirm("출근 처리하시겠습니까?")) handleCheckIn(); }} disabled={loading}
-            className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 disabled:opacity-50">출근</button>
-        </>)}
-        {state === "CHECKED_IN" && (<>
-          <button onClick={() => { if (confirm("외출 처리하시겠습니까?")) doAction(() => attendanceApi.breakOut()); }} disabled={loading}
-            className="flex-1 bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-orange-600 disabled:opacity-50">외출</button>
-          <button onClick={() => { if (confirm("퇴근 처리하시겠습니까?\n퇴근 후에는 되돌릴 수 없습니다.")) doAction(() => attendanceApi.checkOut()); }} disabled={loading}
-            className="flex-1 bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-800 disabled:opacity-50">퇴근</button>
-        </>)}
-        {state === "ON_BREAK" && (
-          <button onClick={() => { if (confirm("복귀 처리하시겠습니까?")) doAction(() => attendanceApi.breakIn()); }} disabled={loading}
-            className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">복귀</button>
-        )}
-        {state === "CHECKED_OUT" && (
-          <div className="flex-1 text-center text-sm text-gray-500 py-2">
-            오늘 근무: <strong className="text-gray-800">{fmtMinutes(today.netWorkMinutes)}</strong>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // ─── Time Input (HH:mm, 시/분 개별 클릭 편집) ───────────────────────────────
 
@@ -798,61 +663,7 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
   );
 }
 
-// ─── Leave Balance Card ───────────────────────────────────────────────────────
-
-// 연차 현황 — 상단 슬림 바 (한 줄: 잔여/전체 · 사용 · 대기 · 가정의 날)
-function LeaveBalanceCard({ balance }: { balance: LeaveBalance | null }) {
-  if (!balance) return null;
-  const longSvc = balance.longServiceDays ?? 0;
-  const adj = balance.adjustedDays ?? 0;
-  const subTotal = balance.substituteTotal ?? 0;        // 연차대체 발생(유효)
-  const subRem = balance.substituteRemaining ?? 0;
-  const total = balance.totalDays + longSvc + adj + subTotal;
-  const used = balance.usedDays + (balance.substituteUsed ?? 0);
-  const remaining = balance.remainingDays + subRem;
-  // 전체 구성: 정기 · 대체 · 근속 (조정은 0 아닐 때만)
-  const breakdown = [`정기 ${balance.totalDays}일`, `대체 ${subTotal}일`, `근속 ${longSvc}일`];
-  if (adj !== 0) breakdown.push(`조정 ${adj > 0 ? "+" : ""}${adj}일`);
-  return (
-    <div className="bg-white border border-gray-200 rounded-xl px-4 py-2.5">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-        <span className="text-sm font-semibold text-gray-900">
-          연차 현황 <span className="text-xs font-normal text-gray-400">{new Date().getFullYear()}</span>
-        </span>
-        <span className="text-xs text-gray-500">사용 <span className="font-medium text-gray-700">{used}일</span></span>
-        <span className="flex items-baseline gap-1 text-xs">
-          <span className="text-gray-500">잔여</span>
-          <span className="text-base font-bold text-blue-600 leading-none">{remaining}일</span>
-          <span className="text-gray-400">/ 전체 {total}일</span>
-          <span className="text-gray-400">({breakdown.join(" · ")})</span>
-        </span>
-        {balance.pendingDays > 0 && <span className="text-xs text-amber-600">대기 {balance.pendingDays}일</span>}
-        {typeof balance.familyDayTotal === "number" && (
-          <span className="text-xs text-gray-500 sm:ml-auto flex items-baseline gap-1.5 sm:border-l sm:border-gray-200 sm:pl-4">
-            <span className="text-gray-600 font-medium">가정의 날</span>
-            <span className="text-gray-400">(이번 달)</span>
-            <span>사용 {balance.familyDayUsed ?? 0}시간</span>
-            <span>· 잔여 <span className="font-semibold text-rose-600">{balance.familyDayRemaining}</span>시간</span>
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ─── Leave Request Form ───────────────────────────────────────────────────────
-
-const LEAVE_TYPES = [
-  { value: "ANNUAL", label: "연차" },
-  { value: "HALF", label: "반차(4시간)" },
-  { value: "QUARTER", label: "1/4연차(2시간)" },
-  { value: "FAMILY_DAY", label: "가정의날(1시간)" },
-  { value: "FAMILY_DAY_2H", label: "가정의날(2시간)" },
-  { value: "SUBSTITUTE", label: "연차대체" },
-  { value: "BEREAVEMENT", label: "경조사" },
-  { value: "SICK", label: "병가" },
-  { value: "SPECIAL", label: "공가" },
-];
 
 // ─── 휴가/휴일근무 신청 버튼 (전자결재 redirect) ──────────────────────────────
 // 중간 릴리즈(2026-06-29): 전자결재 미사용 → 버튼 정의 비활성화. 재개 시 아래 함수 + 렌더 블록 복원.
@@ -882,184 +693,31 @@ function HolidayWorkRequestForm({ onSuccess: _onSuccess }: { onSuccess: () => vo
 }
 */
 
-// ─── Leave / 휴일근무 History ─────────────────────────────────────────────────
-
-const APPROVAL_STATUS: Record<string, { label: string; color: string }> = {
-  PENDING:   { label: "대기", color: "text-amber-600 bg-amber-50" },
-  APPROVED:  { label: "승인", color: "text-green-600 bg-green-50" },
-  REJECTED:  { label: "반려", color: "text-red-600 bg-red-50" },
-  CANCELLED: { label: "취소", color: "text-gray-500 bg-gray-50" },
-};
-
-function LeaveHistory({ refresh }: { refresh: number }) {
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
-
-  useEffect(() => {
-    setLoading(true);
-    Promise.all([
-      leaveApi.list().catch(() => [] as any[]),
-      approvalApi.getSentDocuments(1, 50).then((r: any) => r?.items ?? []).catch(() => [] as any[]),
-    ]).then(([list, sent]: [any[], any[]]) => {
-      const rows = (list ?? []).filter((i: any) => i.status !== "CANCELLED");
-      // 승인 전 전자결재 휴가 결재(아직 근태에 미반영) 병합 — APPROVED는 위 휴가 레코드로 표시되므로 제외
-      const pendingDocs = (sent ?? [])
-        .filter((d: any) => d.template?.code === "LEAVE" && d.status !== "APPROVED" && d.status !== "DRAFT")
-        .map((d: any) => ({
-          id: d.id,
-          type: d.content?.leaveType,
-          startDate: d.content?.startDate,
-          endDate: d.content?.endDate,
-          status: d.status === "REJECTED" ? "REJECTED" : "PENDING",
-          _docId: d.id,
-        }));
-      // 가정의 날은 매월 정산이라 휴가 내역 목록에서는 제외(잔액 카드에서 월별 관리)
-      const FAMILY_DAY_TYPES = ["FAMILY_DAY", "FAMILY_DAY_2H", "FAMILY"];
-      setItems([...pendingDocs, ...rows]
-        .filter((i: any) => !FAMILY_DAY_TYPES.includes(i.type))
-        .sort((a: any, b: any) => (b.startDate ?? "").localeCompare(a.startDate ?? "")));  // 최근 날짜 상단
-    }).finally(() => setLoading(false));
-  }, [refresh]);
-
-  // 중간 릴리즈(2026-06-29): 승인 개념 제거 → 삭제(연차 복원 + 캘린더 제거)
-  const del = async (id: string) => {
-    if (!window.confirm("이 휴가를 삭제하시겠습니까? 연차가 복원됩니다.")) return;
-    await leaveApi.remove(id);
-    setItems((prev) => prev.filter((i) => i.id !== id));
-    window.dispatchEvent(new CustomEvent("attendance-updated"));
-  };
-
-  if (loading) return <div className="text-xs text-gray-400 py-4 text-center">불러오는 중...</div>;
-  return (
-    <div className="space-y-2">
-      {items.length === 0 && <div className="text-xs text-gray-400 text-center py-4">신청 내역이 없습니다.</div>}
-      {items.map((item) => {
-        const st = APPROVAL_STATUS[item.status] ?? { label: item.status, color: "text-gray-500 bg-gray-50" };
-        return (
-          <div key={item.id} className="flex items-center gap-3 px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm">
-            <div className="flex-1 min-w-0">
-              <div className="font-medium text-gray-900">{LEAVE_TYPES.find((t) => t.value === item.type)?.label ?? item.type ?? "휴가"}</div>
-              <div className="text-xs text-gray-400">{item.startDate?.slice(0, 10)} ~ {item.endDate?.slice(0, 10)}</div>
-            </div>
-            {item._docId ? (
-              <>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.color}`}>{st.label}</span>
-                <button onClick={() => router.push(`/approval/${item._docId}`)} className="text-xs text-blue-500 hover:text-blue-700">보기</button>
-              </>
-            ) : (
-              <button onClick={() => del(item.id)} className="text-xs text-red-500 hover:text-red-700">삭제</button>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function HolidayWorkHistory({ refresh }: { refresh: number }) {
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
-
-  useEffect(() => {
-    setLoading(true);
-    Promise.all([
-      holidayWorkApi.list().catch(() => [] as any[]),
-      approvalApi.getSentDocuments(1, 50).then((r: any) => r?.items ?? []).catch(() => [] as any[]),
-    ]).then(([list, sent]: [any[], any[]]) => {
-      // 승인 전 전자결재 휴일근무 결재(아직 근태에 미반영) 병합
-      const pendingDocs = (sent ?? [])
-        .filter((d: any) => d.template?.code === "OT" && d.status !== "APPROVED" && d.status !== "DRAFT")
-        .map((d: any) => {
-          const wd = d.content?.workDates;
-          const firstDate = Array.isArray(wd) ? wd[0] : (d.content?.workDate ?? "");
-          return {
-            id: d.id,
-            date: firstDate,
-            reason: d.content?.reason,
-            status: d.status === "REJECTED" ? "REJECTED" : "PENDING",
-            _docId: d.id,
-          };
-        });
-      setItems([...pendingDocs, ...(list ?? [])]
-        .sort((a: any, b: any) => (b.date ?? "").localeCompare(a.date ?? "")));  // 최근 날짜 상단
-    }).finally(() => setLoading(false));
-  }, [refresh]);
-
-  // 중간 릴리즈(2026-06-29): 승인 개념 제거 → 삭제(캘린더 제거)
-  const del = async (id: string) => {
-    if (!window.confirm("이 휴일근무를 삭제하시겠습니까?")) return;
-    await holidayWorkApi.remove(id);
-    setItems((prev) => prev.filter((i) => i.id !== id));
-    window.dispatchEvent(new CustomEvent("attendance-updated"));
-  };
-
-  if (loading) return <div className="text-xs text-gray-400 py-4 text-center">불러오는 중...</div>;
-  return (
-    <div className="space-y-2">
-      {items.length === 0 && <div className="text-xs text-gray-400 text-center py-4">신청 내역이 없습니다.</div>}
-      {items.map((item) => {
-        const st = APPROVAL_STATUS[item.status] ?? { label: item.status, color: "text-gray-500 bg-gray-50" };
-        return (
-          <div key={item.id} className="px-3 py-2.5 bg-white border border-gray-200 rounded-lg text-sm">
-            <div className="flex items-center gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-gray-900">{item.date?.slice(0, 10)} · 휴일근무</div>
-                <div className="text-xs text-gray-400 truncate">{item.reason}</div>
-              </div>
-              {item._docId ? (
-                <>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.color}`}>{st.label}</span>
-                  <button onClick={() => router.push(`/approval/${item._docId}`)} className="text-xs text-blue-500 hover:text-blue-700">보기</button>
-                </>
-              ) : (
-                <button onClick={() => del(item.id)} className="text-xs text-red-500 hover:text-red-700">삭제</button>
-              )}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 // ─── AttendanceView (exported) ────────────────────────────────────────────────
 
+// 화면 정리(2026-07-07, 관리부 요청): 연차현황·출퇴근(근무시간)·휴가/휴일근무 내역 제거,
+//   월간 캘린더 + 전사근태(링크 대신 하단 직접 표시)로 단순화.
 export default function AttendanceView() {
-  const router = useRouter();
-  const [today, setToday] = useState<TodayRecord | null>(null);
-  const [balance, setBalance] = useState<LeaveBalance | null>(null);
   const [refresh, setRefresh] = useState(0);
-  const [activeTab, setActiveTab] = useState<"leave" | "ot">("leave");
   // 본인 근무시간(유연근무 반영). 근태 추가 모달 기본값으로 사용. 로딩 전 회사 기본값.
   const [sched, setSched] = useState<{ start: string; end: string }>({ start: "09:30", end: "18:30" });
+  const holidays = useHolidaysMap();
 
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
 
-  const loadToday = useCallback(async () => {
-    try { setToday(await attendanceApi.getToday()); } catch {}
-  }, []);
-
-  const loadBalance = useCallback(async () => {
-    try { setBalance(await leaveApi.getBalance()); } catch {}
-  }, []);
-
   useEffect(() => {
-    loadToday();
-    loadBalance();
     workScheduleApi.mine()
       .then((s) => { if (s?.workStartTime && s?.workEndTime) setSched({ start: s.workStartTime, end: s.workEndTime }); })
       .catch(() => {});
   }, []);
 
   useEffect(() => {
-    const handler = () => { loadToday(); loadBalance(); setRefresh((r) => r + 1); };
+    const handler = () => setRefresh((r) => r + 1);
     window.addEventListener("attendance-updated", handler);
     return () => window.removeEventListener("attendance-updated", handler);
-  }, [loadToday, loadBalance]);
+  }, []);
 
   const navigateMonth = (dir: -1 | 1) => {
     let m = month + dir, y = year;
@@ -1068,50 +726,28 @@ export default function AttendanceView() {
     setYear(y); setMonth(m);
   };
 
-  const handleAction = () => { loadToday(); setRefresh((r) => r + 1); };
-
   return (
     <div className="space-y-6">
       {/* 중간 릴리즈(2026-06-29): 전자결재 미사용 → 휴가/휴일근무는 캘린더 날짜별 "+" 버튼(근태 추가)에서 직접 등록 */}
 
-      {/* 연차 현황 — 상단 슬림 바(한 줄) */}
-      <LeaveBalanceCard balance={balance} />
-
-      <CheckInWidget today={today} onAction={handleAction} />
-
       {/* 월간 달력 (근태 통합) */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-gray-900">월간 근태 현황</h2>
-            <button onClick={() => router.push("/resources?tab=attendance")}
-              className="text-xs px-2 py-0.5 rounded border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors">
-              전사근태 →
-            </button>
-          </div>
+          <h2 className="text-sm font-semibold text-gray-900">월간 근태 현황</h2>
           <div className="flex items-center gap-2">
             <button onClick={() => navigateMonth(-1)} className="p-1 text-gray-400 hover:text-gray-700 border border-gray-200 rounded">‹</button>
             <span className="text-sm font-medium text-gray-700">{year}년 {month}월</span>
             <button onClick={() => navigateMonth(1)} className="p-1 text-gray-400 hover:text-gray-700 border border-gray-200 rounded">›</button>
           </div>
         </div>
-        <MonthlyCalendar year={year} month={month} refresh={refresh} onEntryChanged={() => { setRefresh((r) => r + 1); loadBalance(); }} defaultStart={sched.start} defaultEnd={sched.end} />
+        <MonthlyCalendar year={year} month={month} refresh={refresh} onEntryChanged={() => setRefresh((r) => r + 1)} defaultStart={sched.start} defaultEnd={sched.end} />
         <p className="text-[10px] text-gray-400 mt-1.5 ml-1">날짜를 클릭하여 근태를 추가할 수 있습니다</p>
       </div>
 
-      {/* 휴가 / 휴일근무 내역 */}
+      {/* 전사근태 — 링크 대신 하단 직접 표시 (2026-07-07) */}
       <div>
-        <div className="flex items-center gap-1 mb-3">
-          <button onClick={() => setActiveTab("leave")}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === "leave" ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>
-            휴가 내역
-          </button>
-          <button onClick={() => setActiveTab("ot")}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === "ot" ? "bg-purple-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>
-            휴일근무 내역
-          </button>
-        </div>
-        {activeTab === "leave" ? <LeaveHistory refresh={refresh} /> : <HolidayWorkHistory refresh={refresh} />}
+        <h2 className="text-sm font-semibold text-gray-900 mb-3">전사근태</h2>
+        <AttendanceOverview holidays={holidays} />
       </div>
     </div>
   );
