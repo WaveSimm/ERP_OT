@@ -589,16 +589,16 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
                       title="근태 추가">+</button>
                   </div>
                   {cell.isHoliday
-                    ? <span className="text-[9px] text-red-400 truncate leading-tight">{cell.holidayName}</span>
+                    ? <span className="text-xs text-red-400 truncate leading-tight">{cell.holidayName}</span>
                     : cell.checkIn && (
-                      <span className="text-[9px] text-gray-400 leading-tight">
+                      <span className="text-xs text-gray-400 leading-tight">
                         {fmtTime(cell.checkIn).slice(0, 5)}{cell.checkOut ? `~${fmtTime(cell.checkOut).slice(0, 5)}` : ""}
                       </span>
                     )
                   }
                 </div>
 
-                {/* 근태 엔트리 블록 — 3줄: 유형 / 시간 / 내용 */}
+                {/* 근태 엔트리 블록 — 1줄: 유형+시간(동일 크기), 2줄째: 내용 */}
                 <div className="flex flex-col gap-0.5">
                   {dayEntries.slice(0, 2).map((entry) => {
                     const timeStr = entry.startTime && entry.endTime
@@ -610,25 +610,23 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
                         onClick={() => setEditingEntry({ date: cell.date, entry })}
                         className={`rounded px-1 py-0.5 cursor-pointer hover:opacity-80 transition-opacity ${ENTRY_COLORS[entry.entryType] ?? "bg-gray-100 text-gray-600"}`}
                         title={[ENTRY_LABELS[entry.entryType], timeStr, entry.label].filter(Boolean).join(" / ")}>
-                        <div className="text-[10px] font-medium leading-tight truncate">
+                        <div className="text-xs font-medium leading-tight truncate">
                           {ENTRY_LABELS[entry.entryType] ?? entry.entryType}
+                          {timeStr && <span className="font-normal opacity-75"> {timeStr}</span>}
                         </div>
-                        {timeStr && (
-                          <div className="text-[9px] leading-tight opacity-75 truncate">{timeStr}</div>
-                        )}
                         {entry.label && (
-                          <div className="text-[9px] leading-tight opacity-60 truncate">{entry.label}</div>
+                          <div className="text-xs leading-tight opacity-60 truncate">{entry.label}</div>
                         )}
                       </div>
                     );
                   })}
                   {dayEntries.length > 2 && (
-                    <span className="text-[9px] text-gray-400">+{dayEntries.length - 2}건</span>
+                    <span className="text-xs text-gray-400">+{dayEntries.length - 2}건</span>
                   )}
 
                   {/* OT 표시 */}
                   {cell.otHours > 0 && !dayEntries.some((e) => e.entryType === "OT") && (
-                    <span className="text-[9px] text-purple-500 leading-tight">휴일근무</span>
+                    <span className="text-xs text-purple-500 leading-tight">휴일근무</span>
                   )}
                 </div>
               </div>
