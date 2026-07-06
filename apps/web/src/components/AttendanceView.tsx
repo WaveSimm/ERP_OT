@@ -615,7 +615,7 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
                           {timeStr && <span className="font-normal opacity-75"> {timeStr}</span>}
                         </div>
                         {entry.label && (
-                          <div className="text-xs leading-tight opacity-60 truncate">{entry.label}</div>
+                          <div className="text-xs leading-tight truncate">{entry.label}</div>
                         )}
                       </div>
                     );
