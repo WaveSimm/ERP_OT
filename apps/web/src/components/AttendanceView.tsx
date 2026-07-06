@@ -83,13 +83,6 @@ function fmtTime(iso: string | null) {
   return new Date(iso).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
-function fmtMinutes(mins: number) {
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  if (h === 0) return `${m}분`;
-  return m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
-}
-
 function toDateStr(d: Date) { return d.toISOString().slice(0, 10); }
 
 // ─── Time Input (HH:mm, 시/분 개별 클릭 편집) ───────────────────────────────
@@ -465,7 +458,6 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
   defaultEnd?: string;
 }) {
   const [days, setDays] = useState<CalendarDay[]>([]);
-  const [summary, setSummary] = useState<any>(null);
   const [entries, setEntries] = useState<WorkScheduleEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [addingDate, setAddingDate] = useState<string | null>(null);
@@ -483,13 +475,11 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
 
     Promise.all([
       attendanceApi.getCalendar(year, month),
-      attendanceApi.getSummary(year, month),
       attendanceOverviewApi.getWeekly(startDate, endDate),
     ])
-      .then(([cal, sum, wsData]) => {
+      .then(([cal, wsData]) => {
         if (cancelled) return;
         setDays(cal.days ?? []);
-        setSummary(sum);
 
         // 내 엔트리만 추출
         const myEntries: WorkScheduleEntry[] = [];
@@ -545,16 +535,6 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-      {summary && (
-        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex flex-wrap gap-4 text-xs text-gray-600">
-          <span>출근 <strong className="text-gray-900">{summary.normalCount ?? 0}일</strong></span>
-          <span>지각 <strong className="text-orange-600">{summary.lateCount ?? 0}일</strong></span>
-          <span>결근 <strong className="text-red-600">{summary.absentCount ?? 0}일</strong></span>
-          <span>휴가 <strong className="text-blue-600">{summary.leaveCount ?? 0}일</strong></span>
-          <span>총 근무 <strong className="text-blue-700">{fmtMinutes(summary.totalWorkMinutes ?? 0)}</strong></span>
-          <span>휴일근무 <strong className="text-purple-600">{(summary.totalOtHours ?? 0).toFixed(1)}h</strong></span>
-        </div>
-      )}
       <div className="p-3">
         <div className="grid grid-cols-7 mb-1">
           {DAY_LABELS.map((d, i) => (
@@ -731,7 +711,7 @@ export default function AttendanceView() {
       {/* 월간 달력 (근태 통합) */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-gray-900">월간 근태 현황</h2>
+          <h2 className="text-sm font-semibold text-gray-900">내 월간 근태</h2>
           <div className="flex items-center gap-2">
             <button onClick={() => navigateMonth(-1)} className="p-1 text-gray-400 hover:text-gray-700 border border-gray-200 rounded">‹</button>
             <span className="text-sm font-medium text-gray-700">{year}년 {month}월</span>
