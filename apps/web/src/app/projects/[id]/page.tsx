@@ -8,6 +8,7 @@ import nextDynamic from "next/dynamic";
 import { usePermission } from "@/hooks/usePermission";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useHolidaysMap } from "@/hooks/useHolidaysMap";
+import { useDragAutoScroll } from "@/hooks/useDragAutoScroll";
 import AddTaskModal from "@/components/AddTaskModal";
 import TaskDrawer from "@/components/TaskDrawer";
 import CopyTaskModal from "@/components/CopyTaskModal";
@@ -505,13 +506,17 @@ export default function ProjectDetailPage() {
   const [dragIds, setDragIds] = useState<string[]>([]);
   const [dropGap, setDropGap] = useState<{ taskId: string; pos: "before" | "after" } | null>(null);
 
-  const clearDragState = () => { setDragIds([]); setDropGap(null); };
+  // 드래그 중 자동 스크롤 (창 스크롤, 상단 고정 헤더 아래부터 감지)
+  const { start: startAutoScroll, stop: stopAutoScroll } = useDragAutoScroll({ topOffset: topChrome });
+
+  const clearDragState = () => { setDragIds([]); setDropGap(null); stopAutoScroll(); };
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     const ids = selected.has(taskId) ? [...selected] : [taskId];
     setDragIds(ids);
     if (!selected.has(taskId)) setSelected(new Set([taskId]));
     e.dataTransfer.effectAllowed = "move";
+    startAutoScroll(e.clientY);
   };
 
   const handleRowDragOver = (e: React.DragEvent, taskId: string) => {

@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { equipmentResourceApi, type EquipmentResource } from "@/lib/api";
+import { useDragAutoScroll } from "@/hooks/useDragAutoScroll";
 
 // EQUIPMENT는 폐기된 레거시 타입(2026-05-05) — 신규는 VEHICLE/FACILITY만이라 Partial.
 const TYPE_LABEL: Partial<Record<EquipmentResource["type"], string>> = {
@@ -29,11 +30,13 @@ export function EquipmentResourcesPanel({ isAdmin }: { isAdmin: boolean }) {
 
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropGap, setDropGap] = useState<{ id: string; pos: "before" | "after" } | null>(null);
-  const clearDrag = () => { setDragId(null); setDropGap(null); };
+  const { start: startAutoScroll, stop: stopAutoScroll } = useDragAutoScroll();  // window 스크롤
+  const clearDrag = () => { setDragId(null); setDropGap(null); stopAutoScroll(); };
 
   const onDragStart = (e: React.DragEvent, id: string) => {
     setDragId(id);
     e.dataTransfer.effectAllowed = "move";
+    startAutoScroll(e.clientY);
   };
   const onRowDragOver = (e: React.DragEvent, id: string) => {
     e.preventDefault();
