@@ -52,9 +52,9 @@ const ENTRY_LABELS: Record<string, string> = {
 
 const ENTRY_COLORS: Record<string, string> = {
   WORK: "bg-sky-100 text-sky-700",              // 출근 — 파랑(sky)
-  FIELD: "bg-green-100 text-green-800",      // 근무군(외근·교육·출장) — 초록(emerald)
-  TRAINING: "bg-green-100 text-green-800",
-  BUSINESS_TRIP: "bg-green-100 text-green-800",
+  FIELD: "bg-sky-100 text-sky-700",      // 근무군(외근·교육·출장) — 파랑(sky), 전사근태와 통일
+  TRAINING: "bg-sky-100 text-sky-700",
+  BUSINESS_TRIP: "bg-sky-100 text-sky-700",
   HALF: "bg-amber-100 text-amber-700",           // 휴가군 — 노랑(amber)
   HALF_AM: "bg-amber-100 text-amber-700",
   HALF_PM: "bg-amber-100 text-amber-700",
