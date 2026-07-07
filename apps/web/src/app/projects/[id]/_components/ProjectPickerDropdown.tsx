@@ -57,7 +57,7 @@ export default function ProjectPickerDropdown({
                 <li key={p.id}>
                   <button
                     onClick={() => { setShowProjectPicker(false); setProjectSearch(""); router.push(`/projects/${p.id}`); }}
-                    className={`w-full text-left px-4 py-2 text-sm hover:bg-blue-50 flex items-center gap-2 ${p.id === projectId ? "bg-blue-50 font-semibold text-blue-700" : "text-gray-700"}`}
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-blue-50 flex items-center gap-2 ${p.id === projectId ? "bg-blue-50 font-semibold text-blue-700 dark:text-blue-300" : "text-gray-700"}`}
                   >
                     <span className="flex-1 truncate">{p.name}</span>
                     {pst && <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${pst.color}`}>{pst.label}</span>}
@@ -123,7 +123,7 @@ export default function ProjectPickerDropdown({
               <li key={`p_${p.id}_${idx}`}>
                 <button
                   onClick={() => { setShowProjectPicker(false); setProjectSearch(""); router.push(`/projects/${p.id}`); }}
-                  className={`w-full text-left py-2 text-sm hover:bg-blue-50 flex items-center gap-2 ${p.id === projectId ? "bg-blue-50 font-semibold text-blue-700" : "text-gray-700"}`}
+                  className={`w-full text-left py-2 text-sm hover:bg-blue-50 flex items-center gap-2 ${p.id === projectId ? "bg-blue-50 font-semibold text-blue-700 dark:text-blue-300" : "text-gray-700"}`}
                   style={{ paddingLeft: 12 + item.depth * 14 }}
                 >
                   <span className="text-gray-300 text-xs shrink-0">📄</span>

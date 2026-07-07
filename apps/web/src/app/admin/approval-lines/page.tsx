@@ -228,7 +228,7 @@ export default function ApprovalLinesPage() {
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-4">
       {saveError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-2.5 flex items-center justify-between">
+        <div className="bg-red-50 border border-red-200 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-2.5 flex items-center justify-between">
           <span>저장 실패: {saveError}</span>
           <button onClick={() => setSaveError(null)} className="ml-4 text-red-400 hover:text-red-600 font-bold">×</button>
         </div>
@@ -246,7 +246,7 @@ export default function ApprovalLinesPage() {
           >
             {bulkingAll ? "설정 중..." : "전사 일괄 설정"}
           </button>
-          <button onClick={() => router.push("/admin/users")} className="text-sm text-blue-600 hover:underline">
+          <button onClick={() => router.push("/admin/users")} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
             ← 직원 관리
           </button>
         </div>
@@ -279,7 +279,7 @@ export default function ApprovalLinesPage() {
                   {(() => {
                     const chain = getChain(g.deptId);
                     return chain.teamHead ? (
-                      <span className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">
+                      <span className="text-xs bg-green-50 text-green-700 dark:text-green-300 px-2 py-0.5 rounded-full">
                         팀장: {chain.teamHead}
                       </span>
                     ) : null;

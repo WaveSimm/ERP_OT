@@ -32,9 +32,9 @@ interface ImportRow {
 }
 
 const STATUS_META: Record<Status, { label: string; cls: string }> = {
-  new: { label: "신규", cls: "bg-green-50 text-green-700 border-green-200" },
-  duplicate: { label: "중복", cls: "bg-amber-50 text-amber-700 border-amber-200" },
-  error: { label: "오류", cls: "bg-red-50 text-red-700 border-red-200" },
+  new: { label: "신규", cls: "bg-green-50 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800" },
+  duplicate: { label: "중복", cls: "bg-amber-50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800" },
+  error: { label: "오류", cls: "bg-red-50 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800" },
 };
 
 export default function ProjectMigrationPage() {
@@ -134,7 +134,7 @@ export default function ProjectMigrationPage() {
     ));
   }
 
-  if (authError) return <div className="p-8 text-center text-red-600">{authError}</div>;
+  if (authError) return <div className="p-8 text-center text-red-600 dark:text-red-400">{authError}</div>;
   if (!authorized) return <div className="p-8 text-center text-gray-400">확인 중…</div>;
 
   const counts = {
@@ -164,16 +164,16 @@ export default function ProjectMigrationPage() {
             multiple
             onChange={onFiles}
             disabled={busy}
-            className="block text-sm text-gray-700 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50"
+            className="block text-sm text-gray-700 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100 disabled:opacity-50"
           />
           {(entries.length > 0 || results) && (
             <button onClick={reset} disabled={busy} className="ml-auto text-sm text-gray-500 hover:text-gray-700">초기화</button>
           )}
         </div>
-        {busy && <p className="mt-2 text-sm text-blue-600">처리 중…</p>}
+        {busy && <p className="mt-2 text-sm text-blue-600 dark:text-blue-400">처리 중…</p>}
       </div>
 
-      {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {error && <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 px-4 py-3 text-sm text-red-700 dark:text-red-300">{error}</div>}
 
       {/* 미리보기 */}
       {entries.length > 0 && (
@@ -212,11 +212,11 @@ export default function ProjectMigrationPage() {
                         <td className="px-3 py-2 text-gray-600">
                           {e.parsed.ownerMatched
                             ? <>✓ {e.parsed.ownerName}</>
-                            : <span className="text-red-600">✗ {e.parsed.ownerName ?? "—"}</span>}
+                            : <span className="text-red-600 dark:text-red-400">✗ {e.parsed.ownerName ?? "—"}</span>}
                         </td>
                         <td className="px-3 py-2 text-gray-600">
                           {e.parsed.teamName ?? "—"}
-                          {e.parsed.teamName && !e.folderExists && <span className="ml-1 text-xs text-blue-600">(신규)</span>}
+                          {e.parsed.teamName && !e.folderExists && <span className="ml-1 text-xs text-blue-600 dark:text-blue-400">(신규)</span>}
                         </td>
                         <td className="px-3 py-2 text-right text-gray-700">{e.parsed.tasks.length || "—"}</td>
                         <td className="px-3 py-2 text-right text-gray-700">
@@ -226,7 +226,7 @@ export default function ProjectMigrationPage() {
                         <td className="px-3 py-2 text-gray-500">
                           {e.reason && <div>{e.reason}</div>}
                           {e.parsed.unmatchedNames.length > 0 && (
-                            <div className="text-xs text-amber-600">미매칭 담당자: {e.parsed.unmatchedNames.join(", ")} (미배정)</div>
+                            <div className="text-xs text-amber-600 dark:text-amber-400">미매칭 담당자: {e.parsed.unmatchedNames.join(", ")} (미배정)</div>
                           )}
                         </td>
                       </tr>
@@ -252,16 +252,16 @@ export default function ProjectMigrationPage() {
 
       {/* 결과 */}
       {results && (
-        <div className="rounded-xl border border-green-200 bg-green-50 p-5 space-y-2">
-          <p className="text-sm font-semibold text-green-800">✅ 적재 결과 ({results.filter((r) => r.ok).length}/{results.length} 성공)</p>
+        <div className="rounded-xl border border-green-200 dark:border-green-800 bg-green-50 p-5 space-y-2">
+          <p className="text-sm font-semibold text-green-800 dark:text-green-300">✅ 적재 결과 ({results.filter((r) => r.ok).length}/{results.length} 성공)</p>
           <ul className="text-sm space-y-1">
             {results.map((r, i) => (
-              <li key={i} className={r.ok ? "text-green-900" : "text-red-700"}>
+              <li key={i} className={r.ok ? "text-green-900 dark:text-green-300" : "text-red-700 dark:text-red-300"}>
                 {r.ok ? "•" : "⚠️"} <b>{r.name}</b> — {r.detail}
               </li>
             ))}
           </ul>
-          <Link href="/projects" className="inline-block mt-2 text-sm font-medium text-blue-700 hover:underline">
+          <Link href="/projects" className="inline-block mt-2 text-sm font-medium text-blue-700 dark:text-blue-300 hover:underline">
             → 프로젝트 목록에서 확인하기
           </Link>
         </div>
@@ -273,9 +273,9 @@ export default function ProjectMigrationPage() {
 function StatCard({ label, value, tone }: { label: string; value: number; tone: "gray" | "green" | "amber" | "red" }) {
   const tones: Record<string, string> = {
     gray: "bg-gray-50 border-gray-200 text-gray-700",
-    green: "bg-green-50 border-green-200 text-green-700",
-    amber: "bg-amber-50 border-amber-200 text-amber-700",
-    red: "bg-red-50 border-red-200 text-red-700",
+    green: "bg-green-50 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300",
+    amber: "bg-amber-50 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300",
+    red: "bg-red-50 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300",
   };
   return (
     <div className={`rounded-lg border p-3 ${tones[tone]}`}>

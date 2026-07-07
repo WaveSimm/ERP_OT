@@ -113,7 +113,7 @@ function PendingApprovals() {
             </button>
             <button
               onClick={() => setRejectTarget({ type: "leave", id: item.id })}
-              className="px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-medium hover:bg-red-100"
+              className="px-3 py-1.5 bg-red-50 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg text-xs font-medium hover:bg-red-100 dark:hover:bg-red-950"
             >
               반려
             </button>
@@ -139,7 +139,7 @@ function PendingApprovals() {
             </button>
             <button
               onClick={() => setRejectTarget({ type: "holiday-work", id: item.id })}
-              className="px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-medium hover:bg-red-100"
+              className="px-3 py-1.5 bg-red-50 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg text-xs font-medium hover:bg-red-100 dark:hover:bg-red-950"
             >
               반려
             </button>
@@ -204,11 +204,11 @@ function TeamAttendanceTable() {
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">이름</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500">출근</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-orange-500">지각</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-red-500">결근</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-blue-500">휴가</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-orange-500 dark:text-orange-400">지각</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-red-500 dark:text-red-400">결근</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-blue-500 dark:text-blue-400">휴가</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500">총 근무</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-purple-500">휴일근무</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-purple-500 dark:text-purple-400">휴일근무</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -221,11 +221,11 @@ function TeamAttendanceTable() {
                 <tr key={m.userId} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900">{m.name}</td>
                   <td className="px-4 py-3 text-center text-gray-700">{m.normalCount ?? 0}</td>
-                  <td className="px-4 py-3 text-center text-orange-600">{m.lateCount ?? 0}</td>
-                  <td className="px-4 py-3 text-center text-red-600">{m.absentCount ?? 0}</td>
-                  <td className="px-4 py-3 text-center text-blue-600">{m.leaveCount ?? 0}</td>
+                  <td className="px-4 py-3 text-center text-orange-600 dark:text-orange-400">{m.lateCount ?? 0}</td>
+                  <td className="px-4 py-3 text-center text-red-600 dark:text-red-400">{m.absentCount ?? 0}</td>
+                  <td className="px-4 py-3 text-center text-blue-600 dark:text-blue-400">{m.leaveCount ?? 0}</td>
                   <td className="px-4 py-3 text-center text-gray-700">{fmtMinutes(m.totalWorkMinutes ?? 0)}</td>
-                  <td className="px-4 py-3 text-center text-purple-600">{(m.totalOtHours ?? 0).toFixed(1)}h</td>
+                  <td className="px-4 py-3 text-center text-purple-600 dark:text-purple-400">{(m.totalOtHours ?? 0).toFixed(1)}h</td>
                 </tr>
               ))}
             </tbody>

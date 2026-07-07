@@ -79,7 +79,7 @@ export default function ContractMigrationPage() {
   }
 
   if (error && !authorized) {
-    return <div className="p-8 text-center text-red-600">{error}</div>;
+    return <div className="p-8 text-center text-red-600 dark:text-red-400">{error}</div>;
   }
   if (!authorized) {
     return <div className="p-8 text-center text-gray-400">확인 중…</div>;
@@ -121,11 +121,11 @@ export default function ContractMigrationPage() {
             {parsed.length > 0 && <> · 파싱 {parsed.length.toLocaleString()}건{parseSkipped > 0 && <> · 연번누락 {parseSkipped}건 제외</>}</>}
           </p>
         )}
-        {busy && <p className="mt-2 text-sm text-blue-600">처리 중…</p>}
+        {busy && <p className="mt-2 text-sm text-blue-600 dark:text-blue-400">처리 중…</p>}
       </div>
 
       {error && authorized && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:text-red-300">{error}</div>
       )}
 
       {/* 미리보기 */}
@@ -139,7 +139,7 @@ export default function ContractMigrationPage() {
           </div>
 
           {allDuplicate && (
-            <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
               ⚠️ 이 파일의 계약은 <b>모두 이미 마이그레이션</b>되어 있습니다. 적재할 신규 항목이 없습니다.
             </div>
           )}
@@ -174,14 +174,14 @@ export default function ContractMigrationPage() {
       {/* 결과 */}
       {result && (
         <div className="rounded-xl border border-green-200 bg-green-50 p-5 space-y-2">
-          <p className="text-sm font-semibold text-green-800">✅ 마이그레이션 완료</p>
-          <ul className="text-sm text-green-900 space-y-0.5">
+          <p className="text-sm font-semibold text-green-800 dark:text-green-300">✅ 마이그레이션 완료</p>
+          <ul className="text-sm text-green-900 space-y-0.5 dark:text-green-300">
             <li>• 적재 성공: <b>{result.imported.toLocaleString()}건</b></li>
             <li>• 중복 건너뜀: {result.duplicateInDb.toLocaleString()}건</li>
             <li>• 오류(누락): {result.invalid.toLocaleString()}건</li>
             <li>• 전체 처리: {result.total.toLocaleString()}건</li>
           </ul>
-          <Link href="/procurement/contracts" className="inline-block mt-2 text-sm font-medium text-blue-700 hover:underline">
+          <Link href="/procurement/contracts" className="inline-block mt-2 text-sm font-medium text-blue-700 hover:underline dark:text-blue-300">
             → 계약 목록에서 확인하기
           </Link>
         </div>
@@ -193,9 +193,9 @@ export default function ContractMigrationPage() {
 function StatCard({ label, value, tone }: { label: string; value: number; tone: "gray" | "green" | "amber" | "red" }) {
   const tones: Record<string, string> = {
     gray: "bg-gray-50 border-gray-200 text-gray-700",
-    green: "bg-green-50 border-green-200 text-green-700",
-    amber: "bg-amber-50 border-amber-200 text-amber-700",
-    red: "bg-red-50 border-red-200 text-red-700",
+    green: "bg-green-50 border-green-200 text-green-700 dark:text-green-300",
+    amber: "bg-amber-50 border-amber-200 text-amber-700 dark:text-amber-300",
+    red: "bg-red-50 border-red-200 text-red-700 dark:text-red-300",
   };
   return (
     <div className={`rounded-lg border p-3 ${tones[tone]}`}>
@@ -207,9 +207,9 @@ function StatCard({ label, value, tone }: { label: string; value: number; tone: 
 
 function SampleTable({ title, rows, tone }: { title: string; rows: { contractNumber: string; name: string; client: string }[]; tone: "green" | "amber" | "red" }) {
   const head: Record<string, string> = {
-    green: "text-green-700",
-    amber: "text-amber-700",
-    red: "text-red-700",
+    green: "text-green-700 dark:text-green-300",
+    amber: "text-amber-700 dark:text-amber-300",
+    red: "text-red-700 dark:text-red-300",
   };
   return (
     <details className="rounded-lg border border-gray-200 bg-white">

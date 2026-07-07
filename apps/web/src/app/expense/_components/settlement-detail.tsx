@@ -111,7 +111,7 @@ export function SettlementDetail({ id, onBack }: { id: string; onBack?: () => vo
             <Stat label="총 금액" value={`${Number(s.totalAmount ?? 0).toLocaleString()}원`} />
             <div>
               <div className="text-xs text-gray-500 mb-0.5">개인 (환급 대상)</div>
-              <div className="text-sm font-semibold text-blue-700">{personalAmt.toLocaleString()}원</div>
+              <div className="text-sm font-semibold text-blue-700 dark:text-blue-300">{personalAmt.toLocaleString()}원</div>
               <div className="text-[10px] text-gray-400">{personalCnt}건</div>
             </div>
             <div>
@@ -191,7 +191,7 @@ export function SettlementDetail({ id, onBack }: { id: string; onBack?: () => vo
                   <td className="px-3 py-1.5 text-xs text-gray-600 max-w-[200px] truncate" title={t.memo ?? ""}>{it.memoOverride ?? t.memo ?? ""}</td>
                   <td className="px-3 py-1.5 text-center">
                     {confirmedReceipt ? (
-                      <a href={expenseApi.receiptDownloadUrl(confirmedReceipt.receipt.id)} target="_blank" rel="noopener" className="text-blue-600 text-xs hover:underline">📎</a>
+                      <a href={expenseApi.receiptDownloadUrl(confirmedReceipt.receipt.id)} target="_blank" rel="noopener" className="text-blue-600 dark:text-blue-400 text-xs hover:underline">📎</a>
                     ) : <span className="text-xs text-gray-400">-</span>}
                   </td>
                 </tr>
@@ -225,7 +225,7 @@ export function SettlementDetail({ id, onBack }: { id: string; onBack?: () => vo
         )}
         {(isDraft || isRejected) && !s.approvalDocumentId && (
           <button onClick={remove}
-            className="px-3 py-1.5 text-sm border border-red-300 text-red-600 rounded-md hover:bg-red-50">
+            className="px-3 py-1.5 text-sm border border-red-300 text-red-600 rounded-md hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950">
             삭제
           </button>
         )}
@@ -275,7 +275,7 @@ function ProgressTimeline({ s }: { s: any }) {
                 {failed ? "✕" : step.done ? "✓" : idx + 1}
               </div>
               <div className="flex-1">
-                <div className={`text-sm ${failed ? "text-red-700" : step.done ? "text-gray-900 font-medium" : "text-gray-500"}`}>
+                <div className={`text-sm ${failed ? "text-red-700 dark:text-red-300" : step.done ? "text-gray-900 font-medium" : "text-gray-500"}`}>
                   {step.label}
                 </div>
                 {step.at && <div className="text-xs text-gray-500">{fmtDateTime24(step.at)}</div>}
@@ -285,12 +285,12 @@ function ProgressTimeline({ s }: { s: any }) {
         })}
       </div>
       {s.rejectReason && (
-        <div className="mt-3 p-2 bg-red-50 border border-red-200 text-sm text-red-700 rounded">
+        <div className="mt-3 p-2 bg-red-50 border border-red-200 text-sm text-red-700 rounded dark:border-red-800 dark:text-red-300">
           반려 사유: {s.rejectReason}
         </div>
       )}
       {s.paidNote && (
-        <div className="mt-3 p-2 bg-blue-50 border border-blue-200 text-xs text-blue-700 rounded">
+        <div className="mt-3 p-2 bg-blue-50 border border-blue-200 text-xs text-blue-700 rounded dark:border-blue-800 dark:text-blue-300">
           입금 메모: {s.paidNote}
         </div>
       )}

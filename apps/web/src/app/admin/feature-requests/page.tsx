@@ -99,7 +99,7 @@ export default function FeatureRequestsAdminPage() {
           <h1 className="text-xl font-bold text-gray-900">💡 기능 요구 관리</h1>
           <Link
             href="/board/feature-request/feature-request-all"
-            className="text-sm px-3 py-1.5 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100"
+            className="text-sm px-3 py-1.5 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-950"
           >
             전체 목록 →
           </Link>
@@ -108,8 +108,8 @@ export default function FeatureRequestsAdminPage() {
         <div className="grid grid-cols-4 gap-3 mb-6">
           <SummaryCard label="전체" value={total} accent="text-gray-900" />
           <SummaryCard label="접수 대기" value={pendingCount} accent="text-gray-700" />
-          <SummaryCard label="진행 중" value={inProgressCount} accent="text-amber-700" />
-          <SummaryCard label="완료" value={completedCount} accent="text-green-700" />
+          <SummaryCard label="진행 중" value={inProgressCount} accent="text-amber-700 dark:text-amber-300" />
+          <SummaryCard label="완료" value={completedCount} accent="text-green-700 dark:text-green-300" />
         </div>
 
         <Section title="상태별 분포">
@@ -204,7 +204,7 @@ export default function FeatureRequestsAdminPage() {
                     const sl = p.requestStatus ? STATUS_LABEL[p.requestStatus] : null;
                     const typeLabel = p.requestType ? TYPE_LABEL[p.requestType] : "—";
                     return (
-                      <tr key={p.id} className="border-t border-gray-100 hover:bg-blue-50/30">
+                      <tr key={p.id} className="border-t border-gray-100 hover:bg-blue-50/30 dark:hover:bg-blue-500/10">
                         <td className="px-3 py-2">
                           {sl ? (
                             <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-medium border ${sl.color}`}>
@@ -218,7 +218,7 @@ export default function FeatureRequestsAdminPage() {
                         <td className="px-3 py-2">
                           <Link
                             href={`/board/feature-request/feature-request-all/${p.id}`}
-                            className="text-blue-700 hover:underline"
+                            className="text-blue-700 hover:underline dark:text-blue-300"
                           >
                             {p.title}
                           </Link>
@@ -235,7 +235,7 @@ export default function FeatureRequestsAdminPage() {
           </div>
         </div>
 
-        <div className="mt-6 px-4 py-3 bg-blue-50/60 border border-blue-200 rounded-lg text-sm text-gray-700">
+        <div className="mt-6 px-4 py-3 bg-blue-50/60 border border-blue-200 rounded-lg text-sm text-gray-700 dark:bg-blue-500/10 dark:border-blue-900">
           <p className="font-medium mb-1">📌 운영 가이드</p>
           <ul className="list-disc list-inside space-y-1 text-xs text-gray-600">
             <li>모든 직원이 게시판 카테고리 <span className="font-mono">기능 요구</span>에서 등록할 수 있습니다.</li>
@@ -261,7 +261,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <div className="mb-5">
       <h2 className="text-sm font-semibold text-gray-700 mb-2">{title}</h2>
-      <div className="px-4 py-3 bg-gray-50/60 rounded-xl border border-gray-200">
+      <div className="px-4 py-3 bg-gray-50/60 rounded-xl border border-gray-200 dark:bg-gray-500/10">
         {children}
       </div>
     </div>

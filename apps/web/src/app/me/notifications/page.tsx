@@ -89,7 +89,7 @@ export default function NotificationsPage() {
             <button
               onClick={markAllRead}
               disabled={markingAll}
-              className="text-sm text-blue-600 hover:underline disabled:opacity-50"
+              className="text-sm text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
             >
               전체 읽음
             </button>

@@ -110,7 +110,7 @@ export default function OcrHistoryPage() {
             ) : items.map((item, idx) => {
               const st = STATUS_LABELS[item.status] || { label: item.status, color: "bg-gray-100 text-gray-600" };
               const conf = item.overallConfidence;
-              const confColor = conf >= 0.95 ? "text-green-600" : conf >= 0.8 ? "text-yellow-600" : "text-red-600";
+              const confColor = conf >= 0.95 ? "text-green-600 dark:text-green-400" : conf >= 0.8 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400";
               return (
                 <tr key={item.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/ocr/scan?id=${item.id}`)}>
                   <td className="px-4 py-3 text-gray-400">{(page - 1) * 20 + idx + 1}</td>
@@ -129,12 +129,12 @@ export default function OcrHistoryPage() {
                     {item.status === "PENDING_REVIEW" && (
                       <button
                         onClick={() => router.push(`/ocr/scan?id=${item.id}`)}
-                        className="text-blue-600 hover:underline text-xs mr-2"
+                        className="text-blue-600 dark:text-blue-400 hover:underline text-xs mr-2"
                       >
                         수정
                       </button>
                     )}
-                    <button onClick={() => handleDelete(item.id)} className="text-red-500 hover:underline text-xs">삭제</button>
+                    <button onClick={() => handleDelete(item.id)} className="text-red-500 dark:text-red-400 hover:underline text-xs">삭제</button>
                   </td>
                 </tr>
               );

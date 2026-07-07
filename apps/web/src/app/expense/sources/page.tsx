@@ -140,7 +140,7 @@ function SourceRow({ source, onSaved }: { source: any; onSaved: () => void }) {
         </select>
       </td>
       <td className="px-3 py-2 text-center">
-        <span className={`text-xs ${source.active ? "text-green-600" : "text-gray-400"}`}>
+        <span className={`text-xs ${source.active ? "text-green-600 dark:text-green-400" : "text-gray-400"}`}>
           {source.active ? "활성" : "비활성"}
         </span>
       </td>
@@ -150,11 +150,11 @@ function SourceRow({ source, onSaved }: { source: any; onSaved: () => void }) {
             if (confirm("비활성화 하시겠습니까?")) {
               await expenseApi.deleteSource(source.id); onSaved();
             }
-          }} className="text-xs text-red-500 hover:underline">비활성화</button>
+          }} className="text-xs text-red-500 dark:text-red-400 hover:underline">비활성화</button>
         ) : (
           <button onClick={async () => {
             await expenseApi.updateSource(source.id, { active: true }); onSaved();
-          }} className="text-xs text-blue-500 hover:underline">활성화</button>
+          }} className="text-xs text-blue-500 dark:text-blue-400 hover:underline">활성화</button>
         )}
       </td>
     </tr>
@@ -227,7 +227,7 @@ function SourceForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
             <p className="text-[10px] text-gray-500 mt-1">명세서 import 시 자동 매칭용 — 보통 비워두면 됨</p>
           </div>
-          {err && <p className="text-sm text-red-600">{err}</p>}
+          {err && <p className="text-sm text-red-600 dark:text-red-400">{err}</p>}
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={onClose} className="flex-1 border border-gray-300 rounded-md py-2 text-sm">취소</button>
             <button type="submit" disabled={saving} className="flex-1 bg-blue-600 text-white rounded-md py-2 text-sm font-medium">

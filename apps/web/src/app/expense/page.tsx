@@ -52,7 +52,7 @@ export default function ExpenseDashboardPage() {
       <div className="bg-white border border-gray-200 rounded-lg p-5">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-bold text-gray-700">최근 정산</h2>
-          <Link href="/expense/settlements" className="text-xs text-blue-600 hover:underline">모두 보기 →</Link>
+          <Link href="/expense/settlements" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">모두 보기 →</Link>
         </div>
         {loading ? (
           <div className="py-8 text-center text-gray-400 text-sm">불러오는 중...</div>
@@ -86,9 +86,9 @@ export default function ExpenseDashboardPage() {
 
 function SummaryCard({ label, count, color, href }: { label: string; count: number; color: "amber" | "blue" | "green"; href: string }) {
   const colorMap = {
-    amber: "border-amber-200 bg-amber-50 text-amber-700",
-    blue: "border-blue-200 bg-blue-50 text-blue-700",
-    green: "border-green-200 bg-green-50 text-green-700",
+    amber: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:text-amber-300",
+    blue: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:text-blue-300",
+    green: "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:text-green-300",
   };
   return (
     <Link href={href} className={`block border rounded-lg p-5 hover:shadow-md transition-shadow ${colorMap[color]}`}>

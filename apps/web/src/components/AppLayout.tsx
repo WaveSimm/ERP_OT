@@ -247,7 +247,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return () => { events.forEach((e) => window.removeEventListener(e, bump)); clearInterval(iv); };
   }, [currentUser, router]);
 
-  // 다크모드 토글 — html.dark 클래스 + localStorage 저장. 현재 개발자 계정에서만 버튼 노출(실험).
+  // 다크모드 토글 — html.dark 클래스 + localStorage 저장. 전체 로그인 사용자 노출.
+  // 초기 .dark 적용은 app/layout.tsx의 인라인 스크립트가 페인트 전에 처리(FOUC 방지). 아래 effect는 isDark 상태 동기화용.
   const [isDark, setIsDark] = useState(false);
   useEffect(() => {
     const dark = localStorage.getItem("erp-theme") === "dark";
@@ -323,8 +324,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               )}
             </button>
 
-            {/* 다크모드 토글 — 개발자 계정 전용 (실험) */}
-            {currentUser?.name === "개발자" && (
+            {/* 다크모드 토글 — 전체 로그인 사용자 */}
+            {currentUser && (
               <button
                 onClick={toggleTheme}
                 title={isDark ? "라이트 모드로" : "다크 모드로"}

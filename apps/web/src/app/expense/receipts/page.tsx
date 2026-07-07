@@ -146,14 +146,14 @@ export default function ReceiptsPage() {
   return (
     <div className="max-w-6xl mx-auto px-6 py-6 space-y-4">
       {msg && (
-        <div className="p-3 rounded-md text-sm bg-green-50 text-green-700 border border-green-200">{msg}</div>
+        <div className="p-3 rounded-md text-sm bg-green-50 text-green-700 border border-green-200 dark:text-green-300 dark:border-green-800">{msg}</div>
       )}
 
       {/* 일괄 작업 바 + 업로드 액션 */}
       <div className={`-mt-5 border rounded-lg p-3 mb-6 flex flex-wrap items-center gap-2 transition-colors shadow-sm ${
-        sel.count > 0 ? "bg-red-50 border-red-300" : "bg-white border-gray-300"
+        sel.count > 0 ? "bg-red-50 border-red-300 dark:border-red-800" : "bg-white border-gray-300"
       }`}>
-        <span className={`text-sm font-medium ${sel.count > 0 ? "text-red-900" : "text-gray-500"}`}>
+        <span className={`text-sm font-medium ${sel.count > 0 ? "text-red-900 dark:text-red-300" : "text-gray-500"}`}>
           {sel.count > 0 ? `선택 ${sel.count}건` : "선택된 항목 없음"}
         </span>
         <button onClick={bulkDelete} disabled={bulkDeleting || sel.count === 0}
@@ -202,7 +202,7 @@ export default function ReceiptsPage() {
               return (
                 <tr key={r.id}
                   onClick={() => setDetailId(r.id)}
-                  className={`border-t border-gray-100 cursor-pointer hover:bg-gray-50 ${checked ? "bg-blue-50/40 hover:bg-blue-50/60" : ""}`}>
+                  className={`border-t border-gray-100 cursor-pointer hover:bg-gray-50 ${checked ? "bg-blue-50/40 hover:bg-blue-50/60 dark:bg-blue-500/10 dark:hover:bg-blue-500/20" : ""}`}>
                   <td className="px-3 py-2 text-center" onClick={(e) => e.stopPropagation()}>
                     <input type="checkbox" checked={checked}
                       onMouseDown={sel.handleMouseDown}
@@ -217,7 +217,7 @@ export default function ReceiptsPage() {
                       </a>
                     ) : (
                       <a href={expenseApi.receiptDownloadUrl(r.id)} target="_blank" rel="noopener"
-                        className="text-blue-600 text-xs hover:underline">📄</a>
+                        className="text-blue-600 dark:text-blue-400 text-xs hover:underline">📄</a>
                     )}
                   </td>
                   <td className="px-3 py-2 text-xs text-gray-700 max-w-[200px] truncate" title={r.originalFileName}>{r.originalFileName}</td>
@@ -248,8 +248,8 @@ export default function ReceiptsPage() {
                     {(() => {
                       const confirmed = (r.matches ?? []).filter((m: any) => m.confirmedAt).length;
                       const candidate = (r.matches ?? []).filter((m: any) => !m.confirmedAt).length;
-                      if (confirmed > 0) return <span className="text-emerald-600">📎 {confirmed}</span>;
-                      if (candidate > 0) return <span className="text-amber-600">⚡{candidate}</span>;
+                      if (confirmed > 0) return <span className="text-emerald-600 dark:text-emerald-400">📎 {confirmed}</span>;
+                      if (candidate > 0) return <span className="text-amber-600 dark:text-amber-400">⚡{candidate}</span>;
                       return <span className="text-gray-400">없음</span>;
                     })()}
                   </td>
