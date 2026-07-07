@@ -798,7 +798,7 @@ export default function CommandCenterDashboard() {
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">지휘센터 대시보드</h1>
+          <h1 className="text-xl font-bold text-gray-900">전사 대시보드</h1>
           {data && (
             <p className="text-xs text-gray-400 mt-0.5">
               기준일: {data.date} | 캐시: {data.cachedAt.slice(11, 16)}

@@ -82,7 +82,7 @@ function shiftDate(isoDate: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTaskClick, onTaskCopy, baselineSegments, allResources, onRefresh, pushUndo, projectId, inlineTaskName, onInlineTaskNameChange, inlineAdding, onInlineTaskCreate, selected, onToggleSelect, onToggleAll, dragIds, dropGap, onDragStart, onDragOver, onDrop, onDragEnd, onIndent, onOutdent, onCopySelected, onDeleteSelected, onClearSelection, onProgressChange, onAddTask, onAddMilestone, holidays, canRename }: {
+export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTaskClick, onTaskCopy, onTaskAddAbove, onTaskAddBelow, onTaskDelete, baselineSegments, allResources, onRefresh, pushUndo, projectId, inlineTaskName, onInlineTaskNameChange, inlineAdding, onInlineTaskCreate, selected, onToggleSelect, onToggleAll, dragIds, dropGap, onDragStart, onDragOver, onDrop, onDragEnd, onIndent, onOutdent, onCopySelected, onDeleteSelected, onClearSelection, onProgressChange, onAddTask, onAddMilestone, holidays, canRename }: {
   data: GanttData;
   canRename?: boolean;
   flatItems?: FlatItem[];
@@ -90,6 +90,10 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
   viewEnd?: string;
   onTaskClick?: (task: GanttTask) => void;
   onTaskCopy?: (task: GanttTask) => void;
+  /** 우클릭 컨텍스트 메뉴 — 태스크 목록과 동일 기능 (2026-07-07) */
+  onTaskAddAbove?: (task: GanttTask) => void;
+  onTaskAddBelow?: (task: GanttTask) => void;
+  onTaskDelete?: (task: GanttTask) => void;
   baselineSegments?: BaselineSegment[];
   allResources?: any[];
   onRefresh?: () => void;
@@ -583,8 +587,12 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                 fallbackToBrowser
                 items={[
                   { label: "편집/상세", icon: "📄", onClick: () => onTaskClick?.(task), visible: !!onTaskClick },
+                  { label: "위에 태스크 추가", icon: "➕", onClick: () => onTaskAddAbove?.(task), visible: !!onTaskAddAbove },
+                  { label: "아래에 태스크 추가", icon: "➕", onClick: () => onTaskAddBelow?.(task), visible: !!onTaskAddBelow },
                   { label: "이름 수정", icon: "✏️", onClick: () => { setEditingNameId(task.id); setEditNameVal(task.name); }, visible: !!canRename },
                   { label: "복사", icon: "📋", onClick: () => onTaskCopy?.(task), visible: !!onTaskCopy && !((task as any)._children?.length > 0) },
+                  { separator: true, visible: !!onTaskDelete },
+                  { label: "삭제", icon: "🗑", onClick: () => onTaskDelete?.(task), destructive: true, visible: !!onTaskDelete },
                 ]}
               >
               <div
