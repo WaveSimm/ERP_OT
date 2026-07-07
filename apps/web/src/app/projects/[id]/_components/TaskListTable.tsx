@@ -236,15 +236,20 @@ export default function TaskListTable({
                 onDrop={handleRowDrop}
                 onDragEnd={clearDragState}
                 className={[
-                  "border-b border-gray-100 cursor-pointer transition-colors group/row",
+                  "relative border-b border-gray-100 cursor-pointer transition-colors group/row",
                   isDragging ? "opacity-30" : "",
                   isSel ? "bg-blue-50" : "hover:bg-gray-50/60",
+                  // 라이트: 테두리로 드롭 위치 표시. 다크: globals의 border-color !important가 덮어써서
+                  //   테두리가 회색이 됨 → 아래 첫 셀에 bg 막대를 dark 전용으로 별도 렌더.
                   gapBefore ? "border-t-2 border-t-blue-500" : "",
                   gapAfter  ? "border-b-2 border-b-blue-500" : "",
                 ].join(" ")}
               >
                 {/* 드래그 핸들 */}
                 <td className="pl-1.5 w-6" onClick={(e) => e.stopPropagation()}>
+                  {/* 다크 전용 드롭 표시 막대 — border-color !important override 회피(배경색은 안 덮임) */}
+                  {gapBefore && <div className="hidden dark:block absolute left-0 right-0 top-0 h-0.5 bg-blue-400 z-10 pointer-events-none" />}
+                  {gapAfter && <div className="hidden dark:block absolute left-0 right-0 bottom-0 h-0.5 bg-blue-400 z-10 pointer-events-none" />}
                   <div
                     draggable
                     onDragStart={(e) => { e.stopPropagation(); handleDragStart(e, task.id); }}
