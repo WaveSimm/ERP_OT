@@ -13,7 +13,7 @@ const ITEM_STATUS_COLORS: Record<string, string> = {
 };
 const ITEM_STATUS_LABELS: Record<string, string> = { PENDING: "미확인", MATCHED: "일치", MISMATCHED: "불일치", MISSING: "누락" };
 const AUDIT_STATUS_LABELS: Record<string, string> = { PLANNED: "예정", IN_PROGRESS: "진행중", PAUSED: "일시정지", CANCELLED: "취소", COMPLETED: "완료" };
-const AUDIT_STATUS_COLORS: Record<string, string> = { PLANNED: "text-gray-600", IN_PROGRESS: "text-yellow-600", PAUSED: "text-blue-600", CANCELLED: "text-red-600", COMPLETED: "text-green-600" };
+const AUDIT_STATUS_COLORS: Record<string, string> = { PLANNED: "text-gray-600", IN_PROGRESS: "text-yellow-600 dark:text-yellow-400", PAUSED: "text-blue-600 dark:text-blue-400", CANCELLED: "text-red-600 dark:text-red-400", COMPLETED: "text-green-600 dark:text-green-400" };
 
 type SortKey = "inventoryNo" | "location";
 
@@ -134,7 +134,7 @@ export default function AuditDetailPage() {
   }), [allItems]);
 
   if (loading) return <div className="text-center py-12 text-gray-400">로딩 중...</div>;
-  if (!audit) return <div className="text-center py-12 text-red-500">실사를 찾을 수 없습니다.</div>;
+  if (!audit) return <div className="text-center py-12 text-red-500 dark:text-red-400">실사를 찾을 수 없습니다.</div>;
 
   const isEditable = audit.status === "IN_PROGRESS" || audit.status === "PAUSED";
 
@@ -154,14 +154,14 @@ export default function AuditDetailPage() {
           if (item.inventoryItem?.id) router.push(`/procurement/inventory/${item.inventoryItem.id}`);
         }}>
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium font-mono text-blue-600 group-hover:underline">{item.inventoryItem?.inventoryNo}</span>
+            <span className="text-sm font-medium font-mono text-blue-600 dark:text-blue-400 group-hover:underline">{item.inventoryItem?.inventoryNo}</span>
             <span className="text-xs text-gray-400 truncate">{item.systemLocation || "위치미상"}</span>
           </div>
           <div className="text-xs text-gray-500 truncate group-hover:text-blue-500">{item.inventoryItem?.productMaster?.name || "-"}</div>
           <div className="text-xs text-gray-400">
             수량: {item.systemQuantity}개
             {item.actualQuantity !== null && item.status !== "MATCHED" && (
-              <span className="text-red-600"> → 실제: {item.actualQuantity}개</span>
+              <span className="text-red-600 dark:text-red-400"> → 실제: {item.actualQuantity}개</span>
             )}
           </div>
         </div>
@@ -186,13 +186,13 @@ export default function AuditDetailPage() {
                   className={`px-2 py-1 text-xs rounded border ${item.status === "PENDING" ? "bg-gray-200 text-gray-700 font-medium" : "text-gray-400 hover:bg-gray-100"}`}>
                   미확인</button>
                 <button onClick={() => quickAction(item.id, "MISSING", 0)} disabled={disabled}
-                  className={`px-2 py-1 text-xs rounded border ${item.status === "MISSING" ? "bg-orange-200 text-orange-800 font-medium" : "text-orange-500 hover:bg-orange-50"}`}>
+                  className={`px-2 py-1 text-xs rounded border ${item.status === "MISSING" ? "bg-orange-200 text-orange-800 font-medium" : "text-orange-500 dark:text-orange-400 hover:bg-orange-50"}`}>
                   누락</button>
                 <button onClick={() => { setEditingId(item.id); setEditQty(""); }} disabled={disabled}
-                  className={`px-2 py-1 text-xs rounded border ${item.status === "MISMATCHED" ? "bg-red-200 text-red-800 font-medium" : "text-red-500 hover:bg-red-50"}`}>
+                  className={`px-2 py-1 text-xs rounded border ${item.status === "MISMATCHED" ? "bg-red-200 text-red-800 font-medium" : "text-red-500 dark:text-red-400 hover:bg-red-50"}`}>
                   불일치</button>
                 <button onClick={() => quickAction(item.id, "MATCHED", item.systemQuantity)} disabled={disabled}
-                  className={`px-2 py-1 text-xs rounded border ${item.status === "MATCHED" ? "bg-green-200 text-green-800 font-medium" : "text-green-600 hover:bg-green-50"}`}>
+                  className={`px-2 py-1 text-xs rounded border ${item.status === "MATCHED" ? "bg-green-200 text-green-800 font-medium" : "text-green-600 dark:text-green-400 hover:bg-green-50"}`}>
                   일치</button>
               </>
             )}
@@ -213,17 +213,17 @@ export default function AuditDetailPage() {
         </div>
         <div className="flex gap-2">
           {audit.status === "PLANNED" && (<>
-            <button onClick={() => handleAction(() => auditApi.cancel(id))} className="px-4 py-2 border border-red-300 text-red-600 rounded-lg text-sm hover:bg-red-50">취소</button>
+            <button onClick={() => handleAction(() => auditApi.cancel(id))} className="px-4 py-2 border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 rounded-lg text-sm hover:bg-red-50 dark:hover:bg-red-950">취소</button>
             <button onClick={() => handleAction(() => auditApi.start(id))} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">실사 시작</button>
           </>)}
           {audit.status === "IN_PROGRESS" && (<>
-            <button onClick={() => handleAction(() => auditApi.pause(id))} className="px-4 py-2 border border-blue-300 text-blue-600 rounded-lg text-sm hover:bg-blue-50">일시정지</button>
-            <button onClick={() => handleAction(() => auditApi.cancel(id))} className="px-4 py-2 border border-red-300 text-red-600 rounded-lg text-sm hover:bg-red-50">취소</button>
+            <button onClick={() => handleAction(() => auditApi.pause(id))} className="px-4 py-2 border border-blue-300 dark:border-blue-800 text-blue-600 dark:text-blue-400 rounded-lg text-sm hover:bg-blue-50 dark:hover:bg-blue-950">일시정지</button>
+            <button onClick={() => handleAction(() => auditApi.cancel(id))} className="px-4 py-2 border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 rounded-lg text-sm hover:bg-red-50 dark:hover:bg-red-950">취소</button>
             <button onClick={() => handleAction(() => auditApi.complete(id))} className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm">완료</button>
           </>)}
           {audit.status === "PAUSED" && (<>
             <button onClick={() => handleAction(() => auditApi.resume(id))} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">재개</button>
-            <button onClick={() => handleAction(() => auditApi.cancel(id))} className="px-4 py-2 border border-red-300 text-red-600 rounded-lg text-sm hover:bg-red-50">취소</button>
+            <button onClick={() => handleAction(() => auditApi.cancel(id))} className="px-4 py-2 border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 rounded-lg text-sm hover:bg-red-50 dark:hover:bg-red-950">취소</button>
           </>)}
         </div>
       </div>
@@ -234,16 +234,16 @@ export default function AuditDetailPage() {
           <div className="text-xs text-gray-500">전체</div><div className="text-lg font-bold">{stats.total}</div>
         </div>
         <div className="bg-white border rounded-lg p-3 text-center">
-          <div className="text-xs text-gray-500">확인</div><div className="text-lg font-bold text-blue-600">{stats.checked}</div>
+          <div className="text-xs text-gray-500">확인</div><div className="text-lg font-bold text-blue-600 dark:text-blue-400">{stats.checked}</div>
         </div>
         <div className="bg-white border rounded-lg p-3 text-center">
-          <div className="text-xs text-gray-500">일치</div><div className="text-lg font-bold text-green-600">{stats.matched}</div>
+          <div className="text-xs text-gray-500">일치</div><div className="text-lg font-bold text-green-600 dark:text-green-400">{stats.matched}</div>
         </div>
         <div className="bg-white border rounded-lg p-3 text-center">
-          <div className="text-xs text-gray-500">불일치</div><div className="text-lg font-bold text-red-600">{stats.mismatched}</div>
+          <div className="text-xs text-gray-500">불일치</div><div className="text-lg font-bold text-red-600 dark:text-red-400">{stats.mismatched}</div>
         </div>
         <div className="bg-white border rounded-lg p-3 text-center">
-          <div className="text-xs text-gray-500">누락</div><div className="text-lg font-bold text-orange-600">{stats.missing}</div>
+          <div className="text-xs text-gray-500">누락</div><div className="text-lg font-bold text-orange-600 dark:text-orange-400">{stats.missing}</div>
         </div>
       </div>
 
@@ -280,7 +280,7 @@ export default function AuditDetailPage() {
               <div className="flex items-center gap-2 mb-2">
                 <h3 className="text-sm font-semibold text-gray-700">{loc}</h3>
                 <span className="text-xs text-gray-400">{locItems.length}건</span>
-                <span className="text-xs text-green-600">{locItems.filter((i: any) => i.status !== "PENDING").length}건 확인</span>
+                <span className="text-xs text-green-600 dark:text-green-400">{locItems.filter((i: any) => i.status !== "PENDING").length}건 확인</span>
               </div>
               <div className="space-y-2">{locItems.map(renderItem)}</div>
             </div>

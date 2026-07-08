@@ -182,11 +182,11 @@ export default function CustomersPage() {
                   <td className="px-4 py-2.5 text-center text-gray-600">{c._count?.assets ?? 0}</td>
                   <td className="px-4 py-2.5 text-center text-gray-600">{c._count?.repairOrders ?? 0}</td>
                   <td className="px-4 py-2.5 text-center">
-                    <button onClick={() => toggleContacts(c.id)} className="text-blue-600 hover:underline text-xs mr-2">
+                    <button onClick={() => toggleContacts(c.id)} className="text-blue-600 hover:underline text-xs mr-2 dark:text-blue-400">
                       {expandedId === c.id ? "접기" : "담당자"}
                     </button>
-                    <button onClick={() => handleEdit(c)} className="text-blue-600 hover:underline text-xs mr-2">수정</button>
-                    <button onClick={() => handleDelete(c.id)} className="text-red-500 hover:underline text-xs">삭제</button>
+                    <button onClick={() => handleEdit(c)} className="text-blue-600 hover:underline text-xs mr-2 dark:text-blue-400">수정</button>
+                    <button onClick={() => handleDelete(c.id)} className="text-red-500 hover:underline text-xs dark:text-red-400">삭제</button>
                   </td>
                 </tr>
                 {expandedId === c.id && (
@@ -195,7 +195,7 @@ export default function CustomersPage() {
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-sm font-medium text-gray-700">담당자 목록</span>
                         <button onClick={() => { resetContactForm(); setShowContactForm(true); }}
-                          className="text-xs text-blue-600 hover:underline">+ 추가</button>
+                          className="text-xs text-blue-600 hover:underline dark:text-blue-400">+ 추가</button>
                       </div>
                       {contacts.length === 0 ? (
                         <p className="text-xs text-gray-400">등록된 담당자가 없습니다.</p>
@@ -209,8 +209,8 @@ export default function CustomersPage() {
                               <span className="text-gray-500 text-xs">{ct.phone || ""}</span>
                               <span className="text-gray-500 text-xs">{ct.email || ""}</span>
                               <div className="ml-auto flex gap-2">
-                                <button onClick={() => handleContactEdit(ct)} className="text-blue-600 hover:underline text-xs">수정</button>
-                                <button onClick={() => handleContactDelete(ct.id)} className="text-red-500 hover:underline text-xs">삭제</button>
+                                <button onClick={() => handleContactEdit(ct)} className="text-blue-600 hover:underline text-xs dark:text-blue-400">수정</button>
+                                <button onClick={() => handleContactDelete(ct.id)} className="text-red-500 hover:underline text-xs dark:text-red-400">삭제</button>
                               </div>
                             </div>
                           ))}

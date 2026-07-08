@@ -36,7 +36,7 @@ const STEP_STATUS_COLORS: Record<string, string> = {
   APPROVED: "border-green-500 bg-green-50",
   REJECTED: "border-red-500 bg-red-50",
   AGREED: "border-blue-500 bg-blue-50",
-  DISAGREED: "border-orange-500 bg-orange-50",
+  DISAGREED: "border-orange-500 bg-orange-50 dark:bg-orange-950",
   SKIPPED: "border-gray-200 bg-gray-50",
 };
 
@@ -124,7 +124,7 @@ export default function ApprovalDetailPage() {
   };
 
   if (loading) return <div className="text-center py-12 text-gray-400">로딩 중...</div>;
-  if (!doc) return <div className="text-center py-12 text-red-500">문서를 찾을 수 없습니다.</div>;
+  if (!doc) return <div className="text-center py-12 text-red-500 dark:text-red-400">문서를 찾을 수 없습니다.</div>;
 
   const steps = (doc.steps || []).sort((a: any, b: any) => a.stepOrder - b.stepOrder);
   const isDrafter = currentUser?.id === (doc.requestedBy || doc.drafterId);
@@ -170,7 +170,7 @@ export default function ApprovalDetailPage() {
             <div className="border-2 rounded-lg p-3 min-w-[120px] text-center border-blue-500 bg-blue-50">
               <div className="text-xs text-gray-400 mb-1">기안</div>
               <div className="font-medium text-sm">{doc.requesterName || doc.drafterName || doc.requestedBy}</div>
-              <div className="text-xs mt-1 font-medium text-blue-600">기안</div>
+              <div className="text-xs mt-1 font-medium text-blue-600 dark:text-blue-300">기안</div>
               {doc.submittedAt && (
                 <div className="text-[10px] text-gray-400 mt-1">
                   {new Date(doc.submittedAt).toLocaleDateString("ko-KR")}
@@ -191,8 +191,8 @@ export default function ApprovalDetailPage() {
                 </div>
                 <div className="font-medium text-sm">{step.approverName || step.userName || step.approverId}</div>
                 <div className={`text-xs mt-1 font-medium ${
-                  step.status === "APPROVED" || step.status === "AGREED" ? "text-green-600" :
-                  step.status === "REJECTED" || step.status === "DISAGREED" ? "text-red-600" : "text-gray-400"
+                  step.status === "APPROVED" || step.status === "AGREED" ? "text-green-600 dark:text-green-300" :
+                  step.status === "REJECTED" || step.status === "DISAGREED" ? "text-red-600 dark:text-red-300" : "text-gray-400"
                 }`}>
                   {STEP_LABELS[step.status]}
                 </div>
@@ -294,7 +294,7 @@ export default function ApprovalDetailPage() {
                     <div key={key} className={getItemClass(key)}>
                       <div className="text-xs text-gray-500">{fieldDef.label || key}</div>
                       <div className="text-sm font-medium">
-                        <a href={`/approval/${val}`} className="text-blue-600 hover:underline inline-flex items-center gap-1">
+                        <a href={`/approval/${val}`} className="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1">
                           📄 결재 문서 보기 →
                         </a>
                       </div>
@@ -357,7 +357,7 @@ export default function ApprovalDetailPage() {
                       <td className="px-3 py-1.5 text-center">
                         {confirmed ? (
                           <a href={`/api/v1/expense/receipts/${confirmed.receipt.id}/download`} target="_blank" rel="noopener"
-                            className="text-emerald-600 hover:text-emerald-700" title="영수증 보기">📎</a>
+                            className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700" title="영수증 보기">📎</a>
                         ) : (
                           <span className="text-xs text-gray-300">—</span>
                         )}
@@ -435,13 +435,13 @@ export default function ApprovalDetailPage() {
                       <div className="flex flex-col items-center gap-0.5">
                         {(item.attachments as any[]).map((att: any) => (
                           <a key={att.id} href={`/api/v1/approval/files/${att.id}/download`}
-                            className="text-xs text-blue-600 hover:underline truncate max-w-[100px]" title={att.fileName}>
+                            className="text-xs text-blue-600 dark:text-blue-400 hover:underline truncate max-w-[100px]" title={att.fileName}>
                             {att.fileName}
                           </a>
                         ))}
                       </div>
                     ) : item.evidence ? (
-                      <span className="text-emerald-600 text-base" title={item.evidence}>✓</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 text-base" title={item.evidence}>✓</span>
                     ) : (
                       <span className="text-xs text-gray-300">-</span>
                     )}
@@ -463,7 +463,7 @@ export default function ApprovalDetailPage() {
             {files.map((f: any) => (
               <li key={f.id} className="flex items-center gap-2 text-sm">
                 <span>📎</span>
-                <a href={`/api/v1/approval/files/${f.id}/download`} className="text-blue-600 hover:underline">
+                <a href={`/api/v1/approval/files/${f.id}/download`} className="text-blue-600 dark:text-blue-400 hover:underline">
                   {f.fileName}
                 </a>
                 <span className="text-gray-400 text-xs">{(f.fileSize / 1024).toFixed(1)}KB</span>
@@ -472,7 +472,7 @@ export default function ApprovalDetailPage() {
           </ul>
         )}
         {(isDrafter && doc.status === "DRAFT") && (
-          <label className="mt-2 inline-block text-xs text-blue-600 cursor-pointer hover:underline">
+          <label className="mt-2 inline-block text-xs text-blue-600 dark:text-blue-400 cursor-pointer hover:underline">
             + 파일 추가
             <input type="file" className="hidden" onChange={handleFileUpload} />
           </label>
@@ -484,7 +484,7 @@ export default function ApprovalDetailPage() {
         <div className="border-t pt-4 mb-4">
           <div className="flex items-center gap-3">
             <button onClick={() => router.push(`/approval/${docId}/edit`)}
-              className="px-4 py-2 border-2 border-blue-500 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-50">
+              className="px-4 py-2 border-2 border-blue-500 text-blue-600 dark:text-blue-400 rounded-lg text-sm font-medium hover:bg-blue-50 dark:hover:bg-blue-950">
               문서 편집
             </button>
             <span className="text-sm text-gray-500">내용을 수정하려면 편집 버튼을 눌러주세요.</span>

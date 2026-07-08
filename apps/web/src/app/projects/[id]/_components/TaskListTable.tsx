@@ -133,7 +133,7 @@ export default function TaskListTable({
       {/* Multi-select toolbar — 스크롤해도 상단(글로벌 헤더 h-14 아래)에 고정 */}
       {selected.size > 0 && (
         <div ref={selToolbarRef} className="sticky z-[25] flex items-center gap-2 px-4 py-2 bg-blue-50 border-b border-blue-100" style={{ top: "var(--top-chrome, 56px)" }}>
-          <span className="text-xs font-semibold text-blue-700">{selected.size}개 선택됨</span>
+          <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">{selected.size}개 선택됨</span>
           <span className="text-[10px] text-blue-400">— 드래그 핸들(⠿)로 이동</span>
           <div className="h-3 w-px bg-blue-200" />
           <button onClick={handleOutdent}
@@ -148,7 +148,7 @@ export default function TaskListTable({
           {isOperator && (
             <button
               onClick={handleCopySelected}
-              className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded border border-blue-200"
+              className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 rounded border border-blue-200 dark:border-blue-800"
               title="선택한 태스크를 다른 프로젝트로 복사"
             >
               📋 복사
@@ -156,7 +156,7 @@ export default function TaskListTable({
           )}
           {isOperator && (
             <button onClick={handleDeleteSelected}
-              className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded border border-red-200">
+              className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 rounded border border-red-200 dark:border-red-800">
               🗑 선택 삭제
             </button>
           )}
@@ -236,15 +236,20 @@ export default function TaskListTable({
                 onDrop={handleRowDrop}
                 onDragEnd={clearDragState}
                 className={[
-                  "border-b border-gray-100 cursor-pointer transition-colors group/row",
+                  "relative border-b border-gray-100 cursor-pointer transition-colors group/row",
                   isDragging ? "opacity-30" : "",
                   isSel ? "bg-blue-50" : "hover:bg-gray-50/60",
+                  // 라이트: 테두리로 드롭 위치 표시. 다크: globals의 border-color !important가 덮어써서
+                  //   테두리가 회색이 됨 → 아래 첫 셀에 bg 막대를 dark 전용으로 별도 렌더.
                   gapBefore ? "border-t-2 border-t-blue-500" : "",
                   gapAfter  ? "border-b-2 border-b-blue-500" : "",
                 ].join(" ")}
               >
                 {/* 드래그 핸들 */}
                 <td className="pl-1.5 w-6" onClick={(e) => e.stopPropagation()}>
+                  {/* 다크 전용 드롭 표시 막대 — border-color !important override 회피(배경색은 안 덮임) */}
+                  {gapBefore && <div className="hidden dark:block absolute left-0 right-0 top-0 h-0.5 bg-blue-400 z-10 pointer-events-none" />}
+                  {gapAfter && <div className="hidden dark:block absolute left-0 right-0 bottom-0 h-0.5 bg-blue-400 z-10 pointer-events-none" />}
                   <div
                     draggable
                     onDragStart={(e) => { e.stopPropagation(); handleDragStart(e, task.id); }}
@@ -291,7 +296,7 @@ export default function TaskListTable({
                       />
                     ) : (
                       <span
-                        className={`text-xs font-medium truncate ${task.isMilestone ? "text-purple-700" : task.isCritical ? "text-red-600" : depth === 0 ? "text-gray-900" : "text-gray-600"}`}>
+                        className={`text-xs font-medium truncate ${task.isMilestone ? "text-purple-700 dark:text-purple-300" : task.isCritical ? "text-red-600 dark:text-red-400" : depth === 0 ? "text-gray-900" : "text-gray-600"}`}>
                         {task.isMilestone && <span className="mr-1 text-purple-400">◆</span>}
                         {task.name}
                       </span>
@@ -337,7 +342,7 @@ export default function TaskListTable({
                       onClick={(e) => { if (task.isMilestone) return; e.stopPropagation(); startEdit(task.id, "dates", { start: task.effectiveStartDate ?? "", end: task.effectiveEndDate ?? "" }); }}>
                       {task.isMilestone ? (
                         task.effectiveStartDate
-                          ? <span className="text-purple-600 font-medium">{task.effectiveStartDate}</span>
+                          ? <span className="text-purple-600 dark:text-purple-400 font-medium">{task.effectiveStartDate}</span>
                           : <span className="text-gray-300">날짜 없음</span>
                       ) : (
                         <span className={`cursor-pointer hover:text-blue-600 transition-colors ${task.effectiveStartDate ? "text-gray-500" : "text-gray-300"}`}>
@@ -353,7 +358,7 @@ export default function TaskListTable({
                           <div className="w-14 h-1 bg-gray-200 rounded-full overflow-hidden">
                             <div className="h-full bg-purple-400 rounded-full" style={{ width: `${task.overallProgress ?? 0}%` }} />
                           </div>
-                          <span className="text-[11px] text-purple-500 tabular-nums">{(task.overallProgress ?? 0).toFixed(0)}%</span>
+                          <span className="text-[11px] text-purple-500 dark:text-purple-300 tabular-nums">{(task.overallProgress ?? 0).toFixed(0)}%</span>
                         </div>
                       ) : parentTaskIds.has(task.id) ? (
                         <div className="flex items-center gap-1.5" title="하위 태스크 평균으로 자동 계산됩니다">

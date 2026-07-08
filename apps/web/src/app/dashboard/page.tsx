@@ -249,11 +249,11 @@ function ProjectRow({ row, date, onPin }: { row: ProjectRow; date: string; onPin
         {/* 프로젝트명 — 남은 폭(반응형), 길면 말줄임 */}
         <td className="px-3 py-2.5">
           <div className="flex items-center gap-1.5 min-w-0">
-            <Link href={`/projects/${row.id}`} className="text-sm font-medium text-blue-700 hover:underline truncate" title={row.name}>
+            <Link href={`/projects/${row.id}`} className="text-sm font-medium text-blue-700 dark:text-blue-300 hover:underline truncate" title={row.name}>
               {row.name}
             </Link>
             {row.isCriticalPathDelayed && (
-              <span className="shrink-0 text-xs text-red-600 font-medium">CP지연</span>
+              <span className="shrink-0 text-xs text-red-600 dark:text-red-400 font-medium">CP지연</span>
             )}
           </div>
           <div className="text-xs text-gray-400 mt-0.5">{fmtDate(row.lastUpdatedAt)} 업데이트</div>
@@ -326,9 +326,9 @@ function GroupAccordion({ group, date, onPin }: { group: DashboardGroup; date: s
         <span className="text-xs text-gray-500">진행률 {group.rollup.weightedProgress}%</span>
         {ic.critical > 0 && <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">{ic.critical}건 위험</span>}
         {ic.warning > 0 && <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">{ic.warning}건 경고</span>}
-        <span className="text-xs text-green-600">{sc.onTrack} 정상</span>
-        {sc.warning > 0 && <span className="text-xs text-yellow-600">{sc.warning} 경고</span>}
-        {sc.critical > 0 && <span className="text-xs text-red-600">{sc.critical} 위험</span>}
+        <span className="text-xs text-green-600 dark:text-green-400">{sc.onTrack} 정상</span>
+        {sc.warning > 0 && <span className="text-xs text-yellow-600 dark:text-yellow-400">{sc.warning} 경고</span>}
+        {sc.critical > 0 && <span className="text-xs text-red-600 dark:text-red-400">{sc.critical} 위험</span>}
       </button>
       {open && group.projects.length > 0 && (
         <div className="mt-1 rounded-lg border overflow-hidden">
@@ -460,7 +460,7 @@ function SummaryDetailPopup({ type, date, onClose }: { type: string; date: strin
                         <span title={ragTooltip(p.ragStatus, issuesByProject[p.id])} className={`text-[11px] px-2 py-0.5 rounded-full font-medium cursor-help ${rag.cls}`}>{rag.text}</span>
                       </td>
                       <td className="py-2 px-2">
-                        <Link href={`/projects/${p.id}`} className="text-blue-600 hover:underline" onClick={onClose}>
+                        <Link href={`/projects/${p.id}`} className="text-blue-600 dark:text-blue-400 hover:underline" onClick={onClose}>
                           {p.name}
                         </Link>
                         <span className="ml-2 text-xs text-gray-400">{STATUS_LABEL[p.status] ?? p.status}</span>
@@ -545,7 +545,7 @@ function SummaryDetailPopup({ type, date, onClose }: { type: string; date: strin
                   <tr key={s.segmentId} className="border-b hover:bg-gray-50">
                     <td className="py-2 px-2 text-xs whitespace-nowrap">{s.startDate}</td>
                     <td className="py-2 px-2">
-                      <Link href={`/projects/${s.projectId}`} className="text-blue-600 hover:underline text-xs" onClick={onClose}>
+                      <Link href={`/projects/${s.projectId}`} className="text-blue-600 dark:text-blue-400 hover:underline text-xs" onClick={onClose}>
                         {s.projectName}
                       </Link>
                     </td>
@@ -583,7 +583,7 @@ function SummaryDetailPopup({ type, date, onClose }: { type: string; date: strin
                       <tr key={s.segmentId} className="border-b hover:bg-gray-50">
                         <td className="py-2 px-2 text-xs whitespace-nowrap">{s.endDate}</td>
                         <td className="py-2 px-2">
-                          <Link href={`/projects/${s.projectId}`} className="text-blue-600 hover:underline text-xs" onClick={onClose}>
+                          <Link href={`/projects/${s.projectId}`} className="text-blue-600 dark:text-blue-400 hover:underline text-xs" onClick={onClose}>
                             {s.projectName}
                           </Link>
                         </td>
@@ -592,7 +592,7 @@ function SummaryDetailPopup({ type, date, onClose }: { type: string; date: strin
                           <div className="text-[11px] text-gray-400">{s.segmentName}</div>
                         </td>
                         <td className="py-2 px-2 text-xs text-right">
-                          <span className={s.progressPercent < 50 ? "text-red-600 font-medium" : ""}>{s.progressPercent}%</span>
+                          <span className={s.progressPercent < 50 ? "text-red-600 dark:text-red-400 font-medium" : ""}>{s.progressPercent}%</span>
                         </td>
                         <td className="py-2 px-2 text-xs text-gray-500">{s.assignees?.join(", ") || "-"}</td>
                       </tr>
@@ -616,7 +616,7 @@ function SummaryDetailPopup({ type, date, onClose }: { type: string; date: strin
                         <tr key={m.taskId} className="border-b hover:bg-gray-50">
                           <td className="py-2 px-2 text-xs whitespace-nowrap">{m.dueDate}</td>
                           <td className="py-2 px-2">
-                            <Link href={`/projects/${m.projectId}`} className="text-blue-600 hover:underline text-xs" onClick={onClose}>
+                            <Link href={`/projects/${m.projectId}`} className="text-blue-600 dark:text-blue-400 hover:underline text-xs" onClick={onClose}>
                               {m.projectName}
                             </Link>
                           </td>
@@ -682,14 +682,14 @@ function GlobalSummaryCards({ summary, date }: { summary: GlobalSummary; date: s
         {/* 이번 주 시작 */}
         <div className={cardCls} onClick={() => setDetailType("starting")}>
           <div className="text-xs text-gray-500 mb-1">앞으로 7일 이내 시작</div>
-          <div className="text-2xl font-bold text-blue-600">{we.starting}</div>
+          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{we.starting}</div>
           <div className="text-xs text-gray-400 mt-2">{rangeText} · 시작 예정 구간</div>
         </div>
 
         {/* 이번 주 완료 & 마일스톤 */}
         <div className={cardCls} onClick={() => setDetailType("ending")}>
           <div className="text-xs text-gray-500 mb-1">앞으로 7일 이내 완료 / 마일스톤</div>
-          <div className="text-2xl font-bold text-purple-600">{we.ending} <span className="text-lg font-normal text-gray-400">/ {we.milestones}</span></div>
+          <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{we.ending} <span className="text-lg font-normal text-gray-400">/ {we.milestones}</span></div>
           <div className="text-xs text-gray-400 mt-2">{rangeText} · 완료 예정 / 마일스톤 도래</div>
         </div>
       </div>
@@ -904,7 +904,7 @@ export default function CommandCenterDashboard() {
             <div className="flex flex-col items-center justify-center h-64 text-center">
               <div className="text-gray-300 text-5xl mb-3">📋</div>
               <p className="text-gray-500 font-medium">진행 중인 프로젝트가 없습니다.</p>
-              <Link href="/projects" className="mt-3 text-sm text-blue-600 hover:underline">
+              <Link href="/projects" className="mt-3 text-sm text-blue-600 dark:text-blue-400 hover:underline">
                 프로젝트 관리 →
               </Link>
             </div>

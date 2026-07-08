@@ -44,7 +44,7 @@ export default function ProjectSummaryDrawer({ projectId, onClose }: { projectId
 
         <div className="overflow-y-auto flex-1 p-5 space-y-5">
           {loading && <p className="text-sm text-gray-400 text-center py-10">불러오는 중...</p>}
-          {!loading && !data && <p className="text-sm text-red-500 text-center py-10">요약을 불러오지 못했습니다.</p>}
+          {!loading && !data && <p className="text-sm text-red-500 text-center py-10 dark:text-red-400">요약을 불러오지 못했습니다.</p>}
 
           {!loading && data && (
             <>
@@ -88,9 +88,9 @@ export default function ProjectSummaryDrawer({ projectId, onClose }: { projectId
                     <span className="w-9 text-right text-gray-600">{data.schedule.progressPercent}%</span>
                   </div>
                   {data.schedule.behindBy > 5 ? (
-                    <p className="text-[11px] text-red-600">⚠ 일정 대비 {data.schedule.behindBy}%p 뒤처짐</p>
+                    <p className="text-[11px] text-red-600 dark:text-red-400">⚠ 일정 대비 {data.schedule.behindBy}%p 뒤처짐</p>
                   ) : data.schedule.behindBy < -5 ? (
-                    <p className="text-[11px] text-green-600">일정보다 {Math.abs(data.schedule.behindBy)}%p 앞섬</p>
+                    <p className="text-[11px] text-green-600 dark:text-green-400">일정보다 {Math.abs(data.schedule.behindBy)}%p 앞섬</p>
                   ) : (
                     <p className="text-[11px] text-gray-400">일정대로 진행 중</p>
                   )}
@@ -101,10 +101,10 @@ export default function ProjectSummaryDrawer({ projectId, onClose }: { projectId
               <section className="space-y-1.5">
                 <p className="text-xs font-semibold text-gray-400 uppercase">태스크 현황 (총 {data.taskStats.total})</p>
                 <div className="flex flex-wrap gap-1.5">
-                  <span className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">완료 {data.taskStats.done}</span>
-                  <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">진행 {data.taskStats.inProgress}</span>
+                  <span className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full dark:text-green-300">완료 {data.taskStats.done}</span>
+                  <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full dark:text-blue-300">진행 {data.taskStats.inProgress}</span>
                   <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">예정 {data.taskStats.todo}</span>
-                  {data.taskStats.blocked > 0 && <span className="text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-full">차단 {data.taskStats.blocked}</span>}
+                  {data.taskStats.blocked > 0 && <span className="text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-full dark:text-red-400">차단 {data.taskStats.blocked}</span>}
                   {data.taskStats.onHold > 0 && <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">보류 {data.taskStats.onHold}</span>}
                   {data.taskStats.overdue > 0 && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">지연 {data.taskStats.overdue}</span>}
                 </div>
@@ -115,7 +115,7 @@ export default function ProjectSummaryDrawer({ projectId, onClose }: { projectId
                 <section className="space-y-1">
                   <p className="text-xs font-semibold text-gray-400 uppercase">다가오는 마일스톤{data.milestoneCount > 1 ? ` (총 ${data.milestoneCount})` : ""}</p>
                   <div className="flex items-center gap-2 text-sm">
-                    <span className="text-purple-500 shrink-0">◆</span>
+                    <span className="text-purple-500 shrink-0 dark:text-purple-400">◆</span>
                     <span className="text-gray-800 flex-1 truncate">{data.nextMilestone.name}</span>
                     <span className="text-xs text-gray-400 shrink-0">{data.nextMilestone.date}</span>
                     <span className={`text-xs font-medium px-1.5 py-0.5 rounded shrink-0 ${data.nextMilestone.dDay < 0 ? "bg-red-100 text-red-700" : data.nextMilestone.dDay <= 3 ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"}`}>
@@ -127,10 +127,10 @@ export default function ProjectSummaryDrawer({ projectId, onClose }: { projectId
 
               {/* 참여 종류 요약 */}
               <section className="flex flex-wrap gap-1.5">
-                <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">직원 {data.counts.person}</span>
-                <span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">외부 {data.counts.external}</span>
-                <span className="text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full">장비 {data.counts.equipment}</span>
-                <span className="text-xs bg-violet-50 text-violet-700 px-2 py-0.5 rounded-full">부서 {data.counts.departments}</span>
+                <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full dark:text-blue-300">직원 {data.counts.person}</span>
+                <span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full dark:bg-emerald-950 dark:text-emerald-300">외부 {data.counts.external}</span>
+                <span className="text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full dark:text-amber-300">장비 {data.counts.equipment}</span>
+                <span className="text-xs bg-violet-50 text-violet-700 px-2 py-0.5 rounded-full dark:bg-violet-950 dark:text-violet-300">부서 {data.counts.departments}</span>
               </section>
 
               {/* 참여 부서 */}

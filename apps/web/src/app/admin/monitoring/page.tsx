@@ -141,8 +141,8 @@ export default function MonitoringPage() {
           className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50 disabled:opacity-50">새로고침</button>
       </div>
 
-      {error && <div className="p-3 bg-red-50 text-red-700 rounded text-sm">{error}</div>}
-      {toast && <div className="p-3 bg-blue-50 text-blue-700 rounded text-sm">{toast}</div>}
+      {error && <div className="p-3 bg-red-50 text-red-700 dark:text-red-300 rounded text-sm">{error}</div>}
+      {toast && <div className="p-3 bg-blue-50 text-blue-700 dark:text-blue-300 rounded text-sm">{toast}</div>}
 
       {/* 모니터 */}
       <section>
@@ -200,7 +200,7 @@ export default function MonitoringPage() {
                   {r.enabled ? "수신" : "중지"}
                 </button>
                 <button onClick={() => removeRecipient(r)} disabled={busy}
-                  className="px-2.5 py-1 text-xs text-red-600 hover:bg-red-50 rounded">삭제</button>
+                  className="px-2.5 py-1 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 rounded">삭제</button>
               </div>
             </div>
           ))}
@@ -212,7 +212,7 @@ export default function MonitoringPage() {
             <button onClick={addRecipient} disabled={busy || !newEmail.trim()}
               className="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 disabled:opacity-50">추가</button>
             <button onClick={sendTest} disabled={busy}
-              className="px-3 py-1.5 text-sm border border-blue-300 text-blue-700 rounded hover:bg-blue-50 disabled:opacity-50">테스트 발송</button>
+              className="px-3 py-1.5 text-sm border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-50 dark:hover:bg-blue-950 disabled:opacity-50">테스트 발송</button>
           </div>
         </div>
       </section>
@@ -248,8 +248,8 @@ export default function MonitoringPage() {
                   <td className="px-3 py-2 whitespace-nowrap">
                     {e.notify
                       ? (e.notifiedAt
-                          ? <span className="text-emerald-600 text-xs">✓ {fmtDateTime24(e.notifiedAt, { short: true })}</span>
-                          : <span className="text-amber-600 text-xs">대기</span>)
+                          ? <span className="text-emerald-600 dark:text-emerald-400 text-xs">✓ {fmtDateTime24(e.notifiedAt, { short: true })}</span>
+                          : <span className="text-amber-600 dark:text-amber-400 text-xs">대기</span>)
                       : <span className="text-gray-300 text-xs">—</span>}
                   </td>
                 </tr>

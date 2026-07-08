@@ -33,7 +33,7 @@ export default function HomeCard({
         {href && (
           <Link
             href={href}
-            className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+            className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline"
           >
             {hrefLabel ?? "더보기"} →
           </Link>

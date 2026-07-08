@@ -154,8 +154,8 @@ export default function LocationsPage() {
                   </button>
                 </td>
                 <td className="px-4 py-2.5 text-center">
-                  <button onClick={() => handleEdit(loc)} className="text-blue-600 hover:underline text-xs mr-2">수정</button>
-                  <button onClick={() => handleDelete(loc)} className="text-red-500 hover:underline text-xs">삭제</button>
+                  <button onClick={() => handleEdit(loc)} className="text-blue-600 hover:underline text-xs mr-2 dark:text-blue-400">수정</button>
+                  <button onClick={() => handleDelete(loc)} className="text-red-500 hover:underline text-xs dark:text-red-400">삭제</button>
                 </td>
               </tr>
             ))}

@@ -264,12 +264,12 @@ export default function ScheduleTimeline({ schedules, holidays }: Props) {
         </div>
 
         {/* Day headers */}
-        <div className="relative h-[20px] bg-gray-50/80 border-b border-gray-200">
+        <div className="relative h-[20px] bg-gray-50/80 border-b border-gray-200 dark:bg-gray-500/10">
           {dayHeaders.map((d, i) => {
             const cls = d.isHoliday
-              ? "text-red-500 bg-red-100/60 border-red-200 font-medium"
+              ? "text-red-500 bg-red-100/60 border-red-200 font-medium dark:text-red-400 dark:bg-red-500/10"
               : d.isWeekend
-              ? "text-red-400 bg-red-50/40 border-red-100"
+              ? "text-red-400 bg-red-50/40 border-red-100 dark:bg-red-500/10"
               : "text-gray-400 border-gray-100";
             return (
               <div key={i}
@@ -292,12 +292,12 @@ export default function ScheduleTimeline({ schedules, holidays }: Props) {
 
           {/* Weekend columns */}
           {dayHeaders.filter((d) => d.isWeekend && !d.isHoliday).map((d, i) => (
-            <div key={`we-${i}`} className="absolute top-0 bg-gray-50/50 pointer-events-none" style={{ left: `${d.leftPct}%`, width: `${d.widthPct}%`, height: ROW_H }} />
+            <div key={`we-${i}`} className="absolute top-0 bg-gray-50/50 dark:bg-gray-500/10 pointer-events-none" style={{ left: `${d.leftPct}%`, width: `${d.widthPct}%`, height: ROW_H }} />
           ))}
 
           {/* Holiday columns — 휴일은 weekend보다 진한 음영 (회사달력 v1.2) */}
           {dayHeaders.filter((d) => d.isHoliday).map((d, i) => (
-            <div key={`hol-${i}`} className="absolute top-0 bg-red-50/40 pointer-events-none" style={{ left: `${d.leftPct}%`, width: `${d.widthPct}%`, height: ROW_H }} title={d.holidayName ?? undefined} />
+            <div key={`hol-${i}`} className="absolute top-0 bg-red-50/40 dark:bg-red-500/10 pointer-events-none" style={{ left: `${d.leftPct}%`, width: `${d.widthPct}%`, height: ROW_H }} title={d.holidayName ?? undefined} />
           ))}
 
           {/* Today line */}

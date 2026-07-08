@@ -47,11 +47,11 @@ export default function PostListItem({ post, catCode }: { post: PostListItemData
     <Link
       href={`/board/${catCode}/${post.board.code}/${post.id}`}
       className={`block px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 ${
-        post.isPinned ? "bg-blue-50/40" : ""
+        post.isPinned ? "bg-blue-50/40 dark:bg-blue-500/10" : ""
       }`}
     >
       <div className="flex items-start gap-2">
-        {post.isPinned && <span className="text-xs text-blue-600 mt-0.5">📌</span>}
+        {post.isPinned && <span className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">📌</span>}
         {pri.label && (
           <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${pri.color} mt-0.5`}>
             {pri.label}
@@ -68,7 +68,7 @@ export default function PostListItem({ post, catCode }: { post: PostListItemData
               {post.title}
             </span>
             {post.commentCount > 0 && (
-              <span className="text-xs text-blue-600 shrink-0">💬 {post.commentCount}</span>
+              <span className="text-xs text-blue-600 dark:text-blue-400 shrink-0">💬 {post.commentCount}</span>
             )}
             {post.attachmentCount > 0 && (
               <span className="text-xs text-gray-400 shrink-0">📎 {post.attachmentCount}</span>

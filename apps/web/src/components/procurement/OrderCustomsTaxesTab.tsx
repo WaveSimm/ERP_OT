@@ -66,7 +66,7 @@ export default function OrderCustomsTaxesTab() {
               {items.map(t => (
                 <tr key={t.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-mono">
-                    <a href={`/procurement/orders/${t.order?.id}`} className="text-blue-600 hover:underline">{t.order?.orderNumber}</a>
+                    <a href={`/procurement/orders/${t.order?.id}`} className="text-blue-600 hover:underline dark:text-blue-400">{t.order?.orderNumber}</a>
                   </td>
                   <td className="px-4 py-3">{t.order?.manufacturer || "-"}</td>
                   <td className="px-4 py-3 text-gray-600">{t.order?.customer || "-"}</td>
@@ -76,7 +76,7 @@ export default function OrderCustomsTaxesTab() {
                   <td className="px-4 py-3 text-right font-mono font-medium">{fmtKRW(t.totalAmount)}</td>
                   <td className="px-4 py-3 text-gray-600 text-xs">
                     {t.status === "PAID" && t.paidAt ? fmtDate(t.paidAt) :
-                     t.status === "REJECTED" && t.rejectReason ? <span className="text-red-600">반려: {t.rejectReason}</span> :
+                     t.status === "REJECTED" && t.rejectReason ? <span className="text-red-600 dark:text-red-400">반려: {t.rejectReason}</span> :
                      t.notes || ""}
                   </td>
                   <td className="px-4 py-3 text-right">
@@ -84,7 +84,7 @@ export default function OrderCustomsTaxesTab() {
                       <button onClick={() => setSelected(t)} className="text-xs px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">처리</button>
                     )}
                     {statusTab === "PAID" && (
-                      <button onClick={() => setSelected({ ...t, _editMode: true })} className="text-xs px-3 py-1 border border-blue-500 text-blue-600 rounded hover:bg-blue-50">정정</button>
+                      <button onClick={() => setSelected({ ...t, _editMode: true })} className="text-xs px-3 py-1 border border-blue-500 text-blue-600 rounded hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950">정정</button>
                     )}
                   </td>
                 </tr>
@@ -155,7 +155,7 @@ function ProcessModal({ tax, onClose, onSaved }: { tax: any; onClose: () => void
       <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-lg font-bold mb-1">{isEditMode ? "관부가세 정정" : "관부가세 처리"}</h3>
         <p className="text-xs text-gray-500 mb-4">
-          <a href={`/procurement/orders/${tax.order?.id}`} target="_blank" className="text-blue-600 hover:underline">{tax.order?.orderNumber}</a>
+          <a href={`/procurement/orders/${tax.order?.id}`} target="_blank" className="text-blue-600 hover:underline dark:text-blue-400">{tax.order?.orderNumber}</a>
           {tax.order?.manufacturer && ` · ${tax.order.manufacturer}`}
         </p>
         <div className="grid grid-cols-2 gap-3 mb-4">
@@ -193,7 +193,7 @@ function ProcessModal({ tax, onClose, onSaved }: { tax: any; onClose: () => void
 
         {!isEditMode && (
           <details className="mb-4">
-            <summary className="text-sm text-red-600 cursor-pointer">반려 처리</summary>
+            <summary className="text-sm text-red-600 cursor-pointer dark:text-red-400">반려 처리</summary>
             <div className="mt-2">
               <input type="text" value={form.rejectReason}
                 onChange={(e) => setForm({ ...form, rejectReason: e.target.value })}

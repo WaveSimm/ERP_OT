@@ -44,7 +44,7 @@ export default function POPrintPage() {
   }, [id]);
 
   if (loading) return <div className="p-8 text-gray-400">로딩 중...</div>;
-  if (!order) return <div className="p-8 text-red-600">발주를 찾을 수 없습니다.</div>;
+  if (!order) return <div className="p-8 text-red-600 dark:text-red-400">발주를 찾을 수 없습니다.</div>;
 
   const lookup = (uid?: string | null) => uid ? (userMap[uid] || uid) : "-";
 

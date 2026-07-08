@@ -222,7 +222,7 @@ export default function PostEditor({ initial, onSubmit, onCancel, submitLabel = 
       </div>
 
       {showFeatureRequest && (
-        <div className="flex gap-3 bg-blue-50/40 border border-blue-100 rounded-lg p-3">
+        <div className="flex gap-3 bg-blue-50/40 dark:bg-blue-500/10 border border-blue-100 rounded-lg p-3">
           <div className="flex-1">
             <label className="block text-sm font-medium text-gray-700 mb-1">요청 유형</label>
             <select
@@ -325,7 +325,7 @@ export default function PostEditor({ initial, onSubmit, onCancel, submitLabel = 
       </div>
 
       {error && (
-        <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+        <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 dark:text-red-300">
           {error}
         </div>
       )}

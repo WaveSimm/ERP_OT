@@ -247,7 +247,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return () => { events.forEach((e) => window.removeEventListener(e, bump)); clearInterval(iv); };
   }, [currentUser, router]);
 
-  // 다크모드 토글 — html.dark 클래스 + localStorage 저장. 현재 개발자 계정에서만 버튼 노출(실험).
+  // 다크모드 토글 — html.dark 클래스 + localStorage 저장. 전체 로그인 사용자 노출.
+  // 초기 .dark 적용은 app/layout.tsx의 인라인 스크립트가 페인트 전에 처리(FOUC 방지). 아래 effect는 isDark 상태 동기화용.
   const [isDark, setIsDark] = useState(false);
   useEffect(() => {
     const dark = localStorage.getItem("erp-theme") === "dark";
@@ -323,8 +324,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               )}
             </button>
 
-            {/* 다크모드 토글 — 개발자 계정 전용 (실험) */}
-            {currentUser?.name === "개발자" && (
+            {/* 다크모드 토글 — 전체 로그인 사용자 */}
+            {currentUser && (
               <button
                 onClick={toggleTheme}
                 title={isDark ? "라이트 모드로" : "다크 모드로"}
@@ -352,7 +353,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               onClick={handleLogout}
               title="로그아웃"
               aria-label="로그아웃"
-              className="p-1 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors shrink-0"
+              className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors shrink-0"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -436,7 +437,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 )}
               </div>
               <div className="flex items-center gap-3">
-                <button onClick={handleLogout} className="text-xs text-gray-500 hover:text-red-600 transition-colors">
+                <button onClick={handleLogout} className="text-xs text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition-colors">
                   로그아웃
                 </button>
                 <button onClick={() => setShowProfile(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
@@ -448,7 +449,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               {(["info", "password"] as const).map((t) => (
                 <button key={t} onClick={() => setProfileTab(t)}
                   className={`py-3 text-sm font-medium border-b-2 mr-4 transition-colors ${
-                    profileTab === t ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"
+                    profileTab === t ? "border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400" : "border-transparent text-gray-500 hover:text-gray-700"
                   }`}>
                   {t === "info" ? "기본 정보" : "비밀번호 변경"}
                 </button>
@@ -493,14 +494,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 {profileMsg && (
                   profileMsg.type === "err" ? (
                     <p
-                      className="text-sm text-red-600 cursor-pointer hover:underline"
+                      className="text-sm text-red-600 dark:text-red-400 cursor-pointer hover:underline"
                       title="클릭하면 원래 값으로 되돌립니다"
                       onClick={() => { setProfileForm(originalProfileForm); setProfileMsg(null); }}
                     >
                       {profileMsg.text} <span className="text-xs underline ml-1">되돌리기</span>
                     </p>
                   ) : (
-                    <p className="text-sm text-green-600">{profileMsg.text}</p>
+                    <p className="text-sm text-green-600 dark:text-green-400">{profileMsg.text}</p>
                   )
                 )}
                 <div className="flex gap-3 pt-1">
@@ -540,7 +541,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     required />
                 </div>
                 {pwMsg && (
-                  <p className={`text-sm ${pwMsg.type === "ok" ? "text-green-600" : "text-red-600"}`}>{pwMsg.text}</p>
+                  <p className={`text-sm ${pwMsg.type === "ok" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>{pwMsg.text}</p>
                 )}
                 <div className="flex gap-3 pt-1">
                   <button type="button" onClick={() => setShowProfile(false)}

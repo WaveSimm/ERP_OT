@@ -164,9 +164,9 @@ function ProgressUpdateModal({ card, onClose, onSave }: {
 }
 
 const COLUMN_META = {
-  CRITICAL:    { label: "크리티컬·지연", color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-200", dot: "bg-orange-500" },
-  DUE_SOON:    { label: "마감 임박", color: "text-red-600",   bg: "bg-red-50",   border: "border-red-200",   dot: "bg-red-500" },
-  IN_PROGRESS: { label: "진행 중",   color: "text-blue-600",  bg: "bg-blue-50",  border: "border-blue-200",  dot: "bg-blue-500" },
+  CRITICAL:    { label: "크리티컬·지연", color: "text-orange-600 dark:text-orange-300", bg: "bg-orange-50 dark:bg-orange-950", border: "border-orange-200 dark:border-orange-800", dot: "bg-orange-500" },
+  DUE_SOON:    { label: "마감 임박", color: "text-red-600 dark:text-red-300",   bg: "bg-red-50",   border: "border-red-200 dark:border-red-800",   dot: "bg-red-500" },
+  IN_PROGRESS: { label: "진행 중",   color: "text-blue-600 dark:text-blue-300",  bg: "bg-blue-50",  border: "border-blue-200 dark:border-blue-800",  dot: "bg-blue-500" },
   UPCOMING:    { label: "예정",       color: "text-gray-600",  bg: "bg-gray-50",  border: "border-gray-200",  dot: "bg-gray-400" },
 };
 
@@ -289,7 +289,7 @@ function WeekCalendarView() {
               <th className="text-left px-3 py-2 font-medium text-gray-500 sticky left-0 bg-gray-50 z-10 min-w-[150px]">프로젝트</th>
               {data.days.map((day: any) => (
                 <th key={day.date}
-                  className={`px-2 py-2 font-medium text-center min-w-[90px] ${day.isToday ? "text-blue-600 bg-blue-50" : day.dayOfWeek === 0 ? "text-red-500" : day.dayOfWeek === 6 ? "text-blue-500" : "text-gray-600"}`}>
+                  className={`px-2 py-2 font-medium text-center min-w-[90px] ${day.isToday ? "text-blue-600 dark:text-blue-300 bg-blue-50" : day.dayOfWeek === 0 ? "text-red-500" : day.dayOfWeek === 6 ? "text-blue-500 dark:text-blue-400" : "text-gray-600"}`}>
                   {DAY_LABELS[day.dayOfWeek]} {day.date.slice(8)}
                 </th>
               ))}
@@ -308,7 +308,7 @@ function WeekCalendarView() {
                   const segs = day.segments.filter((s: any) => s.projectName === proj);
                   return (
                     <td key={day.date}
-                      className={`px-1.5 py-1.5 ${day.isToday ? "bg-blue-50/40" : day.dayOfWeek === 0 || day.dayOfWeek === 6 ? "bg-gray-50/50" : ""}`}>
+                      className={`px-1.5 py-1.5 ${day.isToday ? "bg-blue-50/40 dark:bg-blue-500/10" : day.dayOfWeek === 0 || day.dayOfWeek === 6 ? "bg-gray-50/50 dark:bg-gray-500/10" : ""}`}>
                       <div className="space-y-1">
                         {segs.map((seg: any) => (
                           <Link key={`${seg.segmentId}-${day.date}`}
@@ -558,8 +558,8 @@ function MyTasksView({ mobile = false }: { mobile?: boolean } = {}) {
             <button key={tab.status} onClick={() => setFilterStatus(tab.status)}
               className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
                 filterStatus === tab.status
-                  ? (isOverdueTab ? "bg-white shadow text-red-600" : "bg-white shadow text-gray-900")
-                  : (isOverdueTab ? "text-red-500 hover:text-red-600" : "text-gray-500 hover:text-gray-700")
+                  ? (isOverdueTab ? "bg-white shadow text-red-600 dark:text-red-400" : "bg-white shadow text-gray-900")
+                  : (isOverdueTab ? "text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300" : "text-gray-500 hover:text-gray-700")
               }`}>
               {tab.label} <span className="ml-0.5 opacity-60">{tab.count}</span>
             </button>
@@ -580,7 +580,7 @@ function MyTasksView({ mobile = false }: { mobile?: boolean } = {}) {
           <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center text-sm text-red-600">
+        <div className="bg-red-50 border border-red-200 dark:border-red-800 rounded-lg p-4 text-center text-sm text-red-600 dark:text-red-300">
           {error} <button onClick={load} className="ml-2 underline text-xs">다시 시도</button>
         </div>
       ) : filteredGroups.length === 0 ? (
@@ -640,14 +640,14 @@ function MyTasksView({ mobile = false }: { mobile?: boolean } = {}) {
                         {PROJECT_STATUS_LABEL[group.project.status] ?? group.project.status}
                       </span>
                       <button onClick={(e) => { e.stopPropagation(); sessionStorage.setItem(`erp_tab_${group.project.id}`, "tasks"); router.push(`/projects/${group.project.id}`); }}
-                        className="text-[10px] text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded-full transition-colors">이동</button>
+                        className="text-[10px] text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-800 bg-blue-50 hover:bg-blue-100 dark:hover:bg-blue-900 px-1.5 py-0.5 rounded-full transition-colors">이동</button>
                       <span className="ml-auto text-xs text-gray-400">{group.tasks.length}개 태스크</span>
                     </button>
                   </div>
 
                   {!isCollapsed && (
                     <>
-                      <div className="grid gap-0 px-4 py-1.5 border-b border-gray-100 bg-gray-50/30 text-[10px] font-semibold text-gray-400 uppercase tracking-wide"
+                      <div className="grid gap-0 px-4 py-1.5 border-b border-gray-100 bg-gray-50/30 dark:bg-gray-500/10 text-[10px] font-semibold text-gray-400 dark:text-gray-300 uppercase tracking-wide"
                         style={{ gridTemplateColumns: GRID }}>
                         <span>태스크</span>
                         {!mobile && (<>
@@ -720,8 +720,8 @@ function MyTasksView({ mobile = false }: { mobile?: boolean } = {}) {
                                       {!multiSeg && seg.segmentName && (
                                         <span className="shrink-0 text-[11px] text-gray-400 truncate" title={seg.segmentName}>· {seg.segmentName}</span>
                                       )}
-                                      {!multiSeg && due === "overdue" && displayStatus !== "DONE" && displayStatus !== "CANCELLED" && <span className="shrink-0 text-[10px] text-red-600 bg-red-50 px-1 rounded">기한초과</span>}
-                                      {!multiSeg && due === "soon" && displayStatus !== "DONE" && <span className="shrink-0 text-[10px] text-orange-600 bg-orange-50 px-1 rounded">마감임박</span>}
+                                      {!multiSeg && due === "overdue" && displayStatus !== "DONE" && displayStatus !== "CANCELLED" && <span className="shrink-0 text-[10px] text-red-600 dark:text-red-300 bg-red-50 px-1 rounded">기한초과</span>}
+                                      {!multiSeg && due === "soon" && displayStatus !== "DONE" && <span className="shrink-0 text-[10px] text-orange-600 dark:text-orange-300 bg-orange-50 dark:bg-orange-950 px-1 rounded">마감임박</span>}
                                     </div>
                                     {!mobile && (<>
                                     <div className="flex items-center justify-center">
@@ -920,7 +920,7 @@ function ProjectTreeGroup({
                           <span className={`inline-block w-2.5 h-2.5 rounded-full ${cfg.dot}`} />
                         </td>
                         <td className="px-3 py-2.5 min-w-[160px]">
-                          <span className="text-sm font-medium text-blue-700 hover:underline">{p.name}</span>
+                          <span className="text-sm font-medium text-blue-700 dark:text-blue-300 hover:underline">{p.name}</span>
                           <span className={`ml-2 text-[11px] px-1.5 py-0.5 rounded-full ${cfg.bg} ${cfg.text}`}>{cfg.label}</span>
                         </td>
                         <td className="px-3 py-2.5">
@@ -933,7 +933,7 @@ function ProjectTreeGroup({
                         </td>
                         <td className="px-3 py-2.5 text-xs text-gray-600">
                           {budgetPct != null ? (
-                            <span className={budgetPct >= 110 ? "text-red-600 font-medium" : budgetPct >= 100 ? "text-yellow-600" : ""}>{budgetPct}%</span>
+                            <span className={budgetPct >= 110 ? "text-red-600 dark:text-red-400 font-medium" : budgetPct >= 100 ? "text-yellow-600 dark:text-yellow-400" : ""}>{budgetPct}%</span>
                           ) : <span className="text-gray-300">-</span>}
                         </td>
                         <td className="px-3 py-2.5" onClick={(e) => { if (totalIssues > 0) { e.stopPropagation(); setIssuePopup({ projectId: p.id, projectName: p.name }); } }}>
@@ -1006,7 +1006,7 @@ function ProjectListTable({ projects, issues, type, today }: { projects: any[]; 
                 {ic.info > 0 && <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{ic.info}</span>}
               </td>
               {(type === "dueSoon" || type === "overdue") && (
-                <td className={`py-2 px-2 text-right text-xs font-semibold ${dday != null && dday < 0 ? "text-red-600" : dday != null && dday <= 3 ? "text-orange-600" : "text-gray-500"}`}>
+                <td className={`py-2 px-2 text-right text-xs font-semibold ${dday != null && dday < 0 ? "text-red-600 dark:text-red-400" : dday != null && dday <= 3 ? "text-orange-600 dark:text-orange-400" : "text-gray-500"}`}>
                   {dday != null ? (dday < 0 ? `D+${Math.abs(dday)}` : dday === 0 ? "D-Day" : `D-${dday}`) : "—"}
                 </td>
               )}
@@ -1193,14 +1193,14 @@ function MyProjectsSummaryCards({ projects, issues }: { projects: any[]; issues:
         {/* 마감 임박 */}
         <div className={cardCls} onClick={() => setDetailType("dueSoon")}>
           <div className="text-xs text-gray-500 mb-1">마감 임박 (7일 이내)</div>
-          <div className={`text-2xl font-bold ${stats.dueSoon > 0 ? "text-orange-600" : "text-gray-400"}`}>{stats.dueSoon}</div>
+          <div className={`text-2xl font-bold ${stats.dueSoon > 0 ? "text-orange-600 dark:text-orange-400" : "text-gray-400"}`}>{stats.dueSoon}</div>
           <div className="text-xs text-gray-400 mt-2">종료일 임박 프로젝트</div>
         </div>
 
         {/* 기한 초과 */}
         <div className={cardCls} onClick={() => setDetailType("overdue")}>
           <div className="text-xs text-gray-500 mb-1">기한 초과</div>
-          <div className={`text-2xl font-bold ${stats.overdue > 0 ? "text-red-600" : "text-gray-400"}`}>{stats.overdue}</div>
+          <div className={`text-2xl font-bold ${stats.overdue > 0 ? "text-red-600 dark:text-red-400" : "text-gray-400"}`}>{stats.overdue}</div>
           <div className="text-xs text-gray-400 mt-2">종료일이 지난 프로젝트</div>
         </div>
       </div>
@@ -1444,11 +1444,11 @@ function ExpenseView() {
 
 function ExpenseSummaryCard({ label, count, color, onClick }: { label: string; count: number; color: "red" | "amber" | "blue" | "teal" | "green"; onClick: () => void }) {
   const colorMap = {
-    red:   "border-red-200 bg-red-50 text-red-700",
-    amber: "border-amber-200 bg-amber-50 text-amber-700",
-    blue:  "border-blue-200 bg-blue-50 text-blue-700",
-    teal:  "border-teal-200 bg-teal-50 text-teal-700",
-    green: "border-green-200 bg-green-50 text-green-700",
+    red:   "border-red-200 dark:border-red-800 bg-red-50 text-red-700 dark:text-red-300",
+    amber: "border-amber-200 dark:border-amber-800 bg-amber-50 text-amber-700 dark:text-amber-300",
+    blue:  "border-blue-200 dark:border-blue-800 bg-blue-50 text-blue-700 dark:text-blue-300",
+    teal:  "border-teal-200 dark:border-teal-800 bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300",
+    green: "border-green-200 dark:border-green-800 bg-green-50 text-green-700 dark:text-green-300",
   };
   return (
     <button type="button" onClick={onClick} className={`w-full text-left border rounded-lg p-4 hover:shadow-md transition-shadow ${colorMap[color]}`}>
@@ -1540,7 +1540,7 @@ export function DashboardBody({ mobile = false }: { mobile?: boolean } = {}) {
         {TABS.map((t) => (
           <button key={t.key} onClick={() => { setTab(t.key); try { sessionStorage.setItem(DASHBOARD_TAB_KEY, t.key); } catch {} }}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-              tab === t.key ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"
+              tab === t.key ? "border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400" : "border-transparent text-gray-500 hover:text-gray-700"
             }`}>
             {t.label}
           </button>

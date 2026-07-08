@@ -112,7 +112,7 @@ export default function TemplateManagerModal({ onClose }: { onClose: () => void 
                       <button
                         onClick={() => toggleRecommended(t.id, !!t.isRecommended)}
                         title={t.isRecommended ? "추천 해제" : "추천 설정"}
-                        className={t.isRecommended ? "text-amber-500" : "text-gray-300 hover:text-amber-400"}
+                        className={t.isRecommended ? "text-amber-500 dark:text-amber-400" : "text-gray-300 hover:text-amber-400"}
                       >
                         ★
                       </button>

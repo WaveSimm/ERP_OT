@@ -24,7 +24,7 @@ type CeoCol   = {
 const COLS: CeoCol[] = [
   {
     name: "문홍배",
-    cls: { ceo: "bg-blue-600 border-blue-700 text-white", exec: "bg-blue-50 border-blue-300 text-blue-900", team: "bg-sky-50 border-sky-300 text-sky-900", line: "#93c5fd" },
+    cls: { ceo: "bg-blue-600 border-blue-700 text-white", exec: "bg-blue-50 border-blue-300 text-blue-900 dark:border-blue-800 dark:text-blue-200", team: "bg-sky-50 border-sky-300 text-sky-900 dark:bg-sky-950 dark:border-sky-800 dark:text-sky-200", line: "#93c5fd" },
     directTeams: [
       { dept: "영업1팀", head: "하선종", members: ["이채연", "이학용", "현지윤", "홍다운"] },
       { dept: "영업2팀", head: "강성화", members: ["김재엽", "오원진", "황유진"] },
@@ -36,7 +36,7 @@ const COLS: CeoCol[] = [
   },
   {
     name: "신용은",
-    cls: { ceo: "bg-emerald-600 border-emerald-700 text-white", exec: "bg-emerald-50 border-emerald-300 text-emerald-900", team: "bg-teal-50 border-teal-300 text-teal-900", line: "#6ee7b7" },
+    cls: { ceo: "bg-emerald-600 border-emerald-700 text-white", exec: "bg-emerald-50 border-emerald-300 text-emerald-900 dark:bg-emerald-950 dark:border-emerald-800 dark:text-emerald-200", team: "bg-teal-50 border-teal-300 text-teal-900 dark:bg-teal-950 dark:border-teal-800 dark:text-teal-200", line: "#6ee7b7" },
     directTeams: [
       { dept: "사업1팀", head: "고태호", members: ["김정민", "김태현", "이지훈", "이형준", "한민혁", "한종민"] },
       { dept: "사업2팀", head: "황규하", members: ["강찬영", "김문진", "김승환", "윤석준", "이주학", "채병진"] },
@@ -47,7 +47,7 @@ const COLS: CeoCol[] = [
   },
   {
     name: "조혁만",
-    cls: { ceo: "bg-violet-600 border-violet-700 text-white", exec: "bg-violet-50 border-violet-300 text-violet-900", team: "bg-purple-50 border-purple-300 text-purple-900", line: "#c4b5fd" },
+    cls: { ceo: "bg-violet-600 border-violet-700 text-white", exec: "bg-violet-50 border-violet-300 text-violet-900 dark:bg-violet-950 dark:border-violet-800 dark:text-violet-200", team: "bg-purple-50 border-purple-300 text-purple-900 dark:bg-purple-950 dark:border-purple-800 dark:text-purple-200", line: "#c4b5fd" },
     directTeams: [{ dept: "재무팀", head: "박고은", members: ["류지현", "이민지"] }],
     execs: [
       { name: "심윤송", title: "이사", teams: [{ dept: "기술팀", head: "최창영", members: ["김나예", "김창온", "신대철", "이은경", "최지수", "홍재용"] }] },
@@ -172,12 +172,12 @@ export default function OrgChart() {
 
       <div className="overflow-x-auto pb-10">
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 860 }}>
-          <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl px-6 py-2 text-center shadow-sm">
+          <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl px-6 py-2 text-center shadow-sm dark:border-amber-800">
             <div style={{ display: "flex", justifyContent: "center", gap: 40 }}>
               {CHAIRMEN.map((p) => (
                 <div key={p.name}>
-                  <div className="font-bold text-amber-900">{p.name}</div>
-                  <div className="text-xs text-amber-700 mt-0.5">{p.title}</div>
+                  <div className="font-bold text-amber-900 dark:text-amber-200">{p.name}</div>
+                  <div className="text-xs text-amber-700 mt-0.5 dark:text-amber-300">{p.title}</div>
                 </div>
               ))}
             </div>

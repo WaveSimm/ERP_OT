@@ -9,9 +9,9 @@ interface Props {
 }
 
 const STATUS_CONFIG: Record<EmployeeStatus, { label: string; cls: string }> = {
-  ACTIVE: { label: "현직", cls: "bg-green-50 text-green-700 border-green-200" },
+  ACTIVE: { label: "현직", cls: "bg-green-50 text-green-700 border-green-200 dark:text-green-300" },
   RETIRED: { label: "퇴직", cls: "bg-gray-100 text-gray-500 border-gray-200" },
-  SUSPENDED: { label: "정지", cls: "bg-orange-50 text-orange-700 border-orange-200" },
+  SUSPENDED: { label: "정지", cls: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300" },
 };
 
 export function UserStatusBadge({ status, size = "sm" }: Props) {

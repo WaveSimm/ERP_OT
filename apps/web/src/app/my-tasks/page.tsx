@@ -260,7 +260,7 @@ export default function MyTasksPage() {
             <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : error ? (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center text-sm text-red-600">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center text-sm text-red-600 dark:text-red-300">
             {error}
             <button onClick={load} className="ml-2 underline text-xs">다시 시도</button>
           </div>
@@ -343,7 +343,7 @@ export default function MyTasksPage() {
                       </span>
                       <button
                         onClick={(e) => { e.stopPropagation(); sessionStorage.setItem(`erp_tab_${group.project.id}`, "tasks"); router.push(`/projects/${group.project.id}`); }}
-                        className="text-[10px] text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded-full transition-colors"
+                        className="text-[10px] text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 bg-blue-50 hover:bg-blue-100 dark:hover:bg-blue-950 px-1.5 py-0.5 rounded-full transition-colors"
                       >이동</button>
                       <span className="ml-auto text-xs text-gray-400">{group.tasks.length}개 태스크</span>
                     </button>
@@ -352,7 +352,7 @@ export default function MyTasksPage() {
                   {!isCollapsed && (
                     <>
                       {/* Column header */}
-                      <div className="grid gap-0 px-4 py-1.5 border-b border-gray-100 bg-gray-50/30 text-[10px] font-semibold text-gray-400 uppercase tracking-wide"
+                      <div className="grid gap-0 px-4 py-1.5 border-b border-gray-100 bg-gray-50/30 dark:bg-gray-500/10 text-[10px] font-semibold text-gray-400 uppercase tracking-wide"
                         style={{ gridTemplateColumns: "1fr 76px 96px 96px 200px 72px" }}>
                         <span>태스크</span>
                         <span className="text-center">상태</span>
@@ -374,7 +374,7 @@ export default function MyTasksPage() {
                               {/* Multi-segment: task summary header */}
                               {multiSeg && (
                                 <div
-                                  className="grid gap-0 px-4 bg-blue-50/40"
+                                  className="grid gap-0 px-4 bg-blue-50/40 dark:bg-blue-500/10"
                                   style={{ gridTemplateColumns: "1fr 76px 96px 96px 200px 72px", height: 34 }}
                                 >
                                   <div className="flex items-center gap-1.5 min-w-0 cursor-pointer hover:bg-blue-50/60 px-2 rounded" onClick={(e) => handleTaskClick(task, e)}>
@@ -448,10 +448,10 @@ export default function MyTasksPage() {
                                         {multiSeg ? seg.segmentName : task.taskName}
                                       </span>
                                       {!multiSeg && due === "overdue" && (
-                                        <span className="shrink-0 text-[10px] text-red-600 bg-red-50 px-1 rounded">기한초과</span>
+                                        <span className="shrink-0 text-[10px] text-red-600 dark:text-red-300 bg-red-50 px-1 rounded">기한초과</span>
                                       )}
                                       {!multiSeg && due === "soon" && displayStatus !== "DONE" && (
-                                        <span className="shrink-0 text-[10px] text-orange-600 bg-orange-50 px-1 rounded">마감임박</span>
+                                        <span className="shrink-0 text-[10px] text-orange-600 dark:text-orange-300 bg-orange-50 dark:bg-orange-950 px-1 rounded">마감임박</span>
                                       )}
                                     </div>
 

@@ -459,7 +459,7 @@ export default function ReservationModal({
 
           {/* 에러 + 충돌 */}
           {error && (
-            <div className="px-3 py-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+            <div className="px-3 py-2 bg-red-50 border border-red-200 rounded text-sm text-red-700 dark:text-red-300">
               {error}
               {conflicts.length > 0 && (
                 <ul className="mt-2 space-y-1 text-xs">

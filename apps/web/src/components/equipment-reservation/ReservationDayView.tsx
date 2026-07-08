@@ -104,7 +104,7 @@ export default function ReservationDayView({
                 key={slot.time}
                 type="button"
                 onClick={() => onSlotClick?.(resource.id, dateIso, slot.time)}
-                className={`flex-1 hover:bg-blue-50/50 transition-colors ${
+                className={`flex-1 hover:bg-blue-50/50 dark:hover:bg-blue-500/10 transition-colors ${
                   slot.isHourMark ? "border-l border-gray-200" : "border-l border-gray-50"
                 }`}
                 title={`${dateIso} ${slot.time} — 클릭하여 예약 추가`}

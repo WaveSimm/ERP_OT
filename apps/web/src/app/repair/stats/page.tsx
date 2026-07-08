@@ -48,10 +48,10 @@ export default function RepairStatsPage() {
       {summary && (
         <div className="grid grid-cols-5 gap-3">
           <StatCard label="전체 AS" value={summary.total} />
-          <StatCard label="진행 중" value={summary.inProgress} color="text-orange-600" />
-          <StatCard label="완료" value={summary.completed + summary.closed} color="text-green-600" />
-          <StatCard label="취소" value={summary.cancelled} color="text-red-600" />
-          <StatCard label="평균 수리일" value={`${summary.avgRepairDays}일`} color="text-blue-600" />
+          <StatCard label="진행 중" value={summary.inProgress} color="text-orange-600 dark:text-orange-400" />
+          <StatCard label="완료" value={summary.completed + summary.closed} color="text-green-600 dark:text-green-400" />
+          <StatCard label="취소" value={summary.cancelled} color="text-red-600 dark:text-red-400" />
+          <StatCard label="평균 수리일" value={`${summary.avgRepairDays}일`} color="text-blue-600 dark:text-blue-400" />
         </div>
       )}
 
@@ -112,7 +112,7 @@ export default function RepairStatsPage() {
               </div>
               <div className="border-t border-gray-200 pt-2 flex justify-between text-sm font-bold">
                 <span>합계</span>
-                <span className="text-blue-600">{costs.totalAmount.toLocaleString()} KRW</span>
+                <span className="text-blue-600 dark:text-blue-400">{costs.totalAmount.toLocaleString()} KRW</span>
               </div>
             </>
           ) : (
@@ -130,7 +130,7 @@ export default function RepairStatsPage() {
               <div key={y.year} className="flex-1 text-center p-3 bg-gray-50 rounded-lg">
                 <p className="text-sm font-medium text-gray-600 mb-1">{y.year}년</p>
                 <p className="text-xl font-bold text-gray-800">{y.received}</p>
-                <p className="text-xs text-green-600">완료 {y.completed}</p>
+                <p className="text-xs text-green-600 dark:text-green-400">완료 {y.completed}</p>
               </div>
             ))}
           </div>
@@ -181,8 +181,8 @@ export default function RepairStatsPage() {
                   <tr key={i} className="border-t border-gray-100">
                     <td className="py-1.5 text-gray-700">{h.name}</td>
                     <td className="py-1.5 text-right font-medium">{h.total}</td>
-                    <td className="py-1.5 text-right text-green-600">{h.completed}</td>
-                    <td className="py-1.5 text-right text-blue-600">{h.total > 0 ? Math.round((h.completed / h.total) * 100) : 0}%</td>
+                    <td className="py-1.5 text-right text-green-600 dark:text-green-400">{h.completed}</td>
+                    <td className="py-1.5 text-right text-blue-600 dark:text-blue-400">{h.total > 0 ? Math.round((h.completed / h.total) * 100) : 0}%</td>
                   </tr>
                 ))}
               </tbody>
@@ -237,9 +237,9 @@ export default function RepairStatsPage() {
                   <tr key={i} className="border-t border-gray-100">
                     <td className="py-1.5 text-gray-700">{p.part?.partNumber || "-"}</td>
                     <td className="py-1.5">{p.part?.name || "-"}</td>
-                    <td className="py-1.5 text-right font-medium text-red-600">{p.usedQuantity}</td>
+                    <td className="py-1.5 text-right font-medium text-red-600 dark:text-red-400">{p.usedQuantity}</td>
                     <td className={`py-1.5 text-right font-medium ${
-                      p.part && p.part.stockQuantity <= p.part.minStockLevel ? "text-red-600" : "text-gray-700"
+                      p.part && p.part.stockQuantity <= p.part.minStockLevel ? "text-red-600 dark:text-red-400" : "text-gray-700"
                     }`}>{p.part?.stockQuantity ?? "-"}</td>
                   </tr>
                 ))}

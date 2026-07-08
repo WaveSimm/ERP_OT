@@ -73,7 +73,7 @@ export function SettlementsView({ statusFilter }: { statusFilter?: string } = {}
                 const canCreateApproval = ["DRAFT", "REJECTED"].includes(s.status) && !s.approvalDocumentId && (s.totalCount ?? 0) > 0;
                 return (
                   <tr key={s.id} onClick={() => setSelectedId(s.id)}
-                    className="border-t border-gray-100 hover:bg-blue-50/40 cursor-pointer">
+                    className="border-t border-gray-100 hover:bg-blue-50/40 dark:hover:bg-blue-500/10 cursor-pointer">
                     <td colSpan={5} className="p-0">
                       <div className="grid grid-cols-[3fr_2fr_1fr_1fr_1fr_auto] gap-2 px-3 py-2 items-center">
                         <span className="font-medium text-gray-900 truncate">{s.title}</span>
@@ -88,7 +88,7 @@ export function SettlementsView({ statusFilter }: { statusFilter?: string } = {}
                             <a
                               href={`/approval/new?settlementId=${s.id}`}
                               onClick={(e) => e.stopPropagation()}
-                              className="text-xs px-2 py-0.5 border border-blue-300 text-blue-700 rounded hover:bg-blue-50"
+                              className="text-xs px-2 py-0.5 border border-blue-300 text-blue-700 rounded hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-950"
                             >
                               결재 작성
                             </a>

@@ -696,7 +696,7 @@ export default function ResourcesPage() {
             <button key={t.key}
               onClick={() => { setResourceTab(t.key); try { sessionStorage.setItem(TAB_KEY, t.key); } catch {} }}
               className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                resourceTab === t.key ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"
+                resourceTab === t.key ? "border-blue-600 text-blue-600 dark:text-blue-400" : "border-transparent text-gray-500 hover:text-gray-700"
               }`}>
               {t.label}
             </button>
@@ -726,7 +726,7 @@ export default function ResourcesPage() {
               {/* 양쪽 화살표: 선택 구간 길이만큼 앞뒤 이동 */}
               <button onClick={() => shiftRange(-1)} disabled={!startDate || !endDate}
                 title="구간 길이만큼 앞으로 이동"
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-blue-300 bg-blue-50 text-blue-600 font-bold hover:bg-blue-100 hover:border-blue-400 disabled:opacity-40 transition-colors">◀</button>
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-blue-300 bg-blue-50 text-blue-600 font-bold hover:bg-blue-100 hover:border-blue-400 disabled:opacity-40 transition-colors dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-950">◀</button>
               <DateInput value={startDate} onChange={(e) => {
                 setStartDate(e.target.value);
                 try { sessionStorage.setItem(DASH_DATE_KEY, JSON.stringify({ startDate: e.target.value, endDate })); } catch {}
@@ -738,7 +738,7 @@ export default function ResourcesPage() {
               }} className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               <button onClick={() => shiftRange(1)} disabled={!startDate || !endDate}
                 title="구간 길이만큼 뒤로 이동"
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-blue-300 bg-blue-50 text-blue-600 font-bold hover:bg-blue-100 hover:border-blue-400 disabled:opacity-40 transition-colors">▶</button>
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-blue-300 bg-blue-50 text-blue-600 font-bold hover:bg-blue-100 hover:border-blue-400 disabled:opacity-40 transition-colors dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-950">▶</button>
               <div className="flex-1" />
               <button onClick={() => {
                 const allIds = [
@@ -769,7 +769,7 @@ export default function ResourcesPage() {
             ) : (
               <div className="space-y-1">
                 {/* 부하 색상 범례 — 스크롤해도 상단 고정 (부서별 중복 제거) */}
-                <div className="sticky top-14 z-20 bg-white/95 backdrop-blur-sm border border-gray-100 rounded-lg px-3 py-2 mb-2 shadow-sm">
+                <div className="sticky top-14 z-20 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border border-gray-100 rounded-lg px-3 py-2 mb-2 shadow-sm">
                   <ResourceLoadLegend />
                 </div>
                 {(() => {
@@ -885,7 +885,7 @@ export default function ResourcesPage() {
             </div>
             <div className="px-6 py-2 border-b border-gray-100 flex items-center gap-3 shrink-0 bg-gray-50">
               <span className="text-xs text-gray-500 flex-1">{checkedIds.size}명 선택됨 / 전체 {resources.length}명</span>
-              <button onClick={() => setCheckedIds(new Set(resources.map((r) => r.id)))} className="text-xs text-blue-600 hover:underline">전체 선택</button>
+              <button onClick={() => setCheckedIds(new Set(resources.map((r) => r.id)))} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">전체 선택</button>
               <span className="text-gray-300">|</span>
               <button onClick={() => setCheckedIds(new Set())} className="text-xs text-gray-500 hover:underline">전체 해제</button>
             </div>
@@ -1157,7 +1157,7 @@ function GroupNode({
           {isAdmin && !group.isProtected && (
             <button
               onClick={(e) => { e.stopPropagation(); onEditMembers(group); }}
-              className="text-xs text-blue-500 hover:text-blue-700 px-2 py-0.5 rounded hover:bg-blue-50 shrink-0 font-medium"
+              className="text-xs text-blue-500 dark:text-blue-400 hover:text-blue-700 px-2 py-0.5 rounded hover:bg-blue-50 shrink-0 font-medium"
             >
               편집
             </button>
@@ -1188,7 +1188,7 @@ function GroupNode({
           <div>
             {/* 하위 그룹 — 삽입 위치선 포함 */}
             {(group.children?.length ?? 0) > 0 && (
-              <div className="p-3 space-y-0 bg-gray-50/40">
+              <div className="p-3 space-y-0 bg-gray-50/40 dark:bg-gray-500/10">
                 {group.children!.map((child) => (
                   <Fragment key={child.id}>
                     {dnd.dropIndicator?.targetId === child.id && dnd.dropIndicator.position === "before" && <DropLine />}
@@ -1271,7 +1271,7 @@ function ResourceRows({ resources, dnd, onToggleActive, onEditUserId, isAdmin }:
                 {onEditUserId ? (
                   r.userId ? (
                     <button onClick={() => onEditUserId(r)}
-                      className="text-blue-600 hover:text-blue-800 font-mono bg-blue-50 px-1.5 py-0.5 rounded max-w-[120px] truncate block"
+                      className="text-blue-600 dark:text-blue-400 hover:text-blue-800 font-mono bg-blue-50 px-1.5 py-0.5 rounded max-w-[120px] truncate block"
                       title={r.userId}>
                       {r.userId}
                     </button>

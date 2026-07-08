@@ -132,7 +132,7 @@ function FeedSection({
         <h3 className="text-sm font-semibold text-gray-800">{title}</h3>
         <Link
           href={`/board/${catCode}`}
-          className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+          className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
         >
           전체 →
         </Link>
@@ -150,7 +150,7 @@ function FeedSection({
                 <span className="text-xs text-gray-500 w-20 shrink-0 truncate">{p.boardName}</span>
                 <span className="text-xs text-gray-600 w-16 shrink-0 truncate">{p.authorName}</span>
                 <span className="text-xs text-gray-400 w-12 shrink-0">{fmtDate(p.publishedAt)}</span>
-                {p.isPinned && <span className="text-blue-600 shrink-0 text-xs">📌</span>}
+                {p.isPinned && <span className="text-blue-600 dark:text-blue-400 shrink-0 text-xs">📌</span>}
                 {p.priority === 2 && (
                   <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-red-100 text-red-700 shrink-0">긴급</span>
                 )}
@@ -188,7 +188,7 @@ function ProjectBoardSection({ items }: { items: WorkLogFeedItem[] }) {
         <h3 className="text-sm font-semibold text-gray-800">📝 프로젝트 게시판</h3>
         <Link
           href="/work-logs"
-          className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+          className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
         >
           전체 →
         </Link>

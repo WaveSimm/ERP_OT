@@ -497,7 +497,7 @@ export function TransactionsView({ initialStatus = "TARGET", onChange }: { initi
         {DETAIL_OPTIONS.map((o) => <option key={o} value={o} />)}
       </datalist>
       {importMsg && (
-        <div className={`p-3 rounded-md text-sm ${importMsg.startsWith("✅") ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+        <div className={`p-3 rounded-md text-sm ${importMsg.startsWith("✅") ? "bg-green-50 text-green-700 border border-green-200 dark:text-green-300 dark:border-green-800" : "bg-red-50 text-red-700 border border-red-200 dark:text-red-300 dark:border-red-800"}`}>
           {importMsg}
         </div>
       )}
@@ -535,7 +535,7 @@ export function TransactionsView({ initialStatus = "TARGET", onChange }: { initi
           <input ref={fileInputRef} type="file" accept=".xls,.xlsx,.html"
             onChange={handleImport} disabled={importing} className="hidden" id="stmt-import" />
           <label htmlFor="stmt-import"
-            className={`px-3 py-1.5 text-sm border border-blue-300 text-blue-700 rounded-md hover:bg-blue-50 cursor-pointer ${importing ? "opacity-50 pointer-events-none" : ""}`}>
+            className={`px-3 py-1.5 text-sm border border-blue-300 text-blue-700 rounded-md hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-950 cursor-pointer ${importing ? "opacity-50 pointer-events-none" : ""}`}>
             {importing ? "import 중..." : "📥 카드 명세서 import"}
           </label>
           <button onClick={() => setShowManual(true)}
@@ -556,9 +556,9 @@ export function TransactionsView({ initialStatus = "TARGET", onChange }: { initi
 
       {/* 일괄 작업 바 — 항상 표시 */}
       <div className={`-mt-5 border rounded-lg p-3 mb-6 flex flex-wrap items-center gap-2 transition-colors shadow-sm ${
-        sel.count > 0 ? "bg-blue-50 border-blue-300" : "bg-white border-gray-300"
+        sel.count > 0 ? "bg-blue-50 border-blue-300 dark:border-blue-800" : "bg-white border-gray-300"
       }`}>
-        <span className={`text-sm font-medium ${sel.count > 0 ? "text-blue-900" : "text-gray-500"}`}>
+        <span className={`text-sm font-medium ${sel.count > 0 ? "text-blue-900 dark:text-blue-300" : "text-gray-500"}`}>
           {sel.count > 0 ? `선택 ${sel.count}건` : "선택된 항목 없음"}
         </span>
         <span className="text-xs text-gray-600 mr-2">일괄 적용:</span>
@@ -679,7 +679,7 @@ export function TransactionsView({ initialStatus = "TARGET", onChange }: { initi
               const checked = sel.isSelected(t.id);
               return (
                 <tr key={t.id}
-                  className={`border-t border-gray-100 ${t.isCanceled ? "bg-red-50/30" : ""} ${checked ? "bg-blue-50/40" : ""}`}>
+                  className={`border-t border-gray-100 ${t.isCanceled ? "bg-red-50/30 dark:bg-red-500/10" : ""} ${checked ? "bg-blue-50/40 dark:bg-blue-500/10" : ""}`}>
                   <td className="px-3 py-2 text-center">
                     <input type="checkbox" checked={checked}
                       onMouseDown={sel.handleMouseDown}
@@ -761,14 +761,14 @@ export function TransactionsView({ initialStatus = "TARGET", onChange }: { initi
                         return (
                           <button onClick={(e) => { e.stopPropagation(); setReceiptModalId(confirmed.receiptId); }}
                             title="첨부된 영수증 보기"
-                            className="inline-block text-emerald-600 hover:text-emerald-700">📎</button>
+                            className="inline-block text-emerald-600 dark:text-emerald-400 hover:text-emerald-700">📎</button>
                         );
                       }
                       if (candidate) {
                         return (
                           <button onClick={(e) => { e.stopPropagation(); setReceiptModalId(candidate.receiptId); }}
                             title={`매칭 후보 ${matches.length}건`}
-                            className="inline-block text-amber-600 hover:text-amber-700 text-xs">⚡{matches.length}</button>
+                            className="inline-block text-amber-600 dark:text-amber-400 hover:text-amber-700 text-xs">⚡{matches.length}</button>
                         );
                       }
                       return (
@@ -979,7 +979,7 @@ function ManualTransactionModal({ sources, loadContractOptions, onClose, onSaved
               <p className="text-[10px] text-gray-500 mt-1">💡 {DETAIL_PLACEHOLDER[form.detail.trim()]}</p>
             )}
           </Field>
-          {err && <p className="text-sm text-red-600">{err}</p>}
+          {err && <p className="text-sm text-red-600 dark:text-red-400">{err}</p>}
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={onClose}
               className="flex-1 border border-gray-300 rounded-md py-2 text-sm">취소</button>
@@ -1057,7 +1057,7 @@ function SettlementHeaderFilter({
         ref={triggerRef}
         type="button"
         onClick={() => setOpen(!open)}
-        className={`inline-flex items-center gap-1 px-1 py-0.5 text-xs hover:bg-gray-100 rounded ${value ? "text-blue-700 font-medium" : "text-gray-500"}`}
+        className={`inline-flex items-center gap-1 px-1 py-0.5 text-xs hover:bg-gray-100 rounded ${value ? "text-blue-700 font-medium dark:text-blue-300" : "text-gray-500"}`}
       >
         <span>정산분류</span>
         {selected ? (
@@ -1098,14 +1098,14 @@ function SettlementHeaderFilter({
           <button
             type="button"
             onClick={() => { onChange(null); setOpen(false); }}
-            className={`w-full text-left px-2 py-1.5 text-xs rounded ${!value ? "bg-blue-50 text-blue-700" : "text-gray-500 hover:bg-gray-50"}`}
+            className={`w-full text-left px-2 py-1.5 text-xs rounded ${!value ? "bg-blue-50 text-blue-700 dark:text-blue-300" : "text-gray-500 hover:bg-gray-50"}`}
           >
             모두 보기
           </button>
           <button
             type="button"
             onClick={() => { onChange("__unclassified__"); setOpen(false); }}
-            className={`w-full text-left px-2 py-1.5 text-xs rounded ${value === "__unclassified__" ? "bg-blue-50 text-blue-700" : "text-gray-700 hover:bg-gray-50"}`}
+            className={`w-full text-left px-2 py-1.5 text-xs rounded ${value === "__unclassified__" ? "bg-blue-50 text-blue-700 dark:text-blue-300" : "text-gray-700 hover:bg-gray-50"}`}
           >
             미분류 <span className="text-[10px] text-gray-400 ml-1">(정산 묶음 없음)</span>
           </button>
@@ -1119,7 +1119,7 @@ function SettlementHeaderFilter({
                 key={s.id}
                 type="button"
                 onClick={() => { onChange(s.id); setOpen(false); }}
-                className={`w-full text-left px-2 py-1.5 text-xs rounded flex items-center gap-2 ${value === s.id ? "bg-blue-50 text-blue-700" : "hover:bg-gray-50"}`}
+                className={`w-full text-left px-2 py-1.5 text-xs rounded flex items-center gap-2 ${value === s.id ? "bg-blue-50 text-blue-700 dark:text-blue-300" : "hover:bg-gray-50"}`}
                 title={s.title}
               >
                 <span className="flex-1 truncate">{s.title}</span>

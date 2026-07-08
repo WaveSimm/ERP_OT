@@ -28,18 +28,18 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="sticky top-0 z-40 bg-white border-b border-gray-200 h-12 flex items-center gap-2 px-3">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+      <header className="sticky top-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 h-12 flex items-center gap-2 px-3">
         <div className="w-6 h-6 bg-blue-600 rounded flex items-center justify-center shrink-0">
           <span className="text-white text-[10px] font-bold">ERP</span>
         </div>
-        <span className="text-sm font-semibold text-gray-800">현장</span>
+        <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">현장</span>
         <div className="ml-auto flex items-center gap-3 shrink-0">
-          {name && <span className="text-xs text-gray-500 max-w-[80px] truncate">{name}</span>}
-          <button onClick={goDesktop} className="text-xs text-gray-400 hover:text-gray-600" title="PC 버전으로">
+          {name && <span className="text-xs text-gray-500 dark:text-gray-400 max-w-[80px] truncate">{name}</span>}
+          <button onClick={goDesktop} className="text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300" title="PC 버전으로">
             PC
           </button>
-          <button onClick={handleLogout} className="text-xs text-red-500 hover:text-red-600">
+          <button onClick={handleLogout} className="text-xs text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300">
             로그아웃
           </button>
         </div>

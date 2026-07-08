@@ -284,7 +284,7 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete, onDeleteLea
                   이 항목만
                 </button>
                 <button type="button" onClick={() => setGroupAction("group")}
-                  className={`flex-1 text-xs py-1.5 rounded-md font-medium transition-colors ${groupAction === "group" ? "bg-white shadow text-teal-700" : "text-gray-500 hover:text-gray-700"}`}>
+                  className={`flex-1 text-xs py-1.5 rounded-md font-medium transition-colors ${groupAction === "group" ? "bg-white shadow text-teal-700 dark:text-teal-300" : "text-gray-500 hover:text-gray-700"}`}>
                   전체 일정
                 </button>
               </div>
@@ -383,7 +383,7 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete, onDeleteLea
                   const [h, m] = startTime.split(":").map(Number);
                   const t = h * 60 + m + dur * 60;
                   const et = `${String(Math.floor(t / 60) % 24).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
-                  return <p className="text-[11px] text-teal-600 mt-1">⏱ {startTime} ~ {et} ({dur}시간)</p>;
+                  return <p className="text-[11px] text-teal-600 dark:text-teal-300 mt-1">⏱ {startTime} ~ {et} ({dur}시간)</p>;
                 })()}
               </div>
             ) : (
@@ -420,7 +420,7 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete, onDeleteLea
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
             </div>
             </>)}
-            {error && <p className="text-xs text-red-500">{error}</p>}
+            {error && <p className="text-xs text-red-500 dark:text-red-400">{error}</p>}
             <div className="flex gap-2 pt-1">
               {isEdit && onDelete && (
                 <button type="button" onClick={async () => {
@@ -431,7 +431,7 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete, onDeleteLea
                     onDelete(entry!.id); onClose();
                   }
                 }}
-                  className="px-3 py-2 border border-red-300 text-red-600 rounded-lg text-sm hover:bg-red-50">
+                  className="px-3 py-2 border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 rounded-lg text-sm hover:bg-red-50 dark:hover:bg-red-950">
                   {hasGroup && groupAction === "group" ? "전체 삭제" : "삭제"}
                 </button>
               )}
@@ -538,7 +538,7 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
       <div className="p-3">
         <div className="grid grid-cols-7 mb-1">
           {DAY_LABELS.map((d, i) => (
-            <div key={d} className={`text-center text-xs font-semibold py-1 ${i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-gray-500"}`}>{d}</div>
+            <div key={d} className={`text-center text-xs font-semibold py-1 ${i === 0 ? "text-red-500 dark:text-red-400" : i === 6 ? "text-blue-500 dark:text-blue-400" : "text-gray-500"}`}>{d}</div>
           ))}
         </div>
         <div className="grid grid-cols-7 gap-0.5">
@@ -560,9 +560,9 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
                 <div className="h-[40px] flex-shrink-0">
                   <div className="flex items-center gap-1">
                     <span className={`text-xs font-medium leading-none ${
-                      isToday ? "text-blue-700 font-bold" :
-                      dow === 0 || cell.isHoliday ? "text-red-500" :
-                      dow === 6 ? "text-blue-500" : "text-gray-700"
+                      isToday ? "text-blue-700 dark:text-blue-300 font-bold" :
+                      dow === 0 || cell.isHoliday ? "text-red-500 dark:text-red-400" :
+                      dow === 6 ? "text-blue-500 dark:text-blue-400" : "text-gray-700"
                     }`}>{dayNum}</span>
                     <button onClick={() => setAddingDate(cell.date)}
                       className="text-red-500 hover:text-white hover:bg-red-500 rounded text-base font-bold leading-none transition-colors w-5 h-5 flex items-center justify-center shrink-0"
@@ -606,7 +606,7 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
 
                   {/* OT 표시 */}
                   {cell.otHours > 0 && !dayEntries.some((e) => e.entryType === "OT") && (
-                    <span className="text-xs text-purple-500 leading-tight">휴일근무</span>
+                    <span className="text-xs text-purple-500 dark:text-purple-400 leading-tight">휴일근무</span>
                   )}
                 </div>
               </div>

@@ -94,7 +94,7 @@ export default function ReservationDetailPopover({ instance, canModify, onClose,
             </div>
           )}
           {instance.isException && (
-            <div className="px-2 py-1 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
+            <div className="px-2 py-1 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800 dark:text-amber-300">
               이 인스턴스는 시리즈에서 예외 처리된 항목입니다.
             </div>
           )}
@@ -107,7 +107,7 @@ export default function ReservationDetailPopover({ instance, canModify, onClose,
             </div>
           )}
           {error && (
-            <div className="px-2 py-1 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+            <div className="px-2 py-1 bg-red-50 border border-red-200 rounded text-xs text-red-700 dark:text-red-300">
               {error}
             </div>
           )}
@@ -120,7 +120,7 @@ export default function ReservationDetailPopover({ instance, canModify, onClose,
                 type="button"
                 onClick={handleCancelInstance}
                 disabled={busy}
-                className="px-3 py-2 text-xs border border-orange-300 text-orange-700 rounded hover:bg-orange-50 disabled:opacity-50"
+                className="px-3 py-2 text-xs border border-orange-300 text-orange-700 rounded hover:bg-orange-50 disabled:opacity-50 dark:border-orange-700 dark:text-orange-300 dark:hover:bg-orange-950"
               >
                 이 인스턴스만 취소
               </button>
@@ -129,7 +129,7 @@ export default function ReservationDetailPopover({ instance, canModify, onClose,
               type="button"
               onClick={handleCancelSeries}
               disabled={busy}
-              className="px-3 py-2 text-xs border border-red-300 text-red-700 rounded hover:bg-red-50 disabled:opacity-50"
+              className="px-3 py-2 text-xs border border-red-300 text-red-700 rounded hover:bg-red-50 disabled:opacity-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-950"
             >
               {instance.isRecurring ? "시리즈 전체 취소" : "취소"}
             </button>

@@ -199,17 +199,17 @@ export default function ProductMasterPage() {
               ];
               if (isExpanded) {
                 rows.push(
-                  <tr key={p.id + "-expand"} className="bg-amber-50/50">
+                  <tr key={p.id + "-expand"} className="bg-amber-50/50 dark:bg-amber-500/10">
                     <td colSpan={8} className="px-6 py-3">
                       {!cachedItems ? (
                         <div className="text-xs text-gray-400">구성품 로딩중...</div>
                       ) : cachedItems.length === 0 ? (
                         <div className="text-xs text-gray-400">
-                          정의된 구성품이 없습니다. <button onClick={() => setBundleOf(p)} className="text-amber-700 underline">구성품 등록</button>
+                          정의된 구성품이 없습니다. <button onClick={() => setBundleOf(p)} className="text-amber-700 dark:text-amber-300 underline">구성품 등록</button>
                         </div>
                       ) : (
                         <div>
-                          <div className="text-xs font-medium text-amber-800 mb-2">📦 번들 구성품 ({cachedItems.length}건)</div>
+                          <div className="text-xs font-medium text-amber-800 dark:text-amber-200 mb-2">📦 번들 구성품 ({cachedItems.length}건)</div>
                           <table className="w-full text-xs bg-white rounded border">
                             <thead className="bg-gray-50 border-b">
                               <tr>
@@ -225,7 +225,7 @@ export default function ProductMasterPage() {
                                   <td className="px-2 py-1.5">{it.productMaster?.name || "-"}</td>
                                   <td className="px-2 py-1.5 text-center">{it.quantity}</td>
                                   <td className="px-2 py-1.5 text-center">
-                                    <span className={`px-1.5 py-0.5 rounded text-[10px] ${it.slotType === "MAIN" ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-600"}`}>
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] ${it.slotType === "MAIN" ? "bg-blue-50 text-blue-700 dark:text-blue-300" : "bg-gray-100 text-gray-600"}`}>
                                       {it.slotType}
                                     </span>
                                   </td>
@@ -281,7 +281,7 @@ export default function ProductMasterPage() {
                   </label>
                 </div>
                 {form.itemType === "BUNDLE" && (
-                  <p className="text-[10px] text-amber-700 mt-1">번들은 발주 line item에서 차단되며, 등록 후 [구성품] 버튼으로 구성을 정의하십시오.</p>
+                  <p className="text-[10px] text-amber-700 dark:text-amber-300 mt-1">번들은 발주 line item에서 차단되며, 등록 후 [구성품] 버튼으로 구성을 정의하십시오.</p>
                 )}
               </div>
               <div>
@@ -449,9 +449,9 @@ function VariantModal({ master, onClose, onSaved }: { master: any; onClose: () =
         </div>
 
         {/* Master SKU Prefix 편집 — v1.6 (2026-05-14) */}
-        <div className="mb-4 p-3 bg-purple-50/40 border border-purple-100 rounded-lg">
+        <div className="mb-4 p-3 bg-purple-50/40 border border-purple-100 rounded-lg dark:bg-purple-500/10 dark:border-purple-900">
           <div className="flex items-center gap-3">
-            <label className="text-sm font-medium text-purple-800 whitespace-nowrap">SKU Prefix</label>
+            <label className="text-sm font-medium text-purple-800 dark:text-purple-300 whitespace-nowrap">SKU Prefix</label>
             <input
               type="text"
               value={prefix}
@@ -468,7 +468,7 @@ function VariantModal({ master, onClose, onSaved }: { master: any; onClose: () =
               {savingPrefix ? "저장..." : "저장"}
             </button>
           </div>
-          <div className="text-[10px] text-purple-700 mt-1">
+          <div className="text-[10px] text-purple-700 dark:text-purple-300 mt-1">
             모든 Variant SKU 자동 생성 시 이 prefix가 앞에 붙습니다 (예: <span className="font-mono">{prefix.trim() || "VAR"}-10M-FE</span>)
           </div>
         </div>
@@ -503,14 +503,14 @@ function VariantModal({ master, onClose, onSaved }: { master: any; onClose: () =
                     {v.variantSpecs ? Object.entries(v.variantSpecs).map(([k, val]: any) => `${k}=${val}`).join(", ") : "-"}
                   </td>
                   <td className="px-2 py-1.5 text-center">
-                    <button onClick={() => handleToggleActive(v)} className="text-blue-600 hover:underline">
+                    <button onClick={() => handleToggleActive(v)} className="text-blue-600 dark:text-blue-400 hover:underline">
                       {v.isActive ? "✓" : "—"}
                     </button>
                   </td>
                   <td className="px-2 py-1.5 text-center">{v._count?.inventoryItems ?? 0}</td>
                   <td className="px-2 py-1.5 text-center">
-                    <button onClick={() => openEdit(v)} className="text-blue-600 hover:underline mr-2">수정</button>
-                    <button onClick={() => handleDelete(v.id)} className="text-red-500 hover:underline">삭제</button>
+                    <button onClick={() => openEdit(v)} className="text-blue-600 dark:text-blue-400 hover:underline mr-2">수정</button>
+                    <button onClick={() => handleDelete(v.id)} className="text-red-500 dark:text-red-400 hover:underline">삭제</button>
                   </td>
                 </tr>
               ))}
@@ -693,7 +693,7 @@ function BundleItemsModal({ master, onClose }: { master: any; onClose: () => voi
                         className="w-full border rounded px-1 py-0.5 text-xs" />
                     </td>
                     <td className="px-2 py-1.5">
-                      <button onClick={() => removeItem(idx)} className="text-red-500 text-xs">×</button>
+                      <button onClick={() => removeItem(idx)} className="text-red-500 dark:text-red-400 text-xs">×</button>
                     </td>
                   </tr>
                 ))}
@@ -794,7 +794,7 @@ function ProductRow({
       <td className={cellClass}>
         <div className="flex items-center gap-1">
           {isBundle ? (
-            <button onClick={onToggle} className="w-4 text-amber-600 text-xs flex-shrink-0">
+            <button onClick={onToggle} className="w-4 text-amber-600 dark:text-amber-400 text-xs flex-shrink-0">
               {isExpanded ? "▼" : "▶"}
             </button>
           ) : (
@@ -819,7 +819,7 @@ function ProductRow({
         {product.variants && product.variants.length > 0 ? (
           <div className="flex flex-wrap gap-1">
             {product.variants.slice(0, 3).map((v: any) => v.skuCode ? (
-              <span key={v.id} className="px-1.5 py-0.5 text-[10px] rounded bg-purple-50 text-purple-700 font-mono">
+              <span key={v.id} className="px-1.5 py-0.5 text-[10px] rounded bg-purple-50 text-purple-700 font-mono dark:bg-purple-950 dark:text-purple-300">
                 {v.skuCode}
               </span>
             ) : null)}
@@ -882,11 +882,11 @@ function ProductRow({
       {/* 작업 */}
       <td className="px-4 py-2.5 text-center whitespace-nowrap">
         {isBundle ? (
-          <button onClick={onOpenBundle} className="text-amber-600 hover:underline text-xs mr-2">구성품</button>
+          <button onClick={onOpenBundle} className="text-amber-600 dark:text-amber-400 hover:underline text-xs mr-2">구성품</button>
         ) : (
-          <button onClick={onOpenVariant} className="text-purple-600 hover:underline text-xs mr-2">SKU</button>
+          <button onClick={onOpenVariant} className="text-purple-600 dark:text-purple-400 hover:underline text-xs mr-2">SKU</button>
         )}
-        <button onClick={onDelete} className="text-red-500 hover:underline text-xs">삭제</button>
+        <button onClick={onDelete} className="text-red-500 dark:text-red-400 hover:underline text-xs">삭제</button>
       </td>
     </tr>
   );

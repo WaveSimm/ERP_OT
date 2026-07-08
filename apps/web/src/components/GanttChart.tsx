@@ -524,7 +524,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
       {/* 선택 툴바 — 스크롤해도 상단(글로벌 헤더 h-14 아래)에 고정 */}
       {selected && selected.size > 0 && (
         <div ref={gSelToolbarRef} className="sticky z-[25] flex items-center gap-2 px-4 py-2 bg-blue-50 border-b border-blue-100" style={{ top: "calc(var(--top-chrome, 56px) + var(--gantt-extra, 0px))" }}>
-          <span className="text-xs font-semibold text-blue-700">{selected.size}개 선택됨</span>
+          <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">{selected.size}개 선택됨</span>
           <span className="text-[10px] text-blue-400">— 드래그 핸들(⠿)로 이동</span>
           {(onIndent || onOutdent) && <div className="h-3 w-px bg-blue-200" />}
           {onOutdent && (
@@ -542,14 +542,14 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
           {(onCopySelected || onDeleteSelected) && <div className="h-3 w-px bg-blue-200" />}
           {onCopySelected && (
             <button onClick={onCopySelected}
-              className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded border border-blue-200"
+              className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 rounded border border-blue-200 dark:border-blue-800"
               title="선택한 태스크를 다른 프로젝트로 복사">
               📋 복사
             </button>
           )}
           {onDeleteSelected && (
             <button onClick={onDeleteSelected}
-              className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded border border-red-200">
+              className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 rounded border border-red-200 dark:border-red-800">
               🗑 선택 삭제
             </button>
           )}
@@ -603,7 +603,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                 onDrop={onDrop ? (e) => { e.preventDefault(); onDrop(e); } : undefined}
                 className={clsx(
                   "flex items-center border-b border-gray-100 gap-1 pr-1 group/row relative select-none",
-                  task.isCritical && !task.isMilestone && "bg-red-50/30",
+                  task.isCritical && !task.isMilestone && "bg-red-50/30 dark:bg-red-500/10",
                   onTaskClick && "cursor-pointer hover:bg-blue-50/40",
                   selected?.has(task.id) && "!bg-blue-50",
                   dragIds?.includes(task.id) && "opacity-30",
@@ -673,7 +673,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                   <p className={clsx(
                     "text-sm truncate",
                     parentIds.has(task.id) ? "font-semibold" : "font-medium",
-                    task.isMilestone ? "text-purple-700" : task.isCritical ? "text-red-700" : "text-gray-800",
+                    task.isMilestone ? "text-purple-700 dark:text-purple-300" : task.isCritical ? "text-red-700 dark:text-red-400" : "text-gray-800",
                   )}>
                     {task.isMilestone
                       ? <span className={clsx("mr-0.5",
@@ -771,7 +771,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                   style={{ height: ROW_H }}
                   className={clsx(
                     "flex items-center px-2 border-b border-gray-100",
-                    task.isCritical && !task.isMilestone && "bg-red-50/30",
+                    task.isCritical && !task.isMilestone && "bg-red-50/30 dark:bg-red-500/10",
                   )}
                 >
                   {allResources ? (
@@ -932,7 +932,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                   return (
                     <div
                       key={i}
-                      className="absolute top-0 bottom-0 bg-red-50/60 pointer-events-none"
+                      className="absolute top-0 bottom-0 bg-red-50/60 dark:bg-red-500/10 pointer-events-none"
                       style={{ left: i * dayPx, width: dayPx }}
                       title={holidayName}
                     />
@@ -941,7 +941,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                 return isWeekend ? (
                   <div
                     key={i}
-                    className="absolute top-0 bottom-0 bg-gray-50/60"
+                    className="absolute top-0 bottom-0 bg-gray-50/60 dark:bg-gray-500/10"
                     style={{ left: i * dayPx, width: dayPx }}
                   />
                 ) : null;
@@ -1036,7 +1036,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                     key={task.id}
                     className={clsx(
                       "absolute left-0 right-0 border-b border-gray-100",
-                      task.isCritical && "bg-red-50/20",
+                      task.isCritical && "bg-red-50/20 dark:bg-red-500/10",
                     )}
                     style={{ top: y, height: ROW_H }}
                   >

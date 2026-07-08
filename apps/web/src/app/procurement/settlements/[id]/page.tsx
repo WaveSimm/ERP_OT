@@ -79,7 +79,7 @@ export default function SettlementDetailPage() {
   };
 
   if (loading) return <div className="text-center py-12 text-gray-400">로딩 중...</div>;
-  if (!data) return <div className="text-center py-12 text-red-500">원가정산을 찾을 수 없습니다.</div>;
+  if (!data) return <div className="text-center py-12 text-red-500 dark:text-red-400">원가정산을 찾을 수 없습니다.</div>;
 
   const currency = data.currency || "USD";
   const hasForeignPrices = data.items?.some((i: any) => i.foreignUnitPrice || i.foreignAmount);
@@ -97,7 +97,7 @@ export default function SettlementDetailPage() {
         {data.contract ? (
           <div className="flex items-center gap-2">
             <button onClick={() => router.push(`/procurement/contracts/${data.contract.id}`)}
-              className="text-sm text-blue-600 hover:underline font-medium">
+              className="text-sm text-blue-600 hover:underline font-medium dark:text-blue-400">
               {data.contract.contractNumber}
             </button>
             <span className="text-xs text-gray-400">{data.contract.name} · {data.contract.client}</span>
@@ -125,7 +125,7 @@ export default function SettlementDetailPage() {
         <div className="text-xs text-gray-400 mb-2">5. 수입원가합계</div>
         <div className="grid grid-cols-4 gap-4">
           <div><span className="text-xs text-gray-500">수입원가</span><p className="text-lg font-bold">₩{Number(data.totalImportCost).toLocaleString()}</p></div>
-          <div><span className="text-xs text-gray-500">부대비용</span><p className="text-lg font-bold text-orange-600">₩{Number(data.totalExtraCost).toLocaleString()}</p></div>
+          <div><span className="text-xs text-gray-500">부대비용</span><p className="text-lg font-bold text-orange-600 dark:text-orange-400">₩{Number(data.totalExtraCost).toLocaleString()}</p></div>
           <div><span className="text-xs text-gray-500">공급가액</span><p className="text-lg font-bold">₩{Number(data.supplyAmount).toLocaleString()}</p></div>
           <div><span className="text-xs text-gray-500">부가세</span><p className="text-lg font-bold">₩{Number(data.vat).toLocaleString()}</p></div>
         </div>
@@ -146,7 +146,7 @@ export default function SettlementDetailPage() {
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-medium">4-(1) 송금 내역</h3>
-              <button onClick={() => setShowRemitModal(true)} className="text-xs text-blue-600 hover:underline">+ 송금 추가</button>
+              <button onClick={() => setShowRemitModal(true)} className="text-xs text-blue-600 hover:underline dark:text-blue-400">+ 송금 추가</button>
             </div>
             {remittances.length > 0 ? (
               <table className="w-full text-sm border rounded">
@@ -186,12 +186,12 @@ export default function SettlementDetailPage() {
               <p className="text-xs text-gray-400">송금 내역이 없습니다.</p>
             )}
             {remaining > 0 && (
-              <div className="mt-2 text-xs px-3 py-1.5 bg-amber-50 border border-amber-200 rounded text-amber-700">
+              <div className="mt-2 text-xs px-3 py-1.5 bg-amber-50 border border-amber-200 rounded text-amber-700 dark:text-amber-300">
                 미송금 잔액: ₩{remaining.toLocaleString()} (수입원가 ₩{Number(data.totalImportCost).toLocaleString()} - 송금합계 ₩{totalRemitKrw.toLocaleString()})
               </div>
             )}
             {remaining <= 0 && remittances.length > 0 && (
-              <div className="mt-2 text-xs px-3 py-1.5 bg-green-50 border border-green-200 rounded text-green-700">
+              <div className="mt-2 text-xs px-3 py-1.5 bg-green-50 border border-green-200 rounded text-green-700 dark:text-green-300">
                 송금 완료
               </div>
             )}
@@ -218,7 +218,7 @@ export default function SettlementDetailPage() {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-medium">추가 부대비용</h3>
-          <button onClick={() => setShowExtraModal(true)} className="text-xs text-blue-600 hover:underline">+ 추가</button>
+          <button onClick={() => setShowExtraModal(true)} className="text-xs text-blue-600 hover:underline dark:text-blue-400">+ 추가</button>
         </div>
         {data.extras?.length > 0 ? (
           <div className="space-y-2">
@@ -276,7 +276,7 @@ export default function SettlementDetailPage() {
                                 alert("해당 재고를 찾을 수 없습니다.");
                               }
                             }}
-                            className="text-blue-600 hover:underline"
+                            className="text-blue-600 hover:underline dark:text-blue-400"
                           >
                             {item.inventoryNo}
                           </button>
@@ -298,7 +298,7 @@ export default function SettlementDetailPage() {
                     <td className="px-3 py-2 text-right">{Number(item.unitPrice).toLocaleString(undefined, { maximumFractionDigits: 4 })}</td>
                     <td className="px-3 py-2 text-right font-medium">₩{Number(item.amount).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
                     {data.items.some((i: any) => i.adjustedUnitPrice) && (
-                      <td className="px-3 py-2 text-right text-blue-600">
+                      <td className="px-3 py-2 text-right text-blue-600 dark:text-blue-400">
                         {item.adjustedUnitPrice ? Number(item.adjustedUnitPrice).toLocaleString() : "-"}
                       </td>
                     )}

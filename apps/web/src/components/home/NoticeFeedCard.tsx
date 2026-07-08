@@ -64,7 +64,7 @@ export default function NoticeFeedCard() {
                 className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 text-sm"
               >
                 <span className="text-xs text-gray-500 w-16 shrink-0 truncate">{p.boardName}</span>
-                {p.isPinned && <span className="text-blue-600 text-xs shrink-0">📌</span>}
+                {p.isPinned && <span className="text-blue-600 dark:text-blue-400 text-xs shrink-0">📌</span>}
                 {p.priority === 2 && (
                   <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-red-100 text-red-700 shrink-0">긴급</span>
                 )}

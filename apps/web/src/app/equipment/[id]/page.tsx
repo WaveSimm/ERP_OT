@@ -220,7 +220,7 @@ export default function EquipmentDetailPage() {
           {([["info", "기본정보"], ["history", "전체 이력"], ["schedules", "운영일정"], ["maintenance", "기타일정"], ["sensors", "호환센서"]] as [Tab, string][]).map(
             ([k, label]) => (
               <button key={k} onClick={() => setTab(k)}
-                className={`px-4 py-2 text-sm border-b-2 ${tab === k ? "border-blue-600 text-blue-600 font-semibold" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
+                className={`px-4 py-2 text-sm border-b-2 ${tab === k ? "border-blue-600 text-blue-600 font-semibold dark:text-blue-400" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
                 {label}
               </button>
             ),
@@ -301,9 +301,9 @@ export default function EquipmentDetailPage() {
                         <td className="py-1.5 text-gray-500">{c.notes ?? "-"}</td>
                         <td className="py-1.5 text-right">
                           <button onClick={() => { setEditingCompId(c.id); setCompForm({ name: c.name, spec: c.spec ?? "", notes: c.notes ?? "" }); setShowCompForm(true); }}
-                            className="text-xs text-blue-500 hover:text-blue-700 mr-2">수정</button>
+                            className="text-xs text-blue-500 hover:text-blue-700 mr-2 dark:text-blue-400">수정</button>
                           <button onClick={async () => { if (!confirm(`${c.name}을(를) 삭제하시겠습니까?`)) return; await equipmentApi.removeComponent(c.id); equipmentApi.get(id).then(setEquipment); }}
-                            className="text-xs text-red-500 hover:text-red-700">삭제</button>
+                            className="text-xs text-red-500 hover:text-red-700 dark:text-red-400">삭제</button>
                         </td>
                       </tr>
                     ))}
@@ -413,7 +413,7 @@ export default function EquipmentDetailPage() {
                     {filtered.map((row, i) => (
                       <tr key={i} className="border-t hover:bg-gray-50">
                         <td className="p-2"><span className={`text-xs px-2 py-0.5 rounded-full ${row.color}`}>{row.label}</span></td>
-                        <td className="p-2">{row.projectId ? <Link href={`/projects/${row.projectId}`} className="text-blue-600 hover:underline">{row.title}</Link> : row.title}</td>
+                        <td className="p-2">{row.projectId ? <Link href={`/projects/${row.projectId}`} className="text-blue-600 hover:underline dark:text-blue-400">{row.title}</Link> : row.title}</td>
                         <td className="p-2">{new Date(row.startDate).toLocaleDateString()}</td>
                         <td className="p-2">{new Date(row.endDate).toLocaleDateString()}</td>
                         <td className="p-2 text-gray-500">{row.detail}</td>
@@ -684,7 +684,7 @@ export default function EquipmentDetailPage() {
                       const ed = new Date(s.endDate).toISOString().slice(0, 10);
                       return (
                       <tr key={s.id} className="border-t hover:bg-gray-50">
-                        <td className="p-2">{s.projectId ? <Link href={`/projects/${s.projectId}`} className="text-blue-600 hover:underline">{s.projectName || s.title}</Link> : s.title}</td>
+                        <td className="p-2">{s.projectId ? <Link href={`/projects/${s.projectId}`} className="text-blue-600 hover:underline dark:text-blue-400">{s.projectName || s.title}</Link> : s.title}</td>
                         <td className="p-2 text-gray-600">{dep?.taskName || s.description || "-"}</td>
                         <td className="p-2">
                           {isCompleted ? new Date(s.startDate).toLocaleDateString() : (
@@ -777,7 +777,7 @@ export default function EquipmentDetailPage() {
                         await compatibilityApi.remove(c.id);
                         equipmentApi.getCompatibleSensors(id).then(setCompatSensors);
                       } catch (err: any) { alert(err.message); }
-                    }} className="text-xs text-red-500 hover:text-red-700">삭제</button>
+                    }} className="text-xs text-red-500 hover:text-red-700 dark:text-red-400">삭제</button>
                   </div>
                 ))}
               </div>

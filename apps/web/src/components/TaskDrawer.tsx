@@ -262,7 +262,7 @@ function SegmentCard({
   const weightMismatch = hasAssignments && Math.round(weightSum) !== 100;
 
   return (
-    <div className={clsx("border rounded-lg p-3 space-y-2", isHidden ? "border-gray-100 bg-gray-50/50 opacity-60" : "border-gray-200")}>
+    <div className={clsx("border rounded-lg p-3 space-y-2", isHidden ? "border-gray-100 bg-gray-50/50 dark:bg-gray-500/10 opacity-60" : "border-gray-200")}>
       {/* 구간명 + 토글 + 삭제 */}
       <div className="flex items-center gap-2">
         {readonly ? (
@@ -283,7 +283,7 @@ function SegmentCard({
               "text-xs px-1.5 py-0.5 rounded border font-medium shrink-0 transition-colors",
               isHidden
                 ? "text-gray-400 border-gray-200 bg-white hover:border-blue-300 hover:text-blue-500"
-                : "text-blue-500 border-blue-200 bg-blue-50 hover:border-gray-300 hover:text-gray-400"
+                : "text-blue-500 dark:text-blue-300 border-blue-200 bg-blue-50 hover:border-gray-300 hover:text-gray-400"
             )}
           >
             {isHidden ? "숨김" : "표시"}
@@ -333,7 +333,7 @@ function SegmentCard({
             <span className="text-xs font-medium text-gray-600 shrink-0">{derivedSegProgress}%</span>
           </div>
           {weightMismatch && (
-            <p className="text-[10px] text-amber-600">⚠ 분담율 합 {Math.round(weightSum)}% (권장 100%) — 합 기준으로 정규화되어 계산됩니다</p>
+            <p className="text-[10px] text-amber-600 dark:text-amber-400">⚠ 분담율 합 {Math.round(weightSum)}% (권장 100%) — 합 기준으로 정규화되어 계산됩니다</p>
           )}
         </div>
       ) : (
@@ -370,7 +370,7 @@ function SegmentCard({
           onClick={() => setErrorPopup(null)}>
           <div className="bg-white rounded-xl shadow-xl px-6 py-5 max-w-xs w-full mx-4" onClick={(e) => e.stopPropagation()}>
             <p className="text-sm font-semibold text-gray-800 mb-1">저장 실패</p>
-            <p className="text-sm text-red-600 mb-4">{errorPopup.message}</p>
+            <p className="text-sm text-red-600 dark:text-red-400 mb-4">{errorPopup.message}</p>
             <button
               onClick={() => setErrorPopup(null)}
               className="w-full bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700"
@@ -385,7 +385,7 @@ function SegmentCard({
       <div className="pt-1 space-y-1">
         <div className="flex items-center justify-between">
           <p className="text-xs font-semibold text-gray-400 uppercase">담당 자원</p>
-          {!readonly && <button onClick={() => setShowAddAssign(!showAddAssign)} className="text-xs text-blue-600 hover:underline">+ 배정</button>}
+          {!readonly && <button onClick={() => setShowAddAssign(!showAddAssign)} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">+ 배정</button>}
         </div>
         {assignments.length === 0 && !showAddAssign && (
           <p className="text-xs text-gray-300">배정된 자원 없음</p>
@@ -498,7 +498,7 @@ function SegmentCard({
               )}
             </div>
             {newAssign.resourceId && (
-              <p className="text-xs text-blue-600 truncate">
+              <p className="text-xs text-blue-600 dark:text-blue-400 truncate">
                 선택: {unusedResources.find((r: any) => r.id === newAssign.resourceId)?.name}
               </p>
             )}
@@ -951,7 +951,7 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
           {onCopy && !isParent && (
             <button
               onClick={() => onCopy({ id: task.id, name: task.name, projectId })}
-              className="text-xs text-blue-600 hover:bg-blue-50 border border-blue-200 hover:border-blue-300 px-2.5 py-1 rounded-lg transition-colors shrink-0"
+              className="text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 border border-blue-200 dark:border-blue-800 hover:border-blue-300 px-2.5 py-1 rounded-lg transition-colors shrink-0"
               title="다른 프로젝트로 복사"
             >
               📋 복사
@@ -961,7 +961,7 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
         </div>
 
         {/* Status + Progress (always visible) */}
-        <div className="px-6 py-3 border-b border-gray-100 space-y-3 bg-gray-50/50">
+        <div className="px-6 py-3 border-b border-gray-100 space-y-3 bg-gray-50/50 dark:bg-gray-500/10">
           <div className="flex gap-2 flex-wrap items-center">
             {(() => {
               // 지연 판정 — 미완료 + endDate 지남
@@ -1034,20 +1034,20 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
                       setSegResSearch("");
                     }
                     setShowAddSeg(!showAddSeg);
-                  }} className="text-xs text-blue-600 hover:underline font-medium">
+                  }} className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium">
                     + 구간 추가
                   </button>
                 </div>
               )}
               {isParent && (
-                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <p className="text-xs text-amber-600 dark:text-amber-300 bg-amber-50 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
                   하위 태스크를 보유한 상위 태스크입니다. 일정과 진행률은 하위 태스크에서 자동 집계됩니다.
                 </p>
               )}
 
               {/* 상위 태스크 집계 요약 카드 */}
               {isParent && (
-                <div className="border border-gray-200 rounded-lg p-3 space-y-3 bg-gray-50/50">
+                <div className="border border-gray-200 rounded-lg p-3 space-y-3 bg-gray-50/50 dark:bg-gray-500/10">
                   <div>
                     <p className="text-sm font-medium text-gray-800">전체 기간 (하위 집계)</p>
                     <p className="text-xs text-gray-500 mt-0.5">
@@ -1081,7 +1081,7 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
                     <div className="flex items-center justify-between">
                       <p className="text-xs font-semibold text-gray-400 uppercase">직접 배정</p>
                       {parentSegId && (
-                        <button onClick={() => setShowAddParentRes(!showAddParentRes)} className="text-xs text-blue-600 hover:underline">+ 배정</button>
+                        <button onClick={() => setShowAddParentRes(!showAddParentRes)} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">+ 배정</button>
                       )}
                     </div>
                     {parentSegAssignments.length === 0 && !showAddParentRes && (
@@ -1137,7 +1137,7 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
                           )}
                         </div>
                         {newParentRes.resourceId && (
-                          <p className="text-xs text-blue-600 truncate">
+                          <p className="text-xs text-blue-600 dark:text-blue-400 truncate">
                             선택: {allResources.find((r: any) => r.id === newParentRes.resourceId)?.name}
                           </p>
                         )}
@@ -1276,7 +1276,7 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
           <div className="px-6 py-4 space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-semibold text-gray-500 uppercase">의존 관계</h3>
-              <button onClick={() => setShowAddDep(!showAddDep)} className="text-xs text-blue-600 hover:underline">+ 추가</button>
+              <button onClick={() => setShowAddDep(!showAddDep)} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">+ 추가</button>
             </div>
 
             {showAddDep && (
@@ -1321,7 +1321,7 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
                   const depType = p.dependencyType ?? p.type;
                   const lagVal = p.lag ?? p.lagDays ?? 0;
                   return (
-                  <div key={predId} className="flex items-center gap-2 bg-orange-50 border border-orange-100 rounded-lg px-2 py-1.5">
+                  <div key={predId} className="flex items-center gap-2 bg-orange-50 dark:bg-orange-950 border border-orange-100 dark:border-orange-900 rounded-lg px-2 py-1.5">
                     <span className="text-xs text-orange-400 shrink-0">선행</span>
                     <span className="text-xs font-medium text-gray-800 flex-1 truncate">{predName}</span>
                     <select
@@ -1374,7 +1374,7 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
                   const succName = s.successorTask?.name ?? s.successor?.name ?? "?";
                   const succType = s.dependencyType ?? s.type;
                   return (
-                  <div key={succId} className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-lg px-2 py-1.5">
+                  <div key={succId} className="flex items-center gap-2 bg-blue-50 border border-blue-100 dark:border-blue-900 rounded-lg px-2 py-1.5">
                     <span className="text-xs text-blue-400 shrink-0">후행</span>
                     <span className="text-xs font-medium text-gray-800 flex-1 truncate">{succName}</span>
                     <span className="text-xs text-gray-500">{succType}</span>
@@ -1392,7 +1392,7 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-semibold text-gray-500 uppercase">장비 배정 ({taskDeployments.length})</h3>
               {!isParent && (
-                <button onClick={openAddEquip} className="text-xs text-blue-600 hover:underline">+ 장비 배정</button>
+                <button onClick={openAddEquip} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">+ 장비 배정</button>
               )}
             </div>
 
@@ -1440,7 +1440,7 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
                         <span>{d.equipment ? "🔧" : "📡"}</span>
                         <span className="font-medium">{d.equipment?.name ?? (d.sensors?.[0]?.sensor?.name || "센서 단독")}</span>
                         <span className="text-xs text-gray-400">{d.equipment?.category?.name ?? (d.sensors?.[0]?.sensor?.model || "")}</span>
-                        {!d.equipment && <span className="text-[10px] px-1 py-0.5 rounded bg-cyan-50 text-cyan-600">센서 단독</span>}
+                        {!d.equipment && <span className="text-[10px] px-1 py-0.5 rounded bg-cyan-50 dark:bg-cyan-950 text-cyan-600 dark:text-cyan-300">센서 단독</span>}
                         <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
                           d.status === "ACTIVE" ? "bg-blue-100 text-blue-700" :
                           d.status === "COMPLETED" ? "bg-green-100 text-green-700" :
@@ -1456,7 +1456,7 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
                             await loadTaskDeployments();
                             onRefresh();
                           } catch (e: any) { alert(e.message || "해제 실패"); }
-                        }} className="text-xs text-red-500 hover:text-red-700">해제</button>
+                        }} className="text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300">해제</button>
                       )}
                     </div>
                     {d.sensors?.length > 0 && (
@@ -1596,14 +1596,14 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
                       <div className="flex items-center gap-2 min-w-0">
                         <span className={clsx(
                           "text-xs font-medium px-2 py-0.5 rounded-full shrink-0",
-                          h.changeType === "DATE_CHANGED" ? "bg-blue-50 text-blue-700" :
-                          h.changeType === "PROGRESS_UPDATED" ? "bg-green-50 text-green-700" :
-                          h.changeType === "ASSIGNMENT_CHANGED" ? "bg-purple-50 text-purple-700" :
-                          h.changeType === "SEGMENT_ADDED" ? "bg-teal-50 text-teal-700" :
-                          h.changeType === "SEGMENT_REMOVED" ? "bg-red-50 text-red-700" :
-                          h.changeType === "COMMENT_ADDED" ? "bg-orange-50 text-orange-700" :
-                          h.changeType === "COMMENT_EDITED" ? "bg-orange-50 text-orange-700" :
-                          h.changeType === "COMMENT_DELETED" ? "bg-red-50 text-red-700" :
+                          h.changeType === "DATE_CHANGED" ? "bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300" :
+                          h.changeType === "PROGRESS_UPDATED" ? "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300" :
+                          h.changeType === "ASSIGNMENT_CHANGED" ? "bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300" :
+                          h.changeType === "SEGMENT_ADDED" ? "bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300" :
+                          h.changeType === "SEGMENT_REMOVED" ? "bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300" :
+                          h.changeType === "COMMENT_ADDED" ? "bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300" :
+                          h.changeType === "COMMENT_EDITED" ? "bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300" :
+                          h.changeType === "COMMENT_DELETED" ? "bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300" :
                           "bg-gray-100 text-gray-600"
                         )}>
                           {h.changeType === "DATE_CHANGED" ? "일정 변경" :

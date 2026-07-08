@@ -201,7 +201,7 @@ function EquipmentListTab() {
             if (isEditing) {
               return (
                 <div key={eq.id} className="bg-white border-2 border-blue-300 rounded-lg p-4 space-y-3">
-                  <h3 className="font-semibold text-sm text-blue-700">장비 수정</h3>
+                  <h3 className="font-semibold text-sm text-blue-700 dark:text-blue-300">장비 수정</h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     <input placeholder="장비명 *" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                       className="border rounded px-3 py-2 text-sm" />
@@ -262,7 +262,7 @@ function EquipmentListTab() {
                     수정
                   </button>
                   <button onClick={() => handleDelete(eq.id, eq.name)}
-                    className="px-3 py-1.5 text-xs font-medium border border-red-200 rounded-lg text-red-500 hover:bg-red-50 transition-colors">
+                    className="px-3 py-1.5 text-xs font-medium border border-red-200 rounded-lg text-red-500 hover:bg-red-50 transition-colors dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950">
                     삭제
                   </button>
                 </div>
@@ -438,7 +438,7 @@ function SensorListTab() {
             if (isEditing) {
               return (
                 <div key={sn.id} className="bg-white border-2 border-blue-300 rounded-lg p-4 space-y-3">
-                  <h3 className="font-semibold text-sm text-blue-700">센서 수정</h3>
+                  <h3 className="font-semibold text-sm text-blue-700 dark:text-blue-300">센서 수정</h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     <input placeholder="센서명 *" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                       className="border rounded px-3 py-2 text-sm" />
@@ -495,7 +495,7 @@ function SensorListTab() {
                     SN: {sn.serialNumber} {sn.manufacturer && `| ${sn.manufacturer}`}
                     {sn.currentLocation && ` | ${sn.currentLocation}`}
                     {sn.calibrationDaysRemaining != null && (
-                      <span className={sn.calibrationDaysRemaining <= 30 ? " text-orange-500 font-medium" : ""}>
+                      <span className={sn.calibrationDaysRemaining <= 30 ? " text-orange-500 font-medium dark:text-orange-400" : ""}>
                         {" "}| 교정 D-{sn.calibrationDaysRemaining}
                       </span>
                     )}
@@ -507,7 +507,7 @@ function SensorListTab() {
                     수정
                   </button>
                   <button onClick={() => handleDelete(sn.id, sn.name)}
-                    className="px-3 py-1.5 text-xs font-medium border border-red-200 rounded-lg text-red-500 hover:bg-red-50 transition-colors">
+                    className="px-3 py-1.5 text-xs font-medium border border-red-200 rounded-lg text-red-500 hover:bg-red-50 transition-colors dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950">
                     삭제
                   </button>
                 </div>

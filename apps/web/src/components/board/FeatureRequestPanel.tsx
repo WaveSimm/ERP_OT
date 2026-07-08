@@ -108,7 +108,7 @@ export default function FeatureRequestPanel({ post, onUpdated }: Props) {
   const resolvedAt = post.resolvedAt ? new Date(post.resolvedAt) : null;
 
   return (
-    <div className="rounded-lg border border-blue-200 bg-blue-50/50 px-4 py-3 text-sm">
+    <div className="rounded-lg border border-blue-200 bg-blue-50/50 dark:bg-blue-500/10 px-4 py-3 text-sm">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-2">
         <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_LABEL[status].bg} ${STATUS_LABEL[status].fg}`}>
           {STATUS_LABEL[status].text}

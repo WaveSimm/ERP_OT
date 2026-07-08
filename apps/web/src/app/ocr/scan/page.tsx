@@ -211,10 +211,10 @@ export default function OcrScanPage() {
                 </>
               )}
               {result.status === "CONFIRMED" && (
-                <span className="text-sm text-green-600 font-medium">확인 완료됨</span>
+                <span className="text-sm text-green-600 dark:text-green-400 font-medium">확인 완료됨</span>
               )}
               {result.status === "APPLIED" && (
-                <span className="text-sm text-indigo-600 font-medium">ERP 반영 완료</span>
+                <span className="text-sm text-indigo-600 dark:text-indigo-400 font-medium">ERP 반영 완료</span>
               )}
               <div className="flex-1" />
               <button
@@ -288,7 +288,7 @@ function UploadMini({ onFile, scanning }: { onFile: (f: File) => void; scanning:
       <button
         onClick={() => inputRef.current?.click()}
         disabled={scanning}
-        className="px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded hover:bg-blue-100 disabled:opacity-50"
+        className="px-2 py-1 text-xs bg-blue-50 text-blue-600 dark:text-blue-300 rounded hover:bg-blue-100 disabled:opacity-50"
       >
         {scanning ? "처리중..." : "다른 파일"}
       </button>
@@ -400,7 +400,7 @@ function OcrFieldForm({
   return (
     <div className="space-y-3">
       {lowFields.length > 0 && (
-        <div className="text-xs text-red-600 font-medium mb-1">
+        <div className="text-xs text-red-600 dark:text-red-400 font-medium mb-1">
           수동 확인 필요 ({lowFields.length}건)
         </div>
       )}
@@ -436,7 +436,7 @@ function OcrFieldForm({
                 value={values[f.key] ?? ""}
                 onChange={(e) => onChange(f.key, e.target.value)}
                 className={`w-full px-2.5 py-1.5 border rounded text-sm ${
-                  level === "LOW" ? "border-red-300 bg-red-50/50" :
+                  level === "LOW" ? "border-red-300 bg-red-50/50 dark:bg-red-500/10" :
                   level === "MEDIUM" ? "border-yellow-300" :
                   "border-gray-200"
                 }`}

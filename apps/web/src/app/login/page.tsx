@@ -36,7 +36,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-950 dark:to-slate-950">
       <div className="w-full max-w-sm">
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <div className="text-center mb-8">
@@ -48,7 +48,7 @@ export default function LoginPage() {
           </div>
 
           {idle && (
-            <div className="mb-4 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-center">
+            <div className="mb-4 text-xs text-amber-700 dark:text-amber-300 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-center">
               30분 이상 활동이 없어 자동 로그아웃되었습니다. 다시 로그인해 주세요.
             </div>
           )}
@@ -79,7 +79,7 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-2.5">
+              <div className="bg-red-50 border border-red-200 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-2.5">
                 {error}
               </div>
             )}

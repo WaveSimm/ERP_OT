@@ -44,7 +44,7 @@ export default function GanttRangeBar({
       <span className="text-[11px] text-gray-400">범위</span>
       <button onClick={() => shiftViewRange(-1)} disabled={!viewStart || !viewEnd}
         title="구간 길이만큼 앞으로 이동"
-        className="w-6 h-6 flex items-center justify-center rounded-md border border-blue-300 bg-blue-50 text-blue-600 text-sm font-bold hover:bg-blue-100 hover:border-blue-400 disabled:opacity-40 transition-colors">◀</button>
+        className="w-6 h-6 flex items-center justify-center rounded-md border border-blue-300 dark:border-blue-800 bg-blue-50 text-blue-600 dark:text-blue-300 text-sm font-bold hover:bg-blue-100 dark:hover:bg-blue-900 hover:border-blue-400 disabled:opacity-40 transition-colors">◀</button>
       <DateInput value={viewStart} onChange={(e) => setViewStart(e.target.value)}
         className="text-[11px] px-1.5 py-0.5 border border-gray-200 rounded w-[120px]" />
       <span className="text-[11px] text-gray-300">~</span>
@@ -52,7 +52,7 @@ export default function GanttRangeBar({
         className="text-[11px] px-1.5 py-0.5 border border-gray-200 rounded w-[120px]" />
       <button onClick={() => shiftViewRange(1)} disabled={!viewStart || !viewEnd}
         title="구간 길이만큼 뒤로 이동"
-        className="w-6 h-6 flex items-center justify-center rounded-md border border-blue-300 bg-blue-50 text-blue-600 text-sm font-bold hover:bg-blue-100 hover:border-blue-400 disabled:opacity-40 transition-colors">▶</button>
+        className="w-6 h-6 flex items-center justify-center rounded-md border border-blue-300 dark:border-blue-800 bg-blue-50 text-blue-600 dark:text-blue-300 text-sm font-bold hover:bg-blue-100 dark:hover:bg-blue-900 hover:border-blue-400 disabled:opacity-40 transition-colors">▶</button>
       <button onClick={() => {
         setViewStart(projectStartDate || "");
         setViewEnd(projectEndDate || "");

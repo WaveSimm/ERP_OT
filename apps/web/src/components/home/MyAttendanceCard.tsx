@@ -101,7 +101,7 @@ export default function MyAttendanceCard() {
               <button
                 onClick={() => act(() => attendanceApi.checkIn({ workType: "FIELD" }), "외근 출근 처리하시겠습니까?")}
                 disabled={saving}
-                className="flex-1 px-3 py-2 text-sm font-semibold border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 disabled:opacity-50"
+                className="flex-1 px-3 py-2 text-sm font-semibold border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950 disabled:opacity-50"
               >
                 🔵 외근
               </button>

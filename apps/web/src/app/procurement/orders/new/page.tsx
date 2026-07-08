@@ -229,8 +229,8 @@ export default function NewOrderPage() {
               placeholder="결재자 검색..."
               allowCustom
               className={`w-full border rounded-lg px-3 py-2 text-sm ${
-                form.approverId ? "border-emerald-400 bg-emerald-50/30"
-                : form.approverName ? "border-amber-400 bg-amber-50/30" : ""
+                form.approverId ? "border-emerald-400 bg-emerald-50/30 dark:bg-emerald-500/10"
+                : form.approverName ? "border-amber-400 bg-amber-50/30 dark:bg-amber-500/10" : ""
               }`}
               loadOptions={async (q) => {
                 const filtered = users.filter((u: any) =>
@@ -254,8 +254,8 @@ export default function NewOrderPage() {
               placeholder="결재자 검색..."
               allowCustom
               className={`w-full border rounded-lg px-3 py-2 text-sm ${
-                form.secondApproverId ? "border-emerald-400 bg-emerald-50/30"
-                : form.secondApproverName ? "border-amber-400 bg-amber-50/30" : ""
+                form.secondApproverId ? "border-emerald-400 bg-emerald-50/30 dark:bg-emerald-500/10"
+                : form.secondApproverName ? "border-amber-400 bg-amber-50/30 dark:bg-amber-500/10" : ""
               }`}
               loadOptions={async (q) => {
                 const filtered = users.filter((u: any) =>
@@ -279,8 +279,8 @@ export default function NewOrderPage() {
               placeholder="결재자 검색..."
               allowCustom
               className={`w-full border rounded-lg px-3 py-2 text-sm ${
-                form.thirdApproverId ? "border-emerald-400 bg-emerald-50/30"
-                : form.thirdApproverName ? "border-amber-400 bg-amber-50/30" : ""
+                form.thirdApproverId ? "border-emerald-400 bg-emerald-50/30 dark:bg-emerald-500/10"
+                : form.thirdApproverName ? "border-amber-400 bg-amber-50/30 dark:bg-amber-500/10" : ""
               }`}
               loadOptions={async (q) => {
                 const filtered = users.filter((u: any) =>
@@ -403,7 +403,7 @@ export default function NewOrderPage() {
       <div className="bg-white rounded-lg border p-6 mb-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-medium">품목</h3>
-          <button onClick={addItem} className="text-sm text-blue-600 hover:underline">+ 품목 추가</button>
+          <button onClick={addItem} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">+ 품목 추가</button>
         </div>
         <table className="w-full text-sm table-fixed">
           <colgroup>
@@ -448,7 +448,7 @@ export default function NewOrderPage() {
                         placeholder="품목 검색..."
                         allowCustom
                         // 매칭되면 border 색으로 표시 (행 높이 변화 없음)
-                        className={`w-full border rounded px-2 py-1.5 text-sm ${item.productMasterId ? "border-emerald-400 bg-emerald-50/30" : ""}`}
+                        className={`w-full border rounded px-2 py-1.5 text-sm ${item.productMasterId ? "border-emerald-400 bg-emerald-50/30 dark:bg-emerald-500/10" : ""}`}
                         loadOptions={async (q) => {
                           const res = await procurementApi.getProducts({ search: q, itemType: "SIMPLE", limit: 20 });
                           return (res.items || []).map((p: any) => {
@@ -467,7 +467,7 @@ export default function NewOrderPage() {
                       type="button"
                       onClick={() => setCreatingMasterIdx(idx)}
                       title="신규 품목 등록"
-                      className="px-2 py-1 text-xs border border-blue-300 text-blue-600 rounded hover:bg-blue-50 whitespace-nowrap"
+                      className="px-2 py-1 text-xs border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded hover:bg-blue-50 dark:hover:bg-blue-950 whitespace-nowrap"
                     >+ 신규</button>
                   </div>
                 </td>

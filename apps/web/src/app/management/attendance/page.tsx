@@ -73,7 +73,7 @@ export default function ManagementAttendancePage() {
         <button onClick={() => shiftMonth(-1)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">◀</button>
         <span className="text-lg font-semibold text-gray-800 min-w-[110px] text-center">{year}년 {month}월</span>
         <button onClick={() => shiftMonth(1)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">▶</button>
-        <span className="text-sm text-gray-500">휴가·휴일근무 <b>{rows.length}</b>건 · ecount 미확인 <b className={uncheckedCount ? "text-red-600" : "text-gray-700"}>{uncheckedCount}</b>건</span>
+        <span className="text-sm text-gray-500">휴가·휴일근무 <b>{rows.length}</b>건 · ecount 미확인 <b className={uncheckedCount ? "text-red-600 dark:text-red-400" : "text-gray-700"}>{uncheckedCount}</b>건</span>
         <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer ml-2">
           <input type="checkbox" checked={uncheckedOnly} onChange={(e) => setUncheckedOnly(e.target.checked)} className="rounded" />
           미확인만 보기
@@ -104,12 +104,12 @@ export default function ManagementAttendancePage() {
               const st = STATUS_LABELS[r.status] ?? { label: r.status, cls: "bg-gray-100 text-gray-500" };
               const checked = !!r.ecountCheckedAt;
               return (
-                <tr key={`${r.kind}:${r.id}`} className={`border-b border-gray-50 hover:bg-blue-50/30 ${checked ? "" : "bg-amber-50/40"}`}>
+                <tr key={`${r.kind}:${r.id}`} className={`border-b border-gray-50 hover:bg-blue-50/30 dark:hover:bg-blue-500/10 ${checked ? "" : "bg-amber-50/40 dark:bg-amber-500/10"}`}>
                   <td className="px-3 py-2">
                     <label className="flex items-center gap-1.5 cursor-pointer select-none">
                       <input type="checkbox" checked={checked} disabled={saving === r.id}
                         onChange={() => toggle(r)} className="w-4 h-4 rounded accent-blue-600" />
-                      <span className={`text-xs ${checked ? "text-blue-600 font-medium" : "text-gray-400"}`}>{checked ? "확인" : "미확인"}</span>
+                      <span className={`text-xs ${checked ? "text-blue-600 font-medium dark:text-blue-400" : "text-gray-400"}`}>{checked ? "확인" : "미확인"}</span>
                     </label>
                   </td>
                   <td className="px-3 py-2 text-gray-500">{r.departmentName ?? "—"}</td>

@@ -186,7 +186,7 @@ export default function ReservationCalendar({
   if (resources.length === 0) {
     return (
       <div className="text-center py-12 text-gray-400 text-sm">
-        등록된 활성 자원이 없습니다. <a href="/admin/equipment-resources" className="text-blue-600 underline">공용자산 관리</a>에서 추가하세요.
+        등록된 활성 자원이 없습니다. <a href="/admin/equipment-resources" className="text-blue-600 dark:text-blue-400 underline">공용자산 관리</a>에서 추가하세요.
       </div>
     );
   }
@@ -207,7 +207,7 @@ export default function ReservationCalendar({
             </th>
             {days.map((d) => {
               const colorCls = d.isHoliday
-                ? "text-red-500 font-medium"
+                ? "text-red-500 dark:text-red-400 font-medium"
                 : d.isWeekend
                 ? "text-gray-400"
                 : "text-gray-500";

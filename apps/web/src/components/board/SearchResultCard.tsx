@@ -4,8 +4,8 @@ import Link from "next/link";
 import { type SearchResultItem } from "@/lib/api";
 
 const TYPE_LABEL: Record<string, { icon: string; label: string; bg: string }> = {
-  post: { icon: "📄", label: "게시글", bg: "bg-blue-50 text-blue-700" },
-  worklog: { icon: "📝", label: "작업비고", bg: "bg-indigo-50 text-indigo-700" },
+  post: { icon: "📄", label: "게시글", bg: "bg-blue-50 text-blue-700 dark:text-blue-300" },
+  worklog: { icon: "📝", label: "작업비고", bg: "bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300" },
 };
 
 function formatDate(iso: string) {
@@ -35,7 +35,7 @@ export default function SearchResultCard({ item }: { item: SearchResultItem }) {
           </span>
         )}
         {item.projectName && (
-          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-50 text-purple-700">
+          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
             {item.projectName}
           </span>
         )}

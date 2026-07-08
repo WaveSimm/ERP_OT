@@ -14,7 +14,7 @@ export default function EquipmentTab({ deploymentsLoading, projectDeployments, r
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold">투입 장비 / 센서</h3>
         <button onClick={() => window.open("/equipment", "_blank")}
-          className="text-sm text-blue-600 hover:underline">장비 관리 →</button>
+          className="text-sm text-blue-600 dark:text-blue-400 hover:underline">장비 관리 →</button>
       </div>
       {deploymentsLoading ? (
         <div className="text-center py-12 text-gray-400">불러오는 중...</div>
@@ -43,7 +43,7 @@ export default function EquipmentTab({ deploymentsLoading, projectDeployments, r
                       onClick={() => router.push(`/equipment/${d.equipment.id}?tab=schedules`)}>
                       <div className="flex items-center gap-2">
                         <span className="text-lg">🔧</span>
-                        <span className="font-semibold text-blue-600 hover:underline">{d.equipment.name}</span>
+                        <span className="font-semibold text-blue-600 dark:text-blue-400 hover:underline">{d.equipment.name}</span>
                         <span className="text-xs text-gray-400">{d.equipment.category?.name}</span>
                         {d.equipment.model && <span className="text-xs text-gray-400">· {d.equipment.model}</span>}
                         <span className={`text-xs px-2 py-0.5 rounded-full ${st.color}`}>{st.label}</span>
@@ -60,7 +60,7 @@ export default function EquipmentTab({ deploymentsLoading, projectDeployments, r
                             <div key={ds.id} className="flex items-center gap-1 bg-gray-50 border rounded px-2 py-1 text-xs cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition-colors"
                               onClick={() => router.push(`/equipment/sensors/${ds.sensor?.id}?tab=schedules`)}>
                               <span>📡</span>
-                              <span className="font-medium text-blue-600">{ds.sensor?.name}</span>
+                              <span className="font-medium text-blue-600 dark:text-blue-400">{ds.sensor?.name}</span>
                               <span className="text-gray-400">{ds.sensor?.model}</span>
                               <span className="text-gray-400">SN: {ds.sensor?.serialNumber}</span>
                               {ds.notes && <span className="text-gray-400 ml-1">({ds.notes})</span>}
@@ -79,7 +79,7 @@ export default function EquipmentTab({ deploymentsLoading, projectDeployments, r
                         <span className="text-lg">📡</span>
                         {d.sensors?.length === 1 ? (
                           <>
-                            <span className="font-semibold text-blue-600 hover:underline">{d.sensors[0].sensor?.name}</span>
+                            <span className="font-semibold text-blue-600 dark:text-blue-400 hover:underline">{d.sensors[0].sensor?.name}</span>
                             <span className="text-xs text-gray-400">{d.sensors[0].sensor?.model}</span>
                             <span className="text-xs text-gray-400">SN: {d.sensors[0].sensor?.serialNumber}</span>
                           </>
@@ -100,7 +100,7 @@ export default function EquipmentTab({ deploymentsLoading, projectDeployments, r
                             <div key={ds.id} className="flex items-center gap-1 bg-gray-50 border rounded px-2 py-1 text-xs cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition-colors"
                               onClick={() => router.push(`/equipment/sensors/${ds.sensor?.id}?tab=schedules`)}>
                               <span>📡</span>
-                              <span className="font-medium text-blue-600">{ds.sensor?.name}</span>
+                              <span className="font-medium text-blue-600 dark:text-blue-400">{ds.sensor?.name}</span>
                               <span className="text-gray-400">{ds.sensor?.model}</span>
                               <span className="text-gray-400">SN: {ds.sensor?.serialNumber}</span>
                             </div>

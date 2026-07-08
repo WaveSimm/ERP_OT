@@ -95,7 +95,7 @@ export default function FinanceQueuePage() {
         ]).map((t) => (
           <button key={t.v} onClick={() => setTab(t.v)}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              tab === t.v ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"
+              tab === t.v ? "border-blue-600 text-blue-600 dark:text-blue-400" : "border-transparent text-gray-500 hover:text-gray-700"
             }`}>
             {t.l}
           </button>
@@ -105,9 +105,9 @@ export default function FinanceQueuePage() {
       {/* 일괄 작업 바 (접수 대기 탭에서만 의미 있음) */}
       {tab === "APPROVED" && items.length > 0 && (
         <div className={`sticky top-14 z-10 border rounded-lg p-3 flex flex-wrap items-center gap-2 transition-colors ${
-          sel.count > 0 ? "bg-blue-50 border-blue-300" : "bg-gray-50 border-gray-200"
+          sel.count > 0 ? "bg-blue-50 border-blue-300 dark:border-blue-800" : "bg-gray-50 border-gray-200"
         }`}>
-          <span className={`text-sm font-medium ${sel.count > 0 ? "text-blue-900" : "text-gray-500"}`}>
+          <span className={`text-sm font-medium ${sel.count > 0 ? "text-blue-900 dark:text-blue-300" : "text-gray-500"}`}>
             {sel.count > 0 ? `선택 ${sel.count}건` : "선택된 항목 없음"}
           </span>
           <button onClick={bulkReceive} disabled={bulkBusy || sel.count === 0}
@@ -159,7 +159,7 @@ export default function FinanceQueuePage() {
                       </td>
                     )}
                     <td className="px-3 py-2">
-                      <Link href={`/expense/settlements/${s.id}`} className="text-blue-600 hover:underline font-medium">
+                      <Link href={`/expense/settlements/${s.id}`} className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
                         {s.title}
                       </Link>
                     </td>

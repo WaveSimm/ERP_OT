@@ -231,13 +231,13 @@ export default function PartsPage() {
                     <td className="py-2 px-3">{p.name}</td>
                     <td className="py-2 px-3 text-gray-600">{p.manufacturer || "-"}</td>
                     <td className="py-2 px-3 text-right">{p.unitPrice ? Number(p.unitPrice).toLocaleString() : "-"}</td>
-                    <td className={`py-2 px-3 text-right font-semibold ${isLow ? "text-red-600" : "text-gray-800"}`}>
+                    <td className={`py-2 px-3 text-right font-semibold ${isLow ? "text-red-600 dark:text-red-400" : "text-gray-800"}`}>
                       {p.stockQuantity}
                     </td>
                     <td className="py-2 px-3 text-right text-gray-500">{p.minStockLevel}</td>
                     <td className="py-2 px-3 text-gray-500">{p.location || "-"}</td>
                     <td className="py-2 px-3 text-right">
-                      <button onClick={() => editPart(p)} className="text-xs text-blue-600 hover:underline mr-2">수정</button>
+                      <button onClick={() => editPart(p)} className="text-xs text-blue-600 hover:underline mr-2 dark:text-blue-400">수정</button>
                       <button onClick={() => deletePart(p.id)} className="text-xs text-red-400 hover:underline">삭제</button>
                     </td>
                   </tr>
