@@ -165,7 +165,7 @@ export default function SearchPage() {
   if (!mounted) {
     return (
       <AppLayout>
-        <div className="max-w-7xl mx-auto px-6 py-12 flex items-center justify-center">
+        <div className="px-6 py-12 flex items-center justify-center">
           <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
         </div>
       </AppLayout>
@@ -174,7 +174,7 @@ export default function SearchPage() {
 
   return (
     <AppLayout>
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="px-6 py-6">
         <div className="text-sm text-gray-500 flex items-center gap-1.5 mb-3">
           <Link href="/board" className="hover:text-gray-700">게시판</Link>
           <span>›</span>

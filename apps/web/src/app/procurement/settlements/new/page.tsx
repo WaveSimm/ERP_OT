@@ -221,8 +221,8 @@ export default function NewSettlementPage() {
   };
 
   return (
-    <div className="max-w-5xl">
-      <h2 className="text-lg font-semibold mb-4">수입원가정산서 작성</h2>
+    <div className="max-w-4xl mx-auto">
+      <h2 className="text-lg font-semibold text-gray-900 mb-4">수입원가정산서 작성</h2>
 
       {/* 연결 발주 검색 — 발주 선택 시 송금·품목 자동 채움 */}
       <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">

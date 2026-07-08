@@ -205,10 +205,10 @@ export default function NewOrderPage() {
   };
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-4xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <button onClick={() => router.push("/procurement")} className="text-gray-400 hover:text-gray-600">&larr;</button>
-        <h1 className="text-xl font-bold">발주 등록</h1>
+        <h1 className="text-lg font-semibold text-gray-900">발주 등록</h1>
       </div>
 
       {/* 결재라인 (v1.6 2026-05-14) — 최상단 배치 */}

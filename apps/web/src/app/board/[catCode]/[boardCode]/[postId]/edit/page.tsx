@@ -127,7 +127,7 @@ export default function EditPostPage({
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl p-6">
-          <h1 className="text-lg font-bold text-gray-900 mb-4">글 수정</h1>
+          <h1 className="text-lg font-semibold text-gray-900 mb-4">글 수정</h1>
           <PostEditor
             initial={{
               title: post.title,

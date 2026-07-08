@@ -50,7 +50,7 @@ export default function BoardPage({ params }: { params: { catCode: string; board
 
   return (
     <AppLayout>
-      <div className="max-w-6xl mx-auto px-6 py-6">
+      <div className="px-6 py-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <div className="text-sm text-gray-500 flex items-center gap-1.5">
@@ -58,7 +58,7 @@ export default function BoardPage({ params }: { params: { catCode: string; board
               <span>›</span>
               <Link href={`/board/${catCode}`} className="hover:text-gray-700">{catName}</Link>
             </div>
-            <h2 className="text-xl font-bold text-gray-900 mt-1">{board?.name ?? "로딩..."}</h2>
+            <h1 className="text-2xl font-bold text-gray-900 mt-1">{board?.name ?? "로딩..."}</h1>
             {board?.description && <p className="text-sm text-gray-500 mt-0.5">{board.description}</p>}
           </div>
           <Link
