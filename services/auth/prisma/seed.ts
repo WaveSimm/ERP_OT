@@ -63,11 +63,13 @@ async function seedBoards() {
   }> = [
     { categoryId: noticeCat.id, code: "notice-company", name: "전사 공지", description: "전 직원 대상 공지사항", sortOrder: 1 },
     { categoryId: noticeCat.id, code: "notice-dept", name: "부서 공지", description: "부서별 공지사항", sortOrder: 2 },
+    { categoryId: noticeCat.id, code: "notice-weekly", name: "주간 회의", description: "주간 회의 안건·회의록 공유", sortOrder: 3 },
+    { categoryId: noticeCat.id, code: "notice-rules", name: "내부 규정", description: "사내 규정·정책 안내", sortOrder: 4 },
     { categoryId: wikiCat.id, code: "wiki-debug", name: "장비 관련", description: "장비 설치·점검·트러블슈팅 노하우", sortOrder: 1 },
     { categoryId: wikiCat.id, code: "wiki-field", name: "현장 업무", description: "현장 업무 진행 자료·노하우", sortOrder: 2 },
     { categoryId: wikiCat.id, code: "wiki-tech", name: "기술 정보", description: "기술 자료, 매뉴얼, 문서", sortOrder: 3 },
     // 2026-05-22: 회의자료 분류 신규 (사내·사외 회의록 정리)
-    { categoryId: wikiCat.id, code: "wiki-meeting", name: "회의자료", description: "사내·사외 회의록, 미팅 정리", sortOrder: 4 },
+    { categoryId: wikiCat.id, code: "wiki-meeting", name: "외부 회의록", description: "사외 회의록, 외부 미팅 정리", sortOrder: 4 },
     { categoryId: wikiCat.id, code: "wiki-misc", name: "기타 자유", description: "자유 게시판", sortOrder: 5 },
     // 게시판 design v2.0 (2026-05-22): 기능 요구 (1차 통합 1개 board)
     { categoryId: frCat.id, code: "feature-request-all", name: "기능 요구", description: "ERP 기능 요청·버그·개선 의견. 모든 직원이 등록 가능.", sortOrder: 1 },
