@@ -221,6 +221,9 @@ export async function postRoutes(
       }
       const user = extractUser(req);
       const result = await postService.assignFeature(id, dto, user);
+      if (dto.assigneeId) {
+        void noticeNotifyHook.fireFeatureAssigned({ postId: id, assigneeId: dto.assigneeId, assignerId: user.id });
+      }
       return reply.send(result);
     } catch (err) {
       return handleError(reply, err);

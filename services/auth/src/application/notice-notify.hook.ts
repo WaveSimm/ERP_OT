@@ -67,6 +67,50 @@ export class NoticeNotifyHook {
     }
   }
 
+  /**
+   * 기능 요구 게시판 담당자 지정 시 해당 담당자에게 알림.
+   */
+  async fireFeatureAssigned(ctx: { postId: string; assigneeId: string; assignerId?: string }): Promise<void> {
+    try {
+      if (ctx.assigneeId === ctx.assignerId) return; // 본인 지정은 알림 생략
+      const post = await this.prisma.post.findUnique({
+        where: { id: ctx.postId },
+        include: { board: { select: { code: true, category: { select: { code: true } } } } },
+      });
+      if (!post) {
+        this.logger.warn({ ctx }, "[feature-assign-notify] post not found");
+        return;
+      }
+      const boardCode = post.board.code;
+      const catCode = post.board.category.code;
+      const res = await fetch(`${ATTENDANCE_URL}/internal/notifications/bulk`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Internal-Token": INTERNAL_TOKEN,
+        },
+        body: JSON.stringify({
+          userIds: [ctx.assigneeId],
+          type: "feature.assigned",
+          source: "board",
+          title: "기능 요구 담당자 지정",
+          body: `"${post.title}" 담당자로 지정되었습니다.`,
+          priority: 2,
+          linkUrl: `/board/${catCode}/${boardCode}/${ctx.postId}`,
+          metadata: { postId: ctx.postId, boardCode },
+        }),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        this.logger.error({ status: res.status, text, ctx }, "[feature-assign-notify] attendance API failed");
+        return;
+      }
+      this.logger.info({ postId: ctx.postId, assigneeId: ctx.assigneeId }, "[feature-assign-notify] dispatched");
+    } catch (err) {
+      this.logger.error({ err, ctx }, "[feature-assign-notify] failed");
+    }
+  }
+
   private async collectUserIds(ctx: NoticeNotifyContext): Promise<string[]> {
     // 1. 글 단위 targetDepartmentId 지정 시 — 보드 audience보다 우선
     if (ctx.targetDepartmentId) {
