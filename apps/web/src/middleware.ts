@@ -16,6 +16,32 @@ import { NextRequest, NextResponse } from "next/server";
 
 const STATE_CHANGING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
+// ── 모바일 자동 전환 ──────────────────────────────────────────────────────────
+// User-Agent가 모바일인 "문서(GET, text/html)" 요청을 경량 모바일 화면(/m)으로 리다이렉트.
+// 탈출구: viewMode=desktop 쿠키가 있으면 우회(모바일 화면의 "PC" 버튼이 세팅).
+const MOBILE_UA = /Android|iPhone|iPod|Windows Phone|IEMobile|BlackBerry|Opera Mini|Mobile Safari|webOS/i;
+
+function mobileRedirect(req: NextRequest): NextResponse | null {
+  if (req.method !== "GET") return null;
+  const { pathname } = req.nextUrl;
+  // 이미 모바일 경로 / 로그인 / 정적파일(확장자)은 제외 — /m 은 정확히 일치하거나 /m/ 하위만
+  if (pathname === "/m" || pathname.startsWith("/m/")) return null;
+  if (pathname.startsWith("/login")) return null;
+  if (/\.[a-zA-Z0-9]+$/.test(pathname)) return null; // *.html, *.png 등 정적파일
+  // 데스크톱 강제 쿠키 우회
+  if (req.cookies.get("viewMode")?.value === "desktop") return null;
+  // 문서 요청만 (fetch/prefetch/data 요청 제외)
+  const accept = req.headers.get("accept") || "";
+  if (!accept.includes("text/html")) return null;
+  // 모바일 UA만
+  if (!MOBILE_UA.test(req.headers.get("user-agent") || "")) return null;
+
+  const url = req.nextUrl.clone();
+  url.pathname = "/m";
+  url.search = "";
+  return NextResponse.redirect(url);
+}
+
 // CSRF 검증 제외 경로 (인증 전 또는 cookie 미사용)
 const CSRF_EXEMPT_PATHS = [
   "/api/auth/login",
@@ -24,8 +50,10 @@ const CSRF_EXEMPT_PATHS = [
 ];
 
 export function middleware(req: NextRequest) {
-  // /api 경로만 검사 (페이지 navigation은 통과)
-  if (!req.nextUrl.pathname.startsWith("/api/")) return NextResponse.next();
+  // 페이지 navigation: 모바일이면 /m 으로 리다이렉트, 아니면 통과
+  if (!req.nextUrl.pathname.startsWith("/api/")) {
+    return mobileRedirect(req) ?? NextResponse.next();
+  }
 
   // state-changing 메서드만 검사
   if (!STATE_CHANGING.has(req.method)) return NextResponse.next();
@@ -59,5 +87,6 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/api/:path*"],
+  // /api(CSRF 검증) + 페이지(모바일 리다이렉트). 정적 자산은 제외.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

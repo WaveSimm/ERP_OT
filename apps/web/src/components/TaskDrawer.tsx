@@ -903,7 +903,7 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
       <div className="fixed inset-0 bg-black/20 z-30 pointer-events-none" />
 
       {/* Drawer */}
-      <div className="fixed right-0 top-0 bottom-0 w-[520px] bg-white shadow-2xl z-40 flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+      <div className="fixed right-0 top-0 bottom-0 w-full sm:w-[520px] bg-white shadow-2xl z-40 flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 flex items-start gap-3">
           <div className="flex-1 min-w-0">
@@ -1573,7 +1573,7 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
 
       {/* 이력 모달 */}
       {showHistory && (
-        <div className="fixed right-0 top-0 bottom-0 w-[520px] bg-white z-50 flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed right-0 top-0 bottom-0 w-full sm:w-[520px] bg-white z-50 flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
           <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-3">
             <button onClick={() => setShowHistory(false)} className="text-gray-400 hover:text-gray-600 text-lg">←</button>
             <div>
