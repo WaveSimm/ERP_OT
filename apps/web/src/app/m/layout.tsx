@@ -16,12 +16,6 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
     if (u) setName(u.name);
   }, []);
 
-  // PC 버전으로 전환 — viewMode=desktop 쿠키로 middleware 리다이렉트 우회
-  const goDesktop = () => {
-    document.cookie = `viewMode=desktop; path=/; max-age=${60 * 60 * 24 * 30}`;
-    router.push("/me/dashboard");
-  };
-
   const handleLogout = () => {
     clearToken();
     router.push("/login");
@@ -36,9 +30,6 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
         <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">현장</span>
         <div className="ml-auto flex items-center gap-3 shrink-0">
           {name && <span className="text-xs text-gray-500 dark:text-gray-400 max-w-[80px] truncate">{name}</span>}
-          <button onClick={goDesktop} className="text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300" title="PC 버전으로">
-            PC
-          </button>
           <button onClick={handleLogout} className="text-xs text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300">
             로그아웃
           </button>
