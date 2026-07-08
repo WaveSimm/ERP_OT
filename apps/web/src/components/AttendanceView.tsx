@@ -449,13 +449,14 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete, onDeleteLea
 
 // ─── Monthly Calendar with Work Schedule Entries ─────────────────────────────
 
-function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, defaultEnd }: {
+function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, defaultEnd, mobile = false }: {
   year: number;
   month: number;
   refresh: number;
   onEntryChanged: () => void;
   defaultStart?: string;
   defaultEnd?: string;
+  mobile?: boolean;
 }) {
   const [days, setDays] = useState<CalendarDay[]>([]);
   const [entries, setEntries] = useState<WorkScheduleEntry[]>([]);
@@ -570,7 +571,8 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
                   </div>
                   {cell.isHoliday
                     ? <span className="text-xs text-red-400 truncate leading-tight">{cell.holidayName}</span>
-                    : cell.checkIn && (
+                    : !mobile && cell.checkIn && (
+                      // 모바일에서는 CAPS 출퇴근 시간 미표시 — 좁은 캘린더 셀에서 글씨 잘림 방지
                       <span className="text-xs text-gray-400 leading-tight">
                         {fmtTime(cell.checkIn).slice(0, 5)}{cell.checkOut ? `~${fmtTime(cell.checkOut).slice(0, 5)}` : ""}
                       </span>
@@ -675,7 +677,7 @@ function HolidayWorkRequestForm({ onSuccess: _onSuccess }: { onSuccess: () => vo
 
 // 화면 정리(2026-07-07, 관리부 요청): 연차현황·출퇴근(근무시간)·휴가/휴일근무 내역 제거,
 //   월간 캘린더 + 전사근태(링크 대신 하단 직접 표시)로 단순화.
-export default function AttendanceView() {
+export default function AttendanceView({ mobile = false }: { mobile?: boolean } = {}) {
   const [refresh, setRefresh] = useState(0);
   // 본인 근무시간(유연근무 반영). 근태 추가 모달 기본값으로 사용. 로딩 전 회사 기본값.
   const [sched, setSched] = useState<{ start: string; end: string }>({ start: "09:30", end: "18:30" });
@@ -718,7 +720,7 @@ export default function AttendanceView() {
             <button onClick={() => navigateMonth(1)} className="p-1 text-gray-400 hover:text-gray-700 border border-gray-200 rounded">›</button>
           </div>
         </div>
-        <MonthlyCalendar year={year} month={month} refresh={refresh} onEntryChanged={() => setRefresh((r) => r + 1)} defaultStart={sched.start} defaultEnd={sched.end} />
+        <MonthlyCalendar year={year} month={month} refresh={refresh} onEntryChanged={() => setRefresh((r) => r + 1)} defaultStart={sched.start} defaultEnd={sched.end} mobile={mobile} />
         <p className="text-[10px] text-gray-400 mt-1.5 ml-1">날짜를 클릭하여 근태를 추가할 수 있습니다</p>
       </div>
 

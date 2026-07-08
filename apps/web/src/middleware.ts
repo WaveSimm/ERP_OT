@@ -18,7 +18,7 @@ const STATE_CHANGING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 // ── 모바일 자동 전환 ──────────────────────────────────────────────────────────
 // User-Agent가 모바일인 "문서(GET, text/html)" 요청을 경량 모바일 화면(/m)으로 리다이렉트.
-// 탈출구: viewMode=desktop 쿠키가 있으면 우회(모바일 화면의 "PC" 버튼이 세팅).
+// 모바일 기기는 예외 없이 /m 로 고정 (PC 버전 전환 없음).
 const MOBILE_UA = /Android|iPhone|iPod|Windows Phone|IEMobile|BlackBerry|Opera Mini|Mobile Safari|webOS/i;
 
 function mobileRedirect(req: NextRequest): NextResponse | null {
@@ -28,8 +28,6 @@ function mobileRedirect(req: NextRequest): NextResponse | null {
   if (pathname === "/m" || pathname.startsWith("/m/")) return null;
   if (pathname.startsWith("/login")) return null;
   if (/\.[a-zA-Z0-9]+$/.test(pathname)) return null; // *.html, *.png 등 정적파일
-  // 데스크톱 강제 쿠키 우회
-  if (req.cookies.get("viewMode")?.value === "desktop") return null;
   // 문서 요청만 (fetch/prefetch/data 요청 제외)
   const accept = req.headers.get("accept") || "";
   if (!accept.includes("text/html")) return null;

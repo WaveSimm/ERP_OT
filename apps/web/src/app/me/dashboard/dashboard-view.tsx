@@ -1583,7 +1583,7 @@ export function DashboardBody({ mobile = false }: { mobile?: boolean } = {}) {
       {tab === "expense" && <ExpenseView />}
 
       {/* Attendance */}
-      {tab === "attendance" && <AttendanceView />}
+      {tab === "attendance" && <AttendanceView mobile={mobile} />}
 
       {/* Progress modal */}
       {modalCard && (
