@@ -349,10 +349,10 @@ function DeptSection({ dept, days, viewMode, isExpanded, onToggle, holidays }: {
       </button>
       {isExpanded && (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse min-w-[640px]">
+          <table className="w-full text-sm border-collapse min-w-[640px] table-fixed">
             <thead>
               <tr className="border-t border-gray-200">
-                <th className="w-24 text-left px-3 py-2 text-xs font-semibold text-gray-500 bg-white sticky left-0 z-10">이름</th>
+                <th className="w-28 text-left px-3 py-2 text-xs font-semibold text-gray-500 bg-white sticky left-0 z-10">이름</th>
                 {days.map((day) => {
                   const holidayName = holidays?.get(day);
                   const isHol = !!holidayName;
@@ -442,7 +442,7 @@ function MemberRow({ member, days, viewMode, holidays }: { member: Member; days:
 
   return (
     <tr className="border-t border-gray-100 hover:bg-gray-50/50 dark:hover:bg-gray-500/10">
-      <td className="px-3 py-1.5 text-sm font-medium text-gray-800 bg-white sticky left-0 z-10 whitespace-nowrap">
+      <td className="w-28 px-3 py-1.5 text-sm font-medium text-gray-800 bg-white sticky left-0 z-10 truncate">
         {member.name}
       </td>
       {cellPlans.map(({ day, endDay, span, entries: dayEntries, merged }) => {
@@ -475,13 +475,17 @@ function MemberRow({ member, days, viewMode, holidays }: { member: Member; days:
                 if (merged) {
                   return (
                     <div key={e.id}
-                      className={`w-full rounded px-1 py-0.5 flex flex-col justify-center overflow-hidden ${ENTRY_COLORS[e.entryType] ?? "bg-gray-100 text-gray-600"}`}
+                      className={`w-full h-8 rounded px-1 py-0.5 flex flex-col justify-center overflow-hidden ${ENTRY_COLORS[e.entryType] ?? "bg-gray-100 text-gray-600"}`}
                       title={tip}>
                       <span className="text-xs font-medium leading-none truncate">
                         {ENTRY_LABELS[e.entryType] ?? e.entryType}{timeStr ? ` ${timeStr}` : ""}
                       </span>
-                      {detail && viewMode !== "month" && (
-                        <span className="text-xs leading-none truncate mt-0.5">{detail}</span>
+                      {viewMode !== "month" && (
+                        detail ? (
+                          <span className="text-xs leading-none truncate mt-0.5">{detail}</span>
+                        ) : (
+                          <span className="text-xs leading-none mt-0.5" aria-hidden>&nbsp;</span>
+                        )
                       )}
                     </div>
                   );
@@ -499,15 +503,17 @@ function MemberRow({ member, days, viewMode, holidays }: { member: Member; days:
                 const isPartial = !!(e.startTime && e.endTime);
                 // 근무군·휴일근무는 2줄 바 — 1줄=유형·시간, 2줄=내역(사유)
                 return (
-                  <div key={e.id} className={`w-full relative rounded bg-gray-100/60 dark:bg-gray-500/10 ${detail ? "h-9" : "h-5"}`}
+                  <div key={e.id} className={`w-full relative rounded bg-gray-100/60 dark:bg-gray-500/10 h-8`}
                     title={tip}>
                     <div className={`absolute top-0 bottom-0 rounded px-1 flex flex-col justify-center overflow-hidden ${ENTRY_COLORS[e.entryType] ?? "bg-gray-100 text-gray-600"}`}
                       style={{ left: `${left}%`, width: `${width}%` }}>
                       <span className="text-xs font-medium leading-none truncate">
                         {ENTRY_LABELS[e.entryType] ?? e.entryType}{isPartial && timeStr ? ` ${timeStr}` : ""}
                       </span>
-                      {detail && (
+                      {detail ? (
                         <span className="text-xs leading-none truncate mt-0.5">{detail}</span>
+                      ) : (
+                        <span className="text-xs leading-none mt-0.5" aria-hidden>&nbsp;</span>
                       )}
                     </div>
                   </div>
