@@ -33,10 +33,10 @@ export default function ManagementLayout({ children }: { children: React.ReactNo
 
   return (
     <AppLayout>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="sticky top-14 z-30 bg-gray-50 pt-4 pb-0 -mx-4 sm:-mx-6 px-4 sm:px-6 mb-6">
+      <div className="px-6 pb-6">
+        <div className="sticky top-14 z-30 bg-gray-50 dark:bg-gray-900 -mx-6 px-6 pt-6 pb-0 mb-6">
           <div className="flex items-center gap-2 mb-4">
-            <h1 className="text-2xl font-bold">관리</h1>
+            <h1 className="text-2xl font-bold text-gray-900">관리</h1>
             <span className="text-xs text-gray-400 mt-1.5">관리부서 전용</span>
           </div>
           <div className="flex gap-1 border-b border-gray-200">

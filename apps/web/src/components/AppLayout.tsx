@@ -267,7 +267,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center gap-2">
+        <div className="px-6 h-14 flex items-center gap-2">
           <button
             onClick={() => router.push("/home")}
             className="shrink-0 hover:opacity-80 transition-opacity cursor-pointer"

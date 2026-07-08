@@ -70,7 +70,7 @@ export default function NotificationsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">알림</h1>
+          <h1 className="text-2xl font-bold text-gray-900">알림</h1>
           {unreadCount > 0 && (
             <p className="text-sm text-gray-500 mt-0.5">읽지 않은 알림 {unreadCount}개</p>
           )}

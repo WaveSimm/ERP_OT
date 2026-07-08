@@ -88,9 +88,9 @@ export default function ContractMigrationPage() {
   const allDuplicate = preview != null && preview.newCount === 0 && preview.invalidCount === 0 && preview.duplicateCount > 0;
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900">📥 계약 마이그레이션</h1>
+        <h1 className="text-2xl font-bold text-gray-900">계약 마이그레이션</h1>
         <p className="mt-1 text-sm text-gray-500">
           연도별 계약 엑셀(예: <code className="px-1 bg-gray-100 rounded">2026년 계약파일리스트.xlsx</code>)을 업로드하면
           계약번호(<code className="px-1 bg-gray-100 rounded">#YY-순번</code>) 기준으로 중복을 검사해 <b>신규 건만</b> 적재합니다.

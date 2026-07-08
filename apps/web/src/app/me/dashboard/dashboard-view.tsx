@@ -1522,7 +1522,7 @@ export function DashboardBody({ mobile = false }: { mobile?: boolean } = {}) {
       {!mobile && (
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">내 대시보드</h1>
+            <h1 className="text-2xl font-bold text-gray-900">내 대시보드</h1>
             {data && (
               <p className="text-sm text-gray-500 mt-0.5">
                 {data.date} · 배정된 세그먼트 {data.totalAssigned}개

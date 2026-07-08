@@ -52,8 +52,8 @@ export default function AdminEquipmentResourcesPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">공용자산 관리</h1>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">공용자산 관리</h1>
       <p className="text-sm text-gray-500 mb-4">
         프로젝트 task 자원 배정과 직원현황 부하 모니터링에 사용되는 공용 장비·차량·시설을 관리합니다.
       </p>

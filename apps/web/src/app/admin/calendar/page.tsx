@@ -135,9 +135,9 @@ export default function AdminCalendarPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-6">
+    <div className="px-6 py-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-900">📅 회사 달력</h2>
+          <h1 className="text-2xl font-bold text-gray-900">회사 달력</h1>
           <div className="flex items-center gap-2">
             <SyncHolidaysButton onSynced={load} />
             <button

@@ -675,11 +675,11 @@ export default function ResourcesPage() {
 
   return (
     <AppLayout>
-      <div className="max-w-6xl mx-auto px-6 pb-6">
+      <div className="px-6 pb-6">
         {/* 헤더 + 탭 — 헤더 밑 sticky (다른 메뉴와 통일) */}
-        <div className="sticky top-14 z-30 bg-gray-50 -mx-6 px-6 pt-4 pb-0 mb-6">
+        <div className="sticky top-14 z-30 bg-gray-50 dark:bg-gray-900 -mx-6 px-6 pt-6 pb-0 mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-900">자원관리</h2>
+          <h1 className="text-2xl font-bold text-gray-900">자원관리</h1>
         </div>
 
         {/* 탭 */}

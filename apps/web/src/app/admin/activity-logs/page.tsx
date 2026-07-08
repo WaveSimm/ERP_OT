@@ -110,10 +110,10 @@ export default function ActivityLogsPage() {
   const actions = Object.keys(ACTION_LABELS);
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-4">
+    <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">시스템 이력</h1>
+          <h1 className="text-2xl font-bold text-gray-900">시스템 이력</h1>
           <p className="text-xs text-gray-400 mt-0.5">전체 {total}건</p>
         </div>
       </div>

@@ -794,13 +794,13 @@ export default function CommandCenterDashboard() {
   }
 
   return (
-    <div ref={containerRef} className={`p-6 max-w-screen-2xl mx-auto${presentationMode ? " bg-gray-950 min-h-screen text-white" : ""}`}>
+    <div ref={containerRef} className={`p-6 space-y-4${presentationMode ? " bg-gray-950 min-h-screen text-white" : ""}`}>
       {/* 헤더 */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">전사 대시보드</h1>
+          <h1 className="text-2xl font-bold text-gray-900">전사 대시보드</h1>
           {data && (
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-sm text-gray-500 mt-0.5">
               기준일: {data.date} | 캐시: {data.cachedAt.slice(11, 16)}
             </p>
           )}

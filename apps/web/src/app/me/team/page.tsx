@@ -242,8 +242,8 @@ export default function TeamPage() {
   const [activeTab, setActiveTab] = useState<"pending" | "attendance">("attendance");
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <h1 className="text-xl font-bold text-gray-900">팀 관리</h1>
+    <div className="p-6 space-y-6">
+      <h1 className="text-2xl font-bold text-gray-900">팀 관리</h1>
 
       <div className="flex items-center gap-1">
         <button

@@ -145,9 +145,9 @@ export default function ProjectMigrationPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-6">
+    <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900">📊 프로젝트 마이그레이션</h1>
+        <h1 className="text-2xl font-bold text-gray-900">프로젝트 마이그레이션</h1>
         <p className="mt-1 text-sm text-gray-500">
           MS Planner 내보내기 엑셀(<code className="px-1 bg-gray-100 rounded">[팀명] 프로젝트.xlsx</code>)을 <b>여러 개 한 번에</b> 올리면,
           프로젝트명 기준으로 <b>중복을 검사해 신규만</b> 적재합니다. 폴더 분류 없이 루트에 바로 등록되며, 담당자는 이름으로 자동 매칭됩니다.

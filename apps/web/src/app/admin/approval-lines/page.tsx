@@ -226,7 +226,7 @@ export default function ApprovalLinesPage() {
   if (loading) return <div className="p-8 text-sm text-gray-400">불러오는 중...</div>;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-4">
+    <div className="p-6 space-y-4">
       {saveError && (
         <div className="bg-red-50 border border-red-200 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-2.5 flex items-center justify-between">
           <span>저장 실패: {saveError}</span>
@@ -235,7 +235,7 @@ export default function ApprovalLinesPage() {
       )}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">결재라인 관리</h1>
+          <h1 className="text-2xl font-bold text-gray-900">결재라인 관리</h1>
           <p className="text-xs text-gray-400 mt-0.5">1차 → 2차 → 3차 순서로 결재 · 변경 즉시 저장</p>
         </div>
         <div className="flex items-center gap-3">

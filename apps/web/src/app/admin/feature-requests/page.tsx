@@ -94,9 +94,9 @@ export default function FeatureRequestsAdminPage() {
   const pendingCount = stats?.byStatus.SUBMITTED ?? 0;
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-6">
+    <div className="px-6 py-6">
       <div className="flex items-center justify-between mb-5">
-          <h1 className="text-xl font-bold text-gray-900">💡 기능 요구 관리</h1>
+          <h1 className="text-2xl font-bold text-gray-900">기능 요구 관리</h1>
           <Link
             href="/board/feature-request/feature-request-all"
             className="text-sm px-3 py-1.5 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-950"

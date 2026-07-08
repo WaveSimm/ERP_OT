@@ -129,10 +129,10 @@ export default function MonitoringPage() {
   if (loading) return <div className="p-8 text-gray-500">불러오는 중…</div>;
 
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-8">
+    <div className="p-6 space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">시스템 모니터링 / 알림</h1>
+          <h1 className="text-2xl font-bold text-gray-900">시스템 모니터링 / 알림</h1>
           <p className="text-sm text-gray-500 mt-1">
             디스크 등 시스템 자원을 감시하고 임계 초과 시 이메일로 알립니다. 발송은 호스트 notifier가 큐를 처리합니다.
           </p>

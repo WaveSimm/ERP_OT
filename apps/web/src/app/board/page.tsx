@@ -76,10 +76,10 @@ export default function BoardLandingPage() {
 
   return (
     <AppLayout>
-      <div className="max-w-7xl mx-auto px-6 py-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">📋 게시판</h2>
+      <div className="p-6 space-y-4">
+        <h1 className="text-2xl font-bold text-gray-900">게시판</h1>
 
-        <div className="mb-5">
+        <div>
           <SearchBar />
         </div>
 

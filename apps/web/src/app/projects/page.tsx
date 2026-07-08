@@ -881,12 +881,12 @@ export default function ProjectsPage() {
 
   return (
     <AppLayout>
-      <div className="max-w-7xl mx-auto px-6 py-4">
+      <div className="p-6 space-y-4">
 
         {/* Toolbar */}
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-bold text-gray-900">프로젝트</h2>
+            <h1 className="text-2xl font-bold text-gray-900">프로젝트</h1>
             <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{displayTotal}</span>
             {/* Undo / Redo */}
             <div className="ml-2">
