@@ -295,7 +295,7 @@ export default function PostEditor({ initial, onSubmit, onCancel, submitLabel = 
           </div>
         </div>
         {showPreview ? (
-          <div className="border border-gray-300 rounded-lg px-4 py-3 min-h-[300px] bg-white">
+          <div className="border border-gray-300 rounded-lg px-4 py-3 min-h-[480px] bg-white">
             {content.trim() ? <PostMarkdownView content={content} /> : (
               <div className="text-sm text-gray-400">미리보기할 내용이 없습니다.</div>
             )}
@@ -306,7 +306,7 @@ export default function PostEditor({ initial, onSubmit, onCancel, submitLabel = 
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="# 제목\n\n본문을 입력하세요. Markdown(GFM)을 지원합니다."
-            rows={14}
+            rows={22}
             maxLength={102400}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
             required

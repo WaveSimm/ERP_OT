@@ -130,7 +130,7 @@ export default function ProjectBoardLandingPage() {
 
   return (
     <AppLayout>
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="px-6 py-6">
         <div className="flex items-center justify-between mb-4">
           <div>
             <div className="text-sm text-gray-500 flex items-center gap-1.5">
@@ -138,7 +138,7 @@ export default function ProjectBoardLandingPage() {
               <span>›</span>
               <span className="text-gray-700 font-medium">프로젝트 게시판</span>
             </div>
-            <h2 className="text-xl font-bold text-gray-900 mt-1">📝 프로젝트 게시판</h2>
+            <h1 className="text-2xl font-bold text-gray-900 mt-1">프로젝트 게시판</h1>
             <p className="text-sm text-gray-500 mt-0.5">
               전사 프로젝트 비고 통합 — 작성일 최신순 (전 직원 공유)
             </p>

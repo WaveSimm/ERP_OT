@@ -27,15 +27,15 @@ export default function ApprovalLayout({ children }: { children: React.ReactNode
 
   return (
     <AppLayout>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="sticky top-14 z-30 bg-gray-50 pt-4 pb-0 -mx-4 sm:-mx-6 px-4 sm:px-6 mb-6">
+      <div className="px-6 pb-6">
+        <div className="sticky top-14 z-30 bg-gray-50 dark:bg-gray-900 -mx-6 px-6 pt-6 pb-0 mb-6">
           <div className="flex items-center gap-2 mb-4">
             {isDetailPage && (
               <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-600">
                 &larr;
               </button>
             )}
-            <h1 className="text-2xl font-bold">전자결재</h1>
+            <h1 className="text-2xl font-bold text-gray-900">전자결재</h1>
           </div>
 
           {!isDetailPage && (

@@ -219,7 +219,7 @@ export default function MyTasksPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">내 작업</h1>
+            <h1 className="text-2xl font-bold text-gray-900">내 작업</h1>
             <p className="text-xs text-gray-400 mt-0.5">나에게 배정된 작업 목록 — 날짜·진행률·배당율을 클릭해서 바로 수정</p>
           </div>
           <button onClick={load} className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs text-gray-600 hover:bg-gray-50">

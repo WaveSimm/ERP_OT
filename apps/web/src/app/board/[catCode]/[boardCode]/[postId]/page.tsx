@@ -74,7 +74,7 @@ export default function PostDetailPage({ params }: { params: { catCode: string; 
   if (loading) {
     return (
       <AppLayout>
-        <div className="max-w-4xl mx-auto px-6 py-6">
+        <div className="px-6 py-6">
           <div className="flex items-center justify-center py-16">
             <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
           </div>
@@ -101,7 +101,7 @@ export default function PostDetailPage({ params }: { params: { catCode: string; 
 
   return (
     <AppLayout>
-      <div className="max-w-4xl mx-auto px-6 py-6">
+      <div className="px-6 py-6">
         <div className="text-sm text-gray-500 flex items-center gap-1.5 mb-3">
           <Link href="/board" className="hover:text-gray-700">게시판</Link>
           <span>›</span>
@@ -122,7 +122,7 @@ export default function PostDetailPage({ params }: { params: { catCode: string; 
                 <div className="flex items-center gap-2 mb-1">
                   {post.priority === 1 && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">중요</span>}
                   {post.priority === 2 && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-red-100 text-red-700">긴급</span>}
-                  <h1 className="text-xl font-bold text-gray-900">{post.title}</h1>
+                  <h1 className="text-2xl font-bold text-gray-900">{post.title}</h1>
                 </div>
                 <div className="text-xs text-gray-500 flex items-center gap-2 flex-wrap">
                   <span className="font-medium text-gray-700">{post.author.name}</span>

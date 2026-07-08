@@ -71,16 +71,16 @@ export default function ProcurementLayout({ children }: { children: React.ReactN
 
   return (
     <AppLayout>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6" style={{ ["--top-chrome" as any]: `${chrome}px` }}>
+      <div className="px-6 pb-6" style={{ ["--top-chrome" as any]: `${chrome}px` }}>
         {/* v1.6 (2026-05-14): 페이지 제목 + 서브 탭 sticky — 모든 서브 페이지 공통 */}
-        <div ref={chromeRef} className="sticky top-14 z-30 bg-gray-50 pt-4 pb-0 -mx-4 sm:-mx-6 px-4 sm:px-6 mb-6">
+        <div ref={chromeRef} className="sticky top-14 z-30 bg-gray-50 dark:bg-gray-900 -mx-6 px-6 pt-6 pb-0 mb-6">
           <div className="flex items-center gap-2 mb-3">
             {isDetailPage && (
               <button onClick={() => router.back()} className="text-gray-400 hover:text-gray-600">
                 &larr;
               </button>
             )}
-            <h1 className="text-2xl font-bold">구매/회계</h1>
+            <h1 className="text-2xl font-bold text-gray-900">구매/회계</h1>
           </div>
 
           <div className="flex gap-1 border-b border-gray-200">

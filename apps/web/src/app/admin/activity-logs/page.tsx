@@ -114,7 +114,7 @@ export default function ActivityLogsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">시스템 이력</h1>
-          <p className="text-xs text-gray-400 mt-0.5">전체 {total}건</p>
+          <p className="text-sm text-gray-500 mt-0.5">전체 {total}건</p>
         </div>
       </div>
 

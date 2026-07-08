@@ -109,7 +109,7 @@ export default function EditPostPage({
 
   return (
     <AppLayout>
-      <div className="max-w-4xl mx-auto px-6 py-6">
+      <div className="px-6 py-6">
         <div className="text-sm text-gray-500 flex items-center gap-1.5 mb-3">
           <Link href="/board" className="hover:text-gray-700">게시판</Link>
           <span>›</span>

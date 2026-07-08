@@ -450,7 +450,7 @@ export default function NewApprovalPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div>
       <div className="flex items-center gap-2 mb-4">
         <button onClick={() => setSelectedTemplate(null)} className="text-gray-400 hover:text-gray-600">&larr;</button>
         <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">{selectedTemplate.name}</span>

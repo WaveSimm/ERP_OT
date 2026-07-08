@@ -129,7 +129,7 @@ export default function ProjectBoardPage({ params }: { params: { projectId: stri
 
   return (
     <AppLayout>
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="px-6 py-6">
         <div className="flex items-center justify-between mb-4">
           <div>
             <div className="text-sm text-gray-500 flex items-center gap-1.5">
@@ -137,11 +137,11 @@ export default function ProjectBoardPage({ params }: { params: { projectId: stri
               <span>›</span>
               <Link href="/work-logs" className="hover:text-gray-700">프로젝트 게시판</Link>
             </div>
-            <h2 className="text-xl font-bold text-gray-900 mt-1">
+            <h1 className="text-2xl font-bold text-gray-900 mt-1">
               <Link href={`/projects/${projectId}`} className="hover:text-blue-600 hover:underline">
                 {currentProject?.projectName ?? "프로젝트 조회 중..."}
               </Link>
-            </h2>
+            </h1>
             {currentProject && (
               <p className="text-sm text-gray-500 mt-0.5">
                 전체 비고 {currentProject.logCount}건
