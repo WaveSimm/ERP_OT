@@ -11,6 +11,7 @@ import TemplateManagerModal from "@/components/TemplateManagerModal";
 import UndoRedoControls from "@/components/UndoRedoControls";
 import { usePermission } from "@/hooks/usePermission";
 import { useFillHeight } from "@/hooks/useFillHeight";
+import { useDragAutoScroll } from "@/hooks/useDragAutoScroll";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import clsx from "clsx";
 
@@ -456,10 +457,14 @@ export default function ProjectsPage() {
   };
 
   // Drag & drop
-  const clearDrag = () => { setDragging(null); setDropTarget(null); setDropGap(null); setProjGap(null); };
+  // 드래그 중 자동 스크롤 — 목록은 내부 박스(tableBoxRef)가 스크롤됨
+  const { start: startAutoScroll, stop: stopAutoScroll } = useDragAutoScroll({ getContainer: () => tableBoxRef.current });
+  const clearDrag = () => { setDragging(null); setDropTarget(null); setDropGap(null); setProjGap(null); stopAutoScroll(); };
 
-  const onDragStart = (type: "project" | "folder", id: string, fromFolderId?: string) =>
+  const onDragStart = (type: "project" | "folder", id: string, fromFolderId?: string) => {
     setDragging({ type, id, fromFolderId });
+    startAutoScroll();
+  };
 
   const onFolderDragOver = (e: React.DragEvent, folder: Folder) => {
     e.preventDefault(); e.stopPropagation();
