@@ -220,9 +220,10 @@ export class PostService {
     if (data.targetDepartmentId) {
       const target = await this.prisma.department.findUnique({
         where: { id: data.targetDepartmentId },
-        select: { name: true },
+        select: { name: true, isActive: true, hiddenFromMenus: true },
       });
-      if (!target) throw new PostError("DEPARTMENT_NOT_FOUND", "선택한 부서를 찾을 수 없습니다.", 404);
+      if (!target || !target.isActive || target.hiddenFromMenus)
+        throw new PostError("DEPARTMENT_NOT_FOUND", "선택한 부서를 찾을 수 없습니다.", 404);
       targetDeptName = target.name;
     }
 
@@ -285,9 +286,10 @@ export class PostService {
       if (data.targetDepartmentId) {
         const target = await this.prisma.department.findUnique({
           where: { id: data.targetDepartmentId },
-          select: { name: true },
+          select: { name: true, isActive: true, hiddenFromMenus: true },
         });
-        if (!target) throw new PostError("DEPARTMENT_NOT_FOUND", "선택한 부서를 찾을 수 없습니다.", 404);
+        if (!target || !target.isActive || target.hiddenFromMenus)
+          throw new PostError("DEPARTMENT_NOT_FOUND", "선택한 부서를 찾을 수 없습니다.", 404);
         updateData.targetDepartmentId = data.targetDepartmentId;
         updateData.targetDepartmentName = target.name;
       } else {

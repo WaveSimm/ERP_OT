@@ -14,8 +14,10 @@ export async function departmentRoutes(
   const adminOnly = requireRole("ADMIN");
 
   // GET /api/v1/departments
-  fastify.get("/", async (_req, reply) => {
-    return reply.send(await svc.getTree());
+  // ?includeHidden=true → 관리 화면 전용(숨김 부서 포함). 미지정 시 메뉴용(숨김 제외).
+  fastify.get("/", async (req, reply) => {
+    const { includeHidden } = req.query as { includeHidden?: string };
+    return reply.send(await svc.getTree({ includeHidden: includeHidden === "true" }));
   });
 
   // GET /api/v1/departments/:id
@@ -64,6 +66,7 @@ export async function departmentRoutes(
       daepyoUserId: z.string().nullable().optional(),
       sortOrder: z.number().int().optional(),
       isActive: z.boolean().optional(),
+      hiddenFromMenus: z.boolean().optional(),
     }).parse(req.body);
     // exactOptionalPropertyTypes 대응: undefined 제거
     const updateData: Parameters<typeof svc.update>[1] = {};
@@ -75,6 +78,7 @@ export async function departmentRoutes(
     if (body.daepyoUserId !== undefined) updateData.daepyoUserId = body.daepyoUserId;
     if (body.sortOrder !== undefined) updateData.sortOrder = body.sortOrder;
     if (body.isActive !== undefined) updateData.isActive = body.isActive;
+    if (body.hiddenFromMenus !== undefined) updateData.hiddenFromMenus = body.hiddenFromMenus;
     const dept = await svc.update(id, updateData);
     publishActivity({
       action: "dept.updated",

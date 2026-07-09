@@ -540,6 +540,8 @@ export const workScheduleApi = {
 export const attendanceOverviewApi = {
   getWeekly: (start: string, end: string) =>
     request<any>(`/work-schedule?start=${start}&end=${end}`),
+  reorderMembers: (departmentId: string, orderedUserIds: string[]) =>
+    request<any>("/work-schedule/members/reorder", { method: "PATCH", body: JSON.stringify({ departmentId, orderedUserIds }) }),
   createEntry: (data: { date: string; entryType: string; startTime?: string; endTime?: string; label?: string; groupId?: string }) =>
     request<WorkScheduleEntry>("/work-schedule", { method: "POST", body: JSON.stringify(data) }),
   updateEntry: (id: string, data: { entryType?: string; startTime?: string; endTime?: string; label?: string }) =>
@@ -671,10 +673,12 @@ export const authApi = {
 };
 
 export const departmentApi = {
-  list: () => request<Department[]>("/departments"),
+  // includeHidden=true는 관리 화면 전용 (숨김 부서 포함). 일반 픽커는 인자 없이 호출.
+  list: (includeHidden?: boolean) =>
+    request<Department[]>(`/departments${includeHidden ? "?includeHidden=true" : ""}`),
   create: (data: { name: string; code: string; level?: number; sortOrder?: number }) =>
     request<Department>("/departments", { method: "POST", body: JSON.stringify(data) }),
-  update: (id: string, data: { name?: string; headUserId?: string | null; parentId?: string | null; soukwalUserId?: string | null; daepyoUserId?: string | null; sortOrder?: number }) =>
+  update: (id: string, data: { name?: string; headUserId?: string | null; parentId?: string | null; soukwalUserId?: string | null; daepyoUserId?: string | null; sortOrder?: number; hiddenFromMenus?: boolean }) =>
     request<Department>(`/departments/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   delete: (id: string) => request<void>(`/departments/${id}`, { method: "DELETE" }),
   getById: (id: string) => request<Department>(`/departments/${id}`),

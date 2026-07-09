@@ -11,9 +11,13 @@ interface DeptTreeNode {
 export class DepartmentService {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async getTree() {
+  // includeHidden=true는 관리 화면 전용 — 일반 메뉴/픽커는 숨김 부서를 제외한다.
+  async getTree(opts?: { includeHidden?: boolean }) {
     const all = await this.prisma.department.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        ...(opts?.includeHidden ? {} : { hiddenFromMenus: false }),
+      },
       include: {
         members: {
           select: { userId: true },
@@ -104,6 +108,7 @@ export class DepartmentService {
       daepyoUserId: string | null;
       sortOrder: number;
       isActive: boolean;
+      hiddenFromMenus: boolean;
     }>,
   ) {
     const result = await this.prisma.department.update({ where: { id }, data });

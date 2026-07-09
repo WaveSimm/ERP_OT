@@ -233,6 +233,8 @@ export interface Department {
   level: number;
   sortOrder: number;
   isActive: boolean;
+  // 메뉴에서만 숨김 (관리 화면 노출, 일반 픽커 제외)
+  hiddenFromMenus?: boolean;
   createdAt: string;
   updatedAt: string;
   // getTree/getById 계산·관계 필드

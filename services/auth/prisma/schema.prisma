@@ -70,6 +70,8 @@ model Department {
   soukwalUserId String?    @map("soukwal_user_id")
   daepyoUserId String?     @map("daepyo_user_id")
   isActive     Boolean     @default(true) @map("is_active")
+  // 메뉴에서만 숨김 (관리 화면에는 계속 노출, 일반 픽커/드롭다운에서는 제외)
+  hiddenFromMenus Boolean  @default(false) @map("hidden_from_menus")
   sortOrder    Int         @default(0) @map("sort_order")
   createdAt    DateTime    @default(now()) @map("created_at")
   updatedAt    DateTime    @updatedAt @map("updated_at")
@@ -80,6 +82,7 @@ model Department {
 
   @@index([parentId])
   @@index([isActive])
+  @@index([hiddenFromMenus])
   @@map("departments")
 }
 

@@ -24,6 +24,7 @@ interface Department {
   sortOrder?: number;
   headUserId?: string | null;
   headName?: string | null;
+  hiddenFromMenus?: boolean;
 }
 
 const EMPTY_PROFILE = {
@@ -107,7 +108,7 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
     try {
       const [userData, depts] = await Promise.all([
         userManagementApi.list({ includeRetired }).catch(() => null),
-        departmentApi.list().catch(() => []),
+        departmentApi.list(true).catch(() => []),
       ]);
       let userList: any[];
       if (userData) {
@@ -278,6 +279,16 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
     }
   };
 
+  const handleToggleDeptHidden = async (dept: Department) => {
+    const nextHidden = !dept.hiddenFromMenus;
+    try {
+      await departmentApi.update(dept.id, { hiddenFromMenus: nextHidden });
+      await load();
+    } catch (err: any) {
+      alert(err.message ?? "숨김 설정 변경 실패");
+    }
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreateError("");
@@ -415,6 +426,11 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
                     <span className="text-gray-400 text-xs w-4 text-center select-none">{isOpen ? "▾" : "▸"}</span>
                     <span className="text-sm font-semibold text-gray-700">{dept.name}</span>
                     <span className="text-xs text-gray-400 font-normal">{deptUsers.length}명</span>
+                    {dept.hiddenFromMenus && (
+                      <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full ml-1" title="일반 메뉴에서 숨김 — 관리 화면에만 표시">
+                        메뉴 숨김
+                      </span>
+                    )}
                     {dept.headName && (
                       <span className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full ml-2 dark:text-green-300">
                         팀장: {dept.headName}
@@ -435,6 +451,13 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
                           <option key={u.id} value={u.id}>{u.name}</option>
                         ))}
                       </select>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleToggleDeptHidden(dept); }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-xs px-2 py-1 text-gray-500 hover:text-amber-600"
+                        title={dept.hiddenFromMenus ? "메뉴에 다시 표시" : "일반 메뉴에서 숨김"}
+                      >
+                        {dept.hiddenFromMenus ? "🙈" : "👁"}
+                      </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); openEditDept(dept); }}
                         className="opacity-0 group-hover:opacity-100 transition-opacity text-xs px-2 py-1 text-gray-500 hover:text-blue-600"
