@@ -37,6 +37,15 @@ const ENTRY_COLORS: Record<string, string> = {
   OT: "bg-rose-100 text-rose-700",               // 휴일근무 — 빨강(rose)
 };
 
+// 막대 왼쪽 색상바(rod) — 은은한 중간톤 + 투명도(글씨보다 안 튀게). 유형 구분용.
+const ENTRY_ACCENTS: Record<string, string> = {
+  WORK: "bg-sky-400/50", FIELD: "bg-sky-400/50", TRAINING: "bg-sky-400/50", BUSINESS_TRIP: "bg-sky-400/50",
+  HALF: "bg-amber-400/50", HALF_AM: "bg-amber-400/50", HALF_PM: "bg-amber-400/50", QUARTER: "bg-amber-400/50",
+  FAMILY_DAY: "bg-amber-400/50", FAMILY_DAY_2H: "bg-amber-400/50", FAMILY: "bg-amber-400/50",
+  BEREAVEMENT: "bg-amber-400/50", ANNUAL: "bg-amber-400/50", SICK: "bg-amber-400/50", SPECIAL: "bg-amber-400/50",
+  SUBSTITUTE: "bg-amber-400/50", OT: "bg-rose-400/50",
+};
+
 const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
 
 type ViewMode = "day" | "week" | "month";
@@ -339,7 +348,7 @@ function DeptSection({ dept, days, viewMode, isExpanded, onToggle, holidays }: {
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse min-w-[640px] table-fixed">
             <thead>
-              <tr className="border-t border-gray-200">
+              <tr className="border-t border-b border-gray-200 dark:border-gray-700">
                 <th className="w-28 text-left px-3 py-2 text-xs font-semibold text-gray-500 bg-white sticky left-0 z-10">이름</th>
                 {days.map((day) => {
                   const holidayName = holidays?.get(day);
@@ -354,7 +363,7 @@ function DeptSection({ dept, days, viewMode, isExpanded, onToggle, holidays }: {
                   return (
                     <th
                       key={day}
-                      className={`px-1 py-2 text-center text-xs font-semibold ${
+                      className={`px-1 py-2 text-center text-xs font-semibold border-l border-gray-200 dark:border-gray-700 ${
                         viewMode === "month" ? "min-w-[36px]" : "min-w-[80px]"
                       } ${colorCls}`}
                       title={holidayName ?? undefined}
@@ -448,10 +457,11 @@ function MemberRow({ member, days, viewMode, holidays }: { member: Member; days:
   }, [entriesByDate, days]);
 
   const laneCount = bars.reduce((m, b) => Math.max(m, b.lane + 1), 0);
-  const ROW_H = viewMode === "month" ? 18 : 32;
-  const GAP = 2, PAD = 4;
+  // 월간·주간 통일 — 뷰 전환 시 행 높이 동일하게 보이도록. 일반 행 = PAD*2 + ROW_H = 45px
+  const ROW_H = 37;
+  const GAP = 3, PAD = 4;
   const rowHeight = Math.max(
-    viewMode === "month" ? 26 : 40,
+    45,
     PAD * 2 + laneCount * ROW_H + Math.max(0, laneCount - 1) * GAP,
   );
 
@@ -478,15 +488,23 @@ function MemberRow({ member, days, viewMode, holidays }: { member: Member; days:
                 : isWeekend(d)
                 ? "bg-gray-50/50 dark:bg-gray-500/10"
                 : "";
-              return <div key={d} className={`flex-1 border-l border-gray-50 ${bg}`} />;
+              return <div key={d} className={`flex-1 border-l border-gray-200 dark:border-gray-700 ${bg}`} />;
             })}
           </div>
           {/* 막대 — 시작일 시작시각 ~ 종료일 종료시각을 실제 폭으로 */}
           {bars.map((b) => {
-            const startFrac = frac(b.spanStart, 0);
-            const endFrac = frac(b.spanEnd, 1);
-            const left = ((b.startIdx + startFrac) / N) * 100;
-            const width = Math.max((100 / N) * 0.2, ((b.endIdx + endFrac) / N) * 100 - left);
+            // 시각 위치(근무시간 축)로 그리되, 막대는 자기 날짜 칸 안으로 clamp — 다음날로 넘어감 방지.
+            //   얇아서 최소폭이 필요하면 오른쪽 경계에 붙인 채 왼쪽으로만 확장(그날 오후 끝에 딱 맞음).
+            const dayLeft = (b.startIdx / N) * 100;
+            const dayRight = ((b.endIdx + 1) / N) * 100;
+            const minW = (100 / N) * 0.2;
+            let left = Math.min(Math.max(((b.startIdx + frac(b.spanStart, 0)) / N) * 100, dayLeft), dayRight);
+            let right = Math.min(Math.max(((b.endIdx + frac(b.spanEnd, 1)) / N) * 100, dayLeft), dayRight);
+            if (right - left < minW) {
+              left = Math.max(dayLeft, right - minW);
+              if (right - left < minW) right = Math.min(dayRight, left + minW);
+            }
+            const width = right - left;
             const timeStr = b.spanStart || b.spanEnd ? `${b.spanStart ?? ""}~${b.spanEnd ?? ""}` : "";
             const detail = entryDetail(b.e);
             const label = ENTRY_LABELS[b.e.entryType] ?? b.e.entryType;
@@ -496,23 +514,31 @@ function MemberRow({ member, days, viewMode, holidays }: { member: Member; days:
               timeStr,
               detail ?? b.e.label,
             ].filter(Boolean).join(" / ");
-            const style = { left: `${left}%`, width: `${width}%`, top: PAD + b.lane * (ROW_H + GAP), height: ROW_H } as const;
+            // 막대를 칸 안쪽으로 좌우로 들여 여백 — 상하 여백(PAD)과 동일하게 맞춤
+            const INSET = PAD;
+            const style = { left: `calc(${left}% + ${INSET}px)`, width: `calc(${width}% - ${INSET * 2}px)`, top: PAD + b.lane * (ROW_H + GAP), height: ROW_H } as const;
             const colorCls = ENTRY_COLORS[b.e.entryType] ?? "bg-gray-100 text-gray-600";
+            const accentCls = ENTRY_ACCENTS[b.e.entryType] ?? "bg-gray-400/50";
             if (viewMode === "month") {
+              // 칸이 좁아 글자 대신 색 블록만 — 상세는 툴팁(title)으로 확인
               return (
                 <div key={`${b.e.id}:${b.startIdx}`} title={tip}
-                  className={`absolute rounded flex items-center justify-center overflow-hidden ${colorCls}`} style={style}>
-                  <span className="text-[10px] font-medium leading-none truncate px-0.5">{label.slice(0, 1)}</span>
-                </div>
+                  className={`absolute rounded overflow-hidden ${colorCls}`} style={style} />
               );
             }
             return (
               <div key={`${b.e.id}:${b.startIdx}`} title={tip}
-                className={`absolute rounded px-1 flex flex-col justify-center overflow-hidden ${colorCls}`} style={style}>
-                <span className="text-xs font-medium leading-none truncate">
-                  {label}{timeStr ? ` ${timeStr}` : ""}
-                </span>
-                {detail && <span className="text-xs leading-none truncate mt-0.5">{detail}</span>}
+                className={`absolute rounded pl-1.5 pr-1 flex flex-col justify-center overflow-hidden ${colorCls}`} style={style}>
+                {/* rod: 텍스트와 같은 행에 두고 items-stretch로 글씨 높이(첫 줄~끝 줄)에 맞춤 */}
+                <div className="flex items-stretch gap-1.5 min-w-0">
+                  <span className={`w-[3px] rounded-sm shrink-0 ${accentCls}`} aria-hidden />
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-xs font-medium leading-none truncate">
+                      {label}{timeStr ? ` ${timeStr}` : ""}
+                    </span>
+                    {detail && <span className="text-xs leading-none truncate mt-0.5 opacity-75">{detail}</span>}
+                  </div>
+                </div>
               </div>
             );
           })}
