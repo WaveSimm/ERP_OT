@@ -1,7 +1,28 @@
 import { PrismaClient } from "@prisma/client";
 
-interface DeptDto { id: string; name: string; sortOrder?: number }
+interface DeptDto {
+  id: string;
+  code: string;
+  name: string;
+  sortOrder?: number;
+  soukwalUserId?: string | null; // 이사 (결재라인)
+  daepyoUserId?: string | null; // 대표이사 (결재라인)
+}
 interface UserDeptDto { id: string; departmentId: string | null; departmentHidden?: boolean }
+
+// 부서 기본 폴더 표시 순서 (이 순서대로 상단 고정). 목록에 없는 팀은 뒤에 부서 정렬순으로 붙음.
+const DEPT_FOLDER_ORDER = [
+  "BIZ1", "BIZ2", "BIZ3", // 사업1·2·3팀
+  "UAVBIZ1", "UAVBIZ2",   // 무인1·2팀
+  "TECH",                 // 기술팀
+  "SALES1", "SALES2",     // 영업1·2팀
+  "FIN",                  // 재무팀
+  "BIZSUPP",              // 경영지원팀
+];
+// 폴더를 만들지 않는 부서 (임원·대표이사 그룹 — 소속 임원 프로젝트는 결재라인 팀으로 배치)
+const EXCLUDED_DEPT_CODES = new Set(["CEO_GROUP", "EXEC_GROUP"]);
+// 부서 폴더는 수동 폴더보다 항상 위. 음수 sortOrder로 상단 고정.
+const DEPT_SORT_BASE = -100000;
 
 export class FolderService {
   constructor(private prisma: PrismaClient) {}
@@ -19,10 +40,17 @@ export class FolderService {
     }
   }
 
-  /** 부서 기본 폴더 동기화 — 활성·비숨김 부서당 폴더 1개 (생성/개명/삭제). 부서 변화 시에만 write. */
-  private async syncDepartmentFolders(): Promise<void> {
-    const depts = await this.authGet<DeptDto[]>("/internal/departments");
-    if (!depts) return; // auth 미응답 시 기존 상태 유지 (파괴적 변경 방지)
+  /** 부서 폴더 대상(제외 부서 뺀 활성·비숨김) + 지정 순서 sortOrder 계산 */
+  private eligibleDeptSort(d: DeptDto): number {
+    const idx = DEPT_FOLDER_ORDER.indexOf(d.code);
+    // 지정 순서에 있으면 그 순서대로, 없으면 지정목록 뒤 + 부서 정렬순 (모두 음수 → 수동 폴더보다 위)
+    return idx >= 0 ? DEPT_SORT_BASE + idx : DEPT_SORT_BASE + 1000 + (d.sortOrder ?? 0);
+  }
+
+  /** 부서 기본 폴더 동기화 — 대상 부서당 폴더 1개 (생성/개명/순서/삭제). 상단 고정. */
+  private async syncDepartmentFolders(all: DeptDto[] | null): Promise<void> {
+    if (!all) return; // auth 미응답 시 기존 상태 유지 (파괴적 변경 방지)
+    const depts = all.filter((d) => !EXCLUDED_DEPT_CODES.has(d.code)); // 임원·대표이사 그룹 폴더 미생성
 
     const existing = await this.prisma.projectFolder.findMany({ where: { departmentId: { not: null } } });
     const existingByDept = new Map(existing.map((f) => [f.departmentId as string, f]));
@@ -30,16 +58,18 @@ export class FolderService {
 
     for (const d of depts) {
       const f = existingByDept.get(d.id);
+      const sort = this.eligibleDeptSort(d);
       if (!f) {
         // 동시 실행 대비 unique 충돌은 무시
         await this.prisma.projectFolder
-          .create({ data: { name: d.name, departmentId: d.id, createdBy: "system", sortOrder: d.sortOrder ?? 0 } })
+          .create({ data: { name: d.name, departmentId: d.id, createdBy: "system", sortOrder: sort, parentId: null } })
           .catch(() => null);
-      } else if (f.name !== d.name) {
-        await this.prisma.projectFolder.update({ where: { id: f.id }, data: { name: d.name } });
+      } else if (f.name !== d.name || f.sortOrder !== sort || f.parentId !== null) {
+        // 이름·순서 동기화 + 부서 폴더는 항상 최상위(root) 유지
+        await this.prisma.projectFolder.update({ where: { id: f.id }, data: { name: d.name, sortOrder: sort, parentId: null } });
       }
     }
-    // 더 이상 자격 없는(삭제·숨김) 부서 폴더 제거 — cascade로 수동추가 항목도 함께 삭제
+    // 대상에서 빠진(제외·삭제·숨김) 부서 폴더 제거 — cascade로 수동추가 항목도 함께 삭제
     for (const f of existing) {
       if (!deptIds.has(f.departmentId as string)) {
         await this.prisma.projectFolder.delete({ where: { id: f.id } }).catch(() => null);
@@ -59,7 +89,8 @@ export class FolderService {
 
   /** 전체 폴더 트리 + 소속 프로젝트 (부서 폴더는 자동 소속 계산 + 수동추가 병합) */
   async list(_userId: string) {
-    await this.syncDepartmentFolders();
+    const deptList = await this.authGet<DeptDto[]>("/internal/departments");
+    await this.syncDepartmentFolders(deptList);
 
     const folders = await this.prisma.projectFolder.findMany({
       include: {
@@ -69,8 +100,22 @@ export class FolderService {
     });
 
     const hasDeptFolder = folders.some((f) => f.departmentId);
-    if (!hasDeptFolder) {
+    if (!hasDeptFolder || !deptList) {
       return folders.map((f) => ({ ...f, projects: f.projects.map((i) => ({ ...i, auto: false })) }));
+    }
+
+    // 폴더가 있는 대상 부서 + 임원 결재라인(이사 soukwal) 역매핑
+    const eligible = deptList.filter((d) => !EXCLUDED_DEPT_CODES.has(d.code));
+    const eligibleIds = new Set(eligible.map((d) => d.id));
+    const soukwalOf = new Map<string, string[]>(); // 이사 userId → [deptId] (결재라인)
+    const pushMap = (m: Map<string, string[]>, k: string, v: string) => {
+      const a = m.get(k);
+      if (a) a.push(v);
+      else m.set(k, [v]);
+    };
+    // 이사(soukwal)만 결재라인 라우팅. 대표이사(daepyo)는 여러 팀 걸침 → 예외(폴더 미배치, 전체목록만).
+    for (const d of eligible) {
+      if (d.soukwalUserId) pushMap(soukwalOf, d.soukwalUserId, d.id);
     }
 
     // 자동 소속: 소유자 부서별 프로젝트 그룹핑
@@ -78,11 +123,17 @@ export class FolderService {
     const projects = await this.prisma.project.findMany({ select: { id: true, ownerId: true } });
     const byDept = new Map<string, string[]>();
     for (const p of projects) {
-      const d = p.ownerId ? ownerDept.get(p.ownerId) : undefined;
-      if (!d) continue;
-      const arr = byDept.get(d);
-      if (arr) arr.push(p.id);
-      else byDept.set(d, [p.id]);
+      const owner = p.ownerId;
+      if (!owner) continue;
+      const od = ownerDept.get(owner);
+      let targets: string[];
+      if (od && eligibleIds.has(od)) {
+        targets = [od]; // 소유자가 팀원 → 그 팀 폴더
+      } else {
+        // 임원진 등 폴더 없는 부서 소유 → 이사(soukwal)로 있는 팀 폴더로. 대표이사만이면 미배치(전체목록만).
+        targets = soukwalOf.get(owner) ?? [];
+      }
+      for (const t of targets) pushMap(byDept, t, p.id);
     }
 
     return folders.map((f) => {
