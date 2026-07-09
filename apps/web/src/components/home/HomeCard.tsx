@@ -4,7 +4,6 @@ import Link from "next/link";
 import { ReactNode } from "react";
 
 export default function HomeCard({
-  icon,
   title,
   href,
   hrefLabel,
@@ -13,7 +12,7 @@ export default function HomeCard({
   empty,
   children,
 }: {
-  icon: string;
+  icon?: string;   // 아이콘 미리보기 제거 — prop은 호환 위해 유지(미사용)
   title: string;
   href?: string;
   hrefLabel?: string;
@@ -26,7 +25,6 @@ export default function HomeCard({
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col">
       <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-base">{icon}</span>
           <h3 className="text-sm font-semibold text-gray-800">{title}</h3>
           {badge}
         </div>
