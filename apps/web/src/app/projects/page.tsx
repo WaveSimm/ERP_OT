@@ -32,6 +32,8 @@ interface Folder {
   id: string;
   name: string;
   parentId: string | null;
+  // 부서 기본 폴더 표시 (auth 부서 id). null이면 수동 폴더 — 이름·삭제 자유.
+  departmentId?: string | null;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -154,7 +156,7 @@ export default function ProjectsPage() {
   const loadFolders = useCallback(async () => {
     try {
       const apiFolders = await folderApi.list();
-      setFolders(apiFolders.map((f: any) => ({ id: f.id, name: f.name, parentId: f.parentId ?? null })));
+      setFolders(apiFolders.map((f: any) => ({ id: f.id, name: f.name, parentId: f.parentId ?? null, departmentId: f.departmentId ?? null })));
       setProjFolderMap(buildProjFolderMap(apiFolders));
       setFolderProjOrder(buildFolderProjOrder(apiFolders));
     } catch { /* ignore — folders just won't show */ }
@@ -730,6 +732,7 @@ export default function ProjectsPage() {
 
   const renderFolder = (folder: Folder, depth: number): React.ReactNode => {
     const isOpen       = openFolders[folder.id] !== false;
+    const isDept       = !!folder.departmentId; // 부서 기본 폴더 — 이름·삭제 잠금(자동 동기화)
     const isDropping   = dropTarget === folder.id;
     const childFolders  = folders.filter(f => f.parentId === folder.id);
     const childProjects = getOrderedChildProjects(folder.id);
@@ -801,12 +804,15 @@ export default function ProjectsPage() {
             />
           ) : (
             <span
-              className="text-[13px] font-semibold text-gray-700 flex-1 truncate leading-none cursor-pointer hover:text-blue-600"
+              className="text-[13px] font-semibold text-gray-700 flex items-center gap-1.5 flex-1 truncate leading-none cursor-pointer hover:text-blue-600"
               onClick={e => { e.stopPropagation(); openPicker(folder.id); }}
-              onDoubleClick={e => { e.stopPropagation(); setRenamingId(folder.id); setRenameVal(folder.name); }}
-              title="클릭: 프로젝트 추가 / 더블클릭: 이름 변경"
+              onDoubleClick={e => { if (isDept) return; e.stopPropagation(); setRenamingId(folder.id); setRenameVal(folder.name); }}
+              title={isDept ? "부서 기본 폴더 — 클릭: 타 부서 프로젝트 추가" : "클릭: 프로젝트 추가 / 더블클릭: 이름 변경"}
             >
-              {folder.name}
+              <span className="truncate">{folder.name}</span>
+              {isDept && (
+                <span className="text-[10px] font-medium bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded-full shrink-0" title="부서 기본 폴더 (자동 구성)">부서</span>
+              )}
             </span>
           )}
 
@@ -824,18 +830,22 @@ export default function ProjectsPage() {
             >
               +폴더
             </button>
-            <button
-              onClick={e => { e.stopPropagation(); setRenamingId(folder.id); setRenameVal(folder.name); }}
-              className="text-[11px] text-gray-400 hover:text-gray-700 px-1.5 py-0.5 rounded hover:bg-gray-100"
-            >
-              수정
-            </button>
-            <button
-              onClick={e => { e.stopPropagation(); handleDeleteFolder(folder.id); }}
-              className="text-[11px] text-gray-300 hover:text-red-500 px-1.5 py-0.5 rounded hover:bg-red-50"
-            >
-              삭제
-            </button>
+            {!isDept && (
+              <>
+                <button
+                  onClick={e => { e.stopPropagation(); setRenamingId(folder.id); setRenameVal(folder.name); }}
+                  className="text-[11px] text-gray-400 hover:text-gray-700 px-1.5 py-0.5 rounded hover:bg-gray-100"
+                >
+                  수정
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); handleDeleteFolder(folder.id); }}
+                  className="text-[11px] text-gray-300 hover:text-red-500 px-1.5 py-0.5 rounded hover:bg-red-50"
+                >
+                  삭제
+                </button>
+              </>
+            )}
           </div>
         </div>
 

@@ -36,9 +36,11 @@ export interface Folder {
   parentId: string | null;
   sortOrder: number;
   createdBy: string;
+  // 부서 기본 폴더 (auth 부서 id). null이면 수동 폴더.
+  departmentId?: string | null;
   createdAt: string;
   updatedAt?: string;
-  projects?: { projectId: string; sortOrder: number }[];
+  projects?: { projectId: string; sortOrder: number; auto?: boolean }[];
 }
 
 export interface Dependency {

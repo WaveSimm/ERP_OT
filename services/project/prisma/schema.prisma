@@ -746,6 +746,9 @@ model ProjectFolder {
   parentId  String?
   sortOrder Int      @default(0)
   createdBy String
+  // 부서 기본 폴더 표시 — auth.departments.id. null이면 수동 생성 폴더.
+  // 자동 소속(소유자 부서 계산)은 저장하지 않고 조회 시 계산, 팀장 수동추가만 ProjectFolderItem에 저장.
+  departmentId String? @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

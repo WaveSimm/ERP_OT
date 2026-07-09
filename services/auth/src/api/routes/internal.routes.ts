@@ -195,6 +195,16 @@ export async function internalRoutes(
     return reply.send(result);
   });
 
+  // GET /internal/departments — 활성·비숨김 부서 목록 (project 부서 폴더 구성용)
+  fastify.get("/departments", async (_req, reply) => {
+    const depts = await prisma.department.findMany({
+      where: { isActive: true, hiddenFromMenus: false },
+      select: { id: true, name: true, sortOrder: true },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    });
+    return reply.send(depts);
+  });
+
   // GET /internal/departments/:id/members
   fastify.get("/departments/:id/members", async (req, reply) => {
     const { id } = req.params as { id: string };

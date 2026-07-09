@@ -25,9 +25,13 @@ export async function folderRoutes(fastify: FastifyInstance) {
   fastify.patch<{ Params: { id: string }; Body: { name?: string; parentId?: string; sortOrder?: number } }>(
     "/:id",
     { preHandler: requireManager() },
-    async (request) => {
+    async (request, reply) => {
       const { id } = request.params;
-      return fastify.folderService.update(id, request.body);
+      try {
+        return await fastify.folderService.update(id, request.body);
+      } catch (e: any) {
+        return reply.status(400).send({ code: "FOLDER_LOCKED", message: e?.message ?? "수정할 수 없습니다." });
+      }
     }
   );
 
@@ -37,7 +41,11 @@ export async function folderRoutes(fastify: FastifyInstance) {
     { preHandler: requireAdmin() },
     async (request, reply) => {
       const { id } = request.params;
-      await fastify.folderService.remove(id);
+      try {
+        await fastify.folderService.remove(id);
+      } catch (e: any) {
+        return reply.status(400).send({ code: "FOLDER_LOCKED", message: e?.message ?? "삭제할 수 없습니다." });
+      }
       return reply.status(204).send();
     }
   );
