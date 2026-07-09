@@ -547,7 +547,7 @@ function MemberRow({ member, days, viewMode, holidays, drag }: { member: Member;
     >
       <td className={`w-28 px-3 py-1.5 text-sm font-medium text-gray-800 bg-white sticky left-0 z-10 truncate ${drag?.canDrag ? "cursor-move" : ""}`}>
         {/* 핸들은 항상 자리 차지(이름 정렬 통일). 드래그 가능은 평소 투명→행 hover 시 표시, 잠금은 완전 투명 */}
-        <span className={`mr-1 select-none transition-opacity ${drag?.canDrag ? "text-gray-300 opacity-0 group-hover:opacity-100" : "invisible"}`}
+        <span className={`mr-1 select-none text-gray-300 transition-opacity ${drag?.canDrag ? "opacity-0 group-hover:opacity-100" : "opacity-0"}`}
           title={drag?.canDrag ? "드래그로 순서 변경" : undefined} aria-hidden>⠿</span>
         {member.name}
       </td>
