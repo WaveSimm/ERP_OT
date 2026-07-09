@@ -199,7 +199,8 @@ export async function internalRoutes(
   fastify.get("/departments", async (_req, reply) => {
     const depts = await prisma.department.findMany({
       where: { isActive: true, hiddenFromMenus: false },
-      select: { id: true, name: true, sortOrder: true },
+      // soukwalUserId(이사)·daepyoUserId(대표이사) = 결재라인 임원 — 임원진 프로젝트 배치 판단용
+      select: { id: true, code: true, name: true, sortOrder: true, soukwalUserId: true, daepyoUserId: true },
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     });
     return reply.send(depts);
