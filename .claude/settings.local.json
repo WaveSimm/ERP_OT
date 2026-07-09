@@ -766,7 +766,8 @@
       "Bash(sudo -n du -h -d3 /data/docker)",
       "Bash(sudo -n find /data -type f -mmin -1500 -size +500M -printf '%TY-%Tm-%Td %TH:%TM %10s %p\\\\n')",
       "Bash(sudo -n journalctl --since \"2026-06-29 19:00:00 UTC\" --until \"2026-06-29 20:00:00 UTC\")",
-      "Bash(claude *)"
+      "Bash(claude *)",
+      "Bash(gh run *)"
     ]
   }
 }

@@ -59,19 +59,6 @@ function isToday(dateStr: string) { return dateStr === fmt(new Date()); }
 const DAY_START_MIN = 9 * 60 + 30;   // 09:30 (기본 근무 시작)
 const DAY_END_MIN = 18 * 60 + 30;    // 18:30 (기본 근무 종료)
 function toMin(t: string): number { const [h, m] = t.split(":").map(Number); return (h ?? 0) * 60 + (m ?? 0); }
-// 시작/종료시각 → 셀 내 바의 left/width(%). 축(dayStart~dayEnd)은 멤버 근무시간. 시간 없으면 종일(0~100%).
-function barGeom(
-  startTime: string | null, endTime: string | null,
-  dayStart: number = DAY_START_MIN, dayEnd: number = DAY_END_MIN,
-): { left: number; width: number } {
-  if (!startTime || !endTime) return { left: 0, width: 100 };
-  const span = Math.max(1, dayEnd - dayStart);
-  const s = Math.max(dayStart, Math.min(dayEnd, toMin(startTime)));
-  const e = Math.max(dayStart, Math.min(dayEnd, toMin(endTime)));
-  const left = ((s - dayStart) / span) * 100;
-  const width = Math.max(6, Math.min(100 - left, ((e - s) / span) * 100));
-  return { left, width };
-}
 function isWeekend(dateStr: string) {
   const d = new Date(dateStr).getDay();
   return d === 0 || d === 6;
@@ -140,6 +127,7 @@ interface Entry {
   label: string | null;
   reason: string | null;  // 휴일근무(OT): 신청 사유 (백엔드가 신청서에서 조인)
   groupId: string | null;
+  sourceId: string | null;  // 휴가결재 등록 단위(하나의 결재가 여러 날에 걸침) — 병합 판정용
   sourceType: string;
 }
 
@@ -408,121 +396,128 @@ function MemberRow({ member, days, viewMode, holidays }: { member: Member; days:
   const dayStart = member.workStartTime ? toMin(member.workStartTime) : DAY_START_MIN;
   const dayEnd = member.workEndTime ? toMin(member.workEndTime) : DAY_END_MIN;
 
-  // 연속 병합 (2026-07-07): 같은 입력(그룹 등록 groupId, 또는 유형·시간·내용 동일)이
-  //   연속된 날에 반복되면 colSpan 한 칸으로 합쳐 한 줄로 표시.
-  //   그 날 표시할 엔트리가 해당 항목 하나뿐인 날끼리만 병합(다른 항목 섞인 날은 제외).
-  const entrySig = (e: Entry) =>
-    e.groupId ?? `${e.entryType}|${e.startTime ?? ""}|${e.endTime ?? ""}|${e.label ?? ""}|${e.reason ?? ""}`;
-  const cellPlans = useMemo(() => {
+  // 표시 막대 생성 (레인 방식, 2026-07-09):
+  //   ① 등록 단위(regKey = groupId(수동 기간등록) 또는 sourceId(휴가결재))가 같으면 하나의 일정.
+  //      연속일에 걸치면 한 막대로 병합 — 같은 날 다른 항목(예: 가정의날)이 있어도 병합 유지.
+  //      → 반차·가정의날 등을 날짜별로 따로 입력하면 regKey가 달라 병합 안 됨(의도).
+  //   ② 병합 막대의 시각 = 시작일 startTime ~ 종료일 endTime. 경계일이 종일이면 근무시작/끝까지,
+  //      한쪽 시각만 있으면(16:30~ / ~13:30) 그만큼만 그림(종일 처리 안 함).
+  //   ③ 겹치는 막대는 레인(위아래)으로 쌓아 표시.
+  const N = days.length;
+  const regKey = (e: Entry) => e.groupId ?? (e.sourceId ? `src:${e.sourceId}` : null);
+  const bars = useMemo(() => {
     const visibleOf = (d: string) => (entriesByDate.get(d) ?? []).filter((e) => e.entryType !== "WORK");
-    const plans: { day: string; endDay: string; span: number; entries: Entry[]; merged: boolean }[] = [];
-    let i = 0;
-    while (i < days.length) {
-      const day = days[i]!;
-      const es = visibleOf(day);
-      if (es.length === 1) {
-        const s = entrySig(es[0]!);
-        let j = i + 1;
-        while (j < days.length) {
-          const es2 = visibleOf(days[j]!);
-          if (es2.length === 1 && entrySig(es2[0]!) === s) j++;
-          else break;
-        }
-        if (j - i > 1) {
-          plans.push({ day, endDay: days[j - 1]!, span: j - i, entries: es, merged: true });
-          i = j;
-          continue;
+    type Bar = { startIdx: number; endIdx: number; e: Entry; spanStart: string | null; spanEnd: string | null; multi: boolean };
+    const byKey = new Map<string, { idx: number; e: Entry }[]>();
+    const items: Bar[] = [];
+    days.forEach((d, idx) => {
+      for (const e of visibleOf(d)) {
+        const k = regKey(e);
+        if (k != null) {
+          if (!byKey.has(k)) byKey.set(k, []);
+          byKey.get(k)!.push({ idx, e });
+        } else {
+          items.push({ startIdx: idx, endIdx: idx, e, spanStart: e.startTime, spanEnd: e.endTime, multi: false });
         }
       }
-      plans.push({ day, endDay: day, span: 1, entries: es, merged: false });
-      i++;
+    });
+    // 등록 단위별 연속일 런(run) 병합
+    for (const list of byKey.values()) {
+      list.sort((a, b) => a.idx - b.idx);
+      let s = 0;
+      while (s < list.length) {
+        let t = s;
+        while (t + 1 < list.length && list[t + 1]!.idx === list[t]!.idx + 1) t++;
+        const first = list[s]!, last = list[t]!;
+        items.push({
+          startIdx: first.idx, endIdx: last.idx, e: first.e,
+          spanStart: first.e.startTime, spanEnd: last.e.endTime, multi: t > s,
+        });
+        s = t + 1;
+      }
     }
-    return plans;
+    // 레인 배정(겹침 방지) — 시작·종료 순 정렬 후 greedy
+    items.sort((a, b) => a.startIdx - b.startIdx || a.endIdx - b.endIdx);
+    const laneEnd: number[] = [];
+    return items.map((it) => {
+      let lane = laneEnd.findIndex((end) => end < it.startIdx);
+      if (lane === -1) { lane = laneEnd.length; laneEnd.push(it.endIdx); }
+      else laneEnd[lane] = it.endIdx;
+      return { ...it, lane };
+    });
   }, [entriesByDate, days]);
+
+  const laneCount = bars.reduce((m, b) => Math.max(m, b.lane + 1), 0);
+  const ROW_H = viewMode === "month" ? 18 : 32;
+  const GAP = 2, PAD = 4;
+  const rowHeight = Math.max(
+    viewMode === "month" ? 26 : 40,
+    PAD * 2 + laneCount * ROW_H + Math.max(0, laneCount - 1) * GAP,
+  );
+
+  const axisSpan = Math.max(1, dayEnd - dayStart);
+  // 일자 내 시각 → 0~1 위치(근무시간 축). 시각 없으면 fb(시작 0 / 끝 1)
+  const frac = (t: string | null, fb: number) =>
+    t ? Math.min(1, Math.max(0, (toMin(t) - dayStart) / axisSpan)) : fb;
 
   return (
     <tr className="border-t border-gray-100 hover:bg-gray-50/50 dark:hover:bg-gray-500/10">
       <td className="w-28 px-3 py-1.5 text-sm font-medium text-gray-800 bg-white sticky left-0 z-10 truncate">
         {member.name}
       </td>
-      {cellPlans.map(({ day, endDay, span, entries: dayEntries, merged }) => {
-        const isHol = !!holidays?.get(day);
-        const cellBg = merged
-          ? ""
-          : isToday(day)
-          ? "bg-blue-50/30 dark:bg-blue-500/10"
-          : isHol
-          ? "bg-red-50/40 dark:bg-red-500/10"
-          : isWeekend(day)
-          ? "bg-gray-50/50 dark:bg-gray-500/10"
-          : "";
-        return (
-          <td key={day} colSpan={span > 1 ? span : undefined} className={`px-0.5 py-1 text-center border-l border-gray-50 align-top ${cellBg}`}>
-            <div className={`flex flex-col gap-0.5 ${viewMode === "month" && !merged ? "items-center" : "items-stretch"}`}>
-              {dayEntries.map((e) => {
-                const timeStr = e.startTime && e.endTime
-                  ? `${e.startTime}~${e.endTime}`
-                  : e.startTime ? `${e.startTime}~`
-                  : e.endTime ? `~${e.endTime}` : "";
-                const detail = entryDetail(e);
-                const tip = [
-                  ENTRY_LABELS[e.entryType],
-                  merged ? `${fmtShort(day)}~${fmtShort(endDay)} (${span}일)` : "",
-                  timeStr,
-                  detail ?? e.label,
-                ].filter(Boolean).join(" / ");
-                // 병합 바 — 기간 전체를 한 줄로 (유형·시간 + 내역)
-                if (merged) {
-                  return (
-                    <div key={e.id}
-                      className={`w-full h-8 rounded px-1 py-0.5 flex flex-col justify-center overflow-hidden ${ENTRY_COLORS[e.entryType] ?? "bg-gray-100 text-gray-600"}`}
-                      title={tip}>
-                      <span className="text-xs font-medium leading-none truncate">
-                        {ENTRY_LABELS[e.entryType] ?? e.entryType}{timeStr ? ` ${timeStr}` : ""}
-                      </span>
-                      {viewMode !== "month" && (
-                        detail ? (
-                          <span className="text-xs leading-none truncate mt-0.5">{detail}</span>
-                        ) : (
-                          <span className="text-xs leading-none mt-0.5" aria-hidden>&nbsp;</span>
-                        )
-                      )}
-                    </div>
-                  );
-                }
-                if (viewMode === "month") {
-                  return (
-                    <span key={e.id} className={`text-xs px-0.5 py-px rounded whitespace-nowrap ${ENTRY_COLORS[e.entryType] ?? "bg-gray-100 text-gray-600"}`}
-                      title={tip}>
-                      {(ENTRY_LABELS[e.entryType] ?? e.entryType).slice(0, 1)}
-                    </span>
-                  );
-                }
-                // 타임라인 트랙: 전체 폭 = 본인 근무시간(유연근무 반영), 바는 시작시각 위치 + 길이
-                const { left, width } = barGeom(e.startTime, e.endTime, dayStart, dayEnd);
-                const isPartial = !!(e.startTime && e.endTime);
-                // 근무군·휴일근무는 2줄 바 — 1줄=유형·시간, 2줄=내역(사유)
-                return (
-                  <div key={e.id} className={`w-full relative rounded bg-gray-100/60 dark:bg-gray-500/10 h-8`}
-                    title={tip}>
-                    <div className={`absolute top-0 bottom-0 rounded px-1 flex flex-col justify-center overflow-hidden ${ENTRY_COLORS[e.entryType] ?? "bg-gray-100 text-gray-600"}`}
-                      style={{ left: `${left}%`, width: `${width}%` }}>
-                      <span className="text-xs font-medium leading-none truncate">
-                        {ENTRY_LABELS[e.entryType] ?? e.entryType}{isPartial && timeStr ? ` ${timeStr}` : ""}
-                      </span>
-                      {detail ? (
-                        <span className="text-xs leading-none truncate mt-0.5">{detail}</span>
-                      ) : (
-                        <span className="text-xs leading-none mt-0.5" aria-hidden>&nbsp;</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </td>
-        );
-      })}
+      <td colSpan={N} className="p-0 align-top">
+        <div className="relative" style={{ height: rowHeight }}>
+          {/* 배경 일자 스트라이프 — 오늘/휴일/주말 음영 + 열 구분선 */}
+          <div className="absolute inset-0 flex">
+            {days.map((d) => {
+              const isHol = !!holidays?.get(d);
+              const bg = isToday(d)
+                ? "bg-blue-50/30 dark:bg-blue-500/10"
+                : isHol
+                ? "bg-red-50/40 dark:bg-red-500/10"
+                : isWeekend(d)
+                ? "bg-gray-50/50 dark:bg-gray-500/10"
+                : "";
+              return <div key={d} className={`flex-1 border-l border-gray-50 ${bg}`} />;
+            })}
+          </div>
+          {/* 막대 — 시작일 시작시각 ~ 종료일 종료시각을 실제 폭으로 */}
+          {bars.map((b) => {
+            const startFrac = frac(b.spanStart, 0);
+            const endFrac = frac(b.spanEnd, 1);
+            const left = ((b.startIdx + startFrac) / N) * 100;
+            const width = Math.max((100 / N) * 0.2, ((b.endIdx + endFrac) / N) * 100 - left);
+            const timeStr = b.spanStart || b.spanEnd ? `${b.spanStart ?? ""}~${b.spanEnd ?? ""}` : "";
+            const detail = entryDetail(b.e);
+            const label = ENTRY_LABELS[b.e.entryType] ?? b.e.entryType;
+            const tip = [
+              label,
+              b.multi ? `${fmtShort(days[b.startIdx]!)}~${fmtShort(days[b.endIdx]!)} (${b.endIdx - b.startIdx + 1}일)` : "",
+              timeStr,
+              detail ?? b.e.label,
+            ].filter(Boolean).join(" / ");
+            const style = { left: `${left}%`, width: `${width}%`, top: PAD + b.lane * (ROW_H + GAP), height: ROW_H } as const;
+            const colorCls = ENTRY_COLORS[b.e.entryType] ?? "bg-gray-100 text-gray-600";
+            if (viewMode === "month") {
+              return (
+                <div key={`${b.e.id}:${b.startIdx}`} title={tip}
+                  className={`absolute rounded flex items-center justify-center overflow-hidden ${colorCls}`} style={style}>
+                  <span className="text-[10px] font-medium leading-none truncate px-0.5">{label.slice(0, 1)}</span>
+                </div>
+              );
+            }
+            return (
+              <div key={`${b.e.id}:${b.startIdx}`} title={tip}
+                className={`absolute rounded px-1 flex flex-col justify-center overflow-hidden ${colorCls}`} style={style}>
+                <span className="text-xs font-medium leading-none truncate">
+                  {label}{timeStr ? ` ${timeStr}` : ""}
+                </span>
+                {detail && <span className="text-xs leading-none truncate mt-0.5">{detail}</span>}
+              </div>
+            );
+          })}
+        </div>
+      </td>
     </tr>
   );
 }
