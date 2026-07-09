@@ -162,7 +162,7 @@ export async function internalRoutes(
       where: { user: userFilter },
       include: {
         user: { select: { id: true, name: true, email: true, status: true } },
-        department: { select: { id: true, name: true, sortOrder: true } },
+        department: { select: { id: true, name: true, sortOrder: true, hiddenFromMenus: true } },
       },
     });
     const result = profiles.map((p) => ({
@@ -173,6 +173,8 @@ export async function internalRoutes(
       departmentId: p.department?.id ?? null,
       departmentName: p.department?.name ?? null,
       departmentSortOrder: p.department?.sortOrder ?? 999,
+      // 메뉴 숨김 부서 여부 — 전사근태 등 일반 메뉴에서 제외 판단용
+      departmentHidden: p.department?.hiddenFromMenus ?? false,
     }));
     // UserProfile 없는 사용자도 포함
     const profileUserIds = new Set(profiles.map((p) => p.userId));
@@ -187,6 +189,7 @@ export async function internalRoutes(
       result.push({
         id: u.id, name: u.name, email: u.email, status: u.status,
         departmentId: null, departmentName: null, departmentSortOrder: 999,
+        departmentHidden: false,
       });
     }
     return reply.send(result);

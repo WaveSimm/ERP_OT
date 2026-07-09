@@ -8,6 +8,7 @@ interface UserWithDept {
   departmentId: string | null;
   departmentName: string | null;
   departmentSortOrder: number;
+  departmentHidden?: boolean;
 }
 
 export class WorkScheduleService {
@@ -20,8 +21,9 @@ export class WorkScheduleService {
     const startDate = new Date(start);
     const endDate = new Date(end);
 
-    // 1. 전체 사용자 + 부서 목록 조회
-    const allUsers = await this.authClient.getAllUsersWithDepartments();
+    // 1. 전체 사용자 + 부서 목록 조회 (메뉴 숨김 부서 소속자는 전사근태에서 제외)
+    const allUsers = (await this.authClient.getAllUsersWithDepartments())
+      .filter((u) => !u.departmentHidden);
 
     // 2. 해당 기간 엔트리 조회 (외근/교육/출장/휴가 등)
     const entries = await this.prisma.workScheduleEntry.findMany({
@@ -77,6 +79,11 @@ export class WorkScheduleService {
     const schedMap = new Map(schedules.map((s) => [s.userId, { workStartTime: s.workStartTime, workEndTime: s.workEndTime }]));
     const sched = (uid: string) => schedMap.get(uid) ?? { workStartTime: "09:30", workEndTime: "18:30" };
 
+    // 3-2. 부서 내 멤버 표시 순서(전사근태 드래그 정렬) — 없으면 이름순 폴백.
+    const sortRows = await this.prisma.memberSortOrder.findMany();
+    const orderMap = new Map(sortRows.map((r) => [`${r.departmentId}:${r.userId}`, r.sortOrder]));
+    const memberOrder = (deptId: string, uid: string) => orderMap.get(`${deptId}:${uid}`) ?? Number.MAX_SAFE_INTEGER;
+
     // 4. 부서별 그룹핑
     const deptMap = new Map<string, { id: string; name: string; sortOrder: number; members: UserWithDept[] }>();
     const unassigned: UserWithDept[] = [];
@@ -105,7 +112,9 @@ export class WorkScheduleService {
         name: dept.name,
         sortOrder: dept.sortOrder,
         members: dept.members
-          .sort((a, b) => a.name.localeCompare(b.name, "ko"))
+          .sort((a, b) =>
+            (memberOrder(dept.id, a.id) - memberOrder(dept.id, b.id)) ||
+            a.name.localeCompare(b.name, "ko"))
           .map((m) => ({
             userId: m.id,
             name: m.name,
@@ -147,6 +156,31 @@ export class WorkScheduleService {
         })),
       })),
     };
+  }
+
+  // 전사근태표 부서 내 멤버 순서 재정렬 (전사 공유, 누구나 가능).
+  //   회장단·대표이사·임원 부서는 재정렬 금지(방어). departmentId → 부서명은 auth 조회로 확인.
+  async reorderMembers(departmentId: string, orderedUserIds: string[]) {
+    const LOCKED_DEPTS = new Set(["회장단", "대표이사", "임원"]);
+    const allUsers = await this.authClient.getAllUsersWithDepartments();
+    const deptName = allUsers.find((u) => u.departmentId === departmentId)?.departmentName ?? null;
+    if (deptName && LOCKED_DEPTS.has(deptName)) {
+      throw new Error(`${deptName} 부서는 순서를 변경할 수 없습니다.`);
+    }
+    // 해당 부서에 실제 소속된 사용자만 반영(엉뚱한 id 방어)
+    const deptUserIds = new Set(allUsers.filter((u) => u.departmentId === departmentId).map((u) => u.id));
+    const valid = orderedUserIds.filter((id) => deptUserIds.has(id));
+
+    await this.prisma.$transaction(
+      valid.map((userId, idx) =>
+        this.prisma.memberSortOrder.upsert({
+          where: { departmentId_userId: { departmentId, userId } },
+          create: { departmentId, userId, sortOrder: idx },
+          update: { sortOrder: idx },
+        }),
+      ),
+    );
+    return { departmentId, count: valid.length };
   }
 
   async createEntry(userId: string, data: { date: string; entryType: string; startTime?: string; endTime?: string; label?: string; groupId?: string }) {

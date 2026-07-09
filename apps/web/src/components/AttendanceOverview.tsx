@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, type DragEvent } from "react";
 import { attendanceOverviewApi } from "@/lib/api";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -47,6 +47,9 @@ const ENTRY_ACCENTS: Record<string, string> = {
 };
 
 const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
+
+// 드래그 재정렬 제외(고정) 부서 — 회장단·대표이사·임원
+const LOCKED_DEPTS = new Set(["회장단", "대표이사", "임원"]);
 
 type ViewMode = "day" | "week" | "month";
 
@@ -228,6 +231,27 @@ export default function AttendanceOverview({ holidays }: Props = {}) {
 
   const toggle = (id: string) => setExpanded((p) => ({ ...p, [id]: !p[id] }));
 
+  // 부서 내 멤버 순서 재정렬 — 낙관적 업데이트 후 저장, 실패 시 서버 상태로 롤백.
+  const reorderMembers = useCallback(async (deptId: string, orderedUserIds: string[]) => {
+    setData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        departments: prev.departments.map((d) => {
+          if (d.id !== deptId) return d;
+          const byId = new Map(d.members.map((m) => [m.userId, m]));
+          const next = orderedUserIds.map((id) => byId.get(id)).filter((m): m is Member => !!m);
+          return { ...d, members: next };
+        }),
+      };
+    });
+    try {
+      await attendanceOverviewApi.reorderMembers(deptId, orderedUserIds);
+    } catch {
+      load(); // 실패 시 서버 상태로 복구
+    }
+  }, [load]);
+
   const allIds = useMemo(() => {
     if (!data) return [];
     const ids = data.departments.map((d) => d.id);
@@ -308,7 +332,8 @@ export default function AttendanceOverview({ holidays }: Props = {}) {
           {data.departments.map((dept) => (
             <DeptSection key={dept.id} dept={dept} days={days} viewMode={viewMode}
               isExpanded={expanded[dept.id] ?? false} onToggle={() => toggle(dept.id)}
-              holidays={holidays} />
+              holidays={holidays}
+              canReorder={!LOCKED_DEPTS.has(dept.name)} onReorder={reorderMembers} />
           ))}
           {data.unassigned.length > 0 && (
             <DeptSection
@@ -318,6 +343,7 @@ export default function AttendanceOverview({ holidays }: Props = {}) {
               isExpanded={expanded["__unassigned"] ?? false}
               onToggle={() => toggle("__unassigned")}
               holidays={holidays}
+              canReorder={false}
             />
           )}
         </div>
@@ -328,14 +354,31 @@ export default function AttendanceOverview({ holidays }: Props = {}) {
 
 // ─── DeptSection ─────────────────────────────────────────────────────────────
 
-function DeptSection({ dept, days, viewMode, isExpanded, onToggle, holidays }: {
+function DeptSection({ dept, days, viewMode, isExpanded, onToggle, holidays, canReorder, onReorder }: {
   dept: Department;
   days: string[];
   viewMode: ViewMode;
   isExpanded: boolean;
   onToggle: () => void;
   holidays?: Map<string, string>;
+  canReorder?: boolean;
+  onReorder?: (deptId: string, orderedUserIds: string[]) => void;
 }) {
+  const [dragUser, setDragUser] = useState<string | null>(null);
+  const [overUser, setOverUser] = useState<string | null>(null);
+
+  const dropOn = (targetUserId: string) => {
+    if (!canReorder || !dragUser || dragUser === targetUserId) { setDragUser(null); setOverUser(null); return; }
+    const ids = dept.members.map((m) => m.userId);
+    const from = ids.indexOf(dragUser);
+    const to = ids.indexOf(targetUserId);
+    setDragUser(null); setOverUser(null);
+    if (from < 0 || to < 0) return;
+    const [moved] = ids.splice(from, 1);
+    ids.splice(to, 0, moved!);
+    onReorder?.(dept.id, ids);
+  };
+
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden">
       <button onClick={onToggle}
@@ -378,7 +421,19 @@ function DeptSection({ dept, days, viewMode, isExpanded, onToggle, holidays }: {
             </thead>
             <tbody>
               {dept.members.map((member) => (
-                <MemberRow key={member.userId} member={member} days={days} viewMode={viewMode} holidays={holidays} />
+                <MemberRow key={member.userId} member={member} days={days} viewMode={viewMode} holidays={holidays}
+                  drag={canReorder ? {
+                    canDrag: true,
+                    isOver: overUser === member.userId && dragUser !== member.userId,
+                    onDragStart: (e) => {
+                      e.dataTransfer.effectAllowed = "move";
+                      e.dataTransfer.setData("text/plain", member.userId);  // Firefox: 없으면 드래그 시작 안 됨
+                      setDragUser(member.userId);
+                    },
+                    onDragOver: (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (overUser !== member.userId) setOverUser(member.userId); },
+                    onDrop: (e) => { e.preventDefault(); dropOn(member.userId); },
+                    onDragEnd: () => { setDragUser(null); setOverUser(null); },
+                  } : undefined} />
               ))}
             </tbody>
           </table>
@@ -390,7 +445,16 @@ function DeptSection({ dept, days, viewMode, isExpanded, onToggle, holidays }: {
 
 // ─── MemberRow ───────────────────────────────────────────────────────────────
 
-function MemberRow({ member, days, viewMode, holidays }: { member: Member; days: string[]; viewMode: ViewMode; holidays?: Map<string, string> }) {
+interface RowDrag {
+  canDrag: boolean;
+  isOver: boolean;
+  onDragStart: (e: DragEvent) => void;
+  onDragOver: (e: DragEvent) => void;
+  onDrop: (e: DragEvent) => void;
+  onDragEnd: () => void;
+}
+
+function MemberRow({ member, days, viewMode, holidays, drag }: { member: Member; days: string[]; viewMode: ViewMode; holidays?: Map<string, string>; drag?: RowDrag }) {
   const entriesByDate = useMemo(() => {
     const map = new Map<string, Entry[]>();
     for (const e of member.entries) {
@@ -471,8 +535,20 @@ function MemberRow({ member, days, viewMode, holidays }: { member: Member; days:
     t ? Math.min(1, Math.max(0, (toMin(t) - dayStart) / axisSpan)) : fb;
 
   return (
-    <tr className="border-t border-gray-100 hover:bg-gray-50/50 dark:hover:bg-gray-500/10">
-      <td className="w-28 px-3 py-1.5 text-sm font-medium text-gray-800 bg-white sticky left-0 z-10 truncate">
+    <tr
+      draggable={drag?.canDrag}
+      onDragStart={drag?.onDragStart}
+      onDragOver={drag?.onDragOver}
+      onDrop={drag?.onDrop}
+      onDragEnd={drag?.onDragEnd}
+      className={`group border-t border-gray-100 hover:bg-gray-50/50 dark:hover:bg-gray-500/10 ${
+        drag?.isOver ? "outline outline-2 -outline-offset-2 outline-blue-400" : ""
+      }`}
+    >
+      <td className={`w-28 px-3 py-1.5 text-sm font-medium text-gray-800 bg-white sticky left-0 z-10 truncate ${drag?.canDrag ? "cursor-move" : ""}`}>
+        {/* 핸들은 항상 자리 차지(이름 정렬 통일). 드래그 가능은 평소 투명→행 hover 시 표시, 잠금은 완전 투명 */}
+        <span className={`mr-1 select-none transition-opacity ${drag?.canDrag ? "text-gray-300 opacity-0 group-hover:opacity-100" : "invisible"}`}
+          title={drag?.canDrag ? "드래그로 순서 변경" : undefined} aria-hidden>⠿</span>
         {member.name}
       </td>
       <td colSpan={N} className="p-0 align-top">

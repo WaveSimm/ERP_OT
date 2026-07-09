@@ -14,6 +14,15 @@ export async function workScheduleRoutes(fastify: FastifyInstance) {
     return reply.send(await svc.getWeeklyOverview(q.start, q.end));
   });
 
+  // PATCH /api/v1/work-schedule/members/reorder — 부서 내 멤버 순서 재정렬 (전사 공유, 누구나)
+  fastify.patch("/members/reorder", async (req, reply) => {
+    const body = z.object({
+      departmentId: z.string().min(1),
+      orderedUserIds: z.array(z.string()).min(1),
+    }).parse(req.body);
+    return reply.send(await svc.reorderMembers(body.departmentId, body.orderedUserIds));
+  });
+
   // POST /api/v1/work-schedule
   fastify.post("/", {
     preHandler: requireRole("ADMIN", "MANAGER", "OPERATOR"),

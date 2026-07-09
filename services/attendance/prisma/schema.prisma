@@ -351,3 +351,17 @@ model Notification {
   @@map("notifications")
   @@schema("attendance")
 }
+
+// 전사근태표 부서 내 멤버 표시 순서 (전사 공유, 누구나 재정렬).
+// 정렬값이 없는 멤버는 이름순으로 폴백.
+model MemberSortOrder {
+  id           String   @id @default(cuid())
+  departmentId String   @map("department_id")
+  userId       String   @map("user_id")
+  sortOrder    Int      @map("sort_order")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([departmentId, userId])
+  @@map("member_sort_order")
+  @@schema("attendance")
+}

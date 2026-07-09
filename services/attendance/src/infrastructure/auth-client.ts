@@ -86,10 +86,12 @@ export class AuthClient {
   async getAllUsersWithDepartments(): Promise<{
     id: string; name: string; email: string;
     departmentId: string | null; departmentName: string | null; departmentSortOrder: number;
+    departmentHidden?: boolean;
   }[]> {
     const result = await this.get<{
       id: string; name: string; email: string;
       departmentId: string | null; departmentName: string | null; departmentSortOrder: number;
+      departmentHidden?: boolean;
     }[]>(
       "/internal/users/all-with-departments",
       "all_users_depts",
