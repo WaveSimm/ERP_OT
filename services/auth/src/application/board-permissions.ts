@@ -1,5 +1,13 @@
 import type { AuthUserContext, BoardAudience } from "../domain/board.types";
 
+// 대상 부서와 무관하게 모든 부서공지를 열람할 수 있는 경영진 부서 (ADMIN에 준하는 열람권한)
+// 회장단 / 경영진(대표이사) / 임원진(임원)
+export const NOTICE_OVERSEER_DEPARTMENT_IDS: ReadonlySet<string> = new Set([
+  "dept_chairman", // 회장단
+  "dept_daepyo_group", // 경영진(대표이사)
+  "dept_exec_group", // 임원진(임원)
+]);
+
 export interface PermissionBoard {
   writeRoles: string[];
   readAudience: BoardAudience;
@@ -21,6 +29,8 @@ export function canRead(board: PermissionBoard, post: PermissionPost, user: Auth
   if (post.targetDepartmentId) {
     if (user.role === "ADMIN") return true;
     if (post.authorId === user.id) return true; // 작성자 본인은 항상 읽기
+    // 회장단·경영진·임원진은 대상 부서와 무관하게 모든 부서공지 열람
+    if (!!user.departmentId && NOTICE_OVERSEER_DEPARTMENT_IDS.has(user.departmentId)) return true;
     if (user.departmentId === post.targetDepartmentId) return true;
     return false;
   }
