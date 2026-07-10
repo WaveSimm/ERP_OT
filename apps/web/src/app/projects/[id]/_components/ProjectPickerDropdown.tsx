@@ -32,7 +32,7 @@ export default function ProjectPickerDropdown({
   router,
 }: ProjectPickerDropdownProps) {
   return (
-    <div className="absolute top-full left-0 mt-1 w-72 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
+    <div className="absolute top-full left-0 mt-1 w-[420px] max-w-[90vw] bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
       <div className="p-2 border-b border-gray-100">
         <input
           autoFocus

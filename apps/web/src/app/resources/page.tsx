@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useState, useCallback } from "react";
+import { Fragment, useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { resourceApi, resourceGroupApi, taskApi, userManagementApi, getUser } from "@/lib/api";
 import AppLayout from "@/components/AppLayout";
@@ -138,6 +138,18 @@ export default function ResourcesPage() {
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
   const [resourceTab, setResourceTab] = useState<ResourceTab>("attendance");
+
+  // sticky 탭 헤더 높이 측정 — 하위 탭 내부 툴바(전사근태 등)가 헤더 바로 아래에 고정되도록 CSS 변수로 전달
+  const tabHeaderRef = useRef<HTMLDivElement>(null);
+  const [tabHeaderH, setTabHeaderH] = useState(104);
+  useEffect(() => {
+    const el = tabHeaderRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setTabHeaderH(el.offsetHeight));
+    ro.observe(el);
+    setTabHeaderH(el.offsetHeight);
+    return () => ro.disconnect();
+  }, []);
 
   // 회사달력 v1.2 — 한국 공휴일·자체 휴일 (KASI 자동 갱신 포함)
   const holidays = useHolidaysMap();
@@ -675,9 +687,9 @@ export default function ResourcesPage() {
 
   return (
     <AppLayout>
-      <div className="px-6 pb-6">
+      <div className="px-6 pb-6" style={{ ["--attn-sticky-top" as any]: `calc(3.5rem + ${tabHeaderH}px)` }}>
         {/* 헤더 + 탭 — 헤더 밑 sticky (다른 메뉴와 통일) */}
-        <div className="sticky top-14 z-30 bg-gray-50 dark:bg-gray-900 -mx-6 px-6 pt-6 pb-0 mb-6">
+        <div ref={tabHeaderRef} className="sticky top-14 z-30 bg-gray-50 dark:bg-gray-900 -mx-6 px-6 pt-6 pb-0 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-gray-900">자원관리</h1>
         </div>

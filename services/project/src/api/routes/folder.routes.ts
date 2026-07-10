@@ -93,4 +93,29 @@ export async function folderRoutes(fastify: FastifyInstance) {
       return fastify.folderService.reorderFolders(folderIds);
     }
   );
+
+  // ─── 내 즐겨찾기 (사용자별 프라이빗 — 로그인한 누구나, 본인 것만) ──────────────
+  // 내 즐겨찾기 프로젝트 목록
+  fastify.get("/favorites", async (request) => {
+    const projectIds = await fastify.folderService.listFavorites(request.userId);
+    return { projectIds };
+  });
+
+  // 즐겨찾기 추가
+  fastify.post<{ Params: { projectId: string } }>(
+    "/favorites/:projectId",
+    async (request, reply) => {
+      const result = await fastify.folderService.addFavorite(request.userId, request.params.projectId);
+      return reply.status(201).send(result);
+    }
+  );
+
+  // 즐겨찾기 해제
+  fastify.delete<{ Params: { projectId: string } }>(
+    "/favorites/:projectId",
+    async (request, reply) => {
+      await fastify.folderService.removeFavorite(request.userId, request.params.projectId);
+      return reply.status(204).send();
+    }
+  );
 }

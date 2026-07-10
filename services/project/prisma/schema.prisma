@@ -135,8 +135,25 @@ model Project {
   baselines        ProjectBaseline[]
   activityLogs     ActivityLog[]
   groupMemberships ProjectGroupMembership[]
+  favorites        ProjectFavorite[]
 
   @@map("projects")
+  @@schema("project")
+}
+
+// ─── 내 즐겨찾기 (사용자별 프라이빗) ──────────────────────────────────────
+// 프로젝트 페이지의 '내 즐겨찾기' 폴더 — 계정별로만 보이며 다른 사용자에게는 노출되지 않음.
+model ProjectFavorite {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  projectId String   @map("project_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@index([userId])
+  @@map("project_favorites")
   @@schema("project")
 }
 

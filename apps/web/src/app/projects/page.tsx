@@ -51,6 +51,8 @@ const STATUS_CFG: Record<string, { label: string; dot: string; text: string }> =
 // ─── localStorage helpers (UI preferences only) ──────────────────────────────
 
 const LS_FOLDER_OPEN = "erp_folder_open_v1";
+// '내 즐겨찾기' 가상 폴더 id (실제 폴더 아님 — 사용자별 프라이빗)
+const FAVORITES_FOLDER_ID = "__favorites__";
 
 function lsGet<T>(key: string, fallback: T): T {
   try { return JSON.parse(localStorage.getItem(key) ?? "null") ?? fallback; }
@@ -118,6 +120,7 @@ export default function ProjectsPage() {
   const [folders, setFolders]             = useState<Folder[]>([]);
   const [projFolderMap, setProjFolderMap] = useState<Record<string, string[]>>({});
   const [openFolders, setOpenFolders]     = useState<Record<string, boolean>>({});
+  const [favoriteIds, setFavoriteIds]     = useState<string[]>([]); // 내 즐겨찾기 projectId (사용자별 프라이빗)
 
   // Drag state
   const [dragging, setDragging]     = useState<{ type: "project" | "folder"; id: string; fromFolderId?: string } | null>(null);
@@ -160,7 +163,23 @@ export default function ProjectsPage() {
       setProjFolderMap(buildProjFolderMap(apiFolders));
       setFolderProjOrder(buildFolderProjOrder(apiFolders));
     } catch { /* ignore — folders just won't show */ }
+    // 내 즐겨찾기 (사용자별)
+    folderApi.favorites().then((r) => setFavoriteIds(r.projectIds ?? [])).catch(() => {});
   }, []);
+
+  // 즐겨찾기 토글 (낙관적 업데이트 + 실패 시 롤백)
+  const isFavorite = (projectId: string) => favoriteIds.includes(projectId);
+  const handleToggleFavorite = async (projectId: string) => {
+    const fav = favoriteIds.includes(projectId);
+    const prev = favoriteIds;
+    setFavoriteIds(fav ? favoriteIds.filter((id) => id !== projectId) : [projectId, ...favoriteIds]);
+    try {
+      if (fav) await folderApi.removeFavorite(projectId);
+      else await folderApi.addFavorite(projectId);
+    } catch {
+      setFavoriteIds(prev);
+    }
+  };
 
   // Undo / Redo (shared hook) — onError에서 loadFolders/load를 ref로 참조
   const loadRef = useRef<() => void>(() => {});
@@ -636,11 +655,11 @@ export default function ProjectsPage() {
             isDragging ? "opacity-30" : "hover:bg-blue-50/40 dark:hover:bg-blue-500/10",
           )}
           style={{ height: ROW_H }}
-          draggable
+          draggable={folderId !== FAVORITES_FOLDER_ID}
           onDragStart={() => onDragStart("project", p.id, folderId)}
           onDragEnd={onDragEnd}
-          onDragOver={folderId ? (e) => onProjRowDragOver(e, p.id, folderId) : undefined}
-          onDrop={folderId ? (e) => onProjRowDrop(e, folderId) : undefined}
+          onDragOver={folderId && folderId !== FAVORITES_FOLDER_ID ? (e) => onProjRowDragOver(e, p.id, folderId) : undefined}
+          onDrop={folderId && folderId !== FAVORITES_FOLDER_ID ? (e) => onProjRowDrop(e, folderId) : undefined}
           onClick={() => router.push(`/projects/${p.id}`)}
         >
         {/* Name */}
@@ -653,6 +672,19 @@ export default function ProjectsPage() {
           <span className="text-[13px] text-gray-800 truncate group-hover/row:text-blue-600 transition-colors leading-none">
             {p.name}
           </span>
+          {/* 즐겨찾기 토글 — 즐겨찾기 시 항상 표시, 아니면 hover 시 표시 */}
+          <button
+            onClick={e => { e.stopPropagation(); handleToggleFavorite(p.id); }}
+            className={clsx(
+              "ml-1 w-5 h-5 flex items-center justify-center rounded shrink-0 transition-all text-sm leading-none",
+              isFavorite(p.id)
+                ? "text-yellow-400 hover:text-yellow-500"
+                : "text-gray-300 hover:text-yellow-400 opacity-0 group-hover/row:opacity-100",
+            )}
+            title={isFavorite(p.id) ? "즐겨찾기 해제" : "즐겨찾기 추가"}
+          >
+            {isFavorite(p.id) ? "★" : "☆"}
+          </button>
           {/* 프로젝트 요약 버튼 — 항상 표시, 진한 파랑 */}
           <button
             onClick={e => { e.stopPropagation(); setSummaryId(p.id); }}
@@ -661,8 +693,8 @@ export default function ProjectsPage() {
           >
             요약
           </button>
-          {/* 폴더에서 제거 버튼 */}
-          {folderId && (
+          {/* 폴더에서 제거 버튼 (실제 폴더만 — 즐겨찾기는 ★로 해제) */}
+          {folderId && folderId !== FAVORITES_FOLDER_ID && (
             <button
               onClick={e => { e.stopPropagation(); removeFromFolder(p.id, folderId); }}
               className="opacity-0 group-hover/row:opacity-100 ml-1 w-4 h-4 flex items-center justify-center rounded text-gray-300 hover:text-red-400 hover:bg-red-50 shrink-0 transition-all"
@@ -981,6 +1013,35 @@ export default function ProjectsPage() {
               onDragOver={e => { e.preventDefault(); setDropTarget("root"); setDropGap(null); }}
               onDrop={onRootDrop}
             >
+              {/* ⭐ 내 즐겨찾기 — 사용자별 프라이빗 (내 계정에서만 보임) */}
+              {(() => {
+                const favProjects = favoriteIds
+                  .map((id) => filteredProjects.find((p) => p.id === id))
+                  .filter((p): p is Project => !!p);
+                const open = openFolders[FAVORITES_FOLDER_ID] !== false;
+                return (
+                  <div>
+                    <div
+                      className="flex items-center border-b border-gray-100 cursor-pointer hover:bg-yellow-50/50 select-none"
+                      style={{ height: ROW_H }}
+                      onClick={() => toggleOpen(FAVORITES_FOLDER_ID)}
+                    >
+                      <div className="flex-1 min-w-0 flex items-center gap-1.5" style={{ paddingLeft: 10 }}>
+                        <span className="text-gray-400 shrink-0 text-xs w-3">{open ? "▼" : "▶"}</span>
+                        <span className="shrink-0">⭐</span>
+                        <span className="text-[13px] font-semibold text-gray-700 truncate">내 즐겨찾기</span>
+                        <span className="text-[11px] text-gray-400 bg-gray-100 px-1.5 rounded-full shrink-0">{favProjects.length}</span>
+                        <span className="text-[10px] text-gray-300 shrink-0">나만 보임</span>
+                      </div>
+                    </div>
+                    {open && (favProjects.length > 0
+                      ? favProjects.map((p) => renderProject(p, 1, FAVORITES_FOLDER_ID))
+                      : <div className="text-[12px] text-gray-400 py-2" style={{ paddingLeft: 40 }}>프로젝트의 ☆ 아이콘을 눌러 즐겨찾기에 추가하세요.</div>
+                    )}
+                  </div>
+                );
+              })()}
+
               {rootFolders.map(f => renderFolder(f, 0))}
               {rootProjects.map(p => renderProject(p, 0))}
 
@@ -1261,7 +1322,13 @@ export default function ProjectsPage() {
       )}
 
       {/* 프로젝트 요약 드로어 */}
-      {summaryId && <ProjectSummaryDrawer projectId={summaryId} onClose={() => setSummaryId(null)} />}
+      {summaryId && (
+        <ProjectSummaryDrawer
+          projectId={summaryId}
+          onRename={async (name) => { await projectApi.update(summaryId, { name }); await load(); }}
+          onClose={() => setSummaryId(null)}
+        />
+      )}
 
       {/* 새 프로젝트 - 템플릿으로 만들기 */}
       {showTemplateWizard && (

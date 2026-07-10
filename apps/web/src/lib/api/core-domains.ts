@@ -76,6 +76,13 @@ export const folderApi = {
     request<any>(`/folders/${folderId}/reorder`, { method: "PATCH", body: JSON.stringify({ projectIds }) }),
   reorderFolders: (folderIds: string[]) =>
     request<any>("/folders/reorder", { method: "PATCH", body: JSON.stringify({ folderIds }) }),
+
+  // 내 즐겨찾기 (사용자별 프라이빗)
+  favorites: () => request<{ projectIds: string[] }>("/folders/favorites"),
+  addFavorite: (projectId: string) =>
+    request<{ ok: true }>(`/folders/favorites/${projectId}`, { method: "POST" }),
+  removeFavorite: (projectId: string) =>
+    request<void>(`/folders/favorites/${projectId}`, { method: "DELETE" }),
 };
 
 // ─── Dependencies (Task ↔ Task) ────────────────────────────────────────────

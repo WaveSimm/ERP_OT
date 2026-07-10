@@ -307,6 +307,25 @@ export default function ProjectDetailPage() {
     }
   };
 
+  // 프로젝트명 변경 — 권한(관리자/매니저/소유자)은 ProjectHeaderBar에서 판정
+  const handleRenameProject = async (name: string) => {
+    const oldName = ganttData?.project?.name ?? "";
+    if (!name || name === oldName) return;
+    try {
+      await projectApi.update(projectId, { name });
+      pushUndo({
+        label: `프로젝트명 "${oldName}" → "${name}"`,
+        undo: async () => { await projectApi.update(projectId, { name: oldName }); await load(); },
+        redo: async () => { await projectApi.update(projectId, { name }); await load(); },
+      });
+      await load();
+      refreshActivities();
+    } catch (e: any) {
+      alert(e.message ?? "프로젝트명 변경 실패");
+      throw e;
+    }
+  };
+
   const handleDeleteTask = async (taskId: string, taskName: string) => {
     if (!confirm(`"${taskName}" 태스크를 삭제하시겠습니까?`)) return;
     // 삭제 전 태스크 데이터 스냅샷
@@ -1343,7 +1362,7 @@ export default function ProjectDetailPage() {
       )}
 
       {/* 프로젝트 요약 드로어 */}
-      {showSummary && <ProjectSummaryDrawer projectId={projectId} onClose={() => setShowSummary(false)} />}
+      {showSummary && <ProjectSummaryDrawer projectId={projectId} onRename={handleRenameProject} onClose={() => setShowSummary(false)} />}
 
       {/* Undo/Redo toast */}
       {toast && (

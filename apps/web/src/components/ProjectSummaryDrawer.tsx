@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { projectApi } from "@/lib/api";
+import { projectApi, getUser } from "@/lib/api";
 import type { ProjectSummary } from "@/lib/api/types";
 import { fmtDate } from "@/lib/datetime";
 
@@ -15,7 +15,7 @@ const STATUS_CFG: Record<string, { label: string; cls: string }> = {
 
 const TYPE_ICON: Record<string, string> = { PERSON: "👤", EXTERNAL: "🧑‍💼", EQUIPMENT: "🔧" };
 
-export default function ProjectSummaryDrawer({ projectId, onClose }: { projectId: string; onClose: () => void }) {
+export default function ProjectSummaryDrawer({ projectId, onRename, onClose }: { projectId: string; onRename?: (name: string) => Promise<void>; onClose: () => void }) {
   const [data, setData] = useState<ProjectSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -29,6 +29,30 @@ export default function ProjectSummaryDrawer({ projectId, onClose }: { projectId
 
   const st = data ? (STATUS_CFG[data.status] ?? STATUS_CFG.PLANNING) : null;
 
+  // 프로젝트명 변경 — 관리자/매니저/소유자만, 이름 더블클릭으로 편집
+  const me = getUser();
+  const canRename = !!(onRename && me && data && (me.role === "ADMIN" || me.role === "MANAGER" || me.id === data.ownerId));
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [savingName, setSavingName] = useState(false);
+
+  const startRename = () => { if (!canRename) return; setNameDraft(data?.name ?? ""); setEditingName(true); };
+  const commitRename = async () => {
+    if (!onRename) { setEditingName(false); return; }
+    const v = nameDraft.trim();
+    if (!v || v === data?.name) { setEditingName(false); return; }
+    setSavingName(true);
+    try {
+      await onRename(v);
+      await projectApi.getSummary(projectId).then(setData).catch(() => {});
+      setEditingName(false);
+    } catch {
+      /* onRename에서 alert 처리 — 편집 유지 */
+    } finally {
+      setSavingName(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/30" onClick={onClose}>
       <div
@@ -37,7 +61,29 @@ export default function ProjectSummaryDrawer({ projectId, onClose }: { projectId
       >
         {/* 헤더 */}
         <div className="flex items-center gap-2 px-5 py-3 border-b shrink-0">
-          <h3 className="font-semibold text-gray-900 truncate flex-1">{data?.name ?? "프로젝트 요약"}</h3>
+          {editingName ? (
+            <input
+              autoFocus
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); void commitRename(); }
+                if (e.key === "Escape") { e.preventDefault(); setEditingName(false); }
+              }}
+              onBlur={() => void commitRename()}
+              disabled={savingName}
+              maxLength={200}
+              className="font-semibold text-gray-900 flex-1 min-w-0 border border-blue-400 rounded px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+            />
+          ) : (
+            <h3
+              className={`font-semibold text-gray-900 truncate flex-1 ${canRename ? "cursor-text rounded px-1 -mx-1 hover:bg-gray-100" : ""}`}
+              title={canRename ? "더블클릭하여 이름 변경" : undefined}
+              onDoubleClick={startRename}
+            >
+              {data?.name ?? "프로젝트 요약"}
+            </h3>
+          )}
           {st && <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${st.cls}`}>{st.label}</span>}
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl leading-none shrink-0">×</button>
         </div>
