@@ -232,12 +232,12 @@ export default function AttendanceOverview({ holidays }: Props = {}) {
 
   useEffect(() => { load(); }, [load]);
 
-  // 삭제 권한 — ADMIN은 타인 항목도, 본인은 본인 항목. (본인 항목 상세 삭제는 '내 대시보드' 병행)
+  // 전사근태 삭제는 관리자(ADMIN)만. (본인 것 삭제는 '내 월간 근태'에서 운영자 이상 가능)
   const me = getUser();
   const myUserId = me?.id ?? "";
-  const isAdmin = me?.role === "ADMIN";
+  const canManage = me?.role === "ADMIN";
   const handleDeleteEntry = useCallback(async (entry: Entry, memberUserId: string, memberName: string) => {
-    if (!isAdmin && memberUserId !== myUserId) return;
+    if (!canManage && memberUserId !== myUserId) return;
     if (entry.id.startsWith("att-")) return; // 출퇴근 합성 바는 삭제 대상 아님
     const who = memberUserId === myUserId ? "" : `${memberName}님의 `;
     const label = ENTRY_LABELS[entry.entryType] ?? entry.entryType;
@@ -253,7 +253,7 @@ export default function AttendanceOverview({ holidays }: Props = {}) {
     } catch (e: any) {
       alert(e?.message ?? "삭제에 실패했습니다.");
     }
-  }, [isAdmin, myUserId, load]);
+  }, [canManage, myUserId, load]);
 
   const toggle = (id: string) => setExpanded((p) => ({ ...p, [id]: !p[id] }));
 
@@ -362,7 +362,7 @@ export default function AttendanceOverview({ holidays }: Props = {}) {
             <DeptSection key={dept.id} dept={dept} days={days} viewMode={viewMode}
               isExpanded={expanded[dept.id] ?? false} onToggle={() => toggle(dept.id)}
               holidays={holidays}
-              myUserId={myUserId} isAdmin={isAdmin} onDeleteEntry={handleDeleteEntry}
+              myUserId={myUserId} canManage={canManage} onDeleteEntry={handleDeleteEntry}
               canReorder={!LOCKED_DEPTS.has(dept.name)} onReorder={reorderMembers} />
           ))}
           {data.unassigned.length > 0 && (
@@ -373,7 +373,7 @@ export default function AttendanceOverview({ holidays }: Props = {}) {
               isExpanded={expanded["__unassigned"] ?? false}
               onToggle={() => toggle("__unassigned")}
               holidays={holidays}
-              myUserId={myUserId} isAdmin={isAdmin} onDeleteEntry={handleDeleteEntry}
+              myUserId={myUserId} canManage={canManage} onDeleteEntry={handleDeleteEntry}
               canReorder={false}
             />
           )}
@@ -385,7 +385,7 @@ export default function AttendanceOverview({ holidays }: Props = {}) {
 
 // ─── DeptSection ─────────────────────────────────────────────────────────────
 
-function DeptSection({ dept, days, viewMode, isExpanded, onToggle, holidays, myUserId, isAdmin, onDeleteEntry, canReorder, onReorder }: {
+function DeptSection({ dept, days, viewMode, isExpanded, onToggle, holidays, myUserId, canManage, onDeleteEntry, canReorder, onReorder }: {
   dept: Department;
   days: string[];
   viewMode: ViewMode;
@@ -393,7 +393,7 @@ function DeptSection({ dept, days, viewMode, isExpanded, onToggle, holidays, myU
   onToggle: () => void;
   holidays?: Map<string, string>;
   myUserId: string;
-  isAdmin: boolean;
+  canManage: boolean;
   onDeleteEntry: (entry: Entry, memberUserId: string, memberName: string) => void;
   canReorder?: boolean;
   onReorder?: (deptId: string, orderedUserIds: string[]) => void;
@@ -456,7 +456,7 @@ function DeptSection({ dept, days, viewMode, isExpanded, onToggle, holidays, myU
             <tbody>
               {dept.members.map((member) => (
                 <MemberRow key={member.userId} member={member} days={days} viewMode={viewMode} holidays={holidays}
-                  canDelete={isAdmin || member.userId === myUserId}
+                  canDelete={canManage || member.userId === myUserId}
                   onDeleteEntry={(entry) => onDeleteEntry(entry, member.userId, member.name)}
                   drag={canReorder ? {
                     canDrag: true,
