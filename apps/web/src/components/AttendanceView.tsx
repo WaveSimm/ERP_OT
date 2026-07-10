@@ -427,11 +427,18 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete, onDeleteLea
             <div className="flex gap-2 pt-1">
               {isEdit && onDelete && (
                 <button type="button" onClick={async () => {
+                  const e = entry!;
+                  // 휴일근무(OT)는 신청서 단위로 삭제 — 본인 소유면 서버가 허용(스케줄 항목·신청서·연차대체 함께 정리)
+                  if (e.sourceType === "OT_APPROVED" && e.sourceId) {
+                    try { await holidayWorkApi.remove(e.sourceId); onSuccess(); onClose(); }
+                    catch (err: any) { setError(err?.message ?? "삭제에 실패했습니다."); }
+                    return;
+                  }
                   if (hasGroup && groupAction === "group") {
-                    try { await attendanceOverviewApi.deleteGroup(entry!.groupId!); } catch {}
+                    try { await attendanceOverviewApi.deleteGroup(e.groupId!); } catch {}
                     onSuccess(); onClose();
                   } else {
-                    onDelete(entry!.id); onClose();
+                    onDelete(e.id); onClose();
                   }
                 }}
                   className="px-3 py-2 border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 rounded-lg text-sm hover:bg-red-50 dark:hover:bg-red-950">
