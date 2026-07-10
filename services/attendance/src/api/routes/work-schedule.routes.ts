@@ -71,7 +71,7 @@ export async function workScheduleRoutes(fastify: FastifyInstance) {
     preHandler: requireRole("ADMIN", "MANAGER", "OPERATOR"),
   }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    await svc.deleteEntry(id, req.userId);
+    await svc.deleteEntry(id, req.userId, req.userRole);
     return reply.status(204).send();
   });
 
