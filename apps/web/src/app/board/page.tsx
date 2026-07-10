@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import AppLayout from "@/components/AppLayout";
 import UnifiedBoardSidebar from "@/components/board/UnifiedBoardSidebar";
 import SearchBar from "@/components/board/SearchBar";
+import { PinIcon } from "@/components/ui/icons";
 import { postApi, workLogApi } from "@/lib/api";
 
 interface FeedItem {
@@ -94,13 +95,13 @@ export default function BoardLandingPage() {
             ) : (
               <div className="space-y-5">
                 <FeedSection
-                  title="📢 공지사항"
+                  title="공지사항"
                   items={noticeItems}
                   catCode="notice"
                   emptyText="등록된 공지가 없습니다."
                 />
                 <FeedSection
-                  title="📚 게시판"
+                  title="게시판"
                   items={wikiItems}
                   catCode="wiki"
                   emptyText="등록된 자료가 없습니다."
@@ -148,9 +149,9 @@ function FeedSection({
                 className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 text-sm"
               >
                 <span className="text-xs text-gray-500 w-20 shrink-0 truncate">{p.boardName}</span>
-                <span className="text-xs text-gray-600 w-16 shrink-0 truncate">{p.authorName}</span>
-                <span className="text-xs text-gray-400 w-12 shrink-0">{fmtDate(p.publishedAt)}</span>
-                {p.isPinned && <span className="text-blue-600 dark:text-blue-400 shrink-0 text-xs">📌</span>}
+                <span className="hidden sm:block text-xs text-gray-600 w-16 shrink-0 truncate">{p.authorName}</span>
+                <span className="hidden sm:block text-xs text-gray-400 w-12 shrink-0">{fmtDate(p.publishedAt)}</span>
+                {p.isPinned && <span className="text-gray-500 dark:text-gray-400 shrink-0"><PinIcon /></span>}
                 {p.priority === 2 && (
                   <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-red-100 text-red-700 shrink-0">긴급</span>
                 )}
@@ -185,7 +186,7 @@ function ProjectBoardSection({ items }: { items: WorkLogFeedItem[] }) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-800">📝 프로젝트 게시판</h3>
+        <h3 className="text-sm font-semibold text-gray-800">프로젝트 게시판</h3>
         <Link
           href="/work-logs"
           className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
@@ -215,8 +216,8 @@ function ProjectBoardSection({ items }: { items: WorkLogFeedItem[] }) {
                 >
                   {w.taskName}
                 </Link>
-                <span className="text-xs text-gray-600 w-16 shrink-0 truncate">{w.authorName}</span>
-                <span className="text-xs text-gray-400 w-12 shrink-0">{fmtDate(w.createdAt)}</span>
+                <span className="hidden sm:block text-xs text-gray-600 w-16 shrink-0 truncate">{w.authorName}</span>
+                <span className="hidden sm:block text-xs text-gray-400 w-12 shrink-0">{fmtDate(w.createdAt)}</span>
                 <Link
                   href={`/work-logs/${w.projectId}`}
                   className="flex-1 truncate text-gray-700 hover:text-gray-900"

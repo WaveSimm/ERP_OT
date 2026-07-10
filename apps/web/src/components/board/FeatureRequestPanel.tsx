@@ -27,12 +27,12 @@ const STATUS_LABEL: Record<FeatureRequestStatus, { text: string; bg: string; fg:
 };
 
 const TYPE_LABEL: Record<FeatureRequestType, string> = {
-  BUG: "🐛 버그",
-  NEW_FEATURE: "✨ 신규 기능",
-  IMPROVEMENT: "📈 개선",
-  UI_UX: "🎨 UI/UX",
-  DOCS: "📄 매뉴얼·문서",
-  OTHER: "📌 기타",
+  BUG: "버그",
+  NEW_FEATURE: "신규 기능",
+  IMPROVEMENT: "개선",
+  UI_UX: "UI/UX",
+  DOCS: "매뉴얼·문서",
+  OTHER: "기타",
 };
 
 interface Props {

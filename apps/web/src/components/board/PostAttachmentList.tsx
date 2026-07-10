@@ -1,6 +1,7 @@
 "use client";
 
 import { attachmentApi } from "@/lib/api";
+import { PaperclipIcon, FileIcon } from "@/components/ui/icons";
 
 export interface AttachmentItem {
   id: string;
@@ -17,15 +18,6 @@ function formatSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
 }
 
-function fileIcon(mime: string) {
-  if (mime.startsWith("image/")) return "🖼️";
-  if (mime === "application/pdf") return "📄";
-  if (mime.includes("spreadsheetml") || mime === "text/csv" || mime === "application/vnd.ms-excel") return "📊";
-  if (mime.includes("wordprocessingml") || mime === "application/msword") return "📝";
-  if (mime.includes("presentationml") || mime === "application/vnd.ms-powerpoint") return "📑";
-  return "📎";
-}
-
 export default function PostAttachmentList({ attachments }: { attachments: AttachmentItem[] }) {
   // 인라인 이미지(본문 안에서 표시되는 것)는 첨부 영역에서 제외
   const visible = attachments.filter((a) => !a.isInline);
@@ -33,7 +25,7 @@ export default function PostAttachmentList({ attachments }: { attachments: Attac
 
   return (
     <div className="border-t border-gray-200 pt-3 mt-4">
-      <div className="text-xs font-semibold text-gray-500 mb-2">📎 첨부파일 ({visible.length})</div>
+      <div className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500 mb-2"><PaperclipIcon /> 첨부파일 ({visible.length})</div>
       <div className="space-y-1">
         {visible.map((a) => (
           <a
@@ -44,7 +36,7 @@ export default function PostAttachmentList({ attachments }: { attachments: Attac
             target="_blank"
             rel="noopener noreferrer"
           >
-            <span>{fileIcon(a.mimeType)}</span>
+            <span><FileIcon /></span>
             <span className="flex-1 truncate text-gray-800">{a.fileName}</span>
             <span className="text-xs text-gray-400">{formatSize(a.fileSize)}</span>
             <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">다운로드</span>

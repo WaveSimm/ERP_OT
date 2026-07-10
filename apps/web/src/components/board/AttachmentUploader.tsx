@@ -3,6 +3,7 @@
 import { useState, useRef, DragEvent } from "react";
 import { attachmentApi } from "@/lib/api";
 import { compressImage } from "@/lib/image-compress";
+import { PaperclipIcon, FileIcon } from "@/components/ui/icons";
 
 export interface UploadedAttachment {
   id: string;
@@ -24,15 +25,6 @@ function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes}B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
-}
-
-function fileIcon(mime: string) {
-  if (mime.startsWith("image/")) return "🖼️";
-  if (mime === "application/pdf") return "📄";
-  if (mime.includes("spreadsheet") || mime === "text/csv" || mime === "application/vnd.ms-excel") return "📊";
-  if (mime.includes("wordprocessing") || mime === "application/msword") return "📝";
-  if (mime.includes("presentation") || mime === "application/vnd.ms-powerpoint") return "📑";
-  return "📎";
 }
 
 export default function AttachmentUploader({ attachments, onAdd, onRemove, onInsertImageMarkdown }: Props) {
@@ -98,7 +90,7 @@ export default function AttachmentUploader({ attachments, onAdd, onRemove, onIns
           </div>
         ) : (
           <div className="text-sm text-gray-500">
-            📎 파일을 드래그하거나 클릭하여 추가 <span className="text-xs text-gray-400">(이미지는 본문에 자동 삽입 · 1920px / 약 500KB로 자동 압축)</span>
+            <PaperclipIcon /> 파일을 드래그하거나 클릭하여 추가 <span className="text-xs text-gray-400">(이미지는 본문에 자동 삽입 · 1920px / 약 500KB로 자동 압축)</span>
           </div>
         )}
       </div>
@@ -116,7 +108,7 @@ export default function AttachmentUploader({ attachments, onAdd, onRemove, onIns
               key={a.id}
               className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg text-sm"
             >
-              <span>{fileIcon(a.mimeType)}</span>
+              <span><FileIcon /></span>
               <span className="flex-1 truncate text-gray-800">{a.fileName}</span>
               <span className="text-xs text-gray-400">{formatSize(a.fileSize)}</span>
               {a.isInline && (
