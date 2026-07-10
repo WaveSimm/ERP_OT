@@ -55,7 +55,10 @@ type ViewMode = "day" | "week" | "month";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function fmt(d: Date) { return d.toISOString().slice(0, 10); }
+// 로컬(KST) 기준 "YYYY-MM-DD" — toISOString()은 UTC라 아침에 전날로 밀림
+function fmt(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 function fmtShort(dateStr: string) {
   const d = new Date(dateStr);
   return `${d.getMonth() + 1}.${d.getDate()}`;
@@ -275,8 +278,11 @@ export default function AttendanceOverview({ holidays }: Props = {}) {
 
   return (
     <div>
-      {/* View Mode Tabs + Navigator */}
-      <div className="flex flex-col gap-3 mb-4">
+      {/* View Mode Tabs + Navigator — 스크롤해도 상단 고정 (탭 헤더 바로 아래) */}
+      <div
+        className="sticky z-20 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 flex flex-col gap-3 mb-4 pt-1 pb-2"
+        style={{ top: "var(--attn-sticky-top, 10rem)" }}
+      >
         {/* 뷰 모드 전환 */}
         <div className="flex items-center justify-between">
           <div className="flex bg-gray-100 rounded-lg p-0.5">

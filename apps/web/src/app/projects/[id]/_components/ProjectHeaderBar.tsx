@@ -98,7 +98,7 @@ export default function ProjectHeaderBar({
         <div className="relative shrink-0" ref={pickerRef}>
           <button
             onClick={() => { setShowProjectPicker((v) => !v); setProjectSearch(""); }}
-            className="flex items-center gap-1 font-bold text-gray-900 hover:text-blue-600 transition-colors max-w-[200px]"
+            className="flex items-center gap-1 font-bold text-gray-900 hover:text-blue-600 transition-colors max-w-[280px] md:max-w-[560px] xl:max-w-[860px]"
           >
             <span className="truncate">{project?.name}</span>
             <span className="text-gray-400 text-xs">{showProjectPicker ? "▲" : "▼"}</span>

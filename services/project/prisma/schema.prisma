@@ -135,8 +135,25 @@ model Project {
   baselines        ProjectBaseline[]
   activityLogs     ActivityLog[]
   groupMemberships ProjectGroupMembership[]
+  favorites        ProjectFavorite[]
 
   @@map("projects")
+  @@schema("project")
+}
+
+// ─── 내 즐겨찾기 (사용자별 프라이빗) ──────────────────────────────────────
+// 프로젝트 페이지의 '내 즐겨찾기' 폴더 — 계정별로만 보이며 다른 사용자에게는 노출되지 않음.
+model ProjectFavorite {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  projectId String   @map("project_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@index([userId])
+  @@map("project_favorites")
   @@schema("project")
 }
 
@@ -200,6 +217,7 @@ model Task {
   scheduleHistories TaskScheduleHistory[]
   taskBaselines     TaskBaseline[]
   workLogs          WorkLog[]
+  issues            TaskIssue[]
 
   // 의존성 (Task↔Task만)
   predecessorOf Dependency[] @relation("PredecessorTask")
@@ -254,6 +272,28 @@ model WorkLog {
   @@index([authorId, workedAt(sort: Desc)])
   @@index([segmentId])
   @@map("work_logs")
+  @@schema("project")
+}
+
+// ─── 수동 이슈 (TaskIssue) ──────────────────────────────────────────
+// 태스크 상세에서 사용자가 등록하는 이슈. 미해결(isResolved=false)이면
+// 전사 대시보드 '이슈 현황'에 CRITICAL로 노출, 체크(해결) 시 사라짐.
+model TaskIssue {
+  id         String    @id @default(cuid())
+  taskId     String    @map("task_id")
+  content    String    @db.Text
+  isResolved Boolean   @default(false) @map("is_resolved")
+  resolvedAt DateTime? @map("resolved_at")
+  resolvedBy String?   @map("resolved_by")
+  authorId   String    @map("author_id")
+  authorName String    @map("author_name")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, isResolved, createdAt(sort: Desc)])
+  @@map("task_issues")
   @@schema("project")
 }
 

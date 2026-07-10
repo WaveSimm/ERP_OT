@@ -28,6 +28,7 @@ import { notificationRoutes } from "./api/routes/notification.routes.js";
 import { myTasksRoutes } from "./api/routes/my-tasks.routes.js";
 import { meRoutes } from "./api/routes/me.routes.js";
 import { workLogRoutes, workLogItemRoutes } from "./api/routes/work-log.routes.js";
+import { taskIssueRoutes, taskIssueItemRoutes } from "./api/routes/task-issue.routes.js";
 import { internalRoutes as projectInternalRoutes } from "./api/routes/internal.routes.js";
 import { dashboardRoutes } from "./api/routes/dashboard.routes.js";
 import { folderRoutes } from "./api/routes/folder.routes.js";
@@ -54,6 +55,7 @@ import { DashboardService } from "./application/dashboard/dashboard.service.js";
 import { ActivityEventConsumer } from "./infrastructure/event-consumer.js";
 import { FolderService } from "./application/folder.service.js";
 import { WorkLogService } from "./application/work-log.service.js";
+import { TaskIssueService } from "./application/task-issue.service.js";
 import { EmbeddingService } from "./application/embedding.service.js";
 
 // ─── Env 검증 ─────────────────────────────────────────────────────────────────
@@ -103,6 +105,7 @@ const riskDetectionService = new RiskDetectionService(prisma, gateway);
 const dashboardService = new DashboardService(prisma, redis);
 const folderService = new FolderService(prisma);
 const workLogService = new WorkLogService(prisma);
+const taskIssueService = new TaskIssueService(prisma);
 const dependencyService = new DependencyService(prisma, gateway);
 
 // CPM 트리거 setter wiring (의존성 변경 시 CPM 재계산)
@@ -122,6 +125,7 @@ declare module "fastify" {
     collabService: CollabService;
     folderService: FolderService;
     workLogService: WorkLogService;
+    taskIssueService: TaskIssueService;
     dependencyService: DependencyService;
     prisma: PrismaClient;
     redis: Redis;
@@ -175,6 +179,7 @@ async function buildApp() {
   app.decorate("collabService", collabService);
   app.decorate("folderService", folderService);
   app.decorate("workLogService", workLogService);
+  app.decorate("taskIssueService", taskIssueService);
   app.decorate("dependencyService", dependencyService);
 
   // 임베딩 (자연어 검색용 fire-and-forget hook)
@@ -236,6 +241,8 @@ async function buildApp() {
   app.register(myTasksRoutes, { prefix: "/api/v1/tasks" });
   app.register(workLogRoutes, { prefix: "/api/v1/tasks" });
   app.register(workLogItemRoutes, { prefix: "/api/v1/work-logs" });
+  app.register(taskIssueRoutes, { prefix: "/api/v1/tasks" });
+  app.register(taskIssueItemRoutes, { prefix: "/api/v1/task-issues" });
   app.register(projectInternalRoutes, { prefix: "/internal" });
   app.register(meRoutes, { prefix: "/api/v1/me" });
   app.register(dashboardRoutes, { prefix: "/api/v1/dashboard" });

@@ -224,4 +224,32 @@ export class FolderService {
     );
     return { ok: true };
   }
+
+  // ─── 내 즐겨찾기 (사용자별 프라이빗) ────────────────────────────────────────
+
+  /** 내 즐겨찾기 프로젝트 id 목록 (최신 추가순) */
+  async listFavorites(userId: string): Promise<string[]> {
+    const rows = await this.prisma.projectFavorite.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      select: { projectId: true },
+    });
+    return rows.map((r) => r.projectId);
+  }
+
+  /** 즐겨찾기 추가 (이미 있으면 무시) */
+  async addFavorite(userId: string, projectId: string): Promise<{ ok: true }> {
+    await this.prisma.projectFavorite.upsert({
+      where: { userId_projectId: { userId, projectId } },
+      create: { userId, projectId },
+      update: {},
+    });
+    return { ok: true };
+  }
+
+  /** 즐겨찾기 해제 */
+  async removeFavorite(userId: string, projectId: string): Promise<{ ok: true }> {
+    await this.prisma.projectFavorite.deleteMany({ where: { userId, projectId } });
+    return { ok: true };
+  }
 }

@@ -1,14 +1,10 @@
-import { PrismaClient, Prisma } from "@prisma/client";
-
-type TaskWithSegments = Prisma.TaskGetPayload<{
-  include: { segments: { include: { assignments: true } } };
-}>;
+import { PrismaClient } from "@prisma/client";
 
 export interface DashboardIssue {
   id: string;
   projectId: string;
   severity: "CRITICAL" | "WARNING" | "INFO";
-  category: "SCHEDULE_DELAY" | "BUDGET_OVERRUN" | "RESOURCE_OVERLOAD" | "PROGRESS_STALE" | "MILESTONE_DUE";
+  category: "SCHEDULE_DELAY" | "BUDGET_OVERRUN" | "PROGRESS_STALE" | "MILESTONE_DUE" | "MANUAL_ISSUE";
   title: string;
   description: string;
   taskId?: string;
@@ -106,19 +102,28 @@ export class IssueDetectorService {
     }
 
     // 예산 이슈(BUDGET_CRITICAL/WARNING)는 폐기 — 예산 개념 미사용 (2026-06-24)
+    // 자원 과부하 이슈(RESOURCE_CRITICAL/WARNING)는 폐기 — 미사용 (2026-07-10)
 
-    // ─── CRITICAL: 자원 과부하 ──────────────────────────────────────────────────
-    const overloaded = this.detectResourceOverload(project.tasks, today, windowEnd, thresholds.resourceOverloadWarning * 1.2);
-    if (overloaded.length > 0) {
+    // ─── CRITICAL: 수동 이슈 (미해결) ───────────────────────────────────────────
+    // 태스크 상세에서 사용자가 등록한 이슈. 체크(해결)되기 전까지 CRITICAL로 노출.
+    const manualIssues = await this.prisma.taskIssue.findMany({
+      where: { isResolved: false, task: { projectId } },
+      orderBy: { createdAt: "desc" },
+      include: { task: { select: { name: true } } },
+    });
+    for (const mi of manualIssues) {
+      const summary = mi.content.length > 50 ? `${mi.content.slice(0, 50)}…` : mi.content;
       issues.push({
-        id: `RESOURCE_CRITICAL:${projectId}`,
+        id: `MANUAL_ISSUE:${mi.id}`,
         projectId,
         severity: "CRITICAL",
-        category: "RESOURCE_OVERLOAD",
-        title: "자원 과부하 배정",
-        description: `${overloaded.length}명의 자원이 120% 이상 배정되었습니다.`,
+        category: "MANUAL_ISSUE",
+        title: summary,
+        description: mi.content,
+        taskId: mi.taskId,
+        taskName: mi.task.name,
         detectedAt,
-        metadata: { overloaded: overloaded.slice(0, 3) },
+        metadata: { issueId: mi.id, authorName: mi.authorName, createdAt: mi.createdAt.toISOString() },
       });
     }
 
@@ -144,23 +149,6 @@ export class IssueDetectorService {
           delayedCount: delayedNonCritical.length,
           tasks: delayedNonCritical.slice(0, 3).map((t) => ({ id: t.id, name: t.name })),
         },
-      });
-    }
-
-    // ─── WARNING: 자원 경고 (resourceOverloadWarning%) ─────────────────────────
-    const overloadedWarn = this.detectResourceOverload(project.tasks, today, windowEnd, thresholds.resourceOverloadWarning);
-    const criticalIds = new Set(overloaded.map((r) => r.resourceId));
-    const warnOnly = overloadedWarn.filter((r) => !criticalIds.has(r.resourceId));
-    if (warnOnly.length > 0) {
-      issues.push({
-        id: `RESOURCE_WARNING:${projectId}`,
-        projectId,
-        severity: "WARNING",
-        category: "RESOURCE_OVERLOAD",
-        title: `자원 ${Math.round(thresholds.resourceOverloadWarning)}% 초과 배정`,
-        description: `${warnOnly.length}명의 자원이 ${Math.round(thresholds.resourceOverloadWarning)}% 이상 배정되었습니다.`,
-        detectedAt,
-        metadata: { overloaded: warnOnly.slice(0, 3) },
       });
     }
 
@@ -240,54 +228,5 @@ export class IssueDetectorService {
 
     const ORDER = { CRITICAL: 0, WARNING: 1, INFO: 2 };
     return issues.sort((a, b) => ORDER[a.severity] - ORDER[b.severity]);
-  }
-
-  private detectResourceOverload(
-    tasks: TaskWithSegments[],
-    windowStart: Date,
-    windowEnd: Date,
-    threshold: number,
-  ): { resourceId: string; allocationPercent: number }[] {
-    // 자원별 → 날짜별 배정률을 계산하여 기간 겹침 반영
-    const resourceDayMap = new Map<string, Map<string, number>>(); // resourceId → { "YYYY-MM-DD" → totalPct }
-
-    for (const task of tasks) {
-      for (const seg of task.segments) {
-        const segStart = new Date(seg.startDate);
-        const segEnd = new Date(seg.endDate);
-        if (segStart > windowEnd || segEnd < windowStart) continue;
-
-        const overlapStart = segStart > windowStart ? segStart : windowStart;
-        const overlapEnd = segEnd < windowEnd ? segEnd : windowEnd;
-
-        for (const a of seg.assignments) {
-          const pct = a.allocationPercent ?? 0;
-          if (pct === 0) continue;
-
-          if (!resourceDayMap.has(a.resourceId)) {
-            resourceDayMap.set(a.resourceId, new Map());
-          }
-          const dayMap = resourceDayMap.get(a.resourceId)!;
-
-          const d = new Date(overlapStart);
-          while (d <= overlapEnd) {
-            const key = d.toISOString().slice(0, 10);
-            dayMap.set(key, (dayMap.get(key) ?? 0) + pct);
-            d.setDate(d.getDate() + 1);
-          }
-        }
-      }
-    }
-
-    // 각 자원의 최대 일별 배정률로 초과 판단
-    return Array.from(resourceDayMap.entries())
-      .map(([id, dayMap]) => {
-        let maxPct = 0;
-        for (const pct of dayMap.values()) {
-          if (pct > maxPct) maxPct = pct;
-        }
-        return { resourceId: id, allocationPercent: maxPct };
-      })
-      .filter(({ allocationPercent }) => allocationPercent >= threshold);
   }
 }
