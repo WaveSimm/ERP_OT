@@ -200,13 +200,17 @@ export class HolidayWorkService {
   }
 
   // 중간 릴리즈(2026-06-29): 휴일근무 삭제(상태 무관) — 캘린더 엔트리 제거 후 레코드 삭제
-  async deleteRequest(id: string, userId: string) {
-    const req = await this.prisma.holidayWorkRequest.findFirst({ where: { id, userId } });
+  // 본인 소유만 삭제. 단 ADMIN은 타인 휴일근무도 삭제 가능(전사근태 잘못 입력 정리용).
+  async deleteRequest(id: string, userId: string, role?: string) {
+    const isAdmin = role === "ADMIN";
+    const req = await this.prisma.holidayWorkRequest.findFirst({
+      where: isAdmin ? { id } : { id, userId },
+    });
     if (!req) throw new HolidayWorkError("NOT_FOUND", "삭제할 수 없는 휴일근무입니다.", 404);
     return this.prisma.$transaction(async (tx) => {
       await tx.workScheduleEntry.deleteMany({ where: { sourceId: id } });
-      // APPROVED였던 건이면 연차대체 회수 (-1)
-      if (req.status === "APPROVED") await this.grantSubstitute(tx, userId, req.date, -1);
+      // APPROVED였던 건이면 연차대체 회수 (-1) — 신청 소유자 기준
+      if (req.status === "APPROVED") await this.grantSubstitute(tx, req.userId, req.date, -1);
       await tx.holidayWorkRequest.delete({ where: { id } });
       return { ok: true };
     });
