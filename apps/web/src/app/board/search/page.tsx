@@ -7,6 +7,7 @@ import AppLayout from "@/components/AppLayout";
 import UnifiedBoardSidebar from "@/components/board/UnifiedBoardSidebar";
 import SearchBar from "@/components/board/SearchBar";
 import SearchResultCard from "@/components/board/SearchResultCard";
+import { SearchIcon } from "@/components/ui/icons";
 import { searchApi, type SearchResultItem, knowledgeApi, type KnowledgeResult } from "@/lib/api";
 
 type Scope = "all" | "notice" | "wiki" | "worklogs" | "nas";
@@ -224,7 +225,7 @@ export default function SearchPage() {
                     }`}
                     title="회사 NAS 파일 통합검색"
                   >
-                    🔎 {TAB_LABEL.nas}{nasFetched ? ` (${nasItems.length})` : ""}
+                    <span className="inline-flex items-center gap-1"><SearchIcon /> {TAB_LABEL.nas}{nasFetched ? ` (${nasItems.length})` : ""}</span>
                   </button>
                   {scope !== "nas" && !loading && (
                     <span className="ml-auto text-xs text-gray-400 pb-2">

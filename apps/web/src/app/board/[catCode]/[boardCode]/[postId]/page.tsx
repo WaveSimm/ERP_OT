@@ -10,6 +10,7 @@ import CommentTree from "@/components/board/CommentTree";
 import SearchBar from "@/components/board/SearchBar";
 import FeatureRequestPanel from "@/components/board/FeatureRequestPanel";
 import { postApi, getUser } from "@/lib/api";
+import { PinIcon, EyeIcon, CommentIcon } from "@/components/ui/icons";
 
 export default function PostDetailPage({ params }: { params: { catCode: string; boardCode: string; postId: string } }) {
   const { catCode, boardCode, postId } = params;
@@ -117,7 +118,7 @@ export default function PostDetailPage({ params }: { params: { catCode: string; 
         <div className="bg-white border border-gray-200 rounded-xl">
           <div className="px-6 py-4 border-b border-gray-100">
             <div className="flex items-start gap-2">
-              {post.isPinned && <span className="text-blue-600 dark:text-blue-400 mt-1">📌</span>}
+              {post.isPinned && <span className="text-gray-500 dark:text-gray-400 mt-1"><PinIcon className="w-4 h-4" /></span>}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   {post.priority === 1 && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">중요</span>}
@@ -129,12 +130,12 @@ export default function PostDetailPage({ params }: { params: { catCode: string; 
                   {post.publishingDepartment && <span>· {post.publishingDepartment.name}</span>}
                   {post.targetDepartment && (
                     <span className="px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px] font-semibold">
-                      📌 {post.targetDepartment.name} 부서 공지
+                      <PinIcon className="w-3 h-3" /> {post.targetDepartment.name} 부서 공지
                     </span>
                   )}
                   <span>· {dtStr}</span>
-                  <span>· 👁 {post.viewCount}</span>
-                  {post.commentCount > 0 && <span>· 💬 {post.commentCount}</span>}
+                  <span className="inline-flex items-center gap-0.5">· <EyeIcon /> {post.viewCount}</span>
+                  {post.commentCount > 0 && <span className="inline-flex items-center gap-0.5">· <CommentIcon /> {post.commentCount}</span>}
                 </div>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
@@ -144,7 +145,7 @@ export default function PostDetailPage({ params }: { params: { catCode: string; 
                     disabled={pinning}
                     className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
                   >
-                    {post.isPinned ? "📌 핀 해제" : "📌 핀"}
+                    <span className="inline-flex items-center gap-1"><PinIcon /> {post.isPinned ? "핀 해제" : "핀"}</span>
                   </button>
                 )}
                 {canEdit && (
