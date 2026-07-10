@@ -32,6 +32,20 @@ const NAV: NavItem[] = [
   { href: "/board",          label: "게시판",     icon: "📋", managerOnly: false },
 ];
 
+// 우측 "관리" 메뉴 링크 — 데스크톱 드롭다운 + 모바일 햄버거 패널에서 공유
+const TEAM_LINKS = [{ href: "/me/team", label: "팀 근태/승인", icon: "👥" }];
+const ADMIN_LINKS = [
+  { href: "/admin/users", label: "직원 관리", icon: "👤" },
+  { href: "/admin/equipment-resources", label: "공용자산 관리", icon: "💼" },
+  { href: "/admin/approval-lines", label: "결재라인", icon: "🖋" },
+  { href: "/admin/calendar", label: "회사 달력", icon: "📅" },
+  { href: "/admin/activity-logs", label: "시스템 이력", icon: "📜" },
+  { href: "/admin/monitoring", label: "시스템 모니터링", icon: "🖥" },
+  { href: "/admin/feature-requests", label: "기능 요구 관리", icon: "💡" },
+  { href: "/admin/contract-migration", label: "계약 마이그레이션", icon: "📥" },
+  { href: "/admin/project-migration", label: "프로젝트 마이그레이션", icon: "📊" },
+];
+
 // 두 줄 모드용 라벨 분할 — 자동 규칙: 띄어쓰기/슬래시 우선, 없으면 floor(len/2), 2자 이하는 그대로.
 function splitLabel(label: string): [string, string?] {
   const spaceIdx = label.indexOf(" ");
@@ -79,6 +93,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [currentUser?.id]);
   const isTeamLeader = !!currentUser?.isTeamLeader;
   const showAdminDropdown = isAdmin || isTeamLeader;
+  const visibleNav = NAV.filter((n) => (!n.managerOnly || isManager) && (!n.adminOnly || isAdmin) && (!n.mgmtOnly || isMgmt));
   const [unreadCount, setUnreadCount] = useState(0);
 
   // 알림 미읽음 수 폴링 (30초)
@@ -108,6 +123,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [pwMsg, setPwMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const adminMenuRef = useRef<HTMLDivElement>(null);
+  // 좁은 화면(xl 미만) 햄버거 메뉴
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   useEffect(() => {
     setCurrentUser(getUser());
@@ -195,6 +212,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const section = NAV.find((n) => pathname.startsWith(n.href));
     if (section) saveLastPath(section.href, pathname);
+    setShowMobileMenu(false); // 라우트 변경 시 햄버거 닫기
   }, [pathname]);
 
   // 마지막 위치 기억에서 제외할 섹션 (항상 루트로 이동)
@@ -278,8 +296,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </button>
 
-          <nav className="flex items-center gap-1 shrink-0">
-            {NAV.filter((n) => (!n.managerOnly || isManager) && (!n.adminOnly || isAdmin) && (!n.mgmtOnly || isMgmt)).map((n) => {
+          <nav className="hidden xl:flex items-center gap-2 shrink-0">
+            {visibleNav.map((n) => {
               const [first, second] = n.short ?? splitLabel(n.label);
               return (
                 <button
@@ -287,27 +305,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   onClick={() => handleNavClick(n.href)}
                   title={n.label}
                   className={clsx(
-                    "flex items-center gap-0.5 px-1 xl:px-1.5 py-0.5 rounded-md text-sm font-medium transition-colors shrink-0",
+                    "flex items-center px-2 xl:px-2.5 py-0.5 rounded-md text-sm font-medium transition-colors shrink-0",
                     pathname.startsWith(n.href)
                       ? "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
                       : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700",
                   )}
                 >
-                  <span className="shrink-0">{n.icon}</span>
                   {/* 한 줄 (xl+) */}
                   <span className="hidden xl:inline whitespace-nowrap">{n.label}</span>
-                  {/* 두 줄 (md~xl) */}
-                  <span className="hidden md:flex xl:hidden flex-col items-start leading-[1.1] text-left">
+                  {/* 두 줄 (xl 미만) — 아이콘 제거로 작은 화면에서도 라벨 표시 */}
+                  <span className="flex xl:hidden flex-col items-start leading-[1.1] text-left">
                     <span className="whitespace-nowrap">{first}</span>
                     {second && <span className="whitespace-nowrap">{second}</span>}
                   </span>
-                  {/* md 미만: 아이콘만 (라벨 양쪽 모두 숨김) */}
                 </button>
               );
             })}
           </nav>
 
-          <div className="flex items-center gap-2 shrink-0 ml-auto">
+          <div className="hidden xl:flex items-center gap-2 shrink-0 ml-auto">
             {/* 알림 벨 */}
             <button
               onClick={() => router.push("/me/notifications")}
@@ -373,42 +389,22 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     {isTeamLeader && (
                       <>
                         <div className="px-4 pt-1 pb-0.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">팀</div>
-                        <button onClick={() => { router.push("/me/team"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                          👥 팀 근태/승인
-                        </button>
+                        {TEAM_LINKS.map((l) => (
+                          <button key={l.href} onClick={() => { router.push(l.href); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                            {l.icon} {l.label}
+                          </button>
+                        ))}
                       </>
                     )}
                     {isTeamLeader && isAdmin && <div className="my-1 border-t border-gray-100" />}
                     {isAdmin && (
                       <>
                         <div className="px-4 pt-1 pb-0.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">시스템 관리</div>
-                        <button onClick={() => { router.push("/admin/users"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                          👤 직원 관리
-                        </button>
-                        <button onClick={() => { router.push("/admin/equipment-resources"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                          💼 공용자산 관리
-                        </button>
-                        <button onClick={() => { router.push("/admin/approval-lines"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                          🖋 결재라인
-                        </button>
-                        <button onClick={() => { router.push("/admin/calendar"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                          📅 회사 달력
-                        </button>
-                        <button onClick={() => { router.push("/admin/activity-logs"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                          📜 시스템 이력
-                        </button>
-                        <button onClick={() => { router.push("/admin/monitoring"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                          🖥 시스템 모니터링
-                        </button>
-                        <button onClick={() => { router.push("/admin/feature-requests"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                          💡 기능 요구 관리
-                        </button>
-                        <button onClick={() => { router.push("/admin/contract-migration"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                          📥 계약 마이그레이션
-                        </button>
-                        <button onClick={() => { router.push("/admin/project-migration"); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                          📊 프로젝트 마이그레이션
-                        </button>
+                        {ADMIN_LINKS.map((l) => (
+                          <button key={l.href} onClick={() => { router.push(l.href); setShowAdminMenu(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                            {l.icon} {l.label}
+                          </button>
+                        ))}
                       </>
                     )}
                   </div>
@@ -416,7 +412,130 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             )}
           </div>
+
+          {/* 좁은 화면(xl 미만): 햄버거 버튼 */}
+          <button
+            onClick={() => setShowMobileMenu((v) => !v)}
+            aria-label="메뉴"
+            className="xl:hidden ml-auto p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-md shrink-0"
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              {showMobileMenu
+                ? <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                : <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />}
+            </svg>
+          </button>
         </div>
+
+        {/* 좁은 화면 펼침 패널 — 메뉴 + 우측영역 통합 */}
+        {showMobileMenu && (
+          <>
+            {/* 배경: 화면을 가리지 않는 투명 클릭영역(바깥 클릭 시 닫기) */}
+            <div className="xl:hidden fixed inset-0 top-14 z-30" onClick={() => setShowMobileMenu(false)} />
+            {/* 우측에서만 펼쳐지는 드로어 — 헤더 아래부터 화면 맨 아래까지 */}
+            <div className="xl:hidden fixed right-0 top-14 bottom-0 w-64 max-w-[85vw] bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 shadow-xl z-40 overflow-y-auto">
+              <div className="flex flex-col">
+                {/* 상단: 알림·다크·프로필·로그아웃 (가로, 전환 전 우측영역과 동일) */}
+                <div className="flex items-center gap-1 px-3 py-2 border-b border-gray-200 dark:border-gray-700">
+                  <button
+                    onClick={() => { router.push("/me/notifications"); setShowMobileMenu(false); }}
+                    title="알림"
+                    className="relative p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-md"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    )}
+                  </button>
+                  {currentUser && (
+                    <button
+                      onClick={() => toggleTheme()}
+                      title={isDark ? "라이트 모드로" : "다크 모드로"}
+                      aria-label="테마 전환"
+                      className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700 rounded-md"
+                    >
+                      {isDark ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                        </svg>
+                      )}
+                    </button>
+                  )}
+                  {currentUser && (
+                    <button
+                      onClick={() => { openProfile(); setShowMobileMenu(false); }}
+                      className="text-sm text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 px-1 truncate"
+                    >
+                      {currentUser.name}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleLogout()}
+                    title="로그아웃"
+                    aria-label="로그아웃"
+                    className="ml-auto p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-md"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* 메뉴 */}
+                <div className="px-4 py-1.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider bg-gray-50 dark:bg-gray-900/30">메뉴</div>
+                {visibleNav.map((n) => (
+                  <button
+                    key={n.href}
+                    onClick={() => { handleNavClick(n.href); setShowMobileMenu(false); }}
+                    className={clsx(
+                      "text-left px-6 py-2.5 text-sm font-medium",
+                      pathname.startsWith(n.href)
+                        ? "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                        : "text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700",
+                    )}
+                  >
+                    {n.label}
+                  </button>
+                ))}
+
+                {showAdminDropdown && (
+                  <>
+                    {isTeamLeader && (
+                      <>
+                        <div className="px-4 py-1.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider bg-gray-50 dark:bg-gray-900/30 border-t border-gray-200 dark:border-gray-700">팀</div>
+                        {TEAM_LINKS.map((l) => (
+                          <button key={l.href} onClick={() => { router.push(l.href); setShowMobileMenu(false); }}
+                            className="text-left px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700">
+                            {l.label}
+                          </button>
+                        ))}
+                      </>
+                    )}
+                    {isAdmin && (
+                      <>
+                        <div className="px-4 py-1.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider bg-gray-50 dark:bg-gray-900/30 border-t border-gray-200 dark:border-gray-700">시스템 관리</div>
+                        {ADMIN_LINKS.map((l) => (
+                          <button key={l.href} onClick={() => { router.push(l.href); setShowMobileMenu(false); }}
+                            className="text-left px-6 py-2.5 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700">
+                            {l.label}
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </header>
 
       <main className="flex-1">{children}</main>

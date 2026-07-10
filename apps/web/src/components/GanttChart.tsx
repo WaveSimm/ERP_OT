@@ -58,7 +58,7 @@ interface BaselineSegment {
 const ROW_H = 36;
 const BAR_H = Math.round((ROW_H - 20) * 1.2); // 기본 높이의 120%
 const BAR_TOP = Math.round((ROW_H - BAR_H) / 2);
-const LEFT_W = 220;   // task name column
+const LEFT_W = 320;   // task name column (기본 폭 확대 — 태스크명 짤림 최소화)
 const RESOURCE_W = 150; // resource assignment column
 const DAY_PX = 28; // pixels per day
 const DIAMOND_SIZE = ROW_H - 16;                                   // 28px

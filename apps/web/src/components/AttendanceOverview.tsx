@@ -55,7 +55,10 @@ type ViewMode = "day" | "week" | "month";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function fmt(d: Date) { return d.toISOString().slice(0, 10); }
+// 로컬(KST) 기준 "YYYY-MM-DD" — toISOString()은 UTC라 아침에 전날로 밀림
+function fmt(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 function fmtShort(dateStr: string) {
   const d = new Date(dateStr);
   return `${d.getMonth() + 1}.${d.getDate()}`;

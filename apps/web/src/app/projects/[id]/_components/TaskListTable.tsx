@@ -175,7 +175,7 @@ export default function TaskListTable({
                 checked={selected.size === flatItems.length && flatItems.length > 0}
                 className="cursor-pointer" />
             </th>
-            <th className="text-left px-3 py-2 font-semibold text-gray-600 text-xs w-64">태스크명</th>
+            <th className="text-left px-3 py-2 font-semibold text-gray-600 text-xs w-96">태스크명</th>
             {colOrder.map((col) => {
               const cfg = COL_CFG[col];
               const isDraggingThis = colDragging === col;

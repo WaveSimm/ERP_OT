@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { dashboardApi } from "@/lib/api";
+import { dashboardApi, folderApi, taskApi } from "@/lib/api";
+import type { Folder, Task } from "@/lib/api/types";
 import { DateInput } from "@/components/ui/DateInput";
 
 
@@ -96,6 +97,36 @@ const ISSUE_FILTER_OPTIONS = [
 
 function fmtDate(iso: string) {
   return iso.slice(0, 10);
+}
+
+// 날짜 문자열 오프셋 (YYYY-MM-DD, UTC 기준 — 날짜 비교 전용)
+function shiftDate(dateStr: string, days: number): string {
+  return new Date(new Date(dateStr).getTime() + days * 86400000).toISOString().slice(0, 10);
+}
+
+// 태스크의 표시용 기간 [최소 시작 ~ 최대 종료] ("MM-DD ~ MM-DD")
+function taskRange(t: Task): { start: string; end: string } | null {
+  const segs = (t.segments ?? []).filter((s) => s.startDate && s.endDate);
+  if (segs.length > 0) {
+    let s = segs[0]!.startDate.slice(0, 10);
+    let e = segs[0]!.endDate.slice(0, 10);
+    for (const seg of segs) {
+      if (seg.startDate.slice(0, 10) < s) s = seg.startDate.slice(0, 10);
+      if (seg.endDate.slice(0, 10) > e) e = seg.endDate.slice(0, 10);
+    }
+    return { start: s, end: e };
+  }
+  if (t.effectiveStartDate && t.effectiveEndDate) {
+    return { start: t.effectiveStartDate.slice(0, 10), end: t.effectiveEndDate.slice(0, 10) };
+  }
+  return null;
+}
+
+// 태스크가 [winStart, winEnd] 기간과 겹치는지
+function overlapsWindow(t: Task, winStart: string, winEnd: string): boolean {
+  const r = taskRange(t);
+  if (!r) return false;
+  return r.start <= winEnd && r.end >= winStart;
 }
 
 
@@ -301,6 +332,242 @@ function ProjectRow({ row, date, onPin }: { row: ProjectRow; date: string; onPin
         </td>
       </tr>
     </>
+  );
+}
+
+// ─── 폴더별 프로젝트 (펼침 + ±7일 태스크) ────────────────────────────────────
+
+// 프로젝트 행 — 폴더 뷰용. 펼치면 ±7일 태스크 목록(수동이슈 강조) 표시.
+function FolderProjectRow({ row, date, onPin }: { row: ProjectRow; date: string; onPin: (id: string) => void }) {
+  const [expanded, setExpanded] = useState(true); // 기본 펼침
+  const [tasks, setTasks] = useState<Task[] | null>(null);
+  const [issueTaskIds, setIssueTaskIds] = useState<Set<string>>(new Set());
+  const [loadingTasks, setLoadingTasks] = useState(false);
+  const [showIssues, setShowIssues] = useState(false);
+
+  const winStart = shiftDate(date, -7);
+  const winEnd = shiftDate(date, 7);
+  const totalIssues = row.issueCount.critical + row.issueCount.warning + row.issueCount.info;
+
+  useEffect(() => {
+    if (!expanded || tasks !== null) return;
+    let cancelled = false;
+    setLoadingTasks(true);
+    Promise.all([
+      taskApi.list(row.id).catch(() => [] as Task[]),
+      dashboardApi.getProjectIssues(row.id).catch(() => [] as any[]),
+    ])
+      .then(([ts, iss]) => {
+        if (cancelled) return;
+        setTasks(ts ?? []);
+        const ids = new Set<string>();
+        for (const i of iss ?? []) {
+          if (i.category === "MANUAL_ISSUE" && i.taskId) ids.add(i.taskId);
+        }
+        setIssueTaskIds(ids);
+      })
+      .finally(() => !cancelled && setLoadingTasks(false));
+    return () => { cancelled = true; };
+  }, [expanded, tasks, row.id]);
+
+  // 리프 태스크(자식 없는 것)만, ±7일 기간과 겹치는 것
+  const parentIds = new Set((tasks ?? []).map((t) => t.parentId).filter(Boolean) as string[]);
+  const windowTasks = (tasks ?? [])
+    .filter((t) => !parentIds.has(t.id))
+    .filter((t) => overlapsWindow(t, winStart, winEnd));
+
+  return (
+    <>
+      {showIssues && <IssuePopup projectId={row.id} onClose={() => setShowIssues(false)} />}
+      <tr className="border-b hover:bg-gray-50 transition-colors">
+        <td className="px-3 py-2.5 w-10">
+          <div className="flex items-center gap-1.5">
+            <span className={`inline-block w-2.5 h-2.5 rounded-full ${RAG_COLOR[row.ragStatus]}`} />
+            <button
+              onClick={() => onPin(row.id)}
+              className={`text-xs leading-none ${row.isPinned ? "text-yellow-500" : "text-gray-300 hover:text-gray-400"}`}
+              title={row.isPinned ? "즐겨찾기 해제" : "즐겨찾기"}
+            >
+              ★
+            </button>
+          </div>
+        </td>
+
+        {/* 프로젝트명 + 펼침 토글 */}
+        <td className="px-3 py-2.5">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              className="text-gray-400 hover:text-gray-600 text-xs w-4 shrink-0"
+              title={expanded ? "태스크 접기" : "태스크 펼치기"}
+            >
+              {expanded ? "▼" : "▶"}
+            </button>
+            <Link href={`/projects/${row.id}`} className="text-sm font-medium text-blue-700 dark:text-blue-300 hover:underline truncate" title={row.name}>
+              {row.name}
+            </Link>
+            {row.isCriticalPathDelayed && (
+              <span className="shrink-0 text-xs text-red-600 dark:text-red-400 font-medium">CP지연</span>
+            )}
+          </div>
+          <div className="text-xs text-gray-400 mt-0.5 pl-5">{fmtDate(row.lastUpdatedAt)} 업데이트</div>
+        </td>
+
+        {/* 진행률 */}
+        <td className="px-3 py-2.5 w-28">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 bg-gray-200 rounded-full h-1.5 overflow-hidden">
+              <div
+                className={`h-1.5 rounded-full transition-all ${row.ragStatus === "RED" ? "bg-red-500" : row.ragStatus === "AMBER" ? "bg-yellow-400" : "bg-green-500"}`}
+                style={{ width: `${row.overallProgress}%` }}
+              />
+            </div>
+            <span className="text-xs text-gray-600 w-7 text-right">{row.overallProgress}%</span>
+          </div>
+        </td>
+
+        {/* 이슈 */}
+        <td className="px-3 py-2.5 w-24">
+          {totalIssues > 0 ? (
+            <button onClick={() => setShowIssues(true)} className="flex items-center gap-1 text-xs">
+              {row.issueCount.critical > 0 && (
+                <span className="bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-medium">{row.issueCount.critical}</span>
+              )}
+              {row.issueCount.warning > 0 && (
+                <span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">{row.issueCount.warning}</span>
+              )}
+              {row.issueCount.info > 0 && (
+                <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{row.issueCount.info}</span>
+              )}
+            </button>
+          ) : (
+            <span className="text-xs text-gray-300">-</span>
+          )}
+        </td>
+
+        {/* 미니 타임라인 */}
+        <td className="px-3 py-1.5 w-[270px]">
+          <MiniTimeline events={row.weeklyTimeline} centerDate={date} />
+        </td>
+      </tr>
+
+      {/* 펼침: ±7일 태스크 */}
+      {expanded && (
+        <tr className="border-b bg-gray-50/50">
+          <td />
+          <td colSpan={4} className="px-3 py-2">
+            {loadingTasks && <span className="text-xs text-gray-400">태스크 불러오는 중…</span>}
+            {!loadingTasks && windowTasks.length === 0 && (
+              <span className="text-xs text-gray-400">전주·이번주(±7일)에 해당하는 태스크가 없습니다.</span>
+            )}
+            {!loadingTasks && windowTasks.length > 0 && (
+              <ul className="space-y-1">
+                {windowTasks.map((t) => {
+                  const hasIssue = issueTaskIds.has(t.id);
+                  const r = taskRange(t);
+                  return (
+                    <li
+                      key={t.id}
+                      className={`flex items-center gap-2 text-xs rounded px-2 py-1 border ${
+                        hasIssue
+                          ? "bg-red-50 border-red-300 text-red-800 dark:bg-red-500/10"
+                          : "bg-white border-gray-100 text-gray-700"
+                      }`}
+                    >
+                      {hasIssue && <span title="미해결 수동 이슈">🚩</span>}
+                      {t.isMilestone && <span className="text-purple-600" title="마일스톤">◆</span>}
+                      <span className={`truncate flex-1 ${hasIssue ? "font-semibold" : "font-medium"}`}>{t.name}</span>
+                      {r && <span className="text-gray-400 shrink-0">{r.start.slice(5)} ~ {r.end.slice(5)}</span>}
+                      <span className="text-gray-400 shrink-0 w-9 text-right">{Math.round(t.overallProgress)}%</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+// 폴더 섹션 (부서 폴더 등) — 프로젝트 표 아코디언
+function FolderSection({ name, isDept, rows, date, onPin }: { name: string; isDept: boolean; rows: ProjectRow[]; date: string; onPin: (id: string) => void }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div>
+      <button
+        className="w-full flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-left transition-colors"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="text-gray-400 text-xs w-4">{open ? "▼" : "▶"}</span>
+        {isDept && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded shrink-0">부서</span>}
+        <span className="font-semibold text-gray-800 flex-1">{name}</span>
+        <span className="text-xs text-gray-500">{rows.length}개 프로젝트</span>
+      </button>
+      {open && (
+        <div className="mt-1 rounded-lg border overflow-hidden">
+          <table className="w-full table-fixed">
+            <thead>
+              <tr className="bg-gray-50 text-xs text-gray-500 border-b">
+                <th className="px-3 py-1.5 text-left w-10"></th>
+                <th className="px-3 py-1.5 text-left">프로젝트</th>
+                <th className="px-3 py-1.5 text-left w-28">진행률</th>
+                <th className="px-3 py-1.5 text-left w-24">이슈</th>
+                <th className="px-3 py-1.5 text-left w-[270px]">타임라인 (±7일)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((p) => (
+                <FolderProjectRow key={p.id} row={p} date={date} onPin={onPin} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 폴더(부서 자동 구조) 기준으로 프로젝트를 그룹핑해 렌더
+function FolderProjectsView({ folders, projects, date, onPin }: { folders: Folder[]; projects: ProjectRow[]; date: string; onPin: (id: string) => void }) {
+  const byId = new Map(projects.map((p) => [p.id, p]));
+  const used = new Set<string>();
+
+  // folderApi.list()는 sortOrder(부서 순서) 오름차순 정렬 상태로 반환됨
+  const sections = folders
+    .filter((f) => f.parentId === null)
+    .map((f) => {
+      const rows: ProjectRow[] = [];
+      for (const item of f.projects ?? []) {
+        const r = byId.get(item.projectId);
+        if (r && !used.has(item.projectId)) {
+          rows.push(r);
+          used.add(item.projectId);
+        }
+      }
+      return { folder: f, rows };
+    })
+    .filter((s) => s.rows.length > 0);
+
+  const unfiled = projects.filter((p) => !used.has(p.id));
+
+  return (
+    <div className="space-y-3">
+      {sections.map((s) => (
+        <FolderSection
+          key={s.folder.id}
+          name={s.folder.name}
+          isDept={!!s.folder.departmentId}
+          rows={s.rows}
+          date={date}
+          onPin={onPin}
+        />
+      ))}
+      {unfiled.length > 0 && (
+        <FolderSection name="미분류" isDept={false} rows={unfiled} date={date} onPin={onPin} />
+      )}
+    </div>
   );
 }
 
@@ -701,6 +968,7 @@ function GlobalSummaryCards({ summary, date }: { summary: GlobalSummary; date: s
 
 export default function CommandCenterDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [folders, setFolders] = useState<Folder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [groupBy] = useState("NONE"); // 그룹화 기능 미구현 → 항상 그룹없음
@@ -715,8 +983,12 @@ export default function CommandCenterDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const result = await dashboardApi.get({ groupBy, date, issueFilter });
+      const [result, folderList] = await Promise.all([
+        dashboardApi.get({ groupBy, date, issueFilter }),
+        folderApi.list().catch(() => [] as Folder[]),
+      ]);
       setData(result);
+      setFolders(folderList ?? []);
     } catch (e: any) {
       setError(e.message ?? "데이터를 불러오지 못했습니다.");
     } finally {
@@ -870,33 +1142,14 @@ export default function CommandCenterDashboard() {
             </div>
           )}
 
-          {/* 그룹 미소속 프로젝트 */}
+          {/* 폴더(부서 자동 구조) 기준 프로젝트 목록 — 각 프로젝트 펼치면 ±7일 태스크 */}
           {data.ungroupedProjects.length > 0 && (
-            <div>
-              {data.groups.length > 0 && (
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 px-1">
-                  그룹 미소속 프로젝트
-                </div>
-              )}
-              <div className="rounded-lg border overflow-hidden">
-                <table className="w-full table-fixed">
-                  <thead>
-                    <tr className="bg-gray-50 text-xs text-gray-500 border-b">
-                      <th className="px-3 py-1.5 text-left w-10"></th>
-                      <th className="px-3 py-1.5 text-left">프로젝트</th>
-                      <th className="px-3 py-1.5 text-left w-28">진행률</th>
-                      <th className="px-3 py-1.5 text-left w-24">이슈</th>
-                      <th className="px-3 py-1.5 text-left w-[270px]">타임라인 (±7일)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.ungroupedProjects.map((p) => (
-                      <ProjectRow key={p.id} row={p} date={date} onPin={handlePin} />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <FolderProjectsView
+              folders={folders}
+              projects={data.ungroupedProjects}
+              date={date}
+              onPin={handlePin}
+            />
           )}
 
           {/* 빈 상태 */}

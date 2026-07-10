@@ -83,7 +83,10 @@ function fmtTime(iso: string | null) {
   return new Date(iso).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
-function toDateStr(d: Date) { return d.toISOString().slice(0, 10); }
+// 로컬(KST) 기준 "YYYY-MM-DD" — toISOString()은 UTC라 아침에 전날로 밀림
+function toDateStr(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 // ─── Time Input (HH:mm, 시/분 개별 클릭 편집) ───────────────────────────────
 

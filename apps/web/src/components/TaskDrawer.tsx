@@ -5,6 +5,7 @@ import { taskApi, commentApi, resourceApi, deploymentApi, equipmentApi, sensorAp
 import clsx from "clsx";
 import { DateInput } from "./ui/DateInput";
 import WorkLogTab from "./work-log/WorkLogTab";
+import TaskIssueSection from "./task-issue/TaskIssueSection";
 import { fmtDateTime24 } from "@/lib/datetime";
 
 const STATUS_OPTIONS = [
@@ -1473,6 +1474,14 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
                 ))}
               </div>
             )}
+          </div>
+
+          <div className="border-t border-gray-100" />
+
+          {/* ── 이슈 ── */}
+          <div className="px-6 py-4">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase mb-4">🚩 이슈</h3>
+            <TaskIssueSection taskId={task.id} />
           </div>
 
           <div className="border-t border-gray-100" />

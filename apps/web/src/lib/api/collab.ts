@@ -2,7 +2,7 @@
 
 import { request, getToken, getCsrfToken, API_PREFIX } from "./client";
 import type {
-  BoardCategory, Board, BoardPost, BoardPostListItem, BoardFeedItem, BoardComment, WorkLog, CalendarEntry,
+  BoardCategory, Board, BoardPost, BoardPostListItem, BoardFeedItem, BoardComment, WorkLog, TaskIssue, CalendarEntry,
   ExpenseSource, ExpenseTransaction, ExpenseStatement, ExpenseReceipt, ExpenseMatch, ExpenseSettlement,
   ApprovalTemplate, ApprovalDocument, ApprovalAttachment, Paginated,
 } from "./types";
@@ -341,6 +341,20 @@ export const workLogApi = {
     const qs = q.toString();
     return request<{ items: any[]; total: number }>(`/me/work-log-feed${qs ? `?${qs}` : ""}`);
   },
+};
+
+// ─── 수동 이슈 (TaskIssue) ─────────────────────────────────────────────────
+
+export const taskIssueApi = {
+  listByTask: (taskId: string) => request<TaskIssue[]>(`/tasks/${taskId}/issues`),
+  create: (taskId: string, data: { content: string }) =>
+    request<TaskIssue>(`/tasks/${taskId}/issues`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  update: (id: string, data: { content?: string; isResolved?: boolean }) =>
+    request<TaskIssue>(`/task-issues/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  remove: (id: string) => request<void>(`/task-issues/${id}`, { method: "DELETE" }),
 };
 
 // ─── 자연어 검색 ───────────────────────────────────────────────────

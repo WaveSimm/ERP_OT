@@ -404,6 +404,20 @@ export interface WorkLog {
   segmentName?: string | null;
 }
 
+// 수동 이슈 — 태스크 상세에서 등록, 미해결(isResolved=false) 시 전사 대시보드 '이슈 현황'에 노출
+export interface TaskIssue {
+  id: string;
+  taskId: string;
+  content: string;
+  isResolved: boolean;
+  resolvedAt: string | null;
+  resolvedBy: string | null;
+  authorId: string;
+  authorName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CalendarEntry {
   id: string;
   type: string;
