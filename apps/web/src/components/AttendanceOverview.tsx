@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, type DragEvent } from "react";
-import { attendanceOverviewApi } from "@/lib/api";
+import { attendanceOverviewApi, getUser } from "@/lib/api";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -232,6 +232,24 @@ export default function AttendanceOverview({ holidays }: Props = {}) {
 
   useEffect(() => { load(); }, [load]);
 
+  // 삭제 권한 — ADMIN은 타인 항목도, 본인은 본인 항목. (본인 항목 상세 삭제는 '내 대시보드' 병행)
+  const me = getUser();
+  const myUserId = me?.id ?? "";
+  const isAdmin = me?.role === "ADMIN";
+  const handleDeleteEntry = useCallback(async (entry: Entry, memberUserId: string, memberName: string) => {
+    if (!isAdmin && memberUserId !== myUserId) return;
+    if (entry.id.startsWith("att-")) return; // 출퇴근 합성 바는 삭제 대상 아님
+    const who = memberUserId === myUserId ? "" : `${memberName}님의 `;
+    const label = ENTRY_LABELS[entry.entryType] ?? entry.entryType;
+    if (!confirm(`${who}'${label}${entry.date ? ` (${entry.date})` : ""}' 항목을 삭제하시겠습니까?`)) return;
+    try {
+      await attendanceOverviewApi.deleteEntry(entry.id);
+      await load();
+    } catch (e: any) {
+      alert(e?.message ?? "삭제에 실패했습니다.");
+    }
+  }, [isAdmin, myUserId, load]);
+
   const toggle = (id: string) => setExpanded((p) => ({ ...p, [id]: !p[id] }));
 
   // 부서 내 멤버 순서 재정렬 — 낙관적 업데이트 후 저장, 실패 시 서버 상태로 롤백.
@@ -339,6 +357,7 @@ export default function AttendanceOverview({ holidays }: Props = {}) {
             <DeptSection key={dept.id} dept={dept} days={days} viewMode={viewMode}
               isExpanded={expanded[dept.id] ?? false} onToggle={() => toggle(dept.id)}
               holidays={holidays}
+              myUserId={myUserId} isAdmin={isAdmin} onDeleteEntry={handleDeleteEntry}
               canReorder={!LOCKED_DEPTS.has(dept.name)} onReorder={reorderMembers} />
           ))}
           {data.unassigned.length > 0 && (
@@ -349,6 +368,7 @@ export default function AttendanceOverview({ holidays }: Props = {}) {
               isExpanded={expanded["__unassigned"] ?? false}
               onToggle={() => toggle("__unassigned")}
               holidays={holidays}
+              myUserId={myUserId} isAdmin={isAdmin} onDeleteEntry={handleDeleteEntry}
               canReorder={false}
             />
           )}
@@ -360,13 +380,16 @@ export default function AttendanceOverview({ holidays }: Props = {}) {
 
 // ─── DeptSection ─────────────────────────────────────────────────────────────
 
-function DeptSection({ dept, days, viewMode, isExpanded, onToggle, holidays, canReorder, onReorder }: {
+function DeptSection({ dept, days, viewMode, isExpanded, onToggle, holidays, myUserId, isAdmin, onDeleteEntry, canReorder, onReorder }: {
   dept: Department;
   days: string[];
   viewMode: ViewMode;
   isExpanded: boolean;
   onToggle: () => void;
   holidays?: Map<string, string>;
+  myUserId: string;
+  isAdmin: boolean;
+  onDeleteEntry: (entry: Entry, memberUserId: string, memberName: string) => void;
   canReorder?: boolean;
   onReorder?: (deptId: string, orderedUserIds: string[]) => void;
 }) {
@@ -428,6 +451,8 @@ function DeptSection({ dept, days, viewMode, isExpanded, onToggle, holidays, can
             <tbody>
               {dept.members.map((member) => (
                 <MemberRow key={member.userId} member={member} days={days} viewMode={viewMode} holidays={holidays}
+                  canDelete={isAdmin || member.userId === myUserId}
+                  onDeleteEntry={(entry) => onDeleteEntry(entry, member.userId, member.name)}
                   drag={canReorder ? {
                     canDrag: true,
                     isOver: overUser === member.userId && dragUser !== member.userId,
@@ -460,7 +485,7 @@ interface RowDrag {
   onDragEnd: () => void;
 }
 
-function MemberRow({ member, days, viewMode, holidays, drag }: { member: Member; days: string[]; viewMode: ViewMode; holidays?: Map<string, string>; drag?: RowDrag }) {
+function MemberRow({ member, days, viewMode, holidays, canDelete, onDeleteEntry, drag }: { member: Member; days: string[]; viewMode: ViewMode; holidays?: Map<string, string>; canDelete?: boolean; onDeleteEntry?: (entry: Entry) => void; drag?: RowDrag }) {
   const entriesByDate = useMemo(() => {
     const map = new Map<string, Entry[]>();
     for (const e of member.entries) {
@@ -601,16 +626,22 @@ function MemberRow({ member, days, viewMode, holidays, drag }: { member: Member;
             const style = { left: `calc(${left}% + ${INSET}px)`, width: `calc(${width}% - ${INSET * 2}px)`, top: PAD + b.lane * (ROW_H + GAP), height: ROW_H } as const;
             const colorCls = ENTRY_COLORS[b.e.entryType] ?? "bg-gray-100 text-gray-600";
             const accentCls = ENTRY_ACCENTS[b.e.entryType] ?? "bg-gray-400/50";
+            // 삭제 가능(관리자 or 본인) 항목은 클릭 시 삭제. 출퇴근 합성 바(att-)는 제외.
+            const deletable = !!canDelete && !b.e.id.startsWith("att-");
+            const delProps = deletable
+              ? { onClick: (ev: React.MouseEvent) => { ev.stopPropagation(); onDeleteEntry?.(b.e); }, role: "button" as const }
+              : {};
+            const delTip = deletable ? `${tip} · 클릭하여 삭제` : tip;
             if (viewMode === "month") {
               // 칸이 좁아 글자 대신 색 블록만 — 상세는 툴팁(title)으로 확인
               return (
-                <div key={`${b.e.id}:${b.startIdx}`} title={tip}
-                  className={`absolute rounded overflow-hidden ${colorCls}`} style={style} />
+                <div key={`${b.e.id}:${b.startIdx}`} title={delTip} {...delProps}
+                  className={`absolute rounded overflow-hidden ${colorCls} ${deletable ? "cursor-pointer hover:ring-2 hover:ring-red-400" : ""}`} style={style} />
               );
             }
             return (
-              <div key={`${b.e.id}:${b.startIdx}`} title={tip}
-                className={`absolute rounded pl-1.5 pr-1 flex flex-col justify-center overflow-hidden ${colorCls}`} style={style}>
+              <div key={`${b.e.id}:${b.startIdx}`} title={delTip} {...delProps}
+                className={`absolute rounded pl-1.5 pr-1 flex flex-col justify-center overflow-hidden ${colorCls} ${deletable ? "cursor-pointer hover:ring-2 hover:ring-red-400" : ""}`} style={style}>
                 {/* rod: 텍스트와 같은 행에 두고 items-stretch로 글씨 높이(첫 줄~끝 줄)에 맞춤 */}
                 <div className="flex items-stretch gap-1.5 min-w-0">
                   <span className={`w-[3px] rounded-sm shrink-0 ${accentCls}`} aria-hidden />
