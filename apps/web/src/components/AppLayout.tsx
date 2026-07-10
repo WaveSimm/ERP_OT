@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { clearToken, getUser, setUser, myProfileApi, notificationApi, authApi } from "@/lib/api";
+import { clearToken, getUser, setUser, myProfileApi, notificationApi, authApi, boardApi } from "@/lib/api";
 import { isManagementUser } from "@/lib/management";
 import clsx from "clsx";
 
@@ -125,6 +125,38 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const adminMenuRef = useRef<HTMLDivElement>(null);
   // 좁은 화면(xl 미만) 햄버거 메뉴
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  // 햄버거 메뉴의 게시판 하위 항목 — 게시판 화면이면 기본 펼침, 그 외엔 탭하여 펼침
+  const [boardExpanded, setBoardExpanded] = useState(false);
+  const [boardSubs, setBoardSubs] = useState<{ href: string; label: string; icon: string }[]>([]);
+  const [boardSubsLoaded, setBoardSubsLoaded] = useState(false);
+  useEffect(() => {
+    setBoardExpanded(pathname.startsWith("/board"));
+  }, [pathname]);
+  // 하위 항목(카테고리)은 처음 펼칠 때 한 번만 로드 (전역 성능 부담 방지)
+  useEffect(() => {
+    if (!boardExpanded || boardSubsLoaded) return;
+    let alive = true;
+    boardApi
+      .listCategories()
+      .catch(() => [])
+      .then((cats: any) => {
+        if (!alive) return;
+        const catItems = ((cats ?? []) as any[]).map((c) => ({
+          href: `/board/${c.code}`,
+          label: c.name as string,
+          icon: (c.icon as string) || "📁",
+        }));
+        setBoardSubs([
+          { href: "/board/knowledge", label: "NAS 통합검색", icon: "🔎" },
+          ...catItems,
+          { href: "/work-logs", label: "프로젝트 게시판", icon: "📝" },
+        ]);
+        setBoardSubsLoaded(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [boardExpanded, boardSubsLoaded]);
 
   useEffect(() => {
     setCurrentUser(getUser());
@@ -491,20 +523,79 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
                 {/* 메뉴 */}
                 <div className="px-4 py-1.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider bg-gray-50 dark:bg-gray-900/30">메뉴</div>
-                {visibleNav.map((n) => (
-                  <button
-                    key={n.href}
-                    onClick={() => { handleNavClick(n.href); setShowMobileMenu(false); }}
-                    className={clsx(
-                      "text-left px-6 py-2.5 text-sm font-medium",
-                      pathname.startsWith(n.href)
-                        ? "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
-                        : "text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700",
-                    )}
-                  >
-                    {n.label}
-                  </button>
-                ))}
+                {visibleNav.map((n) =>
+                  n.href === "/board" ? (
+                    <div key={n.href} className="flex flex-col">
+                      {/* 게시판: 라벨 탭 = 이동, ▾ 탭 = 하위 펼침/접힘 */}
+                      <div
+                        className={clsx(
+                          "flex items-center",
+                          pathname.startsWith("/board")
+                            ? "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                            : "text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700",
+                        )}
+                      >
+                        <button
+                          onClick={() => { handleNavClick(n.href); setShowMobileMenu(false); }}
+                          className="flex-1 text-left px-6 py-2.5 text-sm font-medium"
+                        >
+                          {n.label}
+                        </button>
+                        <button
+                          onClick={() => setBoardExpanded((v) => !v)}
+                          aria-label="게시판 하위 메뉴 펼치기"
+                          aria-expanded={boardExpanded}
+                          className="px-4 py-2.5 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                        >
+                          {boardExpanded ? "▴" : "▾"}
+                        </button>
+                      </div>
+                      {boardExpanded && (
+                        <div className="bg-gray-50 dark:bg-gray-900/20 border-y border-gray-100 dark:border-gray-700">
+                          {boardSubs.length === 0 ? (
+                            <div className="pl-10 pr-6 py-2 text-xs text-gray-400">불러오는 중…</div>
+                          ) : (
+                            boardSubs.map((s) => {
+                              const active =
+                                s.href === "/work-logs"
+                                  ? pathname.startsWith("/work-logs")
+                                  : s.href === "/board/knowledge"
+                                    ? pathname === "/board/knowledge"
+                                    : pathname.startsWith(s.href);
+                              return (
+                                <button
+                                  key={s.href}
+                                  onClick={() => { router.push(s.href); setShowMobileMenu(false); }}
+                                  className={clsx(
+                                    "w-full text-left pl-10 pr-6 py-2 text-sm",
+                                    active
+                                      ? "text-blue-700 dark:text-blue-300 font-medium"
+                                      : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700",
+                                  )}
+                                >
+                                  <span className="truncate">{s.label}</span>
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      key={n.href}
+                      onClick={() => { handleNavClick(n.href); setShowMobileMenu(false); }}
+                      className={clsx(
+                        "text-left px-6 py-2.5 text-sm font-medium",
+                        pathname.startsWith(n.href)
+                          ? "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                          : "text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700",
+                      )}
+                    >
+                      {n.label}
+                    </button>
+                  ),
+                )}
 
                 {showAdminDropdown && (
                   <>

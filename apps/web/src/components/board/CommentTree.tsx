@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { boardCommentApi, getUser } from "@/lib/api";
 import CommentForm from "./CommentForm";
+import { CommentIcon } from "@/components/ui/icons";
 
 interface Comment {
   id: string;
@@ -196,7 +197,7 @@ export default function CommentTree({ postId }: { postId: string }) {
   return (
     <div>
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-sm font-semibold text-gray-700">💬 댓글</span>
+        <span className="inline-flex items-center gap-1 text-sm font-semibold text-gray-700"><CommentIcon className="w-4 h-4" /> 댓글</span>
         <span className="text-xs text-gray-400">{totalCount}개</span>
       </div>
 

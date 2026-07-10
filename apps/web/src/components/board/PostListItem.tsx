@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { PinIcon, EyeIcon, PaperclipIcon, CommentIcon } from "@/components/ui/icons";
 
 const PRIORITY_LABELS: Record<number, { label: string; color: string }> = {
   0: { label: "", color: "" },
@@ -51,7 +52,7 @@ export default function PostListItem({ post, catCode }: { post: PostListItemData
       }`}
     >
       <div className="flex items-start gap-2">
-        {post.isPinned && <span className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">📌</span>}
+        {post.isPinned && <span className="text-gray-500 dark:text-gray-400 mt-0.5"><PinIcon /></span>}
         {pri.label && (
           <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${pri.color} mt-0.5`}>
             {pri.label}
@@ -68,10 +69,10 @@ export default function PostListItem({ post, catCode }: { post: PostListItemData
               {post.title}
             </span>
             {post.commentCount > 0 && (
-              <span className="text-xs text-blue-600 dark:text-blue-400 shrink-0">💬 {post.commentCount}</span>
+              <span className="inline-flex items-center gap-0.5 text-xs text-gray-500 dark:text-gray-400 shrink-0"><CommentIcon /> {post.commentCount}</span>
             )}
             {post.attachmentCount > 0 && (
-              <span className="text-xs text-gray-400 shrink-0">📎 {post.attachmentCount}</span>
+              <span className="inline-flex items-center gap-0.5 text-xs text-gray-400 shrink-0"><PaperclipIcon /> {post.attachmentCount}</span>
             )}
             {!post.isRead && <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />}
           </div>
@@ -87,7 +88,7 @@ export default function PostListItem({ post, catCode }: { post: PostListItemData
             )}
           </div>
           <div>
-            {dateStr} · 👁 {post.viewCount}
+            {dateStr} · <EyeIcon /> {post.viewCount}
           </div>
         </div>
       </div>

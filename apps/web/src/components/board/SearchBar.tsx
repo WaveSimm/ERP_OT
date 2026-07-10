@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { SearchIcon } from "@/components/ui/icons";
 
 interface Props {
   initialQuery?: string;
@@ -25,7 +26,7 @@ export default function SearchBar({ initialQuery = "", placeholder, size = "defa
   return (
     <form onSubmit={handleSubmit} className="flex gap-2 w-full">
       <div className="flex-1 relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><SearchIcon className="w-4 h-4" /></span>
         <input
           type="text"
           value={q}

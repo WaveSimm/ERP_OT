@@ -65,7 +65,7 @@ export default function UnifiedBoardSidebar() {
 
   if (loading) {
     return (
-      <aside className="w-64 shrink-0">
+      <aside className="hidden xl:block w-64 shrink-0">
         <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-center min-h-[200px]">
           <div className="animate-spin w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full" />
         </div>
@@ -74,7 +74,7 @@ export default function UnifiedBoardSidebar() {
   }
 
   return (
-    <aside className="w-64 shrink-0">
+    <aside className="hidden xl:block w-64 shrink-0">
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         {/* NAS 통합검색 (OT-Brain) — 고정 진입점 */}
         <Link
@@ -83,7 +83,6 @@ export default function UnifiedBoardSidebar() {
             pathname === "/board/knowledge" ? "bg-blue-50" : "bg-gray-50 hover:bg-gray-100"
           }`}
         >
-          <span className="text-base">🔎</span>
           <span className={`text-sm font-semibold ${pathname === "/board/knowledge" ? "text-blue-700 dark:text-blue-300" : "text-gray-700"}`}>NAS 통합검색</span>
         </Link>
         {categories.map((cat) => (
@@ -92,7 +91,6 @@ export default function UnifiedBoardSidebar() {
               href={`/board/${cat.code}`}
               className="flex items-center gap-2 px-4 py-3 bg-gray-50 hover:bg-gray-100 border-b border-gray-100"
             >
-              <span className="text-base">{cat.icon}</span>
               <span className="text-sm font-semibold text-gray-700">{cat.name}</span>
               <span className="ml-auto text-xs text-gray-400">{cat.boards.length}</span>
             </Link>
@@ -121,7 +119,6 @@ export default function UnifiedBoardSidebar() {
             href="/work-logs"
             className="flex items-center gap-2 px-4 py-3 bg-gray-50 hover:bg-gray-100 border-b border-gray-100"
           >
-            <span className="text-base">📝</span>
             <span className="text-sm font-semibold text-gray-700">프로젝트 게시판</span>
             <span className="ml-auto text-xs text-gray-400">{projects.length}</span>
           </Link>
