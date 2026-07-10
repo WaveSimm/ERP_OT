@@ -232,10 +232,10 @@ export default function AttendanceOverview({ holidays }: Props = {}) {
 
   useEffect(() => { load(); }, [load]);
 
-  // 삭제 권한 — 운영자(OPERATOR) 이상은 타인 항목도, 본인은 본인 항목.
+  // 전사근태 삭제는 관리자(ADMIN)만. (본인 것 삭제는 '내 월간 근태'에서 운영자 이상 가능)
   const me = getUser();
   const myUserId = me?.id ?? "";
-  const canManage = me?.role === "ADMIN" || me?.role === "MANAGER" || me?.role === "OPERATOR";
+  const canManage = me?.role === "ADMIN";
   const handleDeleteEntry = useCallback(async (entry: Entry, memberUserId: string, memberName: string) => {
     if (!canManage && memberUserId !== myUserId) return;
     if (entry.id.startsWith("att-")) return; // 출퇴근 합성 바는 삭제 대상 아님

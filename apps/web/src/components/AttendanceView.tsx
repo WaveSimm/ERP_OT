@@ -152,13 +152,14 @@ function getDatesInRange(start: string, end: string): string[] {
   return dates;
 }
 
-function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete, onDeleteLeave, defaultStart = "09:30", defaultEnd = "18:30" }: {
+function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete, onDeleteLeave, onDeleteHoliday, defaultStart = "09:30", defaultEnd = "18:30" }: {
   date: string;
   entry?: WorkScheduleEntry | null;
   onClose: () => void;
   onSuccess: () => void;
   onDelete?: (id: string) => void;
   onDeleteLeave?: (leaveId: string) => void;   // 휴가 파생(LEAVE_APPROVED) 항목 삭제 — 휴가 레코드 제거
+  onDeleteHoliday?: (requestId: string) => void;   // 휴일근무(OT_APPROVED) 삭제 — 신청서 제거
   defaultStart?: string;   // 본인 근무시간(유연근무 반영). 신규 입력 기본값.
   defaultEnd?: string;
 }) {
@@ -265,6 +266,8 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete, onDeleteLea
               <p className="text-[10px] text-gray-400 mt-2">
                 {entry!.sourceType === "LEAVE_APPROVED"
                   ? "휴가 항목은 여기서 수정은 불가하며, 필요 시 삭제할 수 있습니다."
+                  : entry!.sourceType === "OT_APPROVED"
+                  ? "휴일근무는 여기서 수정은 불가하며, 필요 시 삭제할 수 있습니다."
                   : "자동 생성된 항목은 수정할 수 없습니다."}
               </p>
             </div>
@@ -272,6 +275,11 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete, onDeleteLea
               {entry!.sourceType === "LEAVE_APPROVED" && entry!.sourceId && onDeleteLeave && (
                 <button type="button"
                   onClick={() => { if (window.confirm("이 휴가 항목을 삭제하시겠습니까? 연차가 복원됩니다.")) { onDeleteLeave(entry!.sourceId!); onClose(); } }}
+                  className="flex-1 px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-100">삭제</button>
+              )}
+              {entry!.sourceType === "OT_APPROVED" && entry!.sourceId && onDeleteHoliday && (
+                <button type="button"
+                  onClick={() => { if (window.confirm("이 휴일근무를 삭제하시겠습니까? 연차대체가 회수됩니다.")) { onDeleteHoliday(entry!.sourceId!); onClose(); } }}
                   className="flex-1 px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-100">삭제</button>
               )}
               <button type="button" onClick={onClose} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">닫기</button>
@@ -536,6 +544,17 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
     } catch {}
   };
 
+  // 휴일근무(OT_APPROVED) 삭제 — 신청서 단위로 제거(스케줄 항목·연차대체 함께 정리)
+  const handleDeleteHoliday = async (requestId: string) => {
+    try {
+      await holidayWorkApi.remove(requestId);
+      setEntries((prev) => prev.filter((e) => e.sourceId !== requestId));
+      onEntryChanged();
+    } catch (e: any) {
+      alert(e?.message ?? "삭제에 실패했습니다.");
+    }
+  };
+
   if (loading) return <div className="text-sm text-gray-400 py-6 text-center">불러오는 중...</div>;
 
   const firstDay = new Date(year, month - 1, 1).getDay();
@@ -647,6 +666,7 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
           onSuccess={() => { onEntryChanged(); }}
           onDelete={(id) => { handleDeleteEntry(id); }}
           onDeleteLeave={(leaveId) => { handleDeleteLeave(leaveId); }}
+          onDeleteHoliday={(requestId) => { handleDeleteHoliday(requestId); }}
         />
       )}
     </div>

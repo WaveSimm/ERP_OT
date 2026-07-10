@@ -251,10 +251,10 @@ export class WorkScheduleService {
   async deleteEntry(id: string, userId: string, role?: string) {
     const entry = await this.prisma.workScheduleEntry.findUnique({ where: { id } });
     if (!entry) throw new Error("항목을 찾을 수 없습니다.");
-    // 운영자(OPERATOR) 이상은 타인 항목·자동생성(휴일근무 등) 항목도 삭제 가능 (전사근태 정리용).
-    const privileged = role === "ADMIN" || role === "MANAGER" || role === "OPERATOR";
-    if (entry.userId !== userId && !privileged) throw new Error("본인의 항목만 삭제할 수 있습니다.");
-    if (entry.sourceType !== "MANUAL" && !privileged) {
+    // 관리자(ADMIN)는 타인 항목·자동생성(휴일근무 등) 항목도 삭제 가능 (전사근태 정리용).
+    const isAdmin = role === "ADMIN";
+    if (entry.userId !== userId && !isAdmin) throw new Error("본인의 항목만 삭제할 수 있습니다.");
+    if (entry.sourceType !== "MANUAL" && !isAdmin) {
       throw new Error("자동 생성된 항목은 삭제할 수 없습니다. 해당 결재를 취소해 주세요.");
     }
 
