@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, type DragEvent } from "react";
-import { attendanceOverviewApi, getUser } from "@/lib/api";
+import { attendanceOverviewApi, holidayWorkApi, getUser } from "@/lib/api";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -243,7 +243,12 @@ export default function AttendanceOverview({ holidays }: Props = {}) {
     const label = ENTRY_LABELS[entry.entryType] ?? entry.entryType;
     if (!confirm(`${who}'${label}${entry.date ? ` (${entry.date})` : ""}' 항목을 삭제하시겠습니까?`)) return;
     try {
-      await attendanceOverviewApi.deleteEntry(entry.id);
+      // 휴일근무(OT)는 신청서 단위로 삭제 — work_schedule 항목만 지우면 신청서가 남아 재등록이 막힘.
+      if (entry.sourceType === "OT_APPROVED" && entry.sourceId) {
+        await holidayWorkApi.remove(entry.sourceId);
+      } else {
+        await attendanceOverviewApi.deleteEntry(entry.id);
+      }
       await load();
     } catch (e: any) {
       alert(e?.message ?? "삭제에 실패했습니다.");
