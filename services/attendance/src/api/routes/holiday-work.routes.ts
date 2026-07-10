@@ -93,7 +93,7 @@ export async function holidayWorkRoutes(fastify: FastifyInstance) {
   fastify.delete("/requests/:id", async (req, reply) => {
     const { id } = req.params as { id: string };
     try {
-      return reply.send(await svc.deleteRequest(id, req.userId));
+      return reply.send(await svc.deleteRequest(id, req.userId, req.userRole));
     } catch (err) {
       if (err instanceof HolidayWorkError) {
         return reply.status(err.statusCode).send({ error: { code: err.code, message: err.message } });
