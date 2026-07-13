@@ -587,7 +587,7 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
                   cell.isHoliday || cell.isWeekend ? "bg-gray-50" : ""
                 }`}>
                 {/* 날짜 헤더 + 출퇴근 — 고정 높이로 엔트리 시작 위치 통일 */}
-                <div className="h-[40px] flex-shrink-0">
+                <div className="h-[40px] flex-shrink-0 overflow-hidden">
                   <div className="flex items-center gap-1">
                     <span className={`text-xs font-medium leading-none ${
                       isToday ? "text-blue-700 dark:text-blue-300 font-bold" :
@@ -601,8 +601,8 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
                   {cell.isHoliday
                     ? <span className="text-xs text-red-400 truncate leading-tight">{cell.holidayName}</span>
                     : !mobile && cell.checkIn && (
-                      // 모바일에서는 CAPS 출퇴근 시간 미표시 — 좁은 캘린더 셀에서 글씨 잘림 방지
-                      <span className="text-xs text-gray-400 leading-tight">
+                      // 모바일 라우트에선 미표시 + 좁은 화면(sm 미만)에선 숨김(B) / 넘치면 칸 안에서 잘림(A)
+                      <span className="hidden sm:block truncate text-xs text-gray-400 leading-tight">
                         {fmtTime(cell.checkIn).slice(0, 5)}{cell.checkOut ? `~${fmtTime(cell.checkOut).slice(0, 5)}` : ""}
                       </span>
                     )
