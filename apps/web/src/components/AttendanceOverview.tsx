@@ -46,6 +46,15 @@ const ENTRY_ACCENTS: Record<string, string> = {
   SUBSTITUTE: "bg-amber-400/50", OT: "bg-rose-400/50",
 };
 
+// 삭제 가능 항목 hover 테두리 — 각 종류 색(accent) 계열의 진한 톤으로 시인성 확보(빨강 경고색 대신 통일감)
+const ENTRY_RINGS: Record<string, string> = {
+  WORK: "hover:ring-sky-500", FIELD: "hover:ring-sky-500", TRAINING: "hover:ring-sky-500", BUSINESS_TRIP: "hover:ring-sky-500",
+  HALF: "hover:ring-amber-500", HALF_AM: "hover:ring-amber-500", HALF_PM: "hover:ring-amber-500", QUARTER: "hover:ring-amber-500",
+  FAMILY_DAY: "hover:ring-amber-500", FAMILY_DAY_2H: "hover:ring-amber-500", FAMILY: "hover:ring-amber-500",
+  BEREAVEMENT: "hover:ring-amber-500", ANNUAL: "hover:ring-amber-500", SICK: "hover:ring-amber-500", SPECIAL: "hover:ring-amber-500",
+  SUBSTITUTE: "hover:ring-amber-500", OT: "hover:ring-rose-500",
+};
+
 const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
 
 // 드래그 재정렬 제외(고정) 부서 — 회장단·대표이사·임원
@@ -631,6 +640,7 @@ function MemberRow({ member, days, viewMode, holidays, canDelete, onDeleteEntry,
             const style = { left: `calc(${left}% + ${INSET}px)`, width: `calc(${width}% - ${INSET * 2}px)`, top: PAD + b.lane * (ROW_H + GAP), height: ROW_H } as const;
             const colorCls = ENTRY_COLORS[b.e.entryType] ?? "bg-gray-100 text-gray-600";
             const accentCls = ENTRY_ACCENTS[b.e.entryType] ?? "bg-gray-400/50";
+            const ringCls = ENTRY_RINGS[b.e.entryType] ?? "hover:ring-gray-500";
             // 삭제 가능(관리자 or 본인) 항목은 클릭 시 삭제. 출퇴근 합성 바(att-)는 제외.
             const deletable = !!canDelete && !b.e.id.startsWith("att-");
             const delProps = deletable
@@ -641,12 +651,12 @@ function MemberRow({ member, days, viewMode, holidays, canDelete, onDeleteEntry,
               // 칸이 좁아 글자 대신 색 블록만 — 상세는 툴팁(title)으로 확인
               return (
                 <div key={`${b.e.id}:${b.startIdx}`} title={delTip} {...delProps}
-                  className={`absolute rounded overflow-hidden ${colorCls} ${deletable ? "cursor-pointer hover:ring-2 hover:ring-red-400" : ""}`} style={style} />
+                  className={`absolute rounded overflow-hidden ${colorCls} ${deletable ? `cursor-pointer hover:ring-2 ${ringCls}` : ""}`} style={style} />
               );
             }
             return (
               <div key={`${b.e.id}:${b.startIdx}`} title={delTip} {...delProps}
-                className={`absolute rounded pl-1.5 pr-1 flex flex-col justify-center overflow-hidden ${colorCls} ${deletable ? "cursor-pointer hover:ring-2 hover:ring-red-400" : ""}`} style={style}>
+                className={`absolute rounded pl-1.5 pr-1 flex flex-col justify-center overflow-hidden ${colorCls} ${deletable ? `cursor-pointer hover:ring-2 ${ringCls}` : ""}`} style={style}>
                 {/* rod: 텍스트와 같은 행에 두고 items-stretch로 글씨 높이(첫 줄~끝 줄)에 맞춤 */}
                 <div className="flex items-stretch gap-1.5 min-w-0">
                   <span className={`w-[3px] rounded-sm shrink-0 ${accentCls}`} aria-hidden />

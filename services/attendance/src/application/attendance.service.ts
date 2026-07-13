@@ -4,6 +4,8 @@ interface MonthDayCell {
   date: string;
   status?: string;
   holidayName?: string;
+  isHoliday?: boolean;
+  isWeekend?: boolean;
   checkIn?: string | undefined;
   checkOut?: string | undefined;
   netWorkHours?: number;
@@ -157,7 +159,7 @@ export class AttendanceService {
 
       if (!isWeekend && !holidayName) workDays++;
 
-      const day: MonthDayCell = { date: dateStr };
+      const day: MonthDayCell = { date: dateStr, isWeekend, isHoliday: !isWeekend && !!holidayName };
       if (isWeekend) {
         day.status = "WEEKEND";
       } else if (holidayName) {

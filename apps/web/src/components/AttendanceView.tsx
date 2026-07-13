@@ -482,6 +482,10 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
   const [addingDate, setAddingDate] = useState<string | null>(null);
   const [editingEntry, setEditingEntry] = useState<{ date: string; entry: WorkScheduleEntry } | null>(null);
 
+  // 공휴일은 전사근태와 동일한 소스(회사달력, company_calendar_entries)를 오버레이 —
+  // 내 근태 백엔드의 attendance.public_holidays 테이블은 비어있어 단독으로는 표시 안 됨
+  const holidays = useHolidaysMap();
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -577,6 +581,9 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
             const dayNum = parseInt(cell.date.slice(8));
             const isToday = cell.date === todayStr;
             const dow = new Date(cell.date).getDay();
+            // 회사달력 공휴일 오버레이 — 백엔드 값(cell.holidayName)이 없어도 회사달력에 있으면 표시
+            const holName = cell.holidayName ?? holidays.get(cell.date) ?? null;
+            const isHol = cell.isHoliday || (!cell.isWeekend && !!holName);
             // 출근(WORK)은 위 회색 출퇴근 글씨로 이미 표시 → 바 중복 방지 위해 제외. 외근/휴가 등만 바로 표시.
             const dayEntries = (entriesByDate.get(cell.date) ?? []).filter((e) => e.entryType !== "WORK");
 
@@ -584,25 +591,25 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
               <div key={cell.date}
                 className={`min-h-[72px] rounded-lg p-1 flex flex-col transition-colors group ${
                   isToday ? "bg-blue-50 ring-1 ring-blue-300" :
-                  cell.isHoliday || cell.isWeekend ? "bg-gray-50" : ""
+                  cell.isWeekend ? "bg-gray-50" : ""
                 }`}>
                 {/* 날짜 헤더 + 출퇴근 — 고정 높이로 엔트리 시작 위치 통일 */}
-                <div className="h-[40px] flex-shrink-0">
+                <div className="h-[40px] flex-shrink-0 overflow-hidden">
                   <div className="flex items-center gap-1">
                     <span className={`text-xs font-medium leading-none ${
                       isToday ? "text-blue-700 dark:text-blue-300 font-bold" :
-                      dow === 0 || cell.isHoliday ? "text-red-500 dark:text-red-400" :
+                      dow === 0 || isHol ? "text-red-500 dark:text-red-400" :
                       dow === 6 ? "text-blue-500 dark:text-blue-400" : "text-gray-700"
                     }`}>{dayNum}</span>
                     <button onClick={() => setAddingDate(cell.date)}
                       className="text-red-500 hover:text-white hover:bg-red-500 rounded text-base font-bold leading-none transition-colors w-5 h-5 flex items-center justify-center shrink-0"
                       title="근태 추가">+</button>
                   </div>
-                  {cell.isHoliday
-                    ? <span className="text-xs text-red-400 truncate leading-tight">{cell.holidayName}</span>
+                  {isHol
+                    ? <span className="text-xs text-red-500 dark:text-red-400 font-bold truncate leading-tight">{holName}</span>
                     : !mobile && cell.checkIn && (
-                      // 모바일에서는 CAPS 출퇴근 시간 미표시 — 좁은 캘린더 셀에서 글씨 잘림 방지
-                      <span className="text-xs text-gray-400 leading-tight">
+                      // 모바일 라우트에선 미표시 + 좁은 화면(sm 미만)에선 숨김(B) / 넘치면 칸 안에서 잘림(A)
+                      <span className="hidden sm:block truncate text-xs text-gray-400 leading-tight">
                         {fmtTime(cell.checkIn).slice(0, 5)}{cell.checkOut ? `~${fmtTime(cell.checkOut).slice(0, 5)}` : ""}
                       </span>
                     )

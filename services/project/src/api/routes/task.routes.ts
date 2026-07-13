@@ -3,7 +3,7 @@ import { z } from "zod";
 import { TaskService } from "../../application/task.service.js";
 import { CpmService } from "../../application/cpm.service.js";
 import { resolveResourceNames } from "../../application/shared/resource-name-resolver.js";
-import { requireRole, requireManager, requireOperator, requireSelfOrManager } from "../middleware/auth.middleware.js";
+import { requireRole, requireOperator, requireSelfOrManager } from "../middleware/auth.middleware.js";
 import { TaskStatus, DependencyType, AllocationMode } from "@prisma/client";
 
 const createTaskSchema = z.object({
@@ -118,23 +118,12 @@ export async function taskRoutes(fastify: FastifyInstance) {
   });
 
   // PATCH /api/v1/projects/:projectId/tasks/:taskId
-  // MANAGER 이상: 모든 필드 수정 가능
-  // OPERATOR: 본인이 생성했거나 배정된 태스크면 모든 필드 수정 가능
-  fastify.patch("/:taskId", async (req, reply) => {
+  // OPERATOR 이상: 모든 태스크 수정 가능 (본인/배정 여부 무관, VIEWER만 차단)
+  fastify.patch("/:taskId", {
+    preHandler: requireOperator(),
+  }, async (req, reply) => {
     const { taskId } = req.params as { projectId: string; taskId: string };
     const dto = updateTaskSchema.parse(req.body);
-
-    if (req.userRole === "ADMIN" || req.userRole === "MANAGER") {
-      const task = await taskService.updateTask(taskId, dto, req.userId);
-      return reply.send(task);
-    }
-
-    // OPERATOR: 본인이 생성했거나 세그먼트에 배정된 태스크인지 확인
-    const isAllowed = await isTaskMember(fastify, taskId, req);
-    if (!isAllowed) {
-      return reply.status(403).send({ code: "FORBIDDEN", message: "본인이 배정된 태스크만 수정할 수 있습니다." });
-    }
-
     const task = await taskService.updateTask(taskId, dto, req.userId);
     return reply.send(task);
   });
@@ -191,8 +180,9 @@ export async function taskRoutes(fastify: FastifyInstance) {
   });
 
   // DELETE /api/v1/projects/:projectId/tasks/:taskId/segments/:segmentId
+  // OPERATOR 이상: 모든 태스크의 세그먼트 삭제 가능 (VIEWER만 차단)
   fastify.delete("/:taskId/segments/:segmentId", {
-    preHandler: requireRole("ADMIN", "MANAGER"),
+    preHandler: requireOperator(),
   }, async (req, reply) => {
     const { segmentId } = req.params as { projectId: string; taskId: string; segmentId: string };
     await taskService.deleteSegment(segmentId, req.userId);
@@ -200,8 +190,9 @@ export async function taskRoutes(fastify: FastifyInstance) {
   });
 
   // PATCH /api/v1/projects/:projectId/tasks/:taskId/segments/reorder
+  // OPERATOR 이상: 모든 태스크의 세그먼트 순서변경 가능 (VIEWER만 차단)
   fastify.patch("/:taskId/segments/reorder", {
-    preHandler: requireManager(),
+    preHandler: requireOperator(),
   }, async (req, reply) => {
     const { taskId } = req.params as { projectId: string; taskId: string };
     const body = req.body as { orderedIds: string[] };
