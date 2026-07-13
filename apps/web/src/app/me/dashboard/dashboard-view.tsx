@@ -103,8 +103,8 @@ function useKanban() {
 function StaleBanner({ count }: { count: number }) {
   if (count === 0) return null;
   return (
-    <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 flex items-center gap-2 text-sm">
-      <span className="text-amber-600 font-medium">⚠ {count}개 세그먼트</span>
+    <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 flex flex-col sm:flex-row sm:items-center gap-x-2 gap-y-0.5 text-sm">
+      <span className="text-amber-600 font-medium shrink-0">⚠ {count}개 세그먼트</span>
       <span className="text-amber-700">진행률이 3일 이상 업데이트되지 않았습니다.</span>
     </div>
   );
@@ -236,6 +236,53 @@ function KanbanColumn({ colKey, cards, onUpdate }: {
         }
       </div>
     </div>
+  );
+}
+
+const KANBAN_COLS = ["CRITICAL", "DUE_SOON", "IN_PROGRESS", "UPCOMING"] as const;
+
+// 칸반 보드 — 큰 화면(xl↑): 4컬럼 동시 / 작은 화면(xl 미만): 컬럼 선택 칩 + 선택 컬럼만 전체 폭
+//   기준: 4컬럼 최소폭 260×4 + gap16×3 = 1088px, 대시보드 여백 48px → 약 1136px 미만이면 4열이 깨져 가로 스크롤.
+//   가장 가까운 브레이크포인트 xl(1280)에서 전환(상단 내비도 xl에서 햄버거로 바뀌어 일관).
+function KanbanBoard({ columns, onUpdate }: {
+  columns: KanbanData["columns"];
+  onUpdate: (card: KanbanCard) => void;
+}) {
+  // 작은 화면 기본 선택 = 카드가 있는 첫 컬럼(긴급→…→예정), 전부 비면 긴급
+  const firstWithCards = KANBAN_COLS.find((c) => columns[c].length > 0) ?? "CRITICAL";
+  const [selected, setSelected] = useState<(typeof KANBAN_COLS)[number]>(firstWithCards);
+
+  return (
+    <>
+      {/* 큰 화면: 4컬럼 나란히 */}
+      <div className="hidden xl:flex gap-4 overflow-x-auto pb-2">
+        {KANBAN_COLS.map((col) => (
+          <KanbanColumn key={col} colKey={col} cards={columns[col]} onUpdate={onUpdate} />
+        ))}
+      </div>
+
+      {/* 작은 화면: 컬럼 선택 칩 + 선택 컬럼 하나만 전체 폭 */}
+      <div className="xl:hidden">
+        {/* 좁을 때(md 미만)만 2×2, md~xl은 한 줄(자연 너비 — 늘어나지 않음) */}
+        <div className="grid grid-cols-2 md:flex md:flex-wrap gap-2 mb-2">
+          {KANBAN_COLS.map((col) => {
+            const meta = COLUMN_META[col];
+            const active = selected === col;
+            return (
+              <button key={col} onClick={() => setSelected(col)}
+                className={`flex items-center gap-1.5 min-w-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  active ? `${meta.bg} ${meta.border} ${meta.color}` : "bg-white border-gray-200 text-gray-500"
+                }`}>
+                <span className={`w-2 h-2 rounded-full shrink-0 ${meta.dot}`} />
+                <span className="truncate">{meta.label}</span>
+                <span className={`ml-auto shrink-0 rounded-full px-1.5 py-0.5 text-[10px] ${active ? "bg-white/70 dark:bg-white/20" : "bg-gray-100"}`}>{columns[col].length}</span>
+              </button>
+            );
+          })}
+        </div>
+        <KanbanColumn colKey={selected} cards={columns[selected]} onUpdate={onUpdate} />
+      </div>
+    </>
   );
 }
 
@@ -1562,11 +1609,7 @@ export function DashboardBody({ mobile = false }: { mobile?: boolean } = {}) {
             <button onClick={load} className="text-sm text-blue-600 hover:underline">다시 시도</button>
           </div>
         ) : data ? (
-          <div className="flex gap-4 overflow-x-auto pb-2">
-            {(["CRITICAL", "DUE_SOON", "IN_PROGRESS", "UPCOMING"] as const).map((col) => (
-              <KanbanColumn key={col} colKey={col} cards={data.columns[col]} onUpdate={setModalCard} />
-            ))}
-          </div>
+          <KanbanBoard columns={data.columns} onUpdate={setModalCard} />
         ) : null
       )}
 
