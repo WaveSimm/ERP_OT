@@ -138,7 +138,7 @@ export async function meRoutes(fastify: FastifyInstance) {
   fastify.get("/week-calendar", async (req, reply) => {
     const q = req.query as { date?: string };
     const ref = q.date ? new Date(q.date) : new Date();
-    // 주의 월요일 계산
+    // 주의 월요일 계산 (로컬/KST 기준)
     const day = ref.getDay();
     const diff = day === 0 ? -6 : 1 - day;
     const weekStart = new Date(ref);
@@ -147,16 +147,26 @@ export async function meRoutes(fastify: FastifyInstance) {
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6);
 
+    // 로컬(KST) 달력일 → "YYYY-MM-DD" (toISOString은 UTC라 KST 자정이 하루 전날로 밀림)
+    const fmtLocal = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    // 달력일 비교키 — cur는 로컬 자정, 세그먼트는 UTC 자정 저장이라 같은 축(UTC 자정)으로 환산해 하루 밀림 제거
+    const localDayKey = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+    const utcDayKey = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+    // Prisma where 경계도 세그먼트(UTC 자정 저장)와 정합하도록 UTC 자정 키로 맞춤
+    const weekStartKey = new Date(localDayKey(weekStart));
+    const weekEndKey = new Date(localDayKey(weekEnd));
+
     // 자원-모델-분리 Phase 4 (2026-05-13): legacy resource 조회 → auth_user id (req.userId) 직접 사용
     const resource = { id: req.userId };
-    if (!resource) return reply.send({ weekStart: weekStart.toISOString().slice(0, 10), weekEnd: weekEnd.toISOString().slice(0, 10), days: [] });
+    if (!resource) return reply.send({ weekStart: fmtLocal(weekStart), weekEnd: fmtLocal(weekEnd), days: [] });
 
     const assignments = await fastify.prisma.segmentAssignment.findMany({
       where: {
         resourceId: resource.id,
         segment: {
-          startDate: { lte: weekEnd },
-          endDate: { gte: weekStart },
+          startDate: { lte: weekEndKey },
+          endDate: { gte: weekStartKey },
         },
       },
       include: {
@@ -172,22 +182,22 @@ export async function meRoutes(fastify: FastifyInstance) {
       },
     });
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayKey = localDayKey(new Date());
 
     const days = [];
     for (let i = 0; i < 7; i++) {
       const cur = new Date(weekStart);
       cur.setDate(weekStart.getDate() + i);
-      const dateStr = cur.toISOString().slice(0, 10);
+      const curKey = localDayKey(cur);
+      const dateStr = fmtLocal(cur);
 
       const segments = assignments
-        .filter((a) => new Date(a.segment.startDate) <= cur && cur <= new Date(a.segment.endDate))
+        .filter((a) => utcDayKey(new Date(a.segment.startDate)) <= curKey && curKey <= utcDayKey(new Date(a.segment.endDate)))
         .map((a) => {
           const seg = a.segment;
           const start = new Date(seg.startDate);
           const end = new Date(seg.endDate);
-          const spanDays = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+          const spanDays = Math.floor((utcDayKey(end) - utcDayKey(start)) / (1000 * 60 * 60 * 24)) + 1;
           return {
             segmentId: seg.id,
             segmentName: seg.name,
@@ -199,8 +209,8 @@ export async function meRoutes(fastify: FastifyInstance) {
             endDate: end.toISOString().slice(0, 10),
             progressPercent: seg.progressPercent,
             isCriticalPath: seg.task.isCritical,
-            isStartDay: start.toISOString().slice(0, 10) === dateStr,
-            isEndDay: end.toISOString().slice(0, 10) === dateStr,
+            isStartDay: utcDayKey(start) === curKey,
+            isEndDay: utcDayKey(end) === curKey,
             spanDays,
           };
         })
@@ -214,14 +224,14 @@ export async function meRoutes(fastify: FastifyInstance) {
       days.push({
         date: dateStr,
         dayOfWeek: cur.getDay(),
-        isToday: cur.getTime() === today.getTime(),
+        isToday: curKey === todayKey,
         segments,
       });
     }
 
     return reply.send({
-      weekStart: weekStart.toISOString().slice(0, 10),
-      weekEnd: weekEnd.toISOString().slice(0, 10),
+      weekStart: fmtLocal(weekStart),
+      weekEnd: fmtLocal(weekEnd),
       days,
     });
   });
