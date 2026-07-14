@@ -568,16 +568,16 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
   const todayStr = toDateStr(new Date());
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-      <div className="p-3">
-        <div className="grid grid-cols-7 mb-1">
+    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
+      <div>
+        <div className="grid grid-cols-7 gap-px bg-gray-200 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-800">
           {DAY_LABELS.map((d, i) => (
-            <div key={d} className={`text-center text-xs font-semibold py-1 ${i === 0 ? "text-red-500 dark:text-red-400" : i === 6 ? "text-blue-500 dark:text-blue-400" : "text-gray-500"}`}>{d}</div>
+            <div key={d} className={`bg-white dark:bg-gray-900 text-center text-xs font-semibold py-2 ${i === 0 ? "text-red-500 dark:text-red-400" : i === 6 ? "text-blue-500 dark:text-blue-400" : "text-gray-500"}`}>{d}</div>
           ))}
         </div>
-        <div className="grid grid-cols-7 gap-0.5">
+        <div className="grid grid-cols-7 gap-px bg-gray-200 dark:bg-gray-700">
           {cells.map((cell, idx) => {
-            if (!cell) return <div key={`empty-${idx}`} className="min-h-[72px] rounded-lg" />;
+            if (!cell) return <div key={`empty-${idx}`} className="min-h-[72px] bg-white dark:bg-gray-900" />;
             const dayNum = parseInt(cell.date.slice(8));
             const isToday = cell.date === todayStr;
             const dow = new Date(cell.date).getDay();
@@ -589,9 +589,8 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
 
             return (
               <div key={cell.date}
-                className={`min-h-[72px] rounded-lg p-1 flex flex-col transition-colors group ${
-                  isToday ? "bg-blue-50 ring-1 ring-blue-300" :
-                  cell.isWeekend ? "bg-gray-50" : ""
+                className={`min-h-[72px] p-1 flex flex-col transition-colors group ${
+                  isToday ? "bg-blue-50 dark:bg-blue-950/40 relative z-10 ring-1 ring-blue-300" : "bg-white dark:bg-gray-900"
                 }`}>
                 {/* 날짜 헤더 + 출퇴근 — 고정 높이로 엔트리 시작 위치 통일 */}
                 <div className="h-[40px] flex-shrink-0 overflow-hidden">
@@ -750,7 +749,7 @@ export default function AttendanceView({ mobile = false }: { mobile?: boolean } 
       {/* 월간 달력 (근태 통합) */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-gray-900">내 월간 근태</h2>
+          <h2 className="text-base font-semibold text-gray-900">내 월간 근태</h2>
           <div className="flex items-center gap-2">
             <button onClick={() => navigateMonth(-1)} className="p-1 text-gray-400 hover:text-gray-700 border border-gray-200 rounded">‹</button>
             <span className="text-sm font-medium text-gray-700">{year}년 {month}월</span>
@@ -761,10 +760,9 @@ export default function AttendanceView({ mobile = false }: { mobile?: boolean } 
         <p className="text-[10px] text-gray-400 mt-1.5 ml-1">날짜를 클릭하여 근태를 추가할 수 있습니다</p>
       </div>
 
-      {/* 전사근태 — 링크 대신 하단 직접 표시 (2026-07-07) */}
-      <div>
-        <h2 className="text-sm font-semibold text-gray-900 mb-3">전사근태</h2>
-        <AttendanceOverview holidays={holidays} />
+      {/* 전사근태 — 링크 대신 하단 직접 표시 (2026-07-07). 제목+뷰탭+날짜를 한 덩어리로 sticky 고정 */}
+      <div style={{ ["--attn-sticky-top" as any]: "3.5rem" }}>
+        <AttendanceOverview holidays={holidays} title="전사근태" />
       </div>
     </div>
   );

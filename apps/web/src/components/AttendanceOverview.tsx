@@ -189,9 +189,11 @@ interface WeeklyData {
 interface Props {
   /** 회사달력 v1.2 — 일자별 휴일 Map (date → 휴일명). 미전달 시 휴일 표시 안 함 */
   holidays?: Map<string, string>;
+  /** 섹션 제목. 전달 시 sticky 헤더 안(뷰탭·날짜 네비 위)에 함께 고정 렌더 */
+  title?: string;
 }
 
-export default function AttendanceOverview({ holidays }: Props = {}) {
+export default function AttendanceOverview({ holidays, title }: Props = {}) {
   const [viewMode, setViewMode] = useState<ViewMode>("week");
   const [offset, setOffset] = useState(0);
   const [data, setData] = useState<WeeklyData | null>(null);
@@ -312,9 +314,12 @@ export default function AttendanceOverview({ holidays }: Props = {}) {
     <div>
       {/* View Mode Tabs + Navigator — 스크롤해도 상단 고정 (탭 헤더 바로 아래) */}
       <div
-        className="sticky z-20 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 flex flex-col gap-3 mb-4 pt-1 pb-2"
+        className="sticky z-20 bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 flex flex-col gap-3 mb-4 pt-1 pb-2"
         style={{ top: "var(--attn-sticky-top, 10rem)" }}
       >
+        {title && (
+          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">{title}</h2>
+        )}
         {/* 뷰 모드 전환 */}
         <div className="flex items-center justify-between">
           <div className="flex bg-gray-100 rounded-lg p-0.5">
