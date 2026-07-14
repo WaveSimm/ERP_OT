@@ -1,5 +1,6 @@
 import { PrismaClient, Prisma, TaskIssue } from "@prisma/client";
 import { AuthUser, isProjectMember } from "./work-log-permissions";
+import { DashboardService } from "./dashboard/dashboard.service.js";
 
 export class TaskIssueError extends Error {
   constructor(public readonly code: string, message: string, public readonly statusCode = 400) {
@@ -11,7 +12,19 @@ export class TaskIssueError extends Error {
 type AuthUserWithName = AuthUser & { name: string };
 
 export class TaskIssueService {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly dashboard: DashboardService,
+  ) {}
+
+  /** 이슈 변경이 대시보드 이슈현황/RAG/그룹 롤업에 반영되도록 관련 캐시를 즉시 무효화. */
+  private async invalidateDashboard(taskId: string): Promise<void> {
+    const task = await this.prisma.task.findUnique({
+      where: { id: taskId },
+      select: { projectId: true },
+    });
+    if (task) await this.dashboard.invalidateProjectAndGroups(task.projectId);
+  }
 
   /**
    * 이슈 생성/해결/수정/삭제 권한.
@@ -53,6 +66,7 @@ export class TaskIssueService {
         authorName: user.name,
       },
     });
+    await this.invalidateDashboard(taskId);
     return this.toDto(created);
   }
 
@@ -76,6 +90,7 @@ export class TaskIssueService {
     }
 
     const updated = await this.prisma.taskIssue.update({ where: { id }, data: updateData });
+    if (data.isResolved !== undefined) await this.invalidateDashboard(issue.taskId);
     return this.toDto(updated);
   }
 
@@ -86,6 +101,7 @@ export class TaskIssueService {
       throw new TaskIssueError("FORBIDDEN_TASK_ISSUE_DELETE", "이슈를 삭제할 권한이 없습니다.", 403);
     }
     await this.prisma.taskIssue.delete({ where: { id } });
+    await this.invalidateDashboard(issue.taskId);
   }
 
   private toDto(i: TaskIssue) {
