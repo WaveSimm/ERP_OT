@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, type DragEvent } from "react";
-import { attendanceOverviewApi, holidayWorkApi, getUser } from "@/lib/api";
+import { attendanceOverviewApi } from "@/lib/api";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -243,29 +243,6 @@ export default function AttendanceOverview({ holidays, title }: Props = {}) {
 
   useEffect(() => { load(); }, [load]);
 
-  // 전사근태 삭제는 관리자(ADMIN)만. (본인 것 삭제는 '내 월간 근태'에서 운영자 이상 가능)
-  const me = getUser();
-  const myUserId = me?.id ?? "";
-  const canManage = me?.role === "ADMIN";
-  const handleDeleteEntry = useCallback(async (entry: Entry, memberUserId: string, memberName: string) => {
-    if (!canManage && memberUserId !== myUserId) return;
-    if (entry.id.startsWith("att-")) return; // 출퇴근 합성 바는 삭제 대상 아님
-    const who = memberUserId === myUserId ? "" : `${memberName}님의 `;
-    const label = ENTRY_LABELS[entry.entryType] ?? entry.entryType;
-    if (!confirm(`${who}'${label}${entry.date ? ` (${entry.date})` : ""}' 항목을 삭제하시겠습니까?`)) return;
-    try {
-      // 휴일근무(OT)는 신청서 단위로 삭제 — work_schedule 항목만 지우면 신청서가 남아 재등록이 막힘.
-      if (entry.sourceType === "OT_APPROVED" && entry.sourceId) {
-        await holidayWorkApi.remove(entry.sourceId);
-      } else {
-        await attendanceOverviewApi.deleteEntry(entry.id);
-      }
-      await load();
-    } catch (e: any) {
-      alert(e?.message ?? "삭제에 실패했습니다.");
-    }
-  }, [canManage, myUserId, load]);
-
   const toggle = (id: string) => setExpanded((p) => ({ ...p, [id]: !p[id] }));
 
   // 부서 내 멤버 순서 재정렬 — 낙관적 업데이트 후 저장, 실패 시 서버 상태로 롤백.
@@ -376,7 +353,6 @@ export default function AttendanceOverview({ holidays, title }: Props = {}) {
             <DeptSection key={dept.id} dept={dept} days={days} viewMode={viewMode}
               isExpanded={expanded[dept.id] ?? false} onToggle={() => toggle(dept.id)}
               holidays={holidays}
-              myUserId={myUserId} canManage={canManage} onDeleteEntry={handleDeleteEntry}
               canReorder={!LOCKED_DEPTS.has(dept.name)} onReorder={reorderMembers} />
           ))}
           {data.unassigned.length > 0 && (
@@ -387,7 +363,6 @@ export default function AttendanceOverview({ holidays, title }: Props = {}) {
               isExpanded={expanded["__unassigned"] ?? false}
               onToggle={() => toggle("__unassigned")}
               holidays={holidays}
-              myUserId={myUserId} canManage={canManage} onDeleteEntry={handleDeleteEntry}
               canReorder={false}
             />
           )}
@@ -399,16 +374,13 @@ export default function AttendanceOverview({ holidays, title }: Props = {}) {
 
 // ─── DeptSection ─────────────────────────────────────────────────────────────
 
-function DeptSection({ dept, days, viewMode, isExpanded, onToggle, holidays, myUserId, canManage, onDeleteEntry, canReorder, onReorder }: {
+function DeptSection({ dept, days, viewMode, isExpanded, onToggle, holidays, canReorder, onReorder }: {
   dept: Department;
   days: string[];
   viewMode: ViewMode;
   isExpanded: boolean;
   onToggle: () => void;
   holidays?: Map<string, string>;
-  myUserId: string;
-  canManage: boolean;
-  onDeleteEntry: (entry: Entry, memberUserId: string, memberName: string) => void;
   canReorder?: boolean;
   onReorder?: (deptId: string, orderedUserIds: string[]) => void;
 }) {
@@ -470,8 +442,6 @@ function DeptSection({ dept, days, viewMode, isExpanded, onToggle, holidays, myU
             <tbody>
               {dept.members.map((member) => (
                 <MemberRow key={member.userId} member={member} days={days} viewMode={viewMode} holidays={holidays}
-                  canDelete={canManage || member.userId === myUserId}
-                  onDeleteEntry={(entry) => onDeleteEntry(entry, member.userId, member.name)}
                   drag={canReorder ? {
                     canDrag: true,
                     isOver: overUser === member.userId && dragUser !== member.userId,
@@ -504,7 +474,7 @@ interface RowDrag {
   onDragEnd: () => void;
 }
 
-function MemberRow({ member, days, viewMode, holidays, canDelete, onDeleteEntry, drag }: { member: Member; days: string[]; viewMode: ViewMode; holidays?: Map<string, string>; canDelete?: boolean; onDeleteEntry?: (entry: Entry) => void; drag?: RowDrag }) {
+function MemberRow({ member, days, viewMode, holidays, drag }: { member: Member; days: string[]; viewMode: ViewMode; holidays?: Map<string, string>; drag?: RowDrag }) {
   const entriesByDate = useMemo(() => {
     const map = new Map<string, Entry[]>();
     for (const e of member.entries) {
@@ -586,17 +556,19 @@ function MemberRow({ member, days, viewMode, holidays, canDelete, onDeleteEntry,
 
   return (
     <tr
-      draggable={drag?.canDrag}
-      onDragStart={drag?.onDragStart}
       onDragOver={drag?.onDragOver}
       onDrop={drag?.onDrop}
-      onDragEnd={drag?.onDragEnd}
       className={`group border-t border-gray-100 hover:bg-gray-50/50 dark:hover:bg-gray-500/10 ${
         drag?.isOver ? "outline outline-2 -outline-offset-2 outline-blue-400" : ""
       }`}
     >
-      <td className={`w-28 px-3 py-1.5 text-sm font-medium text-gray-800 bg-white sticky left-0 z-10 truncate ${drag?.canDrag ? "cursor-move" : ""}`}>
-        {/* 핸들은 항상 자리 차지(이름 정렬 통일). 드래그 가능은 평소 투명→행 hover 시 표시, 잠금은 완전 투명 */}
+      <td
+        draggable={drag?.canDrag}
+        onDragStart={drag?.onDragStart}
+        onDragEnd={drag?.onDragEnd}
+        className={`w-28 px-3 py-1.5 text-sm font-medium text-gray-800 bg-white sticky left-0 z-10 truncate ${drag?.canDrag ? "cursor-move" : ""}`}>
+        {/* 드래그 소스는 이름 열에만 — 일정 타임라인 셀은 draggable 아님 → 일정 텍스트 선택·복사 가능.
+            핸들(⠿)은 항상 자리 차지(이름 정렬 통일). 드래그 가능은 평소 투명→행 hover 시 표시, 잠금은 완전 투명 */}
         <span className={`mr-1 select-none text-gray-300 transition-opacity ${drag?.canDrag ? "opacity-0 group-hover:opacity-100" : "opacity-0"}`}
           title={drag?.canDrag ? "드래그로 순서 변경" : undefined} aria-hidden>⠿</span>
         {member.name}
@@ -645,23 +617,16 @@ function MemberRow({ member, days, viewMode, holidays, canDelete, onDeleteEntry,
             const style = { left: `calc(${left}% + ${INSET}px)`, width: `calc(${width}% - ${INSET * 2}px)`, top: PAD + b.lane * (ROW_H + GAP), height: ROW_H } as const;
             const colorCls = ENTRY_COLORS[b.e.entryType] ?? "bg-gray-100 text-gray-600";
             const accentCls = ENTRY_ACCENTS[b.e.entryType] ?? "bg-gray-400/50";
-            const ringCls = ENTRY_RINGS[b.e.entryType] ?? "hover:ring-gray-500";
-            // 삭제 가능(관리자 or 본인) 항목은 클릭 시 삭제. 출퇴근 합성 바(att-)는 제외.
-            const deletable = !!canDelete && !b.e.id.startsWith("att-");
-            const delProps = deletable
-              ? { onClick: (ev: React.MouseEvent) => { ev.stopPropagation(); onDeleteEntry?.(b.e); }, role: "button" as const }
-              : {};
-            const delTip = deletable ? `${tip} · 클릭하여 삭제` : tip;
             if (viewMode === "month") {
               // 칸이 좁아 글자 대신 색 블록만 — 상세는 툴팁(title)으로 확인
               return (
-                <div key={`${b.e.id}:${b.startIdx}`} title={delTip} {...delProps}
-                  className={`absolute rounded overflow-hidden ${colorCls} ${deletable ? `cursor-pointer hover:ring-2 ${ringCls}` : ""}`} style={style} />
+                <div key={`${b.e.id}:${b.startIdx}`} title={tip}
+                  className={`absolute rounded overflow-hidden ${colorCls}`} style={style} />
               );
             }
             return (
-              <div key={`${b.e.id}:${b.startIdx}`} title={delTip} {...delProps}
-                className={`absolute rounded pl-1.5 pr-1 flex flex-col justify-center overflow-hidden ${colorCls} ${deletable ? `cursor-pointer hover:ring-2 ${ringCls}` : ""}`} style={style}>
+              <div key={`${b.e.id}:${b.startIdx}`} title={tip}
+                className={`absolute rounded pl-1.5 pr-1 flex flex-col justify-center overflow-hidden ${colorCls}`} style={style}>
                 {/* rod: 텍스트와 같은 행에 두고 items-stretch로 글씨 높이(첫 줄~끝 줄)에 맞춤 */}
                 <div className="flex items-stretch gap-1.5 min-w-0">
                   <span className={`w-[3px] rounded-sm shrink-0 ${accentCls}`} aria-hidden />

@@ -760,8 +760,9 @@ export default function AttendanceView({ mobile = false }: { mobile?: boolean } 
         <p className="text-[10px] text-gray-400 mt-1.5 ml-1">날짜를 클릭하여 근태를 추가할 수 있습니다</p>
       </div>
 
-      {/* 전사근태 — 링크 대신 하단 직접 표시 (2026-07-07). 제목+뷰탭+날짜를 한 덩어리로 sticky 고정 */}
-      <div style={{ ["--attn-sticky-top" as any]: "3.5rem" }}>
+      {/* 전사근태 — 링크 대신 하단 직접 표시 (2026-07-07). 제목+뷰탭+날짜를 한 덩어리로 sticky 고정.
+          오프셋 = 상단 헤더 높이: 모바일 크롬(h-12=3rem) vs 데스크톱 AppLayout(h-14=3.5rem) */}
+      <div style={{ ["--attn-sticky-top" as any]: mobile ? "3rem" : "3.5rem" }}>
         <AttendanceOverview holidays={holidays} title="전사근태" />
       </div>
     </div>
