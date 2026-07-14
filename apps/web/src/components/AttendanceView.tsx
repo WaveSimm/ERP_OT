@@ -152,9 +152,11 @@ function getDatesInRange(start: string, end: string): string[] {
   return dates;
 }
 
-function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete, onDeleteLeave, onDeleteHoliday, defaultStart = "09:30", defaultEnd = "18:30" }: {
+function WorkEntryModal({ date, entry, groupStart, groupEnd, onClose, onSuccess, onDelete, onDeleteLeave, onDeleteHoliday, defaultStart = "09:30", defaultEnd = "18:30" }: {
   date: string;
   entry?: WorkScheduleEntry | null;
+  groupStart?: string;   // 그룹(다일) 항목 수정 시 현재 시작일 — 날짜 입력 초기값
+  groupEnd?: string;     // 그룹(다일) 항목 수정 시 현재 종료일
   onClose: () => void;
   onSuccess: () => void;
   onDelete?: (id: string) => void;
@@ -166,8 +168,8 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete, onDeleteLea
   const isEdit = !!entry;
   const isEditable = !entry || entry.sourceType === "MANUAL";
   const hasGroup = !!(entry?.groupId);
-  const [startDate, setStartDate] = useState(date);
-  const [endDate, setEndDate] = useState(date);
+  const [startDate, setStartDate] = useState(entry?.groupId ? (groupStart ?? date) : date);
+  const [endDate, setEndDate] = useState(entry?.groupId ? (groupEnd ?? date) : date);
   const [entryType, setEntryType] = useState(entry?.entryType ?? "FIELD");
   const [startTime, setStartTime] = useState(entry?.startTime ?? defaultStart);
   const [endTime, setEndTime] = useState(entry?.endTime ?? defaultEnd);
@@ -176,6 +178,8 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete, onDeleteLea
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [groupAction, setGroupAction] = useState<"single" | "group">(hasGroup ? "group" : "single");
+  // 수정 시 날짜 변경 허용 조건: 단독 항목이거나 '전체 일정' 편집일 때. ('이 항목만'은 날짜 고정)
+  const canEditDates = !hasGroup || groupAction === "group";
   // 중간 릴리즈(2026-06-29): 근태 추가 모달에서 휴가/휴일근무도 직접 등록(승인 없이 즉시 반영)
   const [category, setCategory] = useState<"WORK" | "LEAVE" | "HOLIDAY">("WORK");
   const [leaveType, setLeaveType] = useState("ANNUAL");
@@ -201,20 +205,38 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete, onDeleteLea
         onSuccess(); onClose(); return;
       }
       if (isEdit && entry) {
-        if (hasGroup && groupAction === "group") {
-          await attendanceOverviewApi.updateGroup(entry.groupId!, {
-            entryType,
-            startTime,
-            endTime,
-            label: label.trim(),
-          });
+        const editWhole = hasGroup && groupAction === "group";
+        const isMultiDay = entryType === "BUSINESS_TRIP" || entryType === "TRAINING";
+        if (hasGroup && groupAction === "single") {
+          // '이 항목만' — 날짜 이동 없이 유형/시각/메모만 인플레이스 수정
+          await attendanceOverviewApi.updateEntry(entry.id, { entryType, startTime, endTime, label: label.trim() });
         } else {
-          await attendanceOverviewApi.updateEntry(entry.id, {
-            entryType,
-            startTime,
-            endTime,
-            label: label.trim(),
-          });
+          const oldStart = editWhole ? (groupStart ?? date) : date;
+          const oldEnd = editWhole ? (groupEnd ?? date) : date;
+          const newEnd = isMultiDay ? endDate : startDate;
+          const datesChanged = startDate !== oldStart || newEnd !== oldEnd;
+          if (!datesChanged) {
+            // 날짜 그대로 → 인플레이스 수정
+            if (editWhole) await attendanceOverviewApi.updateGroup(entry.groupId!, { entryType, startTime, endTime, label: label.trim() });
+            else await attendanceOverviewApi.updateEntry(entry.id, { entryType, startTime, endTime, label: label.trim() });
+          } else {
+            // 날짜 변경 → 새 범위로 재생성 후 기존 삭제(생성 먼저 → 실패 시 원본 보존)
+            const dates = isMultiDay ? getDatesInRange(startDate, endDate) : [startDate];
+            const gId = dates.length > 1 ? (Math.random().toString(36).slice(2) + Date.now().toString(36)) : undefined;
+            for (let i = 0; i < dates.length; i++) {
+              const isFirst = i === 0, isLast = i === dates.length - 1, isSingle = dates.length === 1;
+              await attendanceOverviewApi.createEntry({
+                date: dates[i],
+                entryType,
+                startTime: isSingle || isFirst ? startTime : undefined,
+                endTime: isSingle || isLast ? endTime : undefined,
+                ...(label.trim() ? { label: label.trim() } : {}),
+                ...(gId ? { groupId: gId } : {}),
+              });
+            }
+            if (hasGroup) await attendanceOverviewApi.deleteGroup(entry.groupId!);
+            else await attendanceOverviewApi.deleteEntry(entry.id);
+          }
         }
       } else {
         const isMultiDay = entryType === "BUSINESS_TRIP" || entryType === "TRAINING";
@@ -321,8 +343,8 @@ function WorkEntryModal({ date, entry, onClose, onSuccess, onDelete, onDeleteLea
                 {ALL_ENTRY_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
-            {/* 날짜 선택 (추가 모드만) */}
-            {!isEdit && (entryType === "BUSINESS_TRIP" || entryType === "TRAINING" ? (
+            {/* 날짜 선택 — 추가 모드 항상, 수정 모드는 날짜 변경 가능 조건(단독/전체 일정)일 때 */}
+            {(!isEdit || canEditDates) && (entryType === "BUSINESS_TRIP" || entryType === "TRAINING" ? (
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs text-gray-600 mb-1">시작일</label>
@@ -664,17 +686,24 @@ function MonthlyCalendar({ year, month, refresh, onEntryChanged, defaultStart, d
       )}
 
       {/* 근태 수정 모달 */}
-      {editingEntry && (
+      {editingEntry && (() => {
+        // 그룹(다일) 항목이면 같은 groupId의 현재 날짜 범위를 계산해 날짜 입력 초기값으로 전달
+        const gid = editingEntry.entry?.groupId;
+        const gDates = gid ? entries.filter((e) => e.groupId === gid).map((e) => e.date).sort() : [];
+        return (
         <WorkEntryModal
           date={editingEntry.date}
           entry={editingEntry.entry}
+          groupStart={gDates[0]}
+          groupEnd={gDates[gDates.length - 1]}
           onClose={() => setEditingEntry(null)}
           onSuccess={() => { onEntryChanged(); }}
           onDelete={(id) => { handleDeleteEntry(id); }}
           onDeleteLeave={(leaveId) => { handleDeleteLeave(leaveId); }}
           onDeleteHoliday={(requestId) => { handleDeleteHoliday(requestId); }}
         />
-      )}
+        );
+      })()}
     </div>
   );
 }
