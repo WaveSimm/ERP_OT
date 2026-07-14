@@ -100,16 +100,6 @@ function useKanban() {
 
 // ─── Kanban components ────────────────────────────────────────────────────────
 
-function StaleBanner({ count }: { count: number }) {
-  if (count === 0) return null;
-  return (
-    <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 flex flex-col sm:flex-row sm:items-center gap-x-2 gap-y-0.5 text-sm">
-      <span className="text-amber-600 font-medium shrink-0">⚠ {count}개 세그먼트</span>
-      <span className="text-amber-700">진행률이 3일 이상 업데이트되지 않았습니다.</span>
-    </div>
-  );
-}
-
 function ProgressUpdateModal({ card, onClose, onSave }: {
   card: KanbanCard;
   onClose: () => void;
@@ -172,11 +162,10 @@ const COLUMN_META = {
 
 function KanbanCardItem({ card, onUpdate }: { card: KanbanCard; onUpdate: (card: KanbanCard) => void }) {
   const router = useRouter();
-  const isStale = card.staleDays >= 3;
   const dueSoon = card.daysUntilEnd <= 3 && card.daysUntilEnd >= 0;
 
   return (
-    <div className={`bg-white rounded-lg border shadow-sm p-3 space-y-2 ${isStale ? "border-amber-300" : "border-gray-200"}`}>
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 space-y-2">
       <div className="flex items-start gap-1.5">
         {card.isCriticalPath && <span className="shrink-0 text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-medium">CPM</span>}
         <button className="text-xs text-gray-500 hover:text-blue-600 text-left truncate flex-1 min-w-0"
@@ -207,9 +196,6 @@ function KanbanCardItem({ card, onUpdate }: { card: KanbanCard; onUpdate: (card:
         {card.progressPercent < 100 && (
           <button onClick={() => onUpdate(card)}
             className="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded font-medium">업데이트</button>
-        )}
-        {isStale && (
-          <span className="text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">{card.staleDays}일</span>
         )}
       </div>
     </div>
@@ -1618,9 +1604,6 @@ export function DashboardBody({ mobile = false }: { mobile?: boolean } = {}) {
           </button>
         ))}
       </div>
-
-      {/* Kanban / Week: stale banner */}
-      {tab === "kanban" && data && <StaleBanner count={data.staleCount} />}
 
       {/* Kanban */}
       {tab === "kanban" && (
