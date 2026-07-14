@@ -304,7 +304,8 @@ function WeekCalendarView() {
 
   useEffect(() => { load(currentDate); }, []);
 
-  const openTask = async (projectId: string, taskId: string) => {
+  const openTask = async (e: React.MouseEvent, projectId: string, taskId: string) => {
+    e.stopPropagation(); // 래퍼의 빈영역-클릭-닫기와 충돌 방지
     if (selectedTask?.id === taskId) { setSelectedTask(null); return; }
     const full = await taskApi.get(projectId, taskId);
     setSelectedTask(full);
@@ -333,7 +334,7 @@ function WeekCalendarView() {
   for (const d of data.days as any[]) for (const s of d.segments) if (!projIdByName.has(s.projectName)) projIdByName.set(s.projectName, s.projectId);
 
   return (
-    <>
+    <div onClick={() => selectedTask && setSelectedTask(null)}>
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
       <div className="px-4 py-3 flex items-center justify-between border-b border-gray-200">
         <button onClick={() => navigate(-1)} className="p-1 text-gray-400 hover:text-gray-700">‹</button>
@@ -370,7 +371,7 @@ function WeekCalendarView() {
                       <div className="space-y-1">
                         {segs.map((seg: any) => (
                           <button key={`${seg.segmentId}-${day.date}`} type="button"
-                            onClick={() => openTask(seg.projectId, seg.taskId)}
+                            onClick={(e) => openTask(e, seg.projectId, seg.taskId)}
                             className={`block w-full text-left px-1.5 py-0.5 rounded truncate hover:ring-1 hover:ring-blue-300 ${seg.isCriticalPath ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}
                             title={`${seg.taskName} / ${seg.segmentName}`}>
                             {seg.segmentName}
@@ -395,7 +396,7 @@ function WeekCalendarView() {
           setSelectedTask(fresh);
         }} />
     )}
-    </>
+    </div>
   );
 }
 
