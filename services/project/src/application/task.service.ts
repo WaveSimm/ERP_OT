@@ -164,6 +164,16 @@ export class TaskService {
       },
     });
 
+    // 기본 구간명 동기화: 태스크명 변경 시, 기존 태스크명과 동일한 이름의 구간을
+    //   새 태스크명으로 함께 변경한다(생성 시 태스크명=구간명으로 만들어지는 "기본 구간" 케이스).
+    //   사용자가 별도로 지어둔 구간명(예: "1차"/"2차")은 그대로 보존한다.
+    if (dto.name !== undefined && dto.name !== existing.name) {
+      await this.prisma.taskSegment.updateMany({
+        where: { taskId, name: existing.name },
+        data: { name: dto.name },
+      });
+    }
+
     // 의미있는 변경만 activity 기록 (sortOrder/parentId 단독 변경은 드래그 재정렬로 제외)
     if (dto.status !== undefined && dto.status !== existing.status) {
       await this.logActivity(existing.projectId, requesterId, "TASK_STATUS_CHANGED", "task", taskId,
