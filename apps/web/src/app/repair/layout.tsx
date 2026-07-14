@@ -28,6 +28,13 @@ export default function RepairLayout({ children }: { children: React.ReactNode }
   const isDetailPage =
     activeTab === "orders" && pathname !== "/repair";
 
+  // 인쇄/PDF 전용 페이지(/repair/[id]/report/print)에서는 섹션 헤더(수리 관리 제목 + 탭)를
+  // 렌더하지 않음 — 인쇄물/PDF에 페이지 크롬(제목·탭)이 섞여 들어가는 것 방지.
+  const isReportPrint = pathname.endsWith("/report/print");
+  if (isReportPrint) {
+    return <AppLayout>{children}</AppLayout>;
+  }
+
   return (
     <AppLayout>
       <div className="px-6 pb-6">

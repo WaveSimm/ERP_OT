@@ -132,9 +132,9 @@ export default function ManagementAttendancePage() {
         </table>
       </div>
 
-      {/* 전사근태 (월간 현황) */}
-      <h2 className="text-base font-semibold text-gray-800 mb-3">전사근태</h2>
-      <AttendanceOverview holidays={holidays} />
+      {/* 전사근태 (월간 현황) — 제목+뷰탭+날짜를 한 덩어리로 sticky 고정.
+          오프셋(--attn-sticky-top)은 관리 레이아웃이 자체 sticky 헤더 높이에 맞춰 주입 */}
+      <AttendanceOverview holidays={holidays} title="전사근태" />
     </div>
   );
 }
