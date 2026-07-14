@@ -502,8 +502,8 @@ export default function ReportPrintPage() {
         @media print {
           body { background: white !important; }
           .no-print { display: none !important; }
-          /* AppLayout 내부 요소가 끼어드는 경우 대비 */
-          nav, aside, header.app-header, .app-shell-header, .app-sidebar { display: none !important; }
+          /* AppLayout 전역 헤더/네비 등 페이지 크롬이 인쇄물에 섞이는 것 방지 */
+          header, nav, aside, header.app-header, .app-shell-header, .app-sidebar { display: none !important; }
           .report-a4 {
             width: auto;
             min-height: auto;
