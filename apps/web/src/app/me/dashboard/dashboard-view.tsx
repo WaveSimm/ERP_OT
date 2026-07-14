@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { meApi, myTasksApi, taskApi, projectApi, myProfileApi, dashboardApi, expenseApi } from "@/lib/api";
 import TaskDrawer from "@/components/TaskDrawer";
 import AttendanceView from "@/components/AttendanceView";
+import { SearchIcon } from "@/components/ui/icons";
 import { TransactionsView } from "@/app/expense/_components/TransactionsView";
 import { SettlementsView } from "@/app/expense/_components/SettlementsView";
 import SourcesPage from "@/app/expense/sources/page";
@@ -625,12 +626,13 @@ function MyTasksView({ mobile = false }: { mobile?: boolean } = {}) {
           })}
         </div>
         <div className="relative max-w-xs flex-1">
-          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
+          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400"><SearchIcon className="w-3.5 h-3.5" /></span>
           <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="태스크 또는 프로젝트 검색..."
             className="w-full pl-7 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
-        <button onClick={load} className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs text-gray-600 hover:bg-gray-50">새로고침</button>
+        <button onClick={load} title="새로고침" aria-label="새로고침"
+          className="flex items-center justify-center px-2.5 py-1.5 text-base leading-none border border-gray-300 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-700 shrink-0">↻</button>
       </div>
 
       {loading ? (
@@ -1588,7 +1590,7 @@ export function DashboardBody({ mobile = false }: { mobile?: boolean } = {}) {
             )}
           </div>
           {(tab === "kanban" || tab === "week") && (
-            <button onClick={load} className="p-1.5 text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg bg-white" title="새로고침">↻</button>
+            <button onClick={load} title="새로고침" aria-label="새로고침" className="p-1.5 text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg bg-white">↻</button>
           )}
         </div>
       )}
