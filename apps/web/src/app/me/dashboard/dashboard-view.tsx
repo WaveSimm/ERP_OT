@@ -292,6 +292,9 @@ function WeekCalendarView() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(() => new Date().toISOString().slice(0, 10));
+  // 태스크 클릭 시 페이지 이동 없이 현재 화면에서 상세 드로어를 연다 (작업 목록 탭과 동일 패턴)
+  const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
 
   const load = useCallback(async (date: string) => {
     setLoading(true);
@@ -300,6 +303,13 @@ function WeekCalendarView() {
   }, []);
 
   useEffect(() => { load(currentDate); }, []);
+
+  const openTask = async (projectId: string, taskId: string) => {
+    if (selectedTask?.id === taskId) { setSelectedTask(null); return; }
+    const full = await taskApi.get(projectId, taskId);
+    setSelectedTask(full);
+    setSelectedProjectId(projectId);
+  };
 
   const navigate = (dir: -1 | 1) => {
     const d = new Date(currentDate);
@@ -323,6 +333,7 @@ function WeekCalendarView() {
   for (const d of data.days as any[]) for (const s of d.segments) if (!projIdByName.has(s.projectName)) projIdByName.set(s.projectName, s.projectId);
 
   return (
+    <>
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
       <div className="px-4 py-3 flex items-center justify-between border-b border-gray-200">
         <button onClick={() => navigate(-1)} className="p-1 text-gray-400 hover:text-gray-700">‹</button>
@@ -358,12 +369,12 @@ function WeekCalendarView() {
                       className={`px-1.5 py-1.5 ${day.isToday ? "bg-blue-50/40 dark:bg-blue-500/10" : day.dayOfWeek === 0 || day.dayOfWeek === 6 ? "bg-gray-50/50 dark:bg-gray-500/10" : ""}`}>
                       <div className="space-y-1">
                         {segs.map((seg: any) => (
-                          <Link key={`${seg.segmentId}-${day.date}`}
-                            href={`/projects/${seg.projectId}?taskId=${seg.taskId}`}
-                            className={`block px-1.5 py-0.5 rounded truncate hover:ring-1 hover:ring-blue-300 ${seg.isCriticalPath ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}
+                          <button key={`${seg.segmentId}-${day.date}`} type="button"
+                            onClick={() => openTask(seg.projectId, seg.taskId)}
+                            className={`block w-full text-left px-1.5 py-0.5 rounded truncate hover:ring-1 hover:ring-blue-300 ${seg.isCriticalPath ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}
                             title={`${seg.taskName} / ${seg.segmentName}`}>
                             {seg.segmentName}
-                          </Link>
+                          </button>
                         ))}
                       </div>
                     </td>
@@ -375,6 +386,16 @@ function WeekCalendarView() {
         </table>
       </div>
     </div>
+    {selectedTask && (
+      <TaskDrawer task={selectedTask} projectId={selectedProjectId}
+        onClose={() => setSelectedTask(null)}
+        onRefresh={async () => {
+          await load(currentDate);
+          const fresh = await taskApi.get(selectedProjectId, selectedTask.id);
+          setSelectedTask(fresh);
+        }} />
+    )}
+    </>
   );
 }
 
