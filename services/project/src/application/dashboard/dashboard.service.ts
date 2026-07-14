@@ -573,6 +573,21 @@ export class DashboardService {
     await this.redis.del("dashboard:global:summary");
   }
 
+  /**
+   * 프로젝트 대시보드 캐시 + 해당 프로젝트가 속한 그룹 롤업 캐시까지 함께 무효화.
+   * 태스크 이슈 해결 등 그룹 집계(이슈 건수·RAG)에 영향을 주는 변경에서 사용.
+   */
+  async invalidateProjectAndGroups(projectId: string) {
+    await this.invalidateProject(projectId);
+    const memberships = await this.prisma.projectGroupMembership.findMany({
+      where: { projectId },
+      select: { groupId: true },
+    });
+    await Promise.all(
+      memberships.map((m) => this.redis.del(`dashboard:group:${m.groupId}:rollup`)),
+    );
+  }
+
   async refreshAll() {
     const locked = await this.redis.set("dashboard:refresh:lock", "locked", "EX", 60, "NX");
     if (!locked) return { skipped: true };

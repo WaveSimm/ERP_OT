@@ -105,7 +105,7 @@ const riskDetectionService = new RiskDetectionService(prisma, gateway);
 const dashboardService = new DashboardService(prisma, redis);
 const folderService = new FolderService(prisma);
 const workLogService = new WorkLogService(prisma);
-const taskIssueService = new TaskIssueService(prisma);
+const taskIssueService = new TaskIssueService(prisma, dashboardService);
 const dependencyService = new DependencyService(prisma, gateway);
 
 // CPM 트리거 setter wiring (의존성 변경 시 CPM 재계산)
