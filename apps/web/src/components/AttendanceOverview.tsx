@@ -191,10 +191,13 @@ interface Props {
   holidays?: Map<string, string>;
   /** 섹션 제목. 전달 시 sticky 헤더 안(뷰탭·날짜 네비 위)에 함께 고정 렌더 */
   title?: string;
+  /** 모바일 환경 여부. true면 이름 순서변경(드래그) 비활성 — 모바일에선 재정렬 불필요 */
+  mobile?: boolean;
 }
 
-export default function AttendanceOverview({ holidays, title }: Props = {}) {
-  const [viewMode, setViewMode] = useState<ViewMode>("week");
+export default function AttendanceOverview({ holidays, title, mobile = false }: Props = {}) {
+  // 모바일 환경 기본은 '일' 뷰 — 하루치는 화면폭에 맞아 가로 스크롤 없이 보임(아래 min-w 해제와 짝).
+  const [viewMode, setViewMode] = useState<ViewMode>(mobile ? "day" : "week");
   const [offset, setOffset] = useState(0);
   const [data, setData] = useState<WeeklyData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -303,7 +306,8 @@ export default function AttendanceOverview({ holidays, title }: Props = {}) {
             {([
               { key: "day" as ViewMode, label: "일" },
               { key: "week" as ViewMode, label: "주" },
-              { key: "month" as ViewMode, label: "월" },
+              // 모바일에선 월 뷰 제외 — 30열이라 폭이 과해 부적합
+              ...(mobile ? [] : [{ key: "month" as ViewMode, label: "월" }]),
             ]).map((m) => (
               <button key={m.key} onClick={() => switchMode(m.key)}
                 className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
@@ -353,7 +357,7 @@ export default function AttendanceOverview({ holidays, title }: Props = {}) {
             <DeptSection key={dept.id} dept={dept} days={days} viewMode={viewMode}
               isExpanded={expanded[dept.id] ?? false} onToggle={() => toggle(dept.id)}
               holidays={holidays}
-              canReorder={!LOCKED_DEPTS.has(dept.name)} onReorder={reorderMembers} />
+              canReorder={!mobile && !LOCKED_DEPTS.has(dept.name)} onReorder={reorderMembers} />
           ))}
           {data.unassigned.length > 0 && (
             <DeptSection
@@ -409,11 +413,13 @@ function DeptSection({ dept, days, viewMode, isExpanded, onToggle, holidays, can
       </button>
       {isExpanded && (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse min-w-[640px] table-fixed">
+          {/* 일 뷰는 하루(1열)라 화면폭에 맞춤(min-w 해제) → 작은 화면에서 가로 스크롤 없음.
+              주/월 뷰는 열이 많아 min-w-[640px] 유지(넘치면 가로 스크롤). */}
+          <table className={`w-full text-sm border-collapse table-fixed ${viewMode === "day" ? "" : "min-w-[640px]"}`}>
             <thead>
               <tr className="border-t border-b border-gray-200 dark:border-gray-700">
-                <th className="w-28 text-left px-3 py-2 text-xs font-semibold text-gray-500 bg-white sticky left-0 z-10">이름</th>
-                {days.map((day) => {
+                <th className="w-20 sm:w-28 text-left px-3 py-2 text-xs font-semibold text-gray-500 bg-white sticky left-0 z-10 shadow-[inset_-1px_0_0_0_#e5e7eb] dark:shadow-[inset_-1px_0_0_0_#374151]">이름</th>
+                {days.map((day, di) => {
                   const holidayName = holidays?.get(day);
                   const isHol = !!holidayName;
                   const colorCls = isToday(day)
@@ -426,7 +432,9 @@ function DeptSection({ dept, days, viewMode, isExpanded, onToggle, holidays, can
                   return (
                     <th
                       key={day}
-                      className={`px-1 py-2 text-center text-xs font-semibold border-l border-gray-200 dark:border-gray-700 ${
+                      className={`px-1 py-2 text-center text-xs font-semibold ${
+                        di === 0 ? "" : "border-l border-gray-200 dark:border-gray-700"
+                      } ${
                         viewMode === "month" ? "min-w-[36px]" : "min-w-[80px]"
                       } ${colorCls}`}
                       title={holidayName ?? undefined}
@@ -566,18 +574,16 @@ function MemberRow({ member, days, viewMode, holidays, drag }: { member: Member;
         draggable={drag?.canDrag}
         onDragStart={drag?.onDragStart}
         onDragEnd={drag?.onDragEnd}
-        className={`w-28 px-3 py-1.5 text-sm font-medium text-gray-800 bg-white sticky left-0 z-10 truncate ${drag?.canDrag ? "cursor-move" : ""}`}>
-        {/* 드래그 소스는 이름 열에만 — 일정 타임라인 셀은 draggable 아님 → 일정 텍스트 선택·복사 가능.
-            핸들(⠿)은 항상 자리 차지(이름 정렬 통일). 드래그 가능은 평소 투명→행 hover 시 표시, 잠금은 완전 투명 */}
-        <span className={`mr-1 select-none text-gray-300 transition-opacity ${drag?.canDrag ? "opacity-0 group-hover:opacity-100" : "opacity-0"}`}
-          title={drag?.canDrag ? "드래그로 순서 변경" : undefined} aria-hidden>⠿</span>
+        className={`w-20 sm:w-28 px-3 py-1.5 text-sm font-medium text-gray-800 bg-white sticky left-0 z-10 truncate shadow-[inset_-1px_0_0_0_#e5e7eb] dark:shadow-[inset_-1px_0_0_0_#374151] ${drag?.canDrag ? "cursor-move" : ""}`}>
+        {/* 드래그 소스는 이름 열(td) 자체 — 일정 타임라인 셀은 draggable 아님(일정 텍스트 복사 가능).
+            별도 핸들 아이콘 없이 커서(cursor-move)로만 드래그 가능함을 표시. */}
         {member.name}
       </td>
       <td colSpan={N} className="p-0 align-top">
         <div className="relative" style={{ height: rowHeight }}>
           {/* 배경 일자 스트라이프 — 오늘/휴일/주말 음영 + 열 구분선 */}
           <div className="absolute inset-0 flex">
-            {days.map((d) => {
+            {days.map((d, di) => {
               const isHol = !!holidays?.get(d);
               const bg = isToday(d)
                 ? "bg-blue-50/30 dark:bg-blue-500/10"
@@ -586,7 +592,7 @@ function MemberRow({ member, days, viewMode, holidays, drag }: { member: Member;
                 : isWeekend(d)
                 ? "bg-gray-50/50 dark:bg-gray-500/10"
                 : "";
-              return <div key={d} className={`flex-1 border-l border-gray-200 dark:border-gray-700 ${bg}`} />;
+              return <div key={d} className={`flex-1 ${di === 0 ? "" : "border-l border-gray-200 dark:border-gray-700"} ${bg}`} />;
             })}
           </div>
           {/* 막대 — 시작일 시작시각 ~ 종료일 종료시각을 실제 폭으로 */}

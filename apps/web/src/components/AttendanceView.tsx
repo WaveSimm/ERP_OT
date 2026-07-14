@@ -763,7 +763,7 @@ export default function AttendanceView({ mobile = false }: { mobile?: boolean } 
       {/* 전사근태 — 링크 대신 하단 직접 표시 (2026-07-07). 제목+뷰탭+날짜를 한 덩어리로 sticky 고정.
           오프셋 = 상단 헤더 높이: 모바일 크롬(h-12=3rem) vs 데스크톱 AppLayout(h-14=3.5rem) */}
       <div style={{ ["--attn-sticky-top" as any]: mobile ? "3rem" : "3.5rem" }}>
-        <AttendanceOverview holidays={holidays} title="전사근태" />
+        <AttendanceOverview holidays={holidays} title="전사근태" mobile={mobile} />
       </div>
     </div>
   );
