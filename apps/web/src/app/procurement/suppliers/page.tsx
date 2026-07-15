@@ -7,6 +7,7 @@ import { supplierApi } from "@/lib/api";
 import Pagination from "@/components/Pagination";
 import SortableHeader from "@/components/SortableHeader";
 import { useSortPreference } from "@/hooks/useSortPreference";
+import { TableCard, Table, THead, Th, TBody, Tr, Td, TableEmpty } from "@/components/ui/Table";
 
 const PAGE_SIZE = 50;
 
@@ -20,7 +21,7 @@ export default function SuppliersPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(searchParams.get("search") || "");
-  const { sortBy, sortOrder, handleSort } = useSortPreference("suppliers");
+  const { sortBy, sortOrder, handleSort, resetSort } = useSortPreference("suppliers");
   const [page, setPage] = useState(1);
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const [showForm, setShowForm] = useState(false);
@@ -57,20 +58,31 @@ export default function SuppliersPage() {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <h2 className="text-lg font-bold">제조사/공급사 관리</h2>
-        <input type="text" placeholder="제조사명, 국가, 담당자 검색..." value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          className="border rounded-lg px-3 py-1.5 text-sm w-56" />
-        <span className="text-sm text-gray-400">{total}건</span>
-        <button onClick={() => { resetForm(); setShowForm(true); }}
-          className="ml-auto px-4 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-          + 제조사 등록
-        </button>
-      </div>
-
-      <div ref={tableBoxRef} className="bg-white rounded-lg border overflow-auto" style={{ maxHeight: tableMaxH }}>
-        <table className="w-full text-sm table-fixed">
+      <TableCard
+        title="제조사/공급사 관리"
+        count={total}
+        scrollRef={tableBoxRef}
+        maxHeight={tableMaxH}
+        actions={
+          <>
+            <input type="text" placeholder="제조사명, 국가, 담당자 검색..." value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              className="border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-lg px-3 py-1.5 text-sm w-56" />
+            {sortBy && (
+              <button onClick={resetSort} title="정렬을 원래 순서로 되돌립니다"
+                className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
+                ↺ 정렬 초기화
+              </button>
+            )}
+            <button onClick={() => { resetForm(); setShowForm(true); }}
+              className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              + 제조사 등록
+            </button>
+          </>
+        }
+        footer={<Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} />}
+      >
+        <Table fixed columnDividers>
           <colgroup>
             <col className="w-[24%]" />
             <col className="w-[8%]" />
@@ -79,36 +91,32 @@ export default function SuppliersPage() {
             <col className="w-[20%]" />
             <col className="w-[22%]" />
           </colgroup>
-          <thead className="sticky top-0 z-10 bg-gray-50 [&>tr>th]:border-b [&>tr>th]:border-gray-200">
-            <tr>
-              <SortableHeader sortKey="name" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">제조사/공급사명</SortableHeader>
-              <SortableHeader sortKey="country" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">국가</SortableHeader>
-              <SortableHeader sortKey="contactName" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">담당자</SortableHeader>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">전화</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">이메일</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">웹사이트</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
+          <THead>
+            <SortableHeader sortKey="name" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">제조사/공급사명</SortableHeader>
+            <SortableHeader sortKey="country" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">국가</SortableHeader>
+            <SortableHeader sortKey="contactName" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">담당자</SortableHeader>
+            <Th align="center">전화</Th>
+            <Th align="center">이메일</Th>
+            <Th align="center">웹사이트</Th>
+          </THead>
+          <TBody>
             {loading ? (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">로딩 중...</td></tr>
+              <TableEmpty colSpan={6}>로딩 중...</TableEmpty>
             ) : suppliers.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">등록된 제조사가 없습니다.</td></tr>
+              <TableEmpty colSpan={6}>등록된 제조사가 없습니다.</TableEmpty>
             ) : suppliers.map((s) => (
-              <tr key={s.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`${basePath}/${s.id}`)}>
-                <td className="px-4 py-2.5 font-medium text-blue-600 dark:text-blue-400 truncate" title={s.name}>{s.name}</td>
-                <td className="px-4 py-2.5 text-gray-500">{s.country || "-"}</td>
-                <td className="px-4 py-2.5 text-gray-500 truncate">{s.contactName || "-"}</td>
-                <td className="px-4 py-2.5 text-gray-500 text-xs">{s.phone || "-"}</td>
-                <td className="px-4 py-2.5 text-gray-500 text-xs truncate" title={s.email}>{s.email || "-"}</td>
-                <td className="px-4 py-2.5 text-gray-500 text-xs truncate" title={s.website}>{s.website || "-"}</td>
-              </tr>
+              <Tr key={s.id} onClick={() => router.push(`${basePath}/${s.id}`)}>
+                <Td strong truncate title={s.name}>{s.name}</Td>
+                <Td dash truncate title={s.country || undefined}>{s.country}</Td>
+                <Td dash truncate title={s.contactName || undefined}>{s.contactName}</Td>
+                <Td dash truncate title={s.phone || undefined}>{s.phone}</Td>
+                <Td dash truncate title={s.email || undefined}>{s.email}</Td>
+                <Td dash truncate title={s.website || undefined}>{s.website}</Td>
+              </Tr>
             ))}
-          </tbody>
-        </table>
-
-        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} />
-      </div>
+          </TBody>
+        </Table>
+      </TableCard>
 
       {/* Form Modal */}
       {showForm && (

@@ -9,22 +9,11 @@ import { DateInput } from "@/components/ui/DateInput";
 import SearchableSelect from "@/components/SearchableSelect";
 import SortableHeader from "@/components/SortableHeader";
 import { useSortPreference } from "@/hooks/useSortPreference";
+import { TableCard, Table, THead, Th, TBody, Tr, Td, TableEmpty } from "@/components/ui/Table";
 
 // v1.6 B안 (2026-05-13): BOM 정의 탭 제거. 번들 정의는 /procurement/products에서 관리.
 export default function BundlesPage() {
-  return (
-    <div>
-      <div className="flex items-center gap-3 mb-4">
-        <h2 className="text-lg font-bold">번들 출고</h2>
-        <Link href="/procurement/products?itemType=BUNDLE"
-          className="ml-auto text-xs text-amber-700 hover:underline dark:text-amber-300">
-          📦 번들 마스터 관리 →
-        </Link>
-      </div>
-
-      <ShipmentTab />
-    </div>
-  );
+  return <ShipmentTab />;
 }
 
 // ─── 출고 이력 탭 ───────────────────────────────────────────
@@ -34,7 +23,7 @@ function ShipmentTab() {
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<any | null>(null);
   const [showCreate, setShowCreate] = useState(false);
-  const { sortBy, sortOrder, handleSort } = useSortPreference("bundles", "shippedAt", "desc");
+  const { sortBy, sortOrder, handleSort, resetSort } = useSortPreference("bundles", "shippedAt", "desc");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -55,50 +44,73 @@ function ShipmentTab() {
   };
 
   return (
-    <div>
-      <div className="flex justify-end mb-3">
-        <button onClick={() => setShowCreate(true)}
-          className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-          + 번들 출고
-        </button>
-      </div>
-
-      <div ref={tableBoxRef} className="bg-white rounded-lg border overflow-auto" style={{ maxHeight: tableMaxH }}>
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 z-10 bg-gray-50 [&>tr>th]:border-b [&>tr>th]:border-gray-200">
-            <tr>
-              <SortableHeader sortKey="code" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-2 text-left font-medium text-gray-600">번들 코드</SortableHeader>
-              <SortableHeader sortKey="customer" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-2 text-left font-medium text-gray-600">고객사</SortableHeader>
-              <SortableHeader sortKey="parentMaster" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-2 text-left font-medium text-gray-600">BOM</SortableHeader>
-              <SortableHeader sortKey="shippedAt" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-2 text-left font-medium text-gray-600">출고일</SortableHeader>
-              <th className="px-3 py-2 text-center font-medium text-gray-600">품목</th>
-              <th className="px-3 py-2 text-center font-medium text-gray-600">자산</th>
-              <SortableHeader sortKey="warrantyUntil" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-2 text-left font-medium text-gray-600">보증만료</SortableHeader>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
+    <>
+      <TableCard
+        title="번들 출고"
+        count={list.length}
+        scrollRef={tableBoxRef}
+        maxHeight={tableMaxH}
+        actions={
+          <>
+            <Link href="/procurement/products?itemType=BUNDLE"
+              className="text-xs text-amber-700 hover:underline dark:text-amber-300">
+              📦 번들 마스터 관리 →
+            </Link>
+            {sortBy && (
+              <button onClick={resetSort} title="정렬을 원래 순서로 되돌립니다"
+                className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
+                ↺ 정렬 초기화
+              </button>
+            )}
+            <button onClick={() => setShowCreate(true)}
+              className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              + 번들 출고
+            </button>
+          </>
+        }
+      >
+        <Table fixed columnDividers>
+          <colgroup>
+            <col className="w-[16%]" />
+            <col className="w-[18%]" />
+            <col className="w-[20%]" />
+            <col className="w-[12%]" />
+            <col className="w-[8%]" />
+            <col className="w-[8%]" />
+            <col className="w-[18%]" />
+          </colgroup>
+          <THead>
+            <SortableHeader sortKey="code" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-3 py-3 font-medium">번들 코드</SortableHeader>
+            <SortableHeader sortKey="customer" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-3 py-3 font-medium">고객사</SortableHeader>
+            <SortableHeader sortKey="parentMaster" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-3 py-3 font-medium">BOM</SortableHeader>
+            <SortableHeader sortKey="shippedAt" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-3 py-3 font-medium">출고일</SortableHeader>
+            <Th align="center">품목</Th>
+            <Th align="center">자산</Th>
+            <SortableHeader sortKey="warrantyUntil" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-3 py-3 font-medium">보증만료</SortableHeader>
+          </THead>
+          <TBody>
             {loading ? (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">로딩중...</td></tr>
+              <TableEmpty colSpan={7}>로딩중...</TableEmpty>
             ) : list.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">출고 이력 없음</td></tr>
+              <TableEmpty colSpan={7}>출고 이력 없음</TableEmpty>
             ) : list.map((b: any) => (
-              <tr key={b.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => openDetail(b.id)}>
-                <td className="px-3 py-2 font-mono text-xs">{b.code}</td>
-                <td className="px-3 py-2">{b.customer?.name || "-"}</td>
-                <td className="px-3 py-2 text-xs text-gray-500">{b.parentMaster?.name || "-"}</td>
-                <td className="px-3 py-2 text-xs">{fmtDate(b.shippedAt)}</td>
-                <td className="px-3 py-2 text-center text-xs">{b._count?.items ?? 0}</td>
-                <td className="px-3 py-2 text-center text-xs">{b._count?.customerAssets ?? 0}</td>
-                <td className="px-3 py-2 text-xs text-gray-500">{b.warrantyUntil ? fmtDate(b.warrantyUntil) : "-"}</td>
-              </tr>
+              <Tr key={b.id} onClick={() => openDetail(b.id)}>
+                <Td strong mono align="left" truncate title={b.code}>{b.code}</Td>
+                <Td dash truncate title={b.customer?.name || undefined}>{b.customer?.name}</Td>
+                <Td dash truncate title={b.parentMaster?.name || undefined}>{b.parentMaster?.name}</Td>
+                <Td align="center" mono>{fmtDate(b.shippedAt)}</Td>
+                <Td align="center" mono>{b._count?.items ?? 0}</Td>
+                <Td align="center" mono>{b._count?.customerAssets ?? 0}</Td>
+                <Td align="center" mono dash>{b.warrantyUntil ? fmtDate(b.warrantyUntil) : undefined}</Td>
+              </Tr>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TBody>
+        </Table>
+      </TableCard>
 
       {detail && <ShipmentDetail detail={detail} onClose={() => setDetail(null)} />}
       {showCreate && <ShipmentCreate onClose={() => setShowCreate(false)} onSaved={() => { setShowCreate(false); load(); }} />}
-    </div>
+    </>
   );
 }
 

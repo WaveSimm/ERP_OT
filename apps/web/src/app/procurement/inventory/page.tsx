@@ -8,6 +8,8 @@ import SearchableSelect from "@/components/SearchableSelect";
 import SortableHeader from "@/components/SortableHeader";
 import { useSortPreference } from "@/hooks/useSortPreference";
 import Pagination from "@/components/Pagination";
+import { useFillHeight } from "@/hooks/useFillHeight";
+import { TableCard, Table, THead, Th, TBody, Tr, Td, TableEmpty, StatusBadge, type BadgeColor } from "@/components/ui/Table";
 
 const STATUS_COLORS: Record<string, string> = {
   IN_STOCK: "bg-green-100 text-green-700",
@@ -18,6 +20,11 @@ const STATUS_LABELS: Record<string, string> = {
   IN_STOCK: "재고",
   RELEASED: "출고",
   IN_REPAIR: "수리중",
+};
+const STATUS_BADGE: Record<string, BadgeColor> = {
+  IN_STOCK: "green",
+  RELEASED: "blue",
+  IN_REPAIR: "amber",
 };
 const CATEGORY_LABELS: Record<string, string> = {
   IN_TRANSIT: "미착품",
@@ -32,24 +39,14 @@ export default function InventoryPage() {
   const [items, setItems] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  // 표 박스가 화면 남은 높이를 채우게 실측(박스 top→화면 끝) → 페이지 스크롤 없이 표 안에서만 스크롤
-  const boxRef = useRef<HTMLDivElement>(null);
-  const [boxMaxH, setBoxMaxH] = useState<number>();
-  useEffect(() => {
-    const compute = () => {
-      const el = boxRef.current; if (!el) return;
-      setBoxMaxH(Math.max(220, window.innerHeight - el.getBoundingClientRect().top - 80));
-    };
-    compute();
-    window.addEventListener("resize", compute);
-    return () => window.removeEventListener("resize", compute);
-  });
+  // 표 박스가 화면 남은 높이를 채우게 실측 → 페이지 스크롤 없이 표 안에서만 스크롤
+  const { ref: boxRef, maxHeight: boxMaxH } = useFillHeight();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [status, setStatus] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
-  const { sortBy, sortOrder, handleSort } = useSortPreference("inventory", "", "desc");
+  const { sortBy, sortOrder, handleSort, resetSort } = useSortPreference("inventory", "", "desc");
   const [filterOptions, setFilterOptions] = useState<{ locations: string[]; projects: string[]; assignees: string[] }>({ locations: [], projects: [], assignees: [] });
   const [stats, setStats] = useState<any>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -274,27 +271,22 @@ export default function InventoryPage() {
         </div>
       )}
 
-      {/* 필터 */}
-      <div className="flex flex-wrap gap-3 mb-4">
-        <input
-          value={search} onChange={(e) => setSearch(e.target.value)}
-          placeholder="재고번호, 시리얼, 품명 검색..."
-          className="border rounded-lg px-3 py-2 text-sm w-64"
-        />
+      {/* 필터 (제목 없는 표 — 컨트롤 스타일은 표준과 통일) */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
         <select value={category} onChange={(e) => setCategory(e.target.value)}
-          className="border rounded-lg px-3 py-2 text-sm">
+          className="border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-lg px-3 py-1.5 text-sm">
           <option value="">전체 분류</option>
           {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
         <select value={status} onChange={(e) => setStatus(e.target.value)}
-          className="border rounded-lg px-3 py-2 text-sm">
+          className="border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-lg px-3 py-1.5 text-sm">
           <option value="">전체 상태</option>
           {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
         <SearchableSelect
           value={locationFilter} onChange={setLocationFilter} allowCustom
           placeholder="위치검색..."
-          className="border rounded-lg px-3 py-2 text-sm w-40"
+          className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm w-40"
           loadOptions={async (q) => {
             const lq = q.toLowerCase();
             const all = [
@@ -306,63 +298,73 @@ export default function InventoryPage() {
           }}
         />
         <div className="flex-1" />
+        <input
+          value={search} onChange={(e) => setSearch(e.target.value)}
+          placeholder="재고번호, 시리얼, 품명 검색..."
+          className="border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-lg px-3 py-1.5 text-sm w-64"
+        />
+        {sortBy && (
+          <button onClick={resetSort} title="정렬을 원래 순서로 되돌립니다"
+            className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
+            ↺ 정렬 초기화
+          </button>
+        )}
         <button onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
+          className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
           + 재고번호 생성
         </button>
       </div>
 
       {/* 테이블 */}
-      {loading ? (
-        <div className="text-center py-12 text-gray-400">로딩 중...</div>
-      ) : items.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">재고가 없습니다.</div>
-      ) : (
-        <div ref={boxRef} className="bg-white rounded-lg border overflow-auto" style={{ maxHeight: boxMaxH }}>
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 z-10 bg-gray-50 text-gray-600 [&>tr>th]:border-b [&>tr>th]:border-gray-200">
-              <tr>
-                <SortableHeader sortKey="inventoryNo" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="text-left px-4 py-3 font-medium">재고번호</SortableHeader>
-                <SortableHeader sortKey="itemName" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="text-left px-4 py-3 font-medium">품명</SortableHeader>
-                <SortableHeader sortKey="manufacturer" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="text-left px-4 py-3 font-medium">제조사</SortableHeader>
-                <SortableHeader sortKey="serialNumber" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="text-left px-4 py-3 font-medium">시리얼</SortableHeader>
-                <SortableHeader sortKey="category" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="text-center px-4 py-3 font-medium">분류</SortableHeader>
-                <SortableHeader sortKey="currentStatus" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="text-center px-4 py-3 font-medium">상태</SortableHeader>
-                <SortableHeader sortKey="quantity" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="right" className="text-right px-4 py-3 font-medium">수량</SortableHeader>
-                <SortableHeader sortKey="currentLocation" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="text-left px-4 py-3 font-medium">위치</SortableHeader>
-                <SortableHeader sortKey="totalCostOfOwnership" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="right" className="text-right px-4 py-3 font-medium">TCO</SortableHeader>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {items.map((item: any) => (
-                <tr key={item.id} className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => router.push(`/procurement/inventory/${item.id}`)}>
-                  <td className="px-4 py-3 font-mono text-xs">{item.inventoryNo}</td>
-                  <td className="px-4 py-3 font-medium">{item.itemName || item.productMaster?.name || "-"}</td>
-                  <td className="px-4 py-3 text-gray-600">{item.manufacturer || item.productMaster?.manufacturer || "-"}</td>
-                  <td className="px-4 py-3 text-gray-500">{item.serialNumber || "-"}</td>
-                  <td className="px-4 py-3 text-center">
-                    <span className="text-xs px-2 py-0.5 rounded bg-gray-100">
-                      {CATEGORY_LABELS[item.category] || item.category}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={`text-xs px-2 py-0.5 rounded ${STATUS_COLORS[item.currentStatus] || "bg-gray-100"}`}>
-                      {STATUS_LABELS[item.currentStatus] || item.currentStatus}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono">{item.quantity ?? "-"}</td>
-                  <td className="px-4 py-3 text-gray-600">{item.currentLocation || "-"}</td>
-                  <td className="px-4 py-3 text-right">
-                    {item.totalCostOfOwnership ? `₩${Number(item.totalCostOfOwnership).toLocaleString()}` : "-"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <Pagination page={page} totalPages={Math.ceil(total / PAGE_SIZE)} onPageChange={setPage} total={total} />
-        </div>
-      )}
+      <TableCard
+        scrollRef={boxRef}
+        maxHeight={boxMaxH}
+        footer={<Pagination page={page} totalPages={Math.ceil(total / PAGE_SIZE)} onPageChange={setPage} total={total} />}
+      >
+        <Table fixed columnDividers>
+          <colgroup>
+            <col className="w-[12%]" />
+            <col className="w-[18%]" />
+            <col className="w-[12%]" />
+            <col className="w-[12%]" />
+            <col className="w-[8%]" />
+            <col className="w-[8%]" />
+            <col className="w-[7%]" />
+            <col className="w-[12%]" />
+            <col className="w-[11%]" />
+          </colgroup>
+          <THead>
+            <SortableHeader sortKey="inventoryNo" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">재고번호</SortableHeader>
+            <SortableHeader sortKey="itemName" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">품명</SortableHeader>
+            <SortableHeader sortKey="manufacturer" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">제조사</SortableHeader>
+            <SortableHeader sortKey="serialNumber" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">시리얼</SortableHeader>
+            <SortableHeader sortKey="category" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">분류</SortableHeader>
+            <SortableHeader sortKey="currentStatus" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">상태</SortableHeader>
+            <SortableHeader sortKey="quantity" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">수량</SortableHeader>
+            <SortableHeader sortKey="currentLocation" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">위치</SortableHeader>
+            <SortableHeader sortKey="totalCostOfOwnership" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">TCO</SortableHeader>
+          </THead>
+          <TBody>
+            {loading ? (
+              <TableEmpty colSpan={9}>로딩 중...</TableEmpty>
+            ) : items.length === 0 ? (
+              <TableEmpty colSpan={9}>재고가 없습니다.</TableEmpty>
+            ) : items.map((item: any) => (
+              <Tr key={item.id} onClick={() => router.push(`/procurement/inventory/${item.id}`)}>
+                <Td mono align="left" truncate title={item.inventoryNo}>{item.inventoryNo}</Td>
+                <Td strong truncate title={item.itemName || item.productMaster?.name || ""}>{item.itemName || item.productMaster?.name || "-"}</Td>
+                <Td dash truncate title={item.manufacturer || item.productMaster?.manufacturer || undefined}>{item.manufacturer || item.productMaster?.manufacturer}</Td>
+                <Td dash mono truncate title={item.serialNumber || undefined}>{item.serialNumber}</Td>
+                <Td align="center"><StatusBadge color="gray">{CATEGORY_LABELS[item.category] || item.category}</StatusBadge></Td>
+                <Td align="center"><StatusBadge color={STATUS_BADGE[item.currentStatus] || "gray"}>{STATUS_LABELS[item.currentStatus] || item.currentStatus}</StatusBadge></Td>
+                <Td align="right" mono dash>{item.quantity}</Td>
+                <Td dash truncate title={item.currentLocation || undefined}>{item.currentLocation}</Td>
+                <Td align="right" mono dash>{item.totalCostOfOwnership ? `₩${Number(item.totalCostOfOwnership).toLocaleString()}` : undefined}</Td>
+              </Tr>
+            ))}
+          </TBody>
+        </Table>
+      </TableCard>
 
       {/* 등록 모달 */}
       {showCreateModal && (

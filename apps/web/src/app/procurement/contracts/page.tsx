@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useFillHeight } from "@/hooks/useFillHeight";
 import { procurementApi, repairApi, supplierApi } from "@/lib/api";
 import SearchableSelect from "@/components/SearchableSelect";
 import { DateInput } from "@/components/ui/DateInput";
 import SortableHeader from "@/components/SortableHeader";
 import { useSortPreference } from "@/hooks/useSortPreference";
 import Pagination from "@/components/Pagination";
+import { TableCard, Table, THead, Th, TBody, Tr, Td, TableActions, RowButton, TableEmpty, StatusBadge } from "@/components/ui/Table";
 
 const STATUS_LABELS: Record<string, string> = { PROSPECTIVE: "예정", ACTIVE: "진행중", COMPLETED: "완료", CANCELLED: "취소" };
 const STATUS_COLORS: Record<string, string> = {
@@ -29,18 +31,8 @@ export default function ContractsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  // 툴바 높이 실측 → 컬럼헤더 sticky top = 서브탭바(--top-chrome) + 툴바높이
-  const toolbarRef = useRef<HTMLDivElement>(null);
-  const [toolbarH, setToolbarH] = useState(48);
-  useEffect(() => {
-    const el = toolbarRef.current; if (!el) return;
-    const update = () => setToolbarH(el.offsetHeight);
-    update();
-    const ro = new ResizeObserver(update); ro.observe(el);
-    window.addEventListener("resize", update);
-    return () => { ro.disconnect(); window.removeEventListener("resize", update); };
-  }, []);
-  const { sortBy, sortOrder, handleSort } = useSortPreference("contracts");
+  const { ref: tableBoxRef, maxHeight: tableMaxH } = useFillHeight();
+  const { sortBy, sortOrder, handleSort, resetSort } = useSortPreference("contracts");
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -131,55 +123,76 @@ export default function ContractsPage() {
 
   return (
     <div>
-      <div ref={toolbarRef} className="sticky z-20 bg-gray-50 -mx-4 sm:-mx-6 px-4 sm:px-6 py-2 -mt-6 mb-0 flex items-center gap-3 flex-wrap" style={{ top: "var(--top-chrome, 157px)" }}>
-        <h2 className="text-lg font-bold">계약 관리</h2>
-        <div className="flex bg-gray-100 rounded-lg p-0.5">
-          {[{ key: "", label: "전체" }, ...Object.entries(STATUS_LABELS).map(([k, v]) => ({ key: k, label: v }))].map((f) => (
-            <button key={f.key} onClick={() => { setStatusFilter(f.key); setPage(1); }}
-              className={`px-3 py-1 text-sm rounded-md ${statusFilter === f.key ? "bg-white shadow font-medium" : "text-gray-500"}`}>
-              {f.label}
+      <TableCard
+        title="계약 관리"
+        count={total}
+        scrollRef={tableBoxRef}
+        maxHeight={tableMaxH}
+        actions={
+          <>
+            <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
+              {[{ key: "", label: "전체" }, ...Object.entries(STATUS_LABELS).map(([k, v]) => ({ key: k, label: v }))].map((f) => (
+                <button key={f.key} onClick={() => { setStatusFilter(f.key); setPage(1); }}
+                  className={`px-3 py-1 text-sm rounded-md ${statusFilter === f.key ? "bg-white dark:bg-gray-700 shadow font-medium" : "text-gray-500 dark:text-gray-400"}`}>
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <input type="text" placeholder="고객사, 계약건명, 제작사 검색..." value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              className="border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-lg px-3 py-1.5 text-sm w-56" />
+            {sortBy && (
+              <button onClick={resetSort} title="정렬을 원래 순서로 되돌립니다"
+                className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
+                ↺ 정렬 초기화
+              </button>
+            )}
+            <button onClick={() => { resetForm(); setShowForm(true); }}
+              className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              + 계약 등록
             </button>
-          ))}
-        </div>
-        <input type="text" placeholder="고객사, 계약건명, 제작사 검색..." value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          className="border rounded-lg px-3 py-1.5 text-sm w-56" />
-        <span className="text-sm text-gray-400">{total}건</span>
-        <button onClick={() => { resetForm(); setShowForm(true); }}
-          className="ml-auto px-4 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-          + 계약 등록
-        </button>
-      </div>
-
-      <div className="bg-white rounded-lg border overflow-auto" style={{ maxHeight: `calc(100vh - var(--top-chrome, 157px) - ${toolbarH}px - 5rem)` }}>
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 z-10 bg-gray-50 [&>tr>th]:border-b [&>tr>th]:border-gray-200">
-            <tr>
-              <SortableHeader sortKey="contractNumber" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-3 text-left font-medium text-gray-600 w-24 whitespace-nowrap">계약번호</SortableHeader>
-              <SortableHeader sortKey="client" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-3 text-left font-medium text-gray-600 whitespace-nowrap">고객사</SortableHeader>
-              <th className="px-3 py-3 text-left font-medium text-gray-600 whitespace-nowrap">담당</th>
-              <SortableHeader sortKey="manufacturer" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-3 text-left font-medium text-gray-600 whitespace-nowrap">제작사</SortableHeader>
-              <SortableHeader sortKey="name" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-3 py-3 text-left font-medium text-gray-600 whitespace-nowrap">계약건명</SortableHeader>
-              <th className="px-3 py-3 text-center font-medium text-gray-600 w-16 whitespace-nowrap">구분</th>
-              <th className="px-3 py-3 text-center font-medium text-gray-600 w-16 whitespace-nowrap">내/외자</th>
-              <SortableHeader sortKey="startDate" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-3 py-3 text-center font-medium text-gray-600 w-24 whitespace-nowrap">계약일</SortableHeader>
-              <SortableHeader sortKey="endDate" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-3 py-3 text-center font-medium text-gray-600 w-24 whitespace-nowrap">납기</SortableHeader>
-              <th className="px-3 py-3 text-left font-medium text-gray-600 w-20 whitespace-nowrap">담당자</th>
-              <th className="px-3 py-3 text-center font-medium text-gray-600 w-20 whitespace-nowrap">작업</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
+          </>
+        }
+        footer={<Pagination page={page} totalPages={Math.ceil(total / 50)} onPageChange={setPage} total={total} />}
+      >
+        <Table fixed columnDividers>
+          <colgroup>
+            <col className="w-[11%]" />
+            <col className="w-[10%]" />
+            <col className="w-[7%]" />
+            <col className="w-[10%]" />
+            <col className="w-[13%]" />
+            <col className="w-[6%]" />
+            <col className="w-[6%]" />
+            <col className="w-[8%]" />
+            <col className="w-[8%]" />
+            <col className="w-[7%]" />
+            <col className="w-[14%]" />
+          </colgroup>
+          <THead>
+            <SortableHeader sortKey="contractNumber" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-3 py-3 font-medium">계약번호</SortableHeader>
+            <SortableHeader sortKey="client" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-3 py-3 font-medium">고객사</SortableHeader>
+            <Th align="center">담당</Th>
+            <SortableHeader sortKey="manufacturer" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-3 py-3 font-medium">제작사</SortableHeader>
+            <SortableHeader sortKey="name" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-3 py-3 font-medium">계약건명</SortableHeader>
+            <Th align="center">구분</Th>
+            <Th align="center">내/외자</Th>
+            <SortableHeader sortKey="startDate" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-3 py-3 font-medium">계약일</SortableHeader>
+            <SortableHeader sortKey="endDate" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-3 py-3 font-medium">납기</SortableHeader>
+            <Th align="center">담당자</Th>
+            <Th align="center">작업</Th>
+          </THead>
+          <TBody>
             {loading ? (
-              <tr><td colSpan={11} className="px-4 py-8 text-center text-gray-400">로딩 중...</td></tr>
+              <TableEmpty colSpan={11}>로딩 중...</TableEmpty>
             ) : contracts.length === 0 ? (
-              <tr><td colSpan={11} className="px-4 py-8 text-center text-gray-400">계약이 없습니다.</td></tr>
+              <TableEmpty colSpan={11}>계약이 없습니다.</TableEmpty>
             ) : contracts.map((c) => (
-              <tr key={c.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/procurement/contracts/${c.id}`)}>
-                <td className="px-3 py-2.5 font-mono text-blue-600 dark:text-blue-400">
-                  {c.status === "PROSPECTIVE" && <span className="mr-1 px-1.5 py-0.5 rounded text-[10px] bg-amber-100 text-amber-700">예정</span>}
-                  {c.contractNumber}
-                </td>
-                <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+              <Tr key={c.id} onClick={() => router.push(`/procurement/contracts/${c.id}`)}>
+                <Td strong mono align="left" title={c.contractNumber} className="whitespace-nowrap">
+                  {c.status === "PROSPECTIVE" && <StatusBadge color="amber">예정</StatusBadge>}{c.status === "PROSPECTIVE" ? " " : ""}{c.contractNumber}
+                </Td>
+                <Td truncate onClick={(e) => e.stopPropagation()}>
                   {c.client ? (
                     <button onClick={async () => {
                       try {
@@ -189,11 +202,11 @@ export default function ContractsPage() {
                         if (match) router.push(`/repair/customers/${match.id}`);
                         else router.push(`/repair/customers?search=${encodeURIComponent(c.client)}`);
                       } catch { router.push(`/repair/customers?search=${encodeURIComponent(c.client)}`); }
-                    }} className="text-blue-600 hover:underline dark:text-blue-400">{c.client}</button>
-                  ) : "-"}
-                </td>
-                <td className="px-3 py-2.5 text-gray-500">{c.clientContact || "-"}</td>
-                <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                    }} className="text-gray-700 hover:underline dark:text-gray-300">{c.client}</button>
+                  ) : <span className="text-gray-400">-</span>}
+                </Td>
+                <Td dash truncate title={c.clientContact || undefined}>{c.clientContact}</Td>
+                <Td truncate onClick={(e) => e.stopPropagation()}>
                   {c.manufacturer ? (
                     <button onClick={async () => {
                       try {
@@ -201,33 +214,33 @@ export default function ContractsPage() {
                         if (s?.id) router.push(`/procurement/suppliers/${s.id}`);
                         else router.push(`/procurement/suppliers?search=${encodeURIComponent(c.manufacturer)}`);
                       } catch { router.push(`/procurement/suppliers?search=${encodeURIComponent(c.manufacturer)}`); }
-                    }} className="text-gray-500 hover:text-blue-600 hover:underline">{c.manufacturer}</button>
-                  ) : "-"}
-                </td>
-                <td className="px-3 py-2.5">{c.name}</td>
-                <td className="px-3 py-2.5 text-center">
-                  <span className={`text-xs ${c.category === "용역" ? "text-purple-600 dark:text-purple-400" : "text-gray-600"}`}>{c.category}</span>
-                </td>
-                <td className="px-3 py-2.5 text-center">
-                  <span className={`text-xs ${c.contractType === "외자" ? "text-orange-600 font-medium dark:text-orange-400" : "text-gray-500"}`}>{c.contractType}</span>
-                </td>
-                <td className="px-3 py-2.5 text-center text-gray-500 text-xs">{fmtDate(c.contractDate)}</td>
-                <td className="px-3 py-2.5 text-center text-gray-500 text-xs">{fmtDate(c.deadline)}</td>
-                <td className="px-3 py-2.5 text-gray-600">{c.manager || "-"}</td>
-                <td className="px-3 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
-                  {c.status === "PROSPECTIVE" && (
-                    <button onClick={() => setFinalizing(c)} className="text-emerald-600 hover:underline text-xs mr-2 dark:text-emerald-400">확정</button>
-                  )}
-                  <button onClick={() => handleEdit(c)} className="text-blue-600 hover:underline text-xs mr-2 dark:text-blue-400">수정</button>
-                  <button onClick={() => handleDelete(c.id)} className="text-red-500 hover:underline text-xs dark:text-red-400">삭제</button>
-                </td>
-              </tr>
+                    }} className="text-gray-700 hover:underline dark:text-gray-300">{c.manufacturer}</button>
+                  ) : <span className="text-gray-400">-</span>}
+                </Td>
+                <Td truncate title={c.name}>{c.name}</Td>
+                <Td align="center">
+                  <span className={`text-xs ${c.category === "용역" ? "text-purple-600 dark:text-purple-400" : "text-gray-600 dark:text-gray-300"}`}>{c.category}</span>
+                </Td>
+                <Td align="center">
+                  <span className={`text-xs ${c.contractType === "외자" ? "text-orange-600 font-medium dark:text-orange-400" : "text-gray-500 dark:text-gray-400"}`}>{c.contractType}</span>
+                </Td>
+                <Td align="center" mono>{fmtDate(c.contractDate)}</Td>
+                <Td align="center" mono>{fmtDate(c.deadline)}</Td>
+                <Td dash truncate title={c.manager || undefined}>{c.manager}</Td>
+                <Td align="center" onClick={(e) => e.stopPropagation()}>
+                  <TableActions>
+                    {c.status === "PROSPECTIVE" && (
+                      <RowButton onClick={() => setFinalizing(c)}>확정</RowButton>
+                    )}
+                    <RowButton onClick={() => handleEdit(c)}>수정</RowButton>
+                    <RowButton danger onClick={() => handleDelete(c.id)}>삭제</RowButton>
+                  </TableActions>
+                </Td>
+              </Tr>
             ))}
-          </tbody>
-        </table>
-      </div>
-
-      <Pagination page={page} totalPages={Math.ceil(total / 50)} onPageChange={setPage} total={total} className="mt-4 border rounded-lg" />
+          </TBody>
+        </Table>
+      </TableCard>
 
       {/* v1.6.1 (2026-05-15): 계약 확정 모달 — PROSPECTIVE → ACTIVE */}
       {finalizing && (
