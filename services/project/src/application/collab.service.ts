@@ -10,18 +10,24 @@ import { ProjectGateway } from "../infrastructure/websocket/project.gateway.js";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
-const ALLOWED_MIME_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "text/plain",
-]);
+// 업로드 종류
+export type AttachmentCategory = "FILE" | "IMAGE";
+
+// 확장자 기준 화이트리스트 (hwp 등은 브라우저 MIME가 불안정해 확장자를 진짜 기준으로 삼음).
+// 서버는 파일을 실행/렌더링하지 않고 저장·스트리밍만 하며, 다운로드는 attachment+nosniff로 강제되어
+// html/svg/스크립트/실행파일을 제외하면 서버·브라우저 보안 위험이 없음.
+const IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "gif", "webp"]);
+const FILE_EXTS = new Set(["pdf", "hwp", "hwpx", "doc", "docx", "xls", "xlsx", "ppt", "pptx"]);
+
+// 경로 세그먼트 안전화 — 한글은 보존하고 경로 위험문자·제어문자만 치환
+function sanitizeSegment(s: string): string {
+  const cleaned = s
+    .replace(/[/\\:*?"<>|\x00-\x1f]/g, "_")
+    .replace(/\s+/g, " ")
+    .replace(/^\.+|\.+$/g, "")
+    .trim();
+  return cleaned || "_";
+}
 
 // ─── DTOs ─────────────────────────────────────────────────────────────────────
 
@@ -239,19 +245,54 @@ export class CollabService {
     });
   }
 
-  async uploadAttachment(taskId: string, uploadedBy: string, fileDto: UploadFileDto) {
+  async uploadAttachment(
+    taskId: string,
+    uploadedBy: string,
+    fileDto: UploadFileDto,
+    category: AttachmentCategory = "FILE",
+  ) {
     const task = await this.requireTask(taskId);
 
-    if (!ALLOWED_MIME_TYPES.has(fileDto.mimetype)) {
-      throw new AppError(400, "UNSUPPORTED_MIME_TYPE", "지원하지 않는 파일 형식입니다.");
+    // 확장자 기준 검증 (종류별 화이트리스트)
+    const ext = path.extname(fileDto.filename).slice(1).toLowerCase();
+    const allowed = category === "IMAGE" ? IMAGE_EXTS : FILE_EXTS;
+    if (!ext || !allowed.has(ext)) {
+      const hint = category === "IMAGE" ? "jpg, jpeg, png, gif, webp" : "pdf, hwp, hwpx, doc(x), xls(x), ppt(x)";
+      throw new AppError(400, "UNSUPPORTED_EXTENSION", `허용되지 않은 확장자입니다. (허용: ${hint})`);
     }
 
-    const timestamp = Date.now();
-    const safeFilename = path.basename(fileDto.filename).replace(/[^a-zA-Z0-9._-]/g, "_");
-    const dirPath = path.join(this.storagePath, task.projectId, taskId);
-    const filePath = path.join(dirPath, `${timestamp}_${safeFilename}`);
+    // 저장 경로: <STORAGE_PATH>/ERP/<프로젝트명>__<projectId>/<파일|이미지>/<원본명>_<업로더>[_n].<ext>
+    //  - projectId 접미사로 폴더를 식별 → 프로젝트명이 바뀌어도 기존 폴더 재사용(파일 분산 방지)
+    const erpRoot = path.join(this.storagePath, "ERP");
+    await fs.promises.mkdir(erpRoot, { recursive: true });
 
+    let projectFolder: string | undefined;
+    try {
+      const entries = await fs.promises.readdir(erpRoot, { withFileTypes: true });
+      const found = entries.find((e) => e.isDirectory() && e.name.endsWith(`__${task.projectId}`));
+      if (found) projectFolder = found.name;
+    } catch { /* 최초 업로드 시 디렉터리 없음 */ }
+    if (!projectFolder) {
+      const project = await this.prisma.project.findUnique({
+        where: { id: task.projectId },
+        select: { name: true },
+      });
+      projectFolder = `${sanitizeSegment(project?.name ?? "project")}__${task.projectId}`;
+    }
+
+    const categoryFolder = category === "IMAGE" ? "이미지" : "파일";
+    const dirPath = path.join(erpRoot, projectFolder, categoryFolder);
     await fs.promises.mkdir(dirPath, { recursive: true });
+
+    // 파일명 = 원본명(확장자 제외)_업로더한글명[.ext], 중복 시 _2, _3 …
+    const nameMap = await this.fetchUserNames([uploadedBy]);
+    const uploaderName = sanitizeSegment(nameMap.get(uploadedBy) ?? uploadedBy);
+    const baseName = sanitizeSegment(path.basename(fileDto.filename, path.extname(fileDto.filename)));
+    let diskName = `${baseName}_${uploaderName}.${ext}`;
+    for (let n = 2; fs.existsSync(path.join(dirPath, diskName)); n++) {
+      diskName = `${baseName}_${uploaderName}_${n}.${ext}`;
+    }
+    const filePath = path.join(dirPath, diskName);
 
     let fileSize = 0;
     const sizeLimitTransform = new Transform({
@@ -283,6 +324,7 @@ export class CollabService {
         fileName: fileDto.filename,
         fileSize,
         mimeType: fileDto.mimetype,
+        category,
         storagePath: filePath,
         uploadedBy,
       },

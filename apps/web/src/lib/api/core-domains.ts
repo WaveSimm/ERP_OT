@@ -1,6 +1,6 @@
 "use client";
 
-import { request } from "./client";
+import { request, API_PREFIX, getCsrfToken } from "./client";
 import type {
   Project, ProjectListItem, Paginated,
   Folder, Dependency, Task, TaskSegment, SegmentAssignment, TaskComment,
@@ -229,6 +229,44 @@ export const commentApi = {
     }),
   delete: (taskId: string, commentId: string) =>
     request<void>(`/tasks/${taskId}/comments/${commentId}`, { method: "DELETE" }),
+};
+
+// ─── Task Attachments (파일/이미지) ───────────────────────────────────────────
+
+export interface TaskAttachment {
+  id: string;
+  taskId: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  category: "FILE" | "IMAGE";
+  uploadedBy: string;
+  createdAt: string;
+}
+
+export const taskAttachmentApi = {
+  list: (taskId: string) => request<TaskAttachment[]>(`/tasks/${taskId}/attachments`),
+  upload: async (taskId: string, file: File, category: "FILE" | "IMAGE"): Promise<TaskAttachment> => {
+    const headers: Record<string, string> = {};
+    const csrf = getCsrfToken();
+    if (csrf) headers["X-CSRF-Token"] = csrf;
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch(`${API_PREFIX}/tasks/${taskId}/attachments?category=${category}`, {
+      method: "POST",
+      headers,
+      body: fd,
+      credentials: "include",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message ?? err.message ?? "업로드에 실패했습니다.");
+    }
+    return res.json();
+  },
+  delete: (attachmentId: string) =>
+    request<void>(`/attachments/${attachmentId}`, { method: "DELETE" }),
+  downloadUrl: (attachmentId: string) => `${API_PREFIX}/attachments/${attachmentId}/download`,
 };
 
 // ─── Resources ───────────────────────────────────────────────────────────────
