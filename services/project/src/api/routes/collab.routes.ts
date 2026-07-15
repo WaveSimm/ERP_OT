@@ -77,8 +77,10 @@ export async function collabRoutes(fastify: FastifyInstance) {
     return reply.status(201).send(attachment);
   });
 
-  // GET /api/v1/attachments/:attachmentId/download
-  fastify.get("/attachments/:attachmentId/download", async (req, reply) => {
+  // GET /api/v1/tasks/:taskId/attachments/:attachmentId/download
+  //  ※ /attachments/* 접두사는 web 프록시에서 auth-service(게시판 첨부)로 라우팅되므로
+  //    태스크 첨부는 project-service로 가는 /tasks/* 네임스페이스 하위에 둔다.
+  fastify.get("/tasks/:taskId/attachments/:attachmentId/download", async (req, reply) => {
     const { attachmentId } = req.params as { attachmentId: string };
     const { attachment, stream } = await service.getAttachmentForDownload(attachmentId);
     return reply
@@ -89,8 +91,8 @@ export async function collabRoutes(fastify: FastifyInstance) {
       .send(stream);
   });
 
-  // DELETE /api/v1/attachments/:attachmentId
-  fastify.delete("/attachments/:attachmentId", async (req, reply) => {
+  // DELETE /api/v1/tasks/:taskId/attachments/:attachmentId
+  fastify.delete("/tasks/:taskId/attachments/:attachmentId", async (req, reply) => {
     const { attachmentId } = req.params as { attachmentId: string };
     await service.deleteAttachment(attachmentId, req.userId, req.userRole);
     return reply.status(204).send();
