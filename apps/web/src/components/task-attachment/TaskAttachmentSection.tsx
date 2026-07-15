@@ -65,7 +65,7 @@ export default function TaskAttachmentSection({ taskId }: Props) {
     if (!confirm(`"${att.fileName}" 을(를) 삭제하시겠습니까?`)) return;
     setError(null);
     try {
-      await taskAttachmentApi.delete(att.id);
+      await taskAttachmentApi.delete(taskId, att.id);
       setItems((prev) => prev.filter((x) => x.id !== att.id));
     } catch (err: any) {
       setError(err?.message ?? "삭제에 실패했습니다.");
@@ -78,7 +78,7 @@ export default function TaskAttachmentSection({ taskId }: Props) {
   const renderRow = (att: TaskAttachment) => (
     <li key={att.id} className="flex items-center gap-2 py-1.5 group">
       <a
-        href={taskAttachmentApi.downloadUrl(att.id)}
+        href={taskAttachmentApi.downloadUrl(taskId, att.id)}
         className="flex-1 min-w-0 flex items-center gap-2 text-sm text-gray-800 hover:text-blue-600"
         title={`${att.fileName} — 클릭하여 다운로드`}
       >
