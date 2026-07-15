@@ -22,6 +22,7 @@ const FILE_EXTS = new Set(["pdf", "hwp", "hwpx", "doc", "docx", "xls", "xlsx", "
 // 경로 세그먼트 안전화 — 한글은 보존하고 경로 위험문자·제어문자만 치환
 function sanitizeSegment(s: string): string {
   const cleaned = s
+    // eslint-disable-next-line no-control-regex -- 제어문자 치환이 목적
     .replace(/[/\\:*?"<>|\x00-\x1f]/g, "_")
     .replace(/\s+/g, " ")
     .replace(/^\.+|\.+$/g, "")
