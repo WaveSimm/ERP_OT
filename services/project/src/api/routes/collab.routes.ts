@@ -63,6 +63,8 @@ export async function collabRoutes(fastify: FastifyInstance) {
   // POST /api/v1/tasks/:taskId/attachments — multipart/form-data
   fastify.post("/tasks/:taskId/attachments", async (req, reply) => {
     const { taskId } = req.params as { taskId: string };
+    const { category: categoryRaw } = req.query as { category?: string };
+    const category = categoryRaw === "IMAGE" ? "IMAGE" : "FILE";
     const data = await req.file();
     if (!data) {
       return reply.status(400).send({ code: "NO_FILE", message: "파일이 없습니다." });
@@ -71,7 +73,7 @@ export async function collabRoutes(fastify: FastifyInstance) {
       filename: data.filename,
       mimetype: data.mimetype,
       file: data.file,
-    });
+    }, category);
     return reply.status(201).send(attachment);
   });
 

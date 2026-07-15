@@ -161,7 +161,7 @@ const COLUMN_META = {
   UPCOMING:    { label: "예정",       color: "text-gray-600",  bg: "bg-gray-50",  border: "border-gray-200",  dot: "bg-gray-400" },
 };
 
-function KanbanCardItem({ card, onUpdate }: { card: KanbanCard; onUpdate: (card: KanbanCard) => void }) {
+function KanbanCardItem({ card, onUpdate, onOpenTask }: { card: KanbanCard; onUpdate: (card: KanbanCard) => void; onOpenTask: (projectId: string, taskId: string) => void }) {
   const router = useRouter();
   const dueSoon = card.daysUntilEnd <= 3 && card.daysUntilEnd >= 0;
 
@@ -174,8 +174,12 @@ function KanbanCardItem({ card, onUpdate }: { card: KanbanCard; onUpdate: (card:
           {card.projectName}
         </button>
       </div>
-      <div className="font-semibold text-sm text-gray-900 truncate">{card.segmentName}</div>
-      <div className="text-xs text-gray-400 truncate">{card.taskName}</div>
+      {/* 세그먼트·태스크명 클릭 시 상세 드로어 오픈 (주간 탭과 동일 동작) */}
+      <button type="button" onClick={() => onOpenTask(card.projectId, card.taskId)}
+        className="block w-full text-left rounded hover:bg-blue-50/60 -mx-1 px-1 py-0.5 transition-colors">
+        <div className="font-semibold text-sm text-gray-900 truncate">{card.segmentName}</div>
+        <div className="text-xs text-gray-400 truncate">{card.taskName}</div>
+      </button>
       <div className="flex items-center justify-between text-xs text-gray-500">
         <span>{card.startDate.slice(5)} ~ {card.endDate.slice(5)}</span>
         <span className={`font-medium ${dueSoon ? "text-red-600" : "text-gray-600"}`}>
@@ -203,10 +207,11 @@ function KanbanCardItem({ card, onUpdate }: { card: KanbanCard; onUpdate: (card:
   );
 }
 
-function KanbanColumn({ colKey, cards, onUpdate }: {
+function KanbanColumn({ colKey, cards, onUpdate, onOpenTask }: {
   colKey: keyof typeof COLUMN_META;
   cards: KanbanCard[];
   onUpdate: (card: KanbanCard) => void;
+  onOpenTask: (projectId: string, taskId: string) => void;
 }) {
   const meta = COLUMN_META[colKey];
   return (
@@ -219,7 +224,7 @@ function KanbanColumn({ colKey, cards, onUpdate }: {
       <div className="flex-1 overflow-y-auto p-3 space-y-2 max-h-[calc(100vh-240px)]">
         {cards.length === 0
           ? <div className="text-xs text-gray-400 text-center py-6">없음</div>
-          : cards.map((c) => <KanbanCardItem key={c.segmentId} card={c} onUpdate={onUpdate} />)
+          : cards.map((c) => <KanbanCardItem key={c.segmentId} card={c} onUpdate={onUpdate} onOpenTask={onOpenTask} />)
         }
       </div>
     </div>
@@ -231,9 +236,10 @@ const KANBAN_COLS = ["CRITICAL", "DUE_SOON", "IN_PROGRESS", "UPCOMING"] as const
 // 칸반 보드 — 큰 화면(xl↑): 4컬럼 동시 / 작은 화면(xl 미만): 컬럼 선택 칩 + 선택 컬럼만 전체 폭
 //   기준: 4컬럼 최소폭 260×4 + gap16×3 = 1088px, 대시보드 여백 48px → 약 1136px 미만이면 4열이 깨져 가로 스크롤.
 //   가장 가까운 브레이크포인트 xl(1280)에서 전환(상단 내비도 xl에서 햄버거로 바뀌어 일관).
-function KanbanBoard({ columns, onUpdate }: {
+function KanbanBoard({ columns, onUpdate, onOpenTask }: {
   columns: KanbanData["columns"];
   onUpdate: (card: KanbanCard) => void;
+  onOpenTask: (projectId: string, taskId: string) => void;
 }) {
   // 작은 화면 기본 선택 = 카드가 있는 첫 컬럼(긴급→…→예정), 전부 비면 긴급
   const firstWithCards = KANBAN_COLS.find((c) => columns[c].length > 0) ?? "CRITICAL";
@@ -244,7 +250,7 @@ function KanbanBoard({ columns, onUpdate }: {
       {/* 큰 화면: 4컬럼 나란히 */}
       <div className="hidden xl:flex gap-4 overflow-x-auto pb-2">
         {KANBAN_COLS.map((col) => (
-          <KanbanColumn key={col} colKey={col} cards={columns[col]} onUpdate={onUpdate} />
+          <KanbanColumn key={col} colKey={col} cards={columns[col]} onUpdate={onUpdate} onOpenTask={onOpenTask} />
         ))}
       </div>
 
@@ -267,7 +273,7 @@ function KanbanBoard({ columns, onUpdate }: {
             );
           })}
         </div>
-        <KanbanColumn colKey={selected} cards={columns[selected]} onUpdate={onUpdate} />
+        <KanbanColumn colKey={selected} cards={columns[selected]} onUpdate={onUpdate} onOpenTask={onOpenTask} />
       </div>
     </>
   );
@@ -1542,6 +1548,15 @@ const VALID_TABS: Tab[] = ["kanban", "week", "tasks", "projects", "expense", "at
 export function DashboardBody({ mobile = false }: { mobile?: boolean } = {}) {
   const { data, loading, error, load, updateProgress } = useKanban();
   const [modalCard, setModalCard] = useState<KanbanCard | null>(null);
+  // 칸반 카드 클릭 시 상세 드로어 (주간 탭과 동일 패턴)
+  const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const openKanbanTask = useCallback(async (projectId: string, taskId: string) => {
+    if (selectedTask?.id === taskId) { setSelectedTask(null); return; }
+    const full = await taskApi.get(projectId, taskId);
+    setSelectedTask(full);
+    setSelectedProjectId(projectId);
+  }, [selectedTask]);
   const [tab, setTab] = useState<Tab>("kanban");
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
@@ -1619,8 +1634,22 @@ export function DashboardBody({ mobile = false }: { mobile?: boolean } = {}) {
             <button onClick={load} className="text-sm text-blue-600 hover:underline">다시 시도</button>
           </div>
         ) : data ? (
-          <KanbanBoard columns={data.columns} onUpdate={setModalCard} />
+          <KanbanBoard columns={data.columns} onUpdate={setModalCard} onOpenTask={openKanbanTask} />
         ) : null
+      )}
+
+      {/* 칸반 태스크 상세 드로어 — 바깥 클릭 시 닫힘 */}
+      {tab === "kanban" && selectedTask && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setSelectedTask(null)} />
+          <TaskDrawer task={selectedTask} projectId={selectedProjectId}
+            onClose={() => setSelectedTask(null)}
+            onRefresh={async () => {
+              await load();
+              const fresh = await taskApi.get(selectedProjectId, selectedTask.id);
+              setSelectedTask(fresh);
+            }} />
+        </>
       )}
 
       {/* Week */}

@@ -584,6 +584,7 @@ model Attachment {
   fileName    String
   fileSize    Int
   mimeType    String
+  category    String   @default("FILE") // "FILE" | "IMAGE" — 업로드 종류(파일/이미지) 구분
   storagePath String
   uploadedBy  String
   createdAt   DateTime @default(now())
