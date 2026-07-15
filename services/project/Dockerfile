@@ -31,6 +31,10 @@ COPY --from=builder --chown=app:app /app/services/shared/package.json    ./node_
 COPY --chown=app:app services/project/entrypoint.sh                      ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
+# 첨부 저장 경로(STORAGE_PATH=/app/storage) 사전 생성 + app 소유.
+# 신규 named volume 마운트 시 이 디렉터리 소유권(app:app)이 볼륨으로 복사됨 → EACCES 방지.
+RUN mkdir -p /app/storage && chown -R app:app /app/storage
+
 USER app
 EXPOSE 3003
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=20s \

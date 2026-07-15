@@ -264,9 +264,11 @@ export const taskAttachmentApi = {
     }
     return res.json();
   },
-  delete: (attachmentId: string) =>
-    request<void>(`/attachments/${attachmentId}`, { method: "DELETE" }),
-  downloadUrl: (attachmentId: string) => `${API_PREFIX}/attachments/${attachmentId}/download`,
+  // 다운로드·삭제는 /tasks/* 하위로 — /attachments/* 는 프록시가 auth-service(게시판)로 보냄
+  delete: (taskId: string, attachmentId: string) =>
+    request<void>(`/tasks/${taskId}/attachments/${attachmentId}`, { method: "DELETE" }),
+  downloadUrl: (taskId: string, attachmentId: string) =>
+    `${API_PREFIX}/tasks/${taskId}/attachments/${attachmentId}/download`,
 };
 
 // ─── Resources ───────────────────────────────────────────────────────────────
