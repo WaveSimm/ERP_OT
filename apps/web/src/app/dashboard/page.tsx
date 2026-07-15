@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { dashboardApi, folderApi, taskApi, workLogApi } from "@/lib/api";
+import { dashboardApi, folderApi, workLogApi, projectApi } from "@/lib/api";
 import type { Folder, Task } from "@/lib/api/types";
 import { DateInput } from "@/components/ui/DateInput";
 import { fmtTime24 } from "@/lib/datetime";
@@ -181,68 +181,119 @@ function buildTaskTreeRows(tasks: Task[], winStart: string, winEnd: string): Tas
 
 // ─── SVG 미니 타임라인 ────────────────────────────────────────────────────────
 
+// 자원 아바타 색상 (간트/태스크의 ResourcePickerPopover와 동일 규칙)
+const AVATAR_COLORS = [
+  "bg-blue-500", "bg-emerald-500", "bg-violet-500", "bg-orange-500",
+  "bg-rose-500", "bg-cyan-500", "bg-amber-500", "bg-teal-500",
+];
+function avatarColor(name: string) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length]!;
+}
+
 function MiniTimeline({ events, centerDate }: { events: TimelineEvent[]; centerDate: string }) {
   const DAYS = 15; // -7 ~ +7
   const W = 240;
-  const H = 40;
   const DAY_W = W / DAYS;
   const center = new Date(centerDate);
+  const winStart = shiftDate(centerDate, -7);
+  const winEnd = shiftDate(centerDate, 7);
 
-  function dayOffset(dateStr: string) {
-    const d = new Date(dateStr);
-    return Math.floor((d.getTime() - center.getTime()) / (1000 * 60 * 60 * 24));
-  }
-
-  function xPos(offset: number) {
-    return ((offset + 7) / DAYS) * W;
+  function xForDate(dateStr: string) {
+    const off = Math.round((new Date(dateStr).getTime() - center.getTime()) / 86400000);
+    return ((off + 7) / DAYS) * W;
   }
 
   const milestones = events.filter((e) => e.type === "MILESTONE");
-  const segments = events.filter((e) => e.type !== "MILESTONE");
 
-  // 세그먼트를 startDate ~ endDate 바로 렌더 (근사치)
-  const segBars = segments.map((e, i) => {
-    const x = xPos(dayOffset(e.date));
-    const color = e.isDelayed ? "#EF4444" : e.isCriticalPath ? "#F97316" : "#22C55E";
-    return (
-      <rect
-        key={i}
-        x={Math.max(0, x - 1)}
-        y={12 + (i % 3) * 8}
-        width={DAY_W * 1.5}
-        height={6}
-        rx="2"
-        fill={color}
-        opacity={0.85}
-      >
-        <title>{e.taskName}{e.segmentName ? ` / ${e.segmentName}` : ""} {e.progressPercent != null ? `(${e.progressPercent}%)` : ""}</title>
-      </rect>
-    );
+  // 백엔드는 세그먼트를 START/END/ACTIVE 점으로 쪼개 보냄 → segmentId로 묶어
+  // 실제 기간(±7일 창 경계로 클램프)을 복원해 막대 하나로 렌더.
+  const segGroups = new Map<string, TimelineEvent[]>();
+  for (const e of events) {
+    if (e.type === "MILESTONE") continue;
+    const key = e.segmentId ?? `${e.taskId}:${e.date}`;
+    const arr = segGroups.get(key);
+    if (arr) arr.push(e);
+    else segGroups.set(key, [e]);
+  }
+
+  const bars = Array.from(segGroups.values()).map((group) => {
+    const startEv = group.find((e) => e.type === "SEGMENT_START");
+    const endEv = group.find((e) => e.type === "SEGMENT_END");
+    const activeEv = group.find((e) => e.type === "SEGMENT_ACTIVE");
+    const rep = startEv ?? endEv ?? activeEv ?? group[0]!;
+    // START 없으면 창 이전 시작, END 없으면 창 이후 종료 → 창 경계로 클램프
+    const cs = activeEv ? winStart : startEv ? startEv.date.slice(0, 10) : winStart;
+    const ce = activeEv ? winEnd : endEv ? endEv.date.slice(0, 10) : winEnd;
+    const x1 = Math.max(0, xForDate(cs));
+    const x2 = Math.min(W, xForDate(ce) + DAY_W); // 종료일 포함
+    const color = rep.isDelayed ? "#EF4444" : rep.isCriticalPath ? "#F97316" : "#22C55E";
+    return { x1, x2: Math.max(x2, x1 + 2), color, e: rep };
   });
 
-  const milestoneDots = milestones.map((e, i) => {
-    const x = xPos(dayOffset(e.date));
-    const color = e.isDelayed ? "#EF4444" : "#8B5CF6";
-    return (
-      <g key={`m${i}`} transform={`translate(${x}, 20)`}>
-        <polygon points="0,-6 5,0 0,6 -5,0" fill={color} />
-        <title>{e.taskName} (마일스톤){e.isDelayed ? ` — ${e.delayDays}일 지연` : ""}</title>
-      </g>
-    );
+  // 레인 패킹: 가로로 안 겹치는 막대는 같은 줄에, 겹치면 아래 줄로
+  bars.sort((a, b) => a.x1 - b.x1);
+  const MAX_LANES = 5;
+  const laneEnds: number[] = [];
+  const placed = bars.map((b) => {
+    let lane = laneEnds.findIndex((end) => b.x1 >= end - 0.5);
+    if (lane === -1) {
+      if (laneEnds.length < MAX_LANES) {
+        lane = laneEnds.length;
+        laneEnds.push(b.x2);
+      } else {
+        lane = MAX_LANES - 1; // 초과분은 마지막 줄에 겹쳐 표시(투명도로 밀도 구분)
+        laneEnds[lane] = Math.max(laneEnds[lane]!, b.x2);
+      }
+    } else {
+      laneEnds[lane] = b.x2;
+    }
+    return { ...b, lane };
   });
+
+  const laneCount = Math.max(1, laneEnds.length);
+  const BAR_H = 6;
+  const GAP = 3;
+  const TOP = milestones.length > 0 ? 11 : 5; // 마일스톤 다이아몬드용 상단 여백
+  const H = Math.max(24, TOP + laneCount * (BAR_H + GAP) + 3);
 
   return (
     <svg width={W} height={H} className="overflow-visible">
       {/* 배경 그리드 */}
       {Array.from({ length: DAYS + 1 }, (_, i) => (
-        <line key={i} x1={i * DAY_W} y1={0} x2={i * DAY_W} y2={H} stroke="#e5e7eb" strokeWidth={0.5} />
+        <line key={i} x1={i * DAY_W} y1={0} x2={i * DAY_W} y2={H} stroke="#94a3b8" strokeWidth={0.5} strokeOpacity={0.25} />
       ))}
       {/* 오늘 강조선 */}
-      <line x1={xPos(0)} y1={0} x2={xPos(0)} y2={H} stroke="#F97316" strokeWidth={1.5} strokeDasharray="3,2" />
-      {/* 세그먼트 바 */}
-      {segBars}
-      {/* 마일스톤 */}
-      {milestoneDots}
+      <line x1={xForDate(centerDate)} y1={0} x2={xForDate(centerDate)} y2={H} stroke="#F97316" strokeWidth={1.5} strokeDasharray="3,2" />
+      {/* 실제 기간 막대 */}
+      {placed.map((b, i) => (
+        <rect
+          key={i}
+          x={b.x1}
+          y={TOP + b.lane * (BAR_H + GAP)}
+          width={Math.max(2, b.x2 - b.x1)}
+          height={BAR_H}
+          rx="2"
+          fill={b.color}
+          opacity={0.75}
+        >
+          <title>{b.e.taskName}{b.e.segmentName ? ` / ${b.e.segmentName}` : ""}{b.e.progressPercent != null ? ` (${b.e.progressPercent}%)` : ""}</title>
+        </rect>
+      ))}
+      {/* 마일스톤 다이아몬드 (상단 띠) */}
+      {milestones.map((e, i) => {
+        const d = e.date.slice(0, 10);
+        if (d < winStart || d > winEnd) return null;
+        const x = xForDate(d);
+        const color = e.isDelayed ? "#EF4444" : "#8B5CF6";
+        return (
+          <g key={`m${i}`} transform={`translate(${x}, 5)`}>
+            <polygon points="0,-4 4,0 0,4 -4,0" fill={color} />
+            <title>{e.taskName} (마일스톤){e.isDelayed ? ` — ${e.delayDays}일 지연` : ""}</title>
+          </g>
+        );
+      })}
     </svg>
   );
 }
@@ -273,7 +324,7 @@ function TaskMiniTimeline({ task, centerDate }: { task: Task; centerDate: string
     return (
       <svg width={W} height={H} className="overflow-visible">
         {Array.from({ length: DAYS + 1 }, (_, i) => (
-          <line key={i} x1={i * DAY_W} y1={0} x2={i * DAY_W} y2={H} stroke="#e5e7eb" strokeWidth={0.5} />
+          <line key={i} x1={i * DAY_W} y1={0} x2={i * DAY_W} y2={H} stroke="#94a3b8" strokeWidth={0.5} strokeOpacity={0.25} />
         ))}
         <line x1={xForDate(centerDate)} y1={0} x2={xForDate(centerDate)} y2={H} stroke="#F97316" strokeWidth={1.2} strokeDasharray="3,2" />
         {inWin && (
@@ -308,7 +359,7 @@ function TaskMiniTimeline({ task, centerDate }: { task: Task; centerDate: string
   return (
     <svg width={W} height={H} className="overflow-visible">
       {Array.from({ length: DAYS + 1 }, (_, i) => (
-        <line key={i} x1={i * DAY_W} y1={0} x2={i * DAY_W} y2={H} stroke="#e5e7eb" strokeWidth={0.5} />
+        <line key={i} x1={i * DAY_W} y1={0} x2={i * DAY_W} y2={H} stroke="#94a3b8" strokeWidth={0.5} strokeOpacity={0.25} />
       ))}
       <line x1={xForDate(centerDate)} y1={0} x2={xForDate(centerDate)} y2={H} stroke="#F97316" strokeWidth={1.2} strokeDasharray="3,2" />
       {bars}
@@ -456,7 +507,7 @@ function ProjectRow({ row, date, onPin }: { row: ProjectRow; date: string; onPin
 // ─── 폴더별 프로젝트 (펼침 + ±7일 태스크) ────────────────────────────────────
 
 // 프로젝트 행 — 폴더 뷰용. 펼치면 ±7일 태스크 목록(수동이슈 강조) 표시.
-function FolderProjectRow({ row, date, onPin, onSelectTask }: { row: ProjectRow; date: string; onPin: (id: string) => void; onSelectTask: (task: Task, projectId: string) => void }) {
+function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: ProjectRow; date: string; onPin: (id: string) => void; onSelectTask: (task: Task, projectId: string) => void; ownerName?: string }) {
   const [expanded, setExpanded] = useState(false); // 기본 접힘 — 사용자가 하나씩 펼침
   const [tasks, setTasks] = useState<Task[] | null>(null);
   const [issueTaskIds, setIssueTaskIds] = useState<Set<string>>(new Set());
@@ -482,7 +533,7 @@ function FolderProjectRow({ row, date, onPin, onSelectTask }: { row: ProjectRow;
     let cancelled = false;
     setLoadingTasks(true);
     Promise.all([
-      taskApi.list(row.id).catch(() => [] as Task[]),
+      projectApi.gantt(row.id).then((g: any) => (g?.tasks ?? []) as Task[]).catch(() => [] as Task[]),
       dashboardApi.getProjectIssues(row.id).catch(() => [] as any[]),
       workLogApi.listByProject(row.id, { limit: 500 }).catch(() => ({ items: [] as any[], nextCursor: null })),
     ])
@@ -521,8 +572,10 @@ function FolderProjectRow({ row, date, onPin, onSelectTask }: { row: ProjectRow;
       {/* 프로젝트마다 컬럼 헤더 반복 (가독성) */}
       <tr ref={headerRowRef} className="bg-gray-50 text-sm font-medium text-gray-500 border-b border-t border-gray-200 scroll-mt-16">
         <th className="px-3 py-1.5 text-left w-10"></th>
-        <th className="px-3 py-1.5 text-left w-[460px]">프로젝트</th>
+        <th className="px-3 py-1.5 text-left w-[280px]">프로젝트</th>
+        <th className="px-3 py-1.5 text-left w-[120px]">소유자</th>
         <th className="px-3 py-1.5 text-left w-[260px]">타임라인 (±7일)</th>
+        <th className="px-3 py-1.5 text-left w-[160px]">자원</th>
         <th className="pl-10 pr-3 py-1.5 text-left w-28">진행률</th>
         <th className="pl-10 pr-3 py-1.5 text-left w-24">이슈</th>
         <th className="px-3 py-1.5 text-left"></th>
@@ -562,10 +615,20 @@ function FolderProjectRow({ row, date, onPin, onSelectTask }: { row: ProjectRow;
           <div className="text-xs text-gray-400 mt-0.5 pl-5">{fmtDate(row.lastUpdatedAt)} 업데이트</div>
         </td>
 
-        {/* 미니 타임라인 — 프로젝트명 바로 뒤 (태스크 타임라인과 정렬) */}
+        {/* 소유자 — 프로젝트명과 타임라인 사이 */}
+        <td className="px-3 py-2.5 w-[120px] text-xs text-gray-500">
+          <span className="truncate block">
+            {ownerName ? <span title={`프로젝트 소유자: ${ownerName}`}>{ownerName}</span> : <span className="text-gray-300">-</span>}
+          </span>
+        </td>
+
+        {/* 미니 타임라인 */}
         <td className="px-3 py-1.5 w-[260px]">
           <MiniTimeline events={row.weeklyTimeline} centerDate={date} />
         </td>
+
+        {/* 자원 — 접힌 행에선 비움(펼치면 태스크별 담당자 표시) */}
+        <td className="px-3 py-2.5 w-[160px] text-xs text-gray-300">-</td>
 
         {/* 진행률 — 타임라인 옆 (간격 넓힘) */}
         <td className="pl-10 pr-3 py-2.5 w-28">
@@ -607,7 +670,7 @@ function FolderProjectRow({ row, date, onPin, onSelectTask }: { row: ProjectRow;
       {expanded && (
         <tr className="border-b bg-gray-50/50">
           <td />
-          <td colSpan={5} className="px-3 py-2">
+          <td colSpan={7} className="px-3 py-2">
             {loadingTasks && <span className="text-xs text-gray-400">태스크 불러오는 중…</span>}
             {!loadingTasks && treeRows.length === 0 && (
               <span className="text-xs text-gray-400">전주·이번주(±7일)에 해당하는 태스크가 없습니다.</span>
@@ -618,6 +681,12 @@ function FolderProjectRow({ row, date, onPin, onSelectTask }: { row: ProjectRow;
                   const hasIssue = issueTaskIds.has(t.id);
                   const issueText = issueByTask.get(t.id);
                   const noteText = noteByTask.get(t.id);
+                  // 태스크 자원(담당자) 이름 — gantt 데이터의 resourceName 그대로 사용
+                  const assigneeNames = isLeaf
+                    ? Array.from(new Set(
+                        (t.segments ?? []).flatMap((s: any) => (s.assignments ?? []).map((a: any) => a.resourceName as string).filter(Boolean)),
+                      ))
+                    : [];
                   return (
                     <li key={t.id}>
                       <button
@@ -634,7 +703,7 @@ function FolderProjectRow({ row, date, onPin, onSelectTask }: { row: ProjectRow;
                         {/* 이름 존 — 고정폭(320px). 트리 들여쓰기는 내부 padding으로 처리해
                             깊이와 무관하게 뒤따르는 타임라인 위치를 고정 */}
                         <span
-                          className="w-[440px] shrink-0 flex items-center gap-1 overflow-hidden"
+                          className="w-[400px] shrink-0 flex items-center gap-1 overflow-hidden"
                           style={{ paddingLeft: depth * 18 }}
                         >
                           {isLeaf && depth > 0 && <span className="text-gray-300 shrink-0">└</span>}
@@ -644,20 +713,48 @@ function FolderProjectRow({ row, date, onPin, onSelectTask }: { row: ProjectRow;
                         </span>
                         {isLeaf && (
                           <>
-                            {/* 태스크명 → 타임라인 → 비고 → 이슈. 타임라인은 프로젝트 행과 동일 위치 */}
-                            <span className="shrink-0 w-[240px] mr-8">
+                            {/* 태스크명 → 타임라인 → 자원 → 비고 → 이슈. 타임라인은 프로젝트 행과 동일 위치 */}
+                            <span className="shrink-0 w-[260px]">
                               <TaskMiniTimeline task={t} centerDate={date} />
+                            </span>
+                            {/* 자원(담당자) — 아바타 스택(간트와 동일), 최대 3 + +N */}
+                            <span className="shrink-0 w-[160px] flex items-center">
+                              {assigneeNames.length > 0 ? (
+                                <>
+                                  {assigneeNames.slice(0, 4).map((name, idx) => (
+                                    <span
+                                      key={name}
+                                      title={name}
+                                      className={`w-6 h-6 rounded-full ${avatarColor(name)} flex items-center justify-center text-white text-[9px] font-bold ring-2 ring-white shrink-0`}
+                                      style={{ marginLeft: idx === 0 ? 0 : -8, zIndex: 4 - idx }}
+                                    >
+                                      {name.slice(0, 2)}
+                                    </span>
+                                  ))}
+                                  {assigneeNames.length > 4 && (
+                                    <span
+                                      className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-[8px] font-bold ring-2 ring-white shrink-0"
+                                      style={{ marginLeft: -8, zIndex: 0 }}
+                                      title={assigneeNames.slice(4).join(", ")}
+                                    >
+                                      +{assigneeNames.length - 4}
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <span className="text-gray-300 text-sm">-</span>
+                              )}
                             </span>
                             {/* 비고 컬럼 */}
                             <span className="flex-1 min-w-0 truncate">
                               {noteText
-                                ? <span className="text-gray-500" title={noteText}>📝 {noteText}</span>
+                                ? <span className="text-gray-500" title={noteText}>{noteText}</span>
                                 : <span className="text-gray-300">-</span>}
                             </span>
                             {/* 이슈 컬럼 */}
                             <span className="flex-1 min-w-0 truncate">
                               {issueText
-                                ? <span className="text-red-600 font-medium" title={issueText}>🚩 {issueText}</span>
+                                ? <span className="text-red-600 font-medium" title={issueText}>{issueText}</span>
                                 : <span className="text-gray-300">-</span>}
                             </span>
                           </>
@@ -688,7 +785,7 @@ function FolderProjectRow({ row, date, onPin, onSelectTask }: { row: ProjectRow;
 }
 
 // 폴더 섹션 (부서 폴더 등) — 프로젝트 표 아코디언
-function FolderSection({ name, isDept, rows, date, onPin, onSelectTask }: { name: string; isDept: boolean; rows: ProjectRow[]; date: string; onPin: (id: string) => void; onSelectTask: (task: Task, projectId: string) => void }) {
+function FolderSection({ name, isDept, rows, date, onPin, onSelectTask, ownerByProject }: { name: string; isDept: boolean; rows: ProjectRow[]; date: string; onPin: (id: string) => void; onSelectTask: (task: Task, projectId: string) => void; ownerByProject: Map<string, string> }) {
   const [open, setOpen] = useState(true);
   return (
     <div>
@@ -706,7 +803,7 @@ function FolderSection({ name, isDept, rows, date, onPin, onSelectTask }: { name
           <table className="w-full table-fixed">
             <tbody>
               {rows.map((p) => (
-                <FolderProjectRow key={p.id} row={p} date={date} onPin={onPin} onSelectTask={onSelectTask} />
+                <FolderProjectRow key={p.id} row={p} date={date} onPin={onPin} onSelectTask={onSelectTask} ownerName={ownerByProject.get(p.id)} />
               ))}
             </tbody>
           </table>
@@ -717,7 +814,7 @@ function FolderSection({ name, isDept, rows, date, onPin, onSelectTask }: { name
 }
 
 // 폴더(부서 자동 구조) 기준으로 프로젝트를 그룹핑해 렌더
-function FolderProjectsView({ folders, projects, date, onPin, onSelectTask }: { folders: Folder[]; projects: ProjectRow[]; date: string; onPin: (id: string) => void; onSelectTask: (task: Task, projectId: string) => void }) {
+function FolderProjectsView({ folders, projects, date, onPin, onSelectTask, ownerByProject }: { folders: Folder[]; projects: ProjectRow[]; date: string; onPin: (id: string) => void; onSelectTask: (task: Task, projectId: string) => void; ownerByProject: Map<string, string> }) {
   const byId = new Map(projects.map((p) => [p.id, p]));
   // 어느 폴더에든 담긴 프로젝트 (미분류 계산용) — 여러 폴더에 중복 표시는 허용(자동+수동 모두 반영)
   const seen = new Set<string>();
@@ -756,10 +853,11 @@ function FolderProjectsView({ folders, projects, date, onPin, onSelectTask }: { 
           date={date}
           onPin={onPin}
           onSelectTask={onSelectTask}
+          ownerByProject={ownerByProject}
         />
       ))}
       {unfiled.length > 0 && (
-        <FolderSection name="미분류" isDept={false} rows={unfiled} date={date} onPin={onPin} onSelectTask={onSelectTask} />
+        <FolderSection name="미분류" isDept={false} rows={unfiled} date={date} onPin={onPin} onSelectTask={onSelectTask} ownerByProject={ownerByProject} />
       )}
     </div>
   );
@@ -1163,6 +1261,8 @@ function GlobalSummaryCards({ summary, date }: { summary: GlobalSummary; date: s
 export default function CommandCenterDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [folders, setFolders] = useState<Folder[]>([]);
+  // 프로젝트 소유자 이름 매핑 (프론트 전용, 백엔드 무변경)
+  const [ownerByProject, setOwnerByProject] = useState<Map<string, string>>(new Map());
   const [selectedTask, setSelectedTask] = useState<{ task: Task; projectId: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1192,6 +1292,19 @@ export default function CommandCenterDashboard() {
   }, [groupBy, date, issueFilter]);
 
   useEffect(() => { load(); }, [load]);
+
+  // 프로젝트 소유자 이름 맵 1회 로드 (projectApi.list의 ownerName) — 백엔드 무변경
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const projRes = await projectApi.list().catch(() => ({ items: [] as any[] }));
+      if (cancelled) return;
+      const om = new Map<string, string>();
+      for (const p of (projRes as any).items ?? []) if (p?.id && p.ownerName) om.set(p.id, p.ownerName);
+      setOwnerByProject(om);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handlePin = useCallback(async (projectId: string) => {
     if (!data) return;
@@ -1339,6 +1452,7 @@ export default function CommandCenterDashboard() {
               date={date}
               onPin={handlePin}
               onSelectTask={(task, projectId) => setSelectedTask({ task, projectId })}
+              ownerByProject={ownerByProject}
             />
           )}
 
