@@ -6,6 +6,7 @@ import clsx from "clsx";
 import { DateInput } from "./ui/DateInput";
 import WorkLogTab from "./work-log/WorkLogTab";
 import TaskIssueSection from "./task-issue/TaskIssueSection";
+import TaskAttachmentSection from "./task-attachment/TaskAttachmentSection";
 import { fmtDateTime24 } from "@/lib/datetime";
 
 const STATUS_OPTIONS = [
@@ -1576,6 +1577,13 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
                   })
                 )}
               </div>
+          </div>
+
+          <div className="border-t border-gray-100" />
+
+          {/* ── 첨부 (파일/이미지) ── */}
+          <div className="px-6 py-4">
+            <TaskAttachmentSection taskId={task.id} />
           </div>
         </div>
       </div>
