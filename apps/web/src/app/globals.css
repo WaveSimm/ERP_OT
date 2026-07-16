@@ -55,6 +55,15 @@ html { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI',
 .dark select { background-color: #1f2937; color: #f3f4f6; border-color: #374151; }
 .dark ::placeholder { color: #6b7280 !important; }
 
+/* 네이티브 날짜/시간 입력의 달력·시계 아이콘이 다크모드에서 검정이라 안 보임 → 밝게 반전 (전역) */
+.dark input[type="date"]::-webkit-calendar-picker-indicator,
+.dark input[type="time"]::-webkit-calendar-picker-indicator,
+.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+.dark input[type="month"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(0.85);
+  cursor: pointer;
+}
+
 /* 다크모드 스크롤바 */
 .dark ::-webkit-scrollbar { width: 12px; height: 12px; }
 .dark ::-webkit-scrollbar-track { background: #111827; }

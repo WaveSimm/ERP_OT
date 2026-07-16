@@ -1382,10 +1382,10 @@ interface ExpenseSummary {
 
 type ExpenseSubTab = "transactions" | "settlements" | "sources";
 
-const EXPENSE_QUICK_ACTIONS: { key: ExpenseSubTab; label: string; icon: string }[] = [
-  { key: "transactions", label: "정산내역관리", icon: "📋" },
-  { key: "settlements",  label: "정산목록관리",  icon: "📦" },
-  { key: "sources",      label: "카드 관리",     icon: "💳" },
+const EXPENSE_QUICK_ACTIONS: { key: ExpenseSubTab; label: string }[] = [
+  { key: "transactions", label: "정산내역관리" },
+  { key: "settlements",  label: "정산목록관리" },
+  { key: "sources",      label: "카드 관리" },
 ];
 
 function ExpenseView() {
@@ -1439,25 +1439,28 @@ function ExpenseView() {
         <ExpenseSummaryCard label="입금완료"   count={summary?.paid ?? 0}       color="green" onClick={() => openTxWithStatus("SETTLED")} />
       </div>
 
-      {/* 빠른 작업 sub-tab 버튼 그룹 (라벨 없이) */}
+      {/* 빠른 작업 sub-tab 버튼 그룹 — 앱 버튼 표준(회색 아웃라인 → hover 색 채움) */}
       <div className="flex flex-wrap gap-2">
-        {EXPENSE_QUICK_ACTIONS.map((a) => (
-          <button
-            key={a.key}
-            onClick={() => setSubTab(subTab === a.key ? null : a.key)}
-            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-              subTab === a.key
-                ? "bg-blue-600 text-white border border-blue-600"
-                : "border border-gray-300 bg-white hover:bg-gray-50"
-            }`}
-          >
-            {a.icon} {a.label}
-          </button>
-        ))}
+        {EXPENSE_QUICK_ACTIONS.map((a) => {
+          const active = subTab === a.key;
+          return (
+            <button
+              key={a.key}
+              onClick={() => setSubTab(active ? null : a.key)}
+              className={`inline-flex h-8 items-center rounded-md border px-3 text-sm font-medium transition-[background-color,color] ${
+                active
+                  ? "border-blue-600 bg-blue-600 text-white"
+                  : "border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-blue-700 hover:bg-blue-700 hover:text-white dark:hover:!border-blue-600 dark:hover:!bg-blue-600 dark:hover:!text-white"
+              }`}
+            >
+              {a.label}
+            </button>
+          );
+        })}
         <a href="/manual-expense/index.html" target="_blank" rel="noopener noreferrer"
           title="경비정산 사용자 매뉴얼 (새 탭)"
-          className="px-3 py-1.5 text-sm rounded-md border border-gray-300 bg-white hover:bg-gray-50">
-          📘 매뉴얼
+          className="inline-flex h-8 items-center rounded-md border border-gray-200 dark:border-gray-600 px-3 text-sm font-medium text-gray-600 dark:text-gray-300 transition-[background-color,color] hover:border-gray-600 hover:bg-gray-600 hover:text-white dark:hover:!border-gray-500 dark:hover:!bg-gray-500 dark:hover:!text-white">
+          매뉴얼
         </a>
       </div>
 
@@ -1530,7 +1533,7 @@ function ExpenseSettlementStatusBadge({ status }: { status: string }) {
     SUBMITTED: { label: "결재중",     cls: "bg-blue-100 text-blue-700" },
     APPROVED:  { label: "승인",       cls: "bg-emerald-100 text-emerald-700" },
     RECEIVED:  { label: "재무팀접수", cls: "bg-cyan-100 text-cyan-700" },
-    PAID:      { label: "💰 입금",    cls: "bg-green-100 text-green-700" },
+    PAID:      { label: "입금",       cls: "bg-green-100 text-green-700" },
     REJECTED:  { label: "반려",       cls: "bg-red-100 text-red-700" },
   };
   const c = config[status] ?? { label: status, cls: "bg-gray-100" };
