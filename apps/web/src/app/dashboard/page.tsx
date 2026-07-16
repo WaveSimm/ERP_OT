@@ -442,9 +442,14 @@ function IssuePopup({ projectId, projectName, category, onClose }: { projectId: 
           {loading ? (
             <p className="text-sm text-gray-400 text-center py-8">로딩 중...</p>
           ) : (
-            <Table columnDividers>
+            <Table fixed columnDividers>
+              <colgroup>
+                <col style={{ width: "84px" }} />
+                <col style={{ width: "42%" }} />
+                <col />
+              </colgroup>
               <THead>
-                <Th align="center" className="w-24">상태</Th>
+                <Th align="center">분류</Th>
                 <Th align="center">태스크명</Th>
                 <Th align="center">이슈 내용</Th>
               </THead>
@@ -460,7 +465,7 @@ function IssuePopup({ projectId, projectName, category, onClose }: { projectId: 
                           <span className={`text-[11px] px-1.5 py-0.5 rounded font-medium whitespace-nowrap ${meta.cls}`}>{meta.label}</span>
                         )}
                       </Td>
-                      <Td>
+                      <Td truncate title={t.name}>
                         {t.id ? (
                           <Link href={`/projects/${projectId}?taskId=${t.id}`} onClick={onClose}
                             className="text-gray-900 dark:text-gray-100 font-medium hover:underline">{t.name}</Link>
@@ -468,7 +473,7 @@ function IssuePopup({ projectId, projectName, category, onClose }: { projectId: 
                           <span className={t.muted ? "text-gray-400" : "text-gray-800"}>{t.name}</span>
                         )}
                       </Td>
-                      <Td className={t.cat === "MANUAL" ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-gray-100"}>
+                      <Td truncate className={t.cat === "MANUAL" ? "text-red-600 dark:text-red-400 font-bold" : "text-gray-900 dark:text-gray-100"}>
                         {renderIssueContent(t)}
                       </Td>
                     </Tr>
@@ -1351,6 +1356,13 @@ function mmdd(dateStr?: string): string {
   const d = new Date(dateStr);
   return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
 }
+// MM/DD, 요일 포맷 (예: "07/20, 월")
+function mmddDow(dateStr?: string): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  const dow = ["일", "월", "화", "수", "목", "금", "토"][d.getDay()];
+  return `${mmdd(dateStr)}, ${dow}`;
+}
 
 // 이슈 내용 문장 구성 — 숫자만 굵게. (지연 delayDays는 백엔드 배포 후 값이 들어옴)
 function renderIssueContent(t: { cat: string; title: string; delayDays?: number; staleDays?: number; endDate?: string; milestoneDate?: string }) {
@@ -1363,7 +1375,7 @@ function renderIssueContent(t: { cat: string; title: string; delayDays?: number;
     return <>업데이트 {B(`${t.staleDays}일`)} 미갱신</>;
   }
   if (t.cat === "DUE_SOON" && t.endDate) {
-    return <>이번 주({mmdd(t.endDate)}) 완료 예정</>;
+    return <>이번 주({B(mmddDow(t.endDate))}) 완료 예정</>;
   }
   if (t.cat === "MILESTONE" && t.milestoneDate) {
     return <>{t.title} ({mmdd(t.milestoneDate)})</>;
