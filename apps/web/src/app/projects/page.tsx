@@ -94,7 +94,7 @@ function fmtDate(s?: string | null) {
 
 export default function ProjectsPage() {
   const router = useRouter();
-  const { isManager, isOperator } = usePermission();
+  const { isOperator } = usePermission();
 
   // API data
   const [projects, setProjects] = useState<Project[]>([]);
@@ -944,7 +944,7 @@ export default function ProjectsPage() {
               onKeyDown={undefined}
               className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-44"
             />
-            {isManager && (
+            {isOperator && (
               <button
                 onClick={() => {
                   setSaveTplProjectId(""); setSaveTplName(""); setSaveTplCategory(""); setSaveTplIncludeAssignments(false); setSaveTplError(""); setShowSaveTemplate(true);
@@ -959,7 +959,7 @@ export default function ProjectsPage() {
                 <span>💾</span> 템플릿저장
               </button>
             )}
-            {isManager && (
+            {isOperator && (
               <button
                 onClick={() => setShowTemplateManager(true)}
                 className="px-3 py-1.5 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50 flex items-center gap-1.5 transition-colors"
