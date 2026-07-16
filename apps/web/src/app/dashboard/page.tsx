@@ -785,13 +785,12 @@ function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: 
 }
 
 // 폴더 섹션 (부서 폴더 등) — 프로젝트 표 아코디언
-function FolderSection({ name, isDept, rows, date, onPin, onSelectTask, ownerByProject }: { name: string; isDept: boolean; rows: ProjectRow[]; date: string; onPin: (id: string) => void; onSelectTask: (task: Task, projectId: string) => void; ownerByProject: Map<string, string> }) {
-  const [open, setOpen] = useState(true);
+function FolderSection({ name, isDept, rows, date, onPin, onSelectTask, ownerByProject, open, onToggle }: { name: string; isDept: boolean; rows: ProjectRow[]; date: string; onPin: (id: string) => void; onSelectTask: (task: Task, projectId: string) => void; ownerByProject: Map<string, string>; open: boolean; onToggle: () => void }) {
   return (
     <div>
       <button
         className="w-full flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-left transition-colors"
-        onClick={() => setOpen((v) => !v)}
+        onClick={onToggle}
       >
         <span className="text-gray-400 text-xs w-4">{open ? "▼" : "▶"}</span>
         {isDept && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded shrink-0">부서</span>}
@@ -815,6 +814,7 @@ function FolderSection({ name, isDept, rows, date, onPin, onSelectTask, ownerByP
 
 // 폴더(부서 자동 구조) 기준으로 프로젝트를 그룹핑해 렌더
 function FolderProjectsView({ folders, projects, date, onPin, onSelectTask, ownerByProject }: { folders: Folder[]; projects: ProjectRow[]; date: string; onPin: (id: string) => void; onSelectTask: (task: Task, projectId: string) => void; ownerByProject: Map<string, string> }) {
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const byId = new Map(projects.map((p) => [p.id, p]));
   // 어느 폴더에든 담긴 프로젝트 (미분류 계산용) — 여러 폴더에 중복 표시는 허용(자동+수동 모두 반영)
   const seen = new Set<string>();
@@ -842,8 +842,28 @@ function FolderProjectsView({ folders, projects, date, onPin, onSelectTask, owne
 
   const unfiled = projects.filter((p) => !seen.has(p.id));
 
+  // 부서 폴더 전체 접기/펼치기
+  const allKeys = [...sections.map((s) => s.folder.id), ...(unfiled.length > 0 ? ["__unfiled__"] : [])];
+  const allCollapsed = allKeys.length > 0 && allKeys.every((k) => collapsed.has(k));
+  const toggleOne = (key: string) => setCollapsed((prev) => {
+    const n = new Set(prev);
+    if (n.has(key)) n.delete(key); else n.add(key);
+    return n;
+  });
+  const toggleAll = () => setCollapsed(allCollapsed ? new Set() : new Set(allKeys));
+
   return (
     <div className="space-y-3">
+      {allKeys.length > 0 && (
+        <div className="flex justify-end">
+          <button
+            onClick={toggleAll}
+            className="text-xs px-3 py-1.5 border rounded-lg hover:bg-gray-100 transition-colors text-gray-600"
+          >
+            {allCollapsed ? "전체 펼치기" : "전체 접기"}
+          </button>
+        </div>
+      )}
       {sections.map((s) => (
         <FolderSection
           key={s.folder.id}
@@ -854,10 +874,12 @@ function FolderProjectsView({ folders, projects, date, onPin, onSelectTask, owne
           onPin={onPin}
           onSelectTask={onSelectTask}
           ownerByProject={ownerByProject}
+          open={!collapsed.has(s.folder.id)}
+          onToggle={() => toggleOne(s.folder.id)}
         />
       ))}
       {unfiled.length > 0 && (
-        <FolderSection name="미분류" isDept={false} rows={unfiled} date={date} onPin={onPin} onSelectTask={onSelectTask} ownerByProject={ownerByProject} />
+        <FolderSection name="미분류" isDept={false} rows={unfiled} date={date} onPin={onPin} onSelectTask={onSelectTask} ownerByProject={ownerByProject} open={!collapsed.has("__unfiled__")} onToggle={() => toggleOne("__unfiled__")} />
       )}
     </div>
   );
