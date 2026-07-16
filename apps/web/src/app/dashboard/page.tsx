@@ -443,14 +443,9 @@ function IssuePopup({ projectId, projectName, category, onClose }: { projectId: 
             <p className="text-sm text-gray-400 text-center py-8">로딩 중...</p>
           ) : (
             <Table fixed columnDividers>
-              <colgroup>
-                <col style={{ width: "84px" }} />
-                <col style={{ width: "42%" }} />
-                <col />
-              </colgroup>
               <THead>
-                <Th align="center">분류</Th>
-                <Th align="center">태스크명</Th>
+                <Th align="center" className="w-[76px]">분류</Th>
+                <Th align="center" className="w-[40%]">태스크명</Th>
                 <Th align="center">이슈 내용</Th>
               </THead>
               <TBody>
