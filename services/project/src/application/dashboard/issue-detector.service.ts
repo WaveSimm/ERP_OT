@@ -67,9 +67,16 @@ export class IssueDetectorService {
     const issues: DashboardIssue[] = [];
     const detectedAt = new Date().toISOString();
 
+    // WBS 상위(부모) 태스크는 하위가 지연되면 롤업으로 같이 지연 잡힘 → 이중 계산 방지.
+    // 진행률 계산(task.service)과 동일하게 리프(자식 없는 태스크)만 카운트. 부모명은 표시용으로 첨부.
+    const taskById = new Map(project.tasks.map((t) => [t.id, t]));
+    const parentIds = new Set(project.tasks.map((t) => t.parentId).filter(Boolean));
+    const isLeaf = (t: { id: string }) => !parentIds.has(t.id);
+    const parentNameOf = (t: { parentId: string | null }) => (t.parentId ? taskById.get(t.parentId)?.name ?? null : null);
+
     // ─── CRITICAL: 크리티컬 패스 지연 ─────────────────────────────────────────
     const delayedCriticalTasks = project.tasks.filter((t) => {
-      if (!t.isCritical || t.status === "DONE") return false;
+      if (!isLeaf(t) || !t.isCritical || t.status === "DONE") return false;
       const latestEnd = t.segments.reduce((max: Date | null, s) => {
         const d = new Date(s.endDate);
         return !max || d > max ? d : max;
@@ -100,7 +107,7 @@ export class IssueDetectorService {
             const latestEnd = t.segments.reduce((max: Date | null, s) => {
               const d = new Date(s.endDate); return !max || d > max ? d : max;
             }, null) as Date | null;
-            return { id: t.id, name: t.name, delayDays: latestEnd ? dateDiffDays(latestEnd, today) : 0 };
+            return { id: t.id, name: t.name, parentName: parentNameOf(t), delayDays: latestEnd ? dateDiffDays(latestEnd, today) : 0 };
           }),
         },
       });
@@ -134,7 +141,7 @@ export class IssueDetectorService {
 
     // ─── WARNING: 비크리티컬 태스크 지연 ───────────────────────────────────────
     const delayedNonCritical = project.tasks.filter((t) => {
-      if (t.isCritical || t.status === "DONE") return false;
+      if (!isLeaf(t) || t.isCritical || t.status === "DONE") return false;
       const latestEnd = t.segments.reduce((max: Date | null, s) => {
         const d = new Date(s.endDate); return !max || d > max ? d : max;
       }, null);
@@ -156,7 +163,7 @@ export class IssueDetectorService {
             const latestEnd = t.segments.reduce((max: Date | null, s) => {
               const d = new Date(s.endDate); return !max || d > max ? d : max;
             }, null) as Date | null;
-            return { id: t.id, name: t.name, delayDays: latestEnd ? dateDiffDays(latestEnd, today) : 0 };
+            return { id: t.id, name: t.name, parentName: parentNameOf(t), delayDays: latestEnd ? dateDiffDays(latestEnd, today) : 0 };
           }),
         },
       });
@@ -166,7 +173,7 @@ export class IssueDetectorService {
     const staleThreshold = new Date(today);
     staleThreshold.setDate(today.getDate() - 7);
     const staleTasks = project.tasks.filter((t) =>
-      t.status === "IN_PROGRESS" && new Date(t.updatedAt) < staleThreshold,
+      isLeaf(t) && t.status === "IN_PROGRESS" && new Date(t.updatedAt) < staleThreshold,
     );
     if (staleTasks.length > 0) {
       issues.push({
@@ -180,7 +187,7 @@ export class IssueDetectorService {
         metadata: {
           staleCount: staleTasks.length,
           tasks: staleTasks.map((t) => ({
-            id: t.id, name: t.name,
+            id: t.id, name: t.name, parentName: parentNameOf(t),
             staleDays: dateDiffDays(new Date(t.updatedAt), today),
           })),
         },
@@ -214,12 +221,13 @@ export class IssueDetectorService {
     }
 
     // ─── INFO: 이번 주 완료 예정 ────────────────────────────────────────────────
-    const endingThisWeek = project.tasks.flatMap((t) =>
-      t.segments.filter((s) => {
+    const endingThisWeek = project.tasks.flatMap((t) => {
+      if (!isLeaf(t)) return [];
+      return t.segments.filter((s) => {
         const end = new Date(s.endDate);
         return end >= today && end <= windowEnd && s.progressPercent < 100;
-      }).map((s) => ({ taskName: t.name, segmentName: s.name, endDate: s.endDate })),
-    );
+      }).map((s) => ({ taskId: t.id, taskName: t.name, parentName: parentNameOf(t), segmentName: s.name, endDate: s.endDate }));
+    });
     if (endingThisWeek.length > 0) {
       issues.push({
         id: `ENDING_THIS_WEEK:${projectId}`,

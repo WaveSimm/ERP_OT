@@ -392,7 +392,7 @@ function IssuePopup({ projectId, projectName, category, onClose }: { projectId: 
   const shown = activeCat ? issues.filter((i) => issueBucket(i) === activeCat) : issues;
 
   // 이슈 → 태스크 단위로 평탄화. 백엔드가 태스크명을 최대 3개까지만 주므로 초과분은 "외 N개".
-  const taskRows: { key: string; name: string; id?: string; title: string; cat: string; delayDays?: number; staleDays?: number; endDate?: string; milestoneDate?: string; muted?: boolean }[] = [];
+  const taskRows: { key: string; name: string; id?: string; parentName?: string; title: string; cat: string; delayDays?: number; staleDays?: number; endDate?: string; milestoneDate?: string; muted?: boolean }[] = [];
   for (const iss of shown) {
     const bkt = issueBucket(iss);
     const tasks = issueTasks(iss);
@@ -400,7 +400,7 @@ function IssuePopup({ projectId, projectName, category, onClose }: { projectId: 
     if (tasks.length === 0) {
       taskRows.push({ key: iss.id, name: "-", title: iss.title, cat: bkt });
     } else {
-      tasks.forEach((tk, i) => taskRows.push({ key: `${iss.id}:${i}`, name: tk.name, id: tk.id, title: iss.title, cat: bkt, delayDays: tk.delayDays, staleDays: tk.staleDays, endDate: tk.endDate, milestoneDate: tk.milestoneDate }));
+      tasks.forEach((tk, i) => taskRows.push({ key: `${iss.id}:${i}`, name: tk.name, id: tk.id, parentName: tk.parentName, title: iss.title, cat: bkt, delayDays: tk.delayDays, staleDays: tk.staleDays, endDate: tk.endDate, milestoneDate: tk.milestoneDate }));
       const extra = Math.max(0, totalCnt - tasks.length);
       if (extra > 0) taskRows.push({ key: `${iss.id}:more`, name: `외 ${extra}개`, title: iss.title, cat: bkt, muted: true });
     }
@@ -460,7 +460,8 @@ function IssuePopup({ projectId, projectName, category, onClose }: { projectId: 
                           <span className={`text-[11px] px-1.5 py-0.5 rounded font-medium whitespace-nowrap ${meta.cls}`}>{meta.label}</span>
                         )}
                       </Td>
-                      <Td truncate title={t.name}>
+                      <Td truncate title={t.parentName ? `${t.parentName} › ${t.name}` : t.name}>
+                        {t.parentName && <span className="text-gray-400 dark:text-gray-500">{t.parentName} › </span>}
                         {t.id ? (
                           <Link href={`/projects/${projectId}?taskId=${t.id}`} onClick={onClose}
                             className="text-gray-900 dark:text-gray-100 font-medium hover:underline">{t.name}</Link>
@@ -1290,17 +1291,17 @@ const ISSUE_BADGE_BUCKETS: { key: string; label: string; cls: string }[] = [
   { key: "MILESTONE", label: "마일스톤", cls: "bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300" },
 ];
 
-// 이슈 객체에서 관련 태스크(이름+ID+원시 상세값) 추출 (백엔드 metadata 기준)
-// 완료예정(segments)만 ID가 없어 이동 불가 → id undefined.
-type IssueTask = { name: string; id?: string; delayDays?: number; staleDays?: number; endDate?: string; milestoneDate?: string };
+// 이슈 객체에서 관련 태스크(이름+ID+부모명+원시 상세값) 추출 (백엔드 metadata 기준)
+// parentName = WBS 상위 태스크명(표시용). 하위(리프)만 카운트됨.
+type IssueTask = { name: string; id?: string; parentName?: string; delayDays?: number; staleDays?: number; endDate?: string; milestoneDate?: string };
 function issueTasks(iss: any): IssueTask[] {
   if (iss?.taskName) {
     return [{ name: iss.taskName, id: iss?.taskId, milestoneDate: iss?.metadata?.milestoneDate }];
   }
   const t = iss?.metadata?.tasks;
-  if (Array.isArray(t)) return t.map((x: any) => ({ name: x?.name, id: x?.id, delayDays: x?.delayDays, staleDays: x?.staleDays })).filter((x: any) => x.name);
+  if (Array.isArray(t)) return t.map((x: any) => ({ name: x?.name, id: x?.id, parentName: x?.parentName, delayDays: x?.delayDays, staleDays: x?.staleDays })).filter((x: any) => x.name);
   const s = iss?.metadata?.segments;
-  if (Array.isArray(s)) return s.map((x: any) => ({ name: x?.taskName, endDate: x?.endDate })).filter((x: any) => x.name);
+  if (Array.isArray(s)) return s.map((x: any) => ({ name: x?.taskName, id: x?.taskId, parentName: x?.parentName, endDate: x?.endDate })).filter((x: any) => x.name);
   return [];
 }
 
