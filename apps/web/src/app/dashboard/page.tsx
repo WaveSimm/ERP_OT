@@ -382,10 +382,11 @@ function IssuePopup({ projectId, projectName, category, onClose }: { projectId: 
       .finally(() => setLoading(false));
   }, [projectId]);
 
-  // 카테고리별 이슈 개수 (상단 전환 탭용)
+  // 카테고리별 태스크 개수 (상단 전환 탭용 — 팝업 태스크 수와 일치)
   const catCounts: Record<string, number> = {};
-  for (const i of issues) { const b = issueBucket(i); catCounts[b] = (catCounts[b] ?? 0) + 1; }
+  for (const i of issues) { const b = issueBucket(i); catCounts[b] = (catCounts[b] ?? 0) + issueTaskCount(i); }
   const availableCats = ISSUE_BADGE_BUCKETS.filter((b) => (catCounts[b.key] ?? 0) > 0);
+  const totalTasks = Object.values(catCounts).reduce((a, b) => a + b, 0);
 
   // 선택된 카테고리만 (activeCat 없으면 전체)
   const shown = activeCat ? issues.filter((i) => issueBucket(i) === activeCat) : issues;
@@ -395,7 +396,7 @@ function IssuePopup({ projectId, projectName, category, onClose }: { projectId: 
   for (const iss of shown) {
     const bkt = issueBucket(iss);
     const tasks = issueTasks(iss);
-    const totalCnt = iss.metadata?.delayedCount ?? iss.metadata?.staleCount ?? iss.metadata?.count ?? tasks.length;
+    const totalCnt = issueTaskCount(iss);
     if (tasks.length === 0) {
       taskRows.push({ key: iss.id, name: "-", title: iss.title, cat: bkt });
     } else {
@@ -427,7 +428,7 @@ function IssuePopup({ projectId, projectName, category, onClose }: { projectId: 
           <div className="flex flex-wrap gap-1.5 px-5 py-2.5 border-b border-gray-200 dark:border-gray-700/60">
             <button onClick={() => setActiveCat(undefined)}
               className={`text-xs px-2.5 py-0.5 rounded-full font-medium transition-all ${!activeCat ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-500 opacity-70 hover:opacity-100"}`}>
-              전체 {issues.length}
+              전체 {totalTasks}
             </button>
             {availableCats.map((b) => (
               <button key={b.key} onClick={() => setActiveCat(b.key)}
@@ -1301,6 +1302,13 @@ function issueBucket(iss: { category?: string; severity?: string }): string {
   if (iss.category === "BUDGET_OVERRUN") return "BUDGET";
   return "OTHER";
 }
+
+// 이슈 1건이 실제로 포함하는 '태스크 수' (배지·탭 개수 = 팝업 태스크 수 일치용).
+// 지연/정체/예정은 집계 카운트, 직접추가·마일스톤은 태스크 1개.
+function issueTaskCount(iss: any): number {
+  return iss?.metadata?.delayedCount ?? iss?.metadata?.staleCount ?? iss?.metadata?.count
+    ?? (iss?.taskName ? 1 : (iss?.metadata?.tasks?.length ?? 1));
+}
 // 이슈 박스에 노출할 문제성 카테고리 (지연/이슈/정체)
 const ISSUE_BUCKETS: { key: string; label: string; cls: string }[] = [
   { key: "MANUAL", label: "이슈", cls: "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300" },
@@ -1500,9 +1508,10 @@ export default function CommandCenterDashboard() {
     for (const it of issuesList ?? []) {
       const pid = it?.projectId;
       if (!pid) continue;
-      const b = issueBucket(it?.issue ?? {});
+      const iss = it?.issue ?? {};
+      const b = issueBucket(iss);
       const cur = m.get(pid) ?? {};
-      cur[b] = (cur[b] ?? 0) + 1;
+      cur[b] = (cur[b] ?? 0) + issueTaskCount(iss);
       m.set(pid, cur);
     }
     return m;
