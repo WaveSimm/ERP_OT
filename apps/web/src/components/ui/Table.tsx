@@ -310,25 +310,35 @@ export function TableActions({
   return <div className={cx("flex items-center gap-1.5", justify, className)}>{children}</div>;
 }
 
+/** RowButton hover 채움 색 — 평상시 회색 아웃라인은 공통, hover 시 이 색으로 채움(흰 글자) */
+export type RowButtonTone = "blue" | "red" | "gray" | "orange" | "emerald";
+
+// 다크모드 hover 는 ! (important) 필수: globals.css 의 `.dark .text-gray-600 { !important }`
+// 같은 중립색 remap 규칙이 !important 라, !important 없는 hover 는 무시됨 → ! 로 흰 글자 강제.
+const ROW_BUTTON_HOVER: Record<RowButtonTone, string> = {
+  blue: "hover:border-blue-700 hover:bg-blue-700 hover:text-white dark:hover:!border-blue-600 dark:hover:!bg-blue-600 dark:hover:!text-white",
+  red: "hover:border-red-700 hover:bg-red-700 hover:text-white dark:hover:!border-red-600 dark:hover:!bg-red-600 dark:hover:!text-white",
+  gray: "hover:border-gray-600 hover:bg-gray-600 hover:text-white dark:hover:!border-gray-500 dark:hover:!bg-gray-500 dark:hover:!text-white",
+  orange: "hover:border-orange-600 hover:bg-orange-600 hover:text-white dark:hover:!border-orange-500 dark:hover:!bg-orange-500 dark:hover:!text-white",
+  emerald: "hover:border-emerald-600 hover:bg-emerald-600 hover:text-white dark:hover:!border-emerald-600 dark:hover:!bg-emerald-600 dark:hover:!text-white",
+};
+
 interface RowButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** 위험 액션(삭제 등): hover 시 빨강 */
   danger?: boolean;
   /** 보기/펼치기 등 비변경 액션: hover 시 회색 (수정=파랑, 삭제=빨강과 구분) */
   neutral?: boolean;
+  /** hover 채움 색 직접 지정(의미색 유지용: 종료=orange, 활성=emerald 등). danger/neutral 보다 우선 */
+  tone?: RowButtonTone;
   /** 평상시부터 색을 채워 강조(방식 A). 기본은 평상시 회색 → hover 시 색(방식 B) */
   solid?: boolean;
 }
 
 /** 표 행 안에서 쓰는 컴팩트 버튼 (고정 높이 h-7 — 행 높이를 밀어 올리지 않음) */
-export function RowButton({ danger, neutral, solid, className, children, ...rest }: RowButtonProps) {
-  // hover: 색 채움 + 흰 글자 — 액션 유형별 색: 수정=파랑 / 삭제=빨강 / 보기·펼치기=회색.
-  // 다크모드 hover 는 ! (important) 필수: globals.css 의 `.dark .text-gray-600 { !important }`
-  // 같은 중립색 remap 규칙이 !important 라, !important 없는 hover 는 무시됨 → ! 로 흰 글자 강제.
-  const hoverFill = danger
-    ? "hover:border-red-700 hover:bg-red-700 hover:text-white dark:hover:!border-red-600 dark:hover:!bg-red-600 dark:hover:!text-white"
-    : neutral
-      ? "hover:border-gray-600 hover:bg-gray-600 hover:text-white dark:hover:!border-gray-500 dark:hover:!bg-gray-500 dark:hover:!text-white"
-      : "hover:border-blue-700 hover:bg-blue-700 hover:text-white dark:hover:!border-blue-600 dark:hover:!bg-blue-600 dark:hover:!text-white";
+export function RowButton({ danger, neutral, tone, solid, className, children, ...rest }: RowButtonProps) {
+  // hover: 색 채움 + 흰 글자 — tone 우선, 없으면 danger=빨강 / neutral=회색 / 기본=파랑.
+  const effTone: RowButtonTone = tone ?? (danger ? "red" : neutral ? "gray" : "blue");
+  const hoverFill = ROW_BUTTON_HOVER[effTone];
   // 평상시 색: 기본=회색(중립, 방식 B), solid=고유 색(수정 파랑 / 삭제 빨강, 방식 A)
   const resting = solid && danger
     ? "border-red-200 text-red-600 dark:border-red-500/50 dark:text-red-400"

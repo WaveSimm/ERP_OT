@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { equipmentReservationApi, type ReservationInstance } from "@/lib/api";
+import { RowButton } from "@/components/ui/Table";
 
 // 공용자산예약 (2026-05-05) — 인스턴스 상세 + 수정/취소 버튼
 
@@ -116,32 +117,17 @@ export default function ReservationDetailPopover({ instance, canModify, onClose,
         {canModify && (
           <div className="px-5 py-3 border-t border-gray-200 flex gap-2">
             {instance.isRecurring && !instance.isException && (
-              <button
-                type="button"
-                onClick={handleCancelInstance}
-                disabled={busy}
-                className="px-3 py-2 text-xs border border-orange-300 text-orange-700 rounded hover:bg-orange-50 disabled:opacity-50 dark:border-orange-700 dark:text-orange-300 dark:hover:bg-orange-950"
-              >
+              <RowButton type="button" tone="orange" onClick={handleCancelInstance} disabled={busy}>
                 이 인스턴스만 취소
-              </button>
+              </RowButton>
             )}
-            <button
-              type="button"
-              onClick={handleCancelSeries}
-              disabled={busy}
-              className="px-3 py-2 text-xs border border-red-300 text-red-700 rounded hover:bg-red-50 disabled:opacity-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-950"
-            >
+            <RowButton type="button" danger onClick={handleCancelSeries} disabled={busy}>
               {instance.isRecurring ? "시리즈 전체 취소" : "취소"}
-            </button>
+            </RowButton>
             <div className="flex-1" />
-            <button
-              type="button"
-              onClick={onEdit}
-              disabled={busy}
-              className="px-3 py-2 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-            >
+            <RowButton type="button" onClick={onEdit} disabled={busy}>
               수정
-            </button>
+            </RowButton>
           </div>
         )}
       </div>

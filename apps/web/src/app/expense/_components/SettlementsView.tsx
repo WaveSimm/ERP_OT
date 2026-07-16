@@ -6,6 +6,7 @@ import { fmtDate } from "@/lib/datetime";
 import { SettlementStatusBadge } from "./settlement-status-badge";
 import { useTableSort } from "@/lib/hooks/useTableSort";
 import { SettlementDetail } from "./settlement-detail";
+import { TableCard, Table, THead, Th, TBody, Tr, Td, TableEmpty } from "@/components/ui/Table";
 
 export function SettlementsView({ statusFilter }: { statusFilter?: string } = {}) {
   const [items, setItems] = useState<any[]>([]);
@@ -51,66 +52,52 @@ export function SettlementsView({ statusFilter }: { statusFilter?: string } = {}
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-6 space-y-4">
-      {loading ? (
-        <div className="py-12 text-center text-gray-400">불러오는 중...</div>
-      ) : sortedItems.length === 0 ? (
-        <div className="py-12 text-center text-gray-400">아직 작성된 정산이 없습니다.</div>
-      ) : (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500">
-              <tr>
-                <th onClick={() => sort.handleSort("title")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">제목{sort.sortIndicator("title")}</th>
-                <th onClick={() => sort.handleSort("periodStart")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">기간{sort.sortIndicator("periodStart")}</th>
-                <th onClick={() => sort.handleSort("totalCount")} className="px-3 py-2 text-right cursor-pointer hover:bg-gray-100 select-none">건수{sort.sortIndicator("totalCount")}</th>
-                <th onClick={() => sort.handleSort("totalAmount")} className="px-3 py-2 text-right cursor-pointer hover:bg-gray-100 select-none">총액{sort.sortIndicator("totalAmount")}</th>
-                <th onClick={() => sort.handleSort("status")} className="px-3 py-2 text-center cursor-pointer hover:bg-gray-100 select-none">상태{sort.sortIndicator("status")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedItems.map((s) => {
-                // v1.6.4 (2026-05-16): 결재 미연결 DRAFT 정산묶음에만 「결재 작성」 액션
-                const canCreateApproval = ["DRAFT", "REJECTED"].includes(s.status) && !s.approvalDocumentId && (s.totalCount ?? 0) > 0;
-                return (
-                  <tr key={s.id} onClick={() => setSelectedId(s.id)}
-                    className="border-t border-gray-100 hover:bg-blue-50/40 dark:hover:bg-blue-500/10 cursor-pointer">
-                    <td colSpan={5} className="p-0">
-                      <div className="grid grid-cols-[3fr_2fr_1fr_1fr_1fr_auto] gap-2 px-3 py-2 items-center">
-                        <span className="font-medium text-gray-900 truncate">{s.title}</span>
-                        <span className="text-xs text-gray-500">
-                          {s.periodStart ? `${fmtDate(s.periodStart)} ~ ${fmtDate(s.periodEnd)}` : "기간 미설정"}
-                        </span>
-                        <span className="text-right tabular-nums text-xs">{s.totalCount ?? 0}</span>
-                        <span className="text-right tabular-nums font-medium">{Number(s.totalAmount ?? 0).toLocaleString()}원</span>
-                        <span className="text-center"><SettlementStatusBadge status={s.status} /></span>
-                        <span className="text-right whitespace-nowrap">
-                          {canCreateApproval ? (
-                            <a
-                              href={`/approval/new?settlementId=${s.id}`}
-                              onClick={(e) => e.stopPropagation()}
-                              className="text-xs px-2 py-0.5 border border-blue-300 text-blue-700 rounded hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-950"
-                            >
-                              결재 작성
-                            </a>
-                          ) : s.approvalDocumentId ? (
-                            <a
-                              href={`/approval/${s.approvalDocumentId}`}
-                              onClick={(e) => e.stopPropagation()}
-                              className="text-xs px-2 py-0.5 border border-gray-300 text-gray-600 rounded hover:bg-gray-50"
-                            >
-                              결재 →
-                            </a>
-                          ) : null}
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <TableCard>
+        <Table columnDividers>
+          <THead>
+            <Th align="center" onClick={() => sort.handleSort("title")} className="cursor-pointer hover:bg-gray-100 select-none">제목{sort.sortIndicator("title")}</Th>
+            <Th align="center" onClick={() => sort.handleSort("periodStart")} className="cursor-pointer hover:bg-gray-100 select-none">기간{sort.sortIndicator("periodStart")}</Th>
+            <Th align="center" onClick={() => sort.handleSort("totalCount")} className="cursor-pointer hover:bg-gray-100 select-none">건수{sort.sortIndicator("totalCount")}</Th>
+            <Th align="center" onClick={() => sort.handleSort("totalAmount")} className="cursor-pointer hover:bg-gray-100 select-none">총액{sort.sortIndicator("totalAmount")}</Th>
+            <Th align="center" onClick={() => sort.handleSort("status")} className="cursor-pointer hover:bg-gray-100 select-none">상태{sort.sortIndicator("status")}</Th>
+            <Th align="center">결재</Th>
+          </THead>
+          <TBody>
+            {loading ? (
+              <TableEmpty colSpan={6}>불러오는 중...</TableEmpty>
+            ) : sortedItems.length === 0 ? (
+              <TableEmpty colSpan={6}>아직 작성된 정산이 없습니다.</TableEmpty>
+            ) : sortedItems.map((s) => {
+              // v1.6.4 (2026-05-16): 결재 미연결 DRAFT 정산묶음에만 「결재 작성」 액션
+              const canCreateApproval = ["DRAFT", "REJECTED"].includes(s.status) && !s.approvalDocumentId && (s.totalCount ?? 0) > 0;
+              return (
+                <Tr key={s.id} onClick={() => setSelectedId(s.id)}>
+                  <Td strong>{s.title}</Td>
+                  <Td align="center" mono className="whitespace-nowrap text-xs">
+                    {s.periodStart ? `${fmtDate(s.periodStart)} ~ ${fmtDate(s.periodEnd)}` : "기간 미설정"}
+                  </Td>
+                  <Td align="right" mono>{s.totalCount ?? 0}</Td>
+                  <Td align="right" mono>{Number(s.totalAmount ?? 0).toLocaleString()}원</Td>
+                  <Td align="center"><SettlementStatusBadge status={s.status} /></Td>
+                  <Td align="center" onClick={(e) => e.stopPropagation()}>
+                    {canCreateApproval ? (
+                      <a href={`/approval/new?settlementId=${s.id}`}
+                        className="inline-flex h-7 items-center rounded-md border border-gray-200 dark:border-gray-600 px-2 text-xs font-medium text-gray-600 dark:text-gray-300 transition-[background-color,color] hover:border-blue-700 hover:bg-blue-700 hover:text-white dark:hover:!border-blue-600 dark:hover:!bg-blue-600 dark:hover:!text-white">
+                        결재 작성
+                      </a>
+                    ) : s.approvalDocumentId ? (
+                      <a href={`/approval/${s.approvalDocumentId}`}
+                        className="inline-flex h-7 items-center rounded-md border border-gray-200 dark:border-gray-600 px-2 text-xs font-medium text-gray-600 dark:text-gray-300 transition-[background-color,color] hover:border-gray-600 hover:bg-gray-600 hover:text-white dark:hover:!border-gray-500 dark:hover:!bg-gray-500 dark:hover:!text-white">
+                        결재 →
+                      </a>
+                    ) : <span className="text-gray-300">-</span>}
+                  </Td>
+                </Tr>
+              );
+            })}
+          </TBody>
+        </Table>
+      </TableCard>
     </div>
   );
 }

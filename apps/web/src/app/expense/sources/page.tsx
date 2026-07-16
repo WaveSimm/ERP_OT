@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { expenseApi } from "@/lib/api";
 import { useTableSort } from "@/lib/hooks/useTableSort";
+import { TableCard, Table, THead, Th, TBody, Tr, Td, TableEmpty, RowButton, StatusBadge } from "@/components/ui/Table";
 
 const TYPE_LABEL: Record<string, string> = {
   CARD_SHINHAN: "신한카드",
@@ -61,29 +62,27 @@ export default function SourcesPage() {
         비활성 포함
       </label>
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr className="text-xs text-gray-500">
-              <th onClick={() => sort.handleSort("name")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">명세표이름{sort.sortIndicator("name")}</th>
-              <th onClick={() => sort.handleSort("displayName")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">대표이름{sort.sortIndicator("displayName")}</th>
-              <th onClick={() => sort.handleSort("cardNumber")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">카드번호{sort.sortIndicator("cardNumber")}</th>
-              <th onClick={() => sort.handleSort("ownership")} className="px-3 py-2 text-center cursor-pointer hover:bg-gray-100 select-none">정산구분{sort.sortIndicator("ownership")}</th>
-              <th onClick={() => sort.handleSort("active")} className="px-3 py-2 text-center cursor-pointer hover:bg-gray-100 select-none">상태{sort.sortIndicator("active")}</th>
-              <th className="px-3 py-2 w-24"></th>
-            </tr>
-          </thead>
-          <tbody>
+      <TableCard>
+        <Table columnDividers>
+          <THead>
+            <Th align="center" onClick={() => sort.handleSort("name")} className="cursor-pointer hover:bg-gray-100 select-none">명세표이름{sort.sortIndicator("name")}</Th>
+            <Th align="center" onClick={() => sort.handleSort("displayName")} className="cursor-pointer hover:bg-gray-100 select-none">대표이름{sort.sortIndicator("displayName")}</Th>
+            <Th align="center" onClick={() => sort.handleSort("cardNumber")} className="cursor-pointer hover:bg-gray-100 select-none">카드번호{sort.sortIndicator("cardNumber")}</Th>
+            <Th align="center" onClick={() => sort.handleSort("ownership")} className="cursor-pointer hover:bg-gray-100 select-none">정산구분{sort.sortIndicator("ownership")}</Th>
+            <Th align="center" onClick={() => sort.handleSort("active")} className="cursor-pointer hover:bg-gray-100 select-none">상태{sort.sortIndicator("active")}</Th>
+            <Th align="center">관리</Th>
+          </THead>
+          <TBody>
             {loading ? (
-              <tr><td colSpan={6} className="py-12 text-center text-gray-400">불러오는 중...</td></tr>
+              <TableEmpty colSpan={6}>불러오는 중...</TableEmpty>
             ) : sortedItems.length === 0 ? (
-              <tr><td colSpan={6} className="py-12 text-center text-gray-400">등록된 결제수단이 없습니다.</td></tr>
+              <TableEmpty colSpan={6}>등록된 결제수단이 없습니다.</TableEmpty>
             ) : sortedItems.map((s) => (
               <SourceRow key={s.id} source={s} onSaved={load} />
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TBody>
+        </Table>
+      </TableCard>
 
       {showForm && <SourceForm onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />}
     </div>
@@ -110,54 +109,48 @@ function SourceRow({ source, onSaved }: { source: any; onSaved: () => void }) {
   };
 
   return (
-    <tr className="border-t border-gray-100">
-      <td className="px-3 py-2">
-        <span className="text-sm font-medium text-gray-700" title="명세표 import 시 자동 생성 (편집 불가)">
-          {source.name}
-        </span>
-      </td>
-      <td className="px-3 py-2">
+    <Tr>
+      <Td strong title="명세표 import 시 자동 생성 (편집 불가)">{source.name}</Td>
+      <Td>
         <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)}
           onBlur={(e) => saveIfChanged("displayName", e.target.value)}
           placeholder="예: 신한카드(3969)"
           className="text-sm w-full px-2 py-1 border border-transparent rounded hover:border-gray-300 focus:border-blue-500 focus:outline-none" />
-      </td>
-      <td className="px-3 py-2">
+      </Td>
+      <Td>
         <input type="text" value={cardNumber} onChange={(e) => setCardNumber(e.target.value)}
           onBlur={(e) => saveIfChanged("cardNumber", e.target.value)}
           placeholder="예: 1234-5678-9012-3456"
           className="text-xs w-full px-2 py-1 border border-transparent rounded hover:border-gray-300 focus:border-blue-500 focus:outline-none font-mono" />
-      </td>
-      <td className="px-3 py-2 text-center">
+      </Td>
+      <Td align="center">
         <select value={source.ownership || "PERSONAL"}
           onChange={async (e) => {
             try { await expenseApi.updateSource(source.id, { ownership: e.target.value as "PERSONAL" | "CORPORATE" }); onSaved(); }
             catch (err: any) { alert(`저장 실패: ${err.message}`); }
           }}
-          className="text-xs px-1 py-0.5 border rounded focus:border-blue-500 focus:outline-none">
+          className="text-xs px-1 py-0.5 border border-gray-300 dark:border-gray-600 rounded focus:border-blue-500 focus:outline-none">
           <option value="PERSONAL">개인</option>
           <option value="CORPORATE">법인</option>
         </select>
-      </td>
-      <td className="px-3 py-2 text-center">
-        <span className={`text-xs ${source.active ? "text-green-600 dark:text-green-400" : "text-gray-400"}`}>
-          {source.active ? "활성" : "비활성"}
-        </span>
-      </td>
-      <td className="px-3 py-2 text-right">
+      </Td>
+      <Td align="center">
+        <StatusBadge color={source.active ? "green" : "gray"}>{source.active ? "활성" : "비활성"}</StatusBadge>
+      </Td>
+      <Td align="center">
         {source.active ? (
-          <button onClick={async () => {
+          <RowButton danger onClick={async () => {
             if (confirm("비활성화 하시겠습니까?")) {
               await expenseApi.deleteSource(source.id); onSaved();
             }
-          }} className="text-xs text-red-500 dark:text-red-400 hover:underline">비활성화</button>
+          }}>비활성화</RowButton>
         ) : (
-          <button onClick={async () => {
+          <RowButton onClick={async () => {
             await expenseApi.updateSource(source.id, { active: true }); onSaved();
-          }} className="text-xs text-blue-500 dark:text-blue-400 hover:underline">활성화</button>
+          }}>활성화</RowButton>
         )}
-      </td>
-    </tr>
+      </Td>
+    </Tr>
   );
 }
 

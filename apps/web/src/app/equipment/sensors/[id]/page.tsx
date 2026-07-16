@@ -161,7 +161,7 @@ export default function SensorDetailPage() {
         </div>
 
         {/* Summary */}
-        <div className="bg-white border rounded-lg p-4 mb-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <div className="bg-white border dark:border-gray-700/60 rounded-lg p-4 mb-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div><span className="text-gray-500">종류:</span> {sensor.category?.name}</div>
           <div><span className="text-gray-500">SN:</span> {sensor.serialNumber}</div>
           <div><span className="text-gray-500">제조사:</span> {sensor.manufacturer ?? "-"}</div>
@@ -185,7 +185,7 @@ export default function SensorDetailPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 border-b mb-4">
+        <div className="flex gap-1 border-b dark:border-gray-700/60 mb-4">
           {([["info", "기본정보"], ["history", "전체 이력"], ["schedules", "운영일정"], ["maintenance", "기타일정"], ["compat", "호환장비"]] as [Tab, string][]).map(
             ([k, label]) => (
               <button key={k} onClick={() => setTab(k)}
@@ -199,7 +199,7 @@ export default function SensorDetailPage() {
         {/* ═══ 기본정보 탭 ═══ */}
         {tab === "info" && (
           <div className="space-y-4">
-            <div className="bg-white border rounded-lg p-4">
+            <div className="bg-white border dark:border-gray-700/60 rounded-lg p-4">
               <h3 className="font-semibold mb-3">센서 상세</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-6 text-sm">
                 <div><span className="text-gray-500">센서명:</span> {sensor.name}</div>
@@ -221,7 +221,7 @@ export default function SensorDetailPage() {
 
             {/* 교정 정보 */}
             {(sensor.calibrationIntervalDays || sensor.lastCalibratedAt) && (
-              <div className="bg-white border rounded-lg p-4">
+              <div className="bg-white border dark:border-gray-700/60 rounded-lg p-4">
                 <h3 className="font-semibold mb-3">교정 정보</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-6 text-sm">
                   {sensor.calibrationIntervalDays && <div><span className="text-gray-500">교정 주기:</span> {sensor.calibrationIntervalDays}일</div>}
@@ -431,7 +431,7 @@ export default function SensorDetailPage() {
             </div>
 
             {showMaintForm && (
-              <div className="bg-white border rounded-lg p-4 space-y-3">
+              <div className="bg-white border dark:border-gray-700/60 rounded-lg p-4 space-y-3">
                 <div className="text-sm font-semibold text-gray-700">{TYPE_INFO[maintFormType]?.label ?? maintFormType} 등록</div>
                 <div className="grid grid-cols-2 gap-3">
                   <input placeholder="제목 *" value={maintForm.title} onChange={(e) => setMaintForm({ ...maintForm, title: e.target.value })} className="border rounded px-3 py-2 text-sm" />

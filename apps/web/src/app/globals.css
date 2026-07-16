@@ -5,6 +5,14 @@
 * { box-sizing: border-box; }
 html { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 
+/* 색 없는 bare `border`(기본색 #e5e7eb)의 다크모드 대응.
+   @layer base 라서 border-gray-*/border-blue-* 등 유틸리티는 항상 우선함 →
+   색을 명시한 테두리는 그대로 두고, 색 미지정 border만 다크에서 #374151로 낮춤. */
+@layer base {
+  *, ::before, ::after { border-color: #e5e7eb; }
+  .dark *, .dark ::before, .dark ::after { border-color: #374151; }
+}
+
 /* ── 다크모드 전용 오버라이드 (모두 .dark 아래 → 라이트 모드엔 전혀 영향 없음) ──
    수백 컴포넌트에 dark: 를 달지 않고, .dark 일 때만 공통 "중립색" 유틸리티를
    다크 값으로 remap. 색상(파랑/빨강 등) 배지·버튼은 건드리지 않아 그대로 유지. */

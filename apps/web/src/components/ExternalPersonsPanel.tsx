@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { externalPersonApi, type ExternalPerson } from "@/lib/api";
 import { ExternalPersonForm } from "@/components/ExternalPersonForm";
 import { fmtDate } from "@/lib/datetime";
+import { TableCard, Table, THead, Th, TBody, Tr, Td, TableEmpty, RowButton, StatusBadge } from "@/components/ui/Table";
 
 export function ExternalPersonsPanel({ isAdmin }: { isAdmin: boolean }) {
   const [items, setItems] = useState<ExternalPerson[]>([]);
@@ -83,9 +84,9 @@ export function ExternalPersonsPanel({ isAdmin }: { isAdmin: boolean }) {
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && load()}
           placeholder="이름·업체 검색"
-          className="border border-gray-300 rounded px-2 py-1 text-sm"
+          className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm"
         />
-        <button onClick={load} className="text-sm border rounded px-3 py-1 hover:bg-gray-50">검색</button>
+        <button onClick={load} className="text-sm border border-gray-300 dark:border-gray-600 rounded px-3 py-1 hover:bg-gray-50 dark:hover:bg-gray-800">검색</button>
         <div className="flex-1" />
         {isAdmin && (
           <button
@@ -98,73 +99,63 @@ export function ExternalPersonsPanel({ isAdmin }: { isAdmin: boolean }) {
       </div>
 
       {/* 목록 */}
-      {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
-        </div>
-      ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-          <span className="text-4xl mb-3">🤝</span>
-          <p className="text-sm">등록된 외부 자원이 없습니다.</p>
-        </div>
-      ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-xs text-gray-500">
-              <tr>
-                <th className="text-left px-4 py-2 font-medium">이름</th>
-                <th className="text-left px-4 py-2 font-medium">업체</th>
-                <th className="text-left px-4 py-2 font-medium">연락처</th>
-                <th className="text-left px-4 py-2 font-medium">계약기간</th>
-                <th className="text-left px-4 py-2 font-medium">상태</th>
-                {isAdmin && <th className="text-right px-4 py-2 font-medium">관리</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((p) => (
-                <tr key={p.id} className="border-t border-gray-100 hover:bg-gray-50">
-                  <td className="px-4 py-2 font-medium">{p.name}</td>
-                  <td className="px-4 py-2 text-gray-600">{p.company ?? "-"}</td>
-                  <td className="px-4 py-2 text-xs text-gray-500">
-                    {p.contactEmail && <div>{p.contactEmail}</div>}
-                    {p.contactPhone && <div>{p.contactPhone}</div>}
-                    {!p.contactEmail && !p.contactPhone && <span>-</span>}
-                  </td>
-                  <td className="px-4 py-2 text-xs text-gray-500">
-                    {p.contractStart || p.contractEnd ? (
-                      <>
-                        {p.contractStart ? fmtDate(p.contractStart) : "?"}
-                        {" ~ "}
-                        {p.contractEnd ? fmtDate(p.contractEnd) : "?"}
-                      </>
-                    ) : "-"}
-                  </td>
-                  <td className="px-4 py-2">
-                    <span className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[11px] font-medium ${
-                      p.status === "ACTIVE"
-                        ? "bg-green-50 text-green-700 border-green-200 dark:text-green-300"
-                        : "bg-gray-100 text-gray-500 border-gray-200"
-                    }`}>
-                      {p.status === "ACTIVE" ? "활성" : "종료"}
-                    </span>
-                  </td>
-                  {isAdmin && (
-                    <td className="px-4 py-2 text-right space-x-2">
-                      <button onClick={() => setEditing(p)} className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800">수정</button>
-                      {p.status === "ACTIVE" ? (
-                        <button onClick={() => handleArchive(p)} className="text-xs text-orange-600 dark:text-orange-400 hover:text-orange-800">종료</button>
-                      ) : (
-                        <button onClick={() => handleReactivate(p)} className="text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-800">활성</button>
-                      )}
-                      <button onClick={() => handleDelete(p)} className="text-xs text-red-400 hover:text-red-600">삭제</button>
-                    </td>
+      <TableCard>
+        <Table columnDividers>
+          <THead>
+            <Th align="center">이름</Th>
+            <Th align="center">업체</Th>
+            <Th align="center">연락처</Th>
+            <Th align="center">계약기간</Th>
+            <Th align="center">상태</Th>
+            {isAdmin && <Th align="center">관리</Th>}
+          </THead>
+          <TBody>
+            {loading ? (
+              <TableEmpty colSpan={isAdmin ? 6 : 5}>불러오는 중...</TableEmpty>
+            ) : items.length === 0 ? (
+              <TableEmpty colSpan={isAdmin ? 6 : 5}>🤝 등록된 외부 자원이 없습니다.</TableEmpty>
+            ) : items.map((p) => (
+              <Tr key={p.id}>
+                <Td strong>{p.name}</Td>
+                <Td dash>{p.company}</Td>
+                <Td align={p.contactEmail || p.contactPhone ? "left" : "center"} className="text-xs text-gray-500">
+                  {p.contactEmail || p.contactPhone ? (
+                    <>
+                      {p.contactEmail && <div>{p.contactEmail}</div>}
+                      {p.contactPhone && <div>{p.contactPhone}</div>}
+                    </>
+                  ) : (
+                    <span className="text-gray-400">-</span>
                   )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+                </Td>
+                <Td align="center" mono className="whitespace-nowrap text-xs">
+                  {p.contractStart || p.contractEnd
+                    ? `${p.contractStart ? fmtDate(p.contractStart) : "?"} ~ ${p.contractEnd ? fmtDate(p.contractEnd) : "?"}`
+                    : "-"}
+                </Td>
+                <Td align="center">
+                  <StatusBadge color={p.status === "ACTIVE" ? "green" : "gray"}>
+                    {p.status === "ACTIVE" ? "활성" : "종료"}
+                  </StatusBadge>
+                </Td>
+                {isAdmin && (
+                  <Td align="center">
+                    <div className="inline-flex items-center gap-1.5">
+                      <RowButton onClick={() => setEditing(p)}>수정</RowButton>
+                      {p.status === "ACTIVE" ? (
+                        <RowButton tone="orange" onClick={() => handleArchive(p)}>종료</RowButton>
+                      ) : (
+                        <RowButton tone="emerald" onClick={() => handleReactivate(p)}>활성</RowButton>
+                      )}
+                      <RowButton danger onClick={() => handleDelete(p)}>삭제</RowButton>
+                    </div>
+                  </Td>
+                )}
+              </Tr>
+            ))}
+          </TBody>
+        </Table>
+      </TableCard>
 
       {/* 모달 */}
       {(creating || editing) && (
