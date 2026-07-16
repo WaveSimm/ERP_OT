@@ -6,7 +6,7 @@
 html { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 
 /* 색 없는 bare `border`(기본색 #e5e7eb)의 다크모드 대응.
-   @layer base 라서 border-gray-*/border-blue-* 등 유틸리티는 항상 우선함 →
+   @layer base 라서 border-gray-· border-blue-· 등 유틸리티는 항상 우선함 →
    색을 명시한 테두리는 그대로 두고, 색 미지정 border만 다크에서 #374151로 낮춤. */
 @layer base {
   *, ::before, ::after { border-color: #e5e7eb; }
