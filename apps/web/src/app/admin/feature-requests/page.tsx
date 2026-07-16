@@ -12,24 +12,25 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { postApi, getUser } from "@/lib/api";
 import { fmtDate } from "@/lib/datetime";
+import { TableCard, Table, THead, Th, TBody, Tr, Td, TableEmpty } from "@/components/ui/Table";
 
 const STATUS_LABEL: Record<string, { text: string; color: string }> = {
-  SUBMITTED:    { text: "접수",    color: "bg-gray-100 text-gray-700 border-gray-300" },
-  UNDER_REVIEW: { text: "검토중",  color: "bg-blue-100 text-blue-700 border-blue-300" },
-  APPROVED:     { text: "승인",    color: "bg-emerald-100 text-emerald-700 border-emerald-300" },
-  IN_PROGRESS:  { text: "진행중",  color: "bg-amber-100 text-amber-700 border-amber-300" },
-  COMPLETED:    { text: "완료",    color: "bg-green-200 text-green-800 border-green-400" },
-  REJECTED:     { text: "반려",    color: "bg-red-100 text-red-700 border-red-300" },
-  ON_HOLD:      { text: "보류",    color: "bg-stone-200 text-stone-700 border-stone-400" },
+  SUBMITTED:    { text: "접수",    color: "bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" },
+  UNDER_REVIEW: { text: "검토중",  color: "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-500/30" },
+  APPROVED:     { text: "승인",    color: "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30" },
+  IN_PROGRESS:  { text: "진행중",  color: "bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30" },
+  COMPLETED:    { text: "완료",    color: "bg-green-200 text-green-800 border-green-400 dark:bg-green-500/20 dark:text-green-300 dark:border-green-500/30" },
+  REJECTED:     { text: "반려",    color: "bg-red-100 text-red-700 border-red-300 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/30" },
+  ON_HOLD:      { text: "보류",    color: "bg-stone-200 text-stone-700 border-stone-400 dark:bg-stone-500/20 dark:text-stone-300 dark:border-stone-500/30" },
 };
 
 const TYPE_LABEL: Record<string, string> = {
-  BUG: "🐛 버그",
-  NEW_FEATURE: "✨ 신규 기능",
-  IMPROVEMENT: "📈 개선",
-  UI_UX: "🎨 UI/UX",
-  DOCS: "📄 매뉴얼·문서",
-  OTHER: "📌 기타",
+  BUG: "버그",
+  NEW_FEATURE: "신규 기능",
+  IMPROVEMENT: "개선",
+  UI_UX: "UI/UX",
+  DOCS: "매뉴얼·문서",
+  OTHER: "기타",
 };
 
 export default function FeatureRequestsAdminPage() {
@@ -175,7 +176,7 @@ export default function FeatureRequestsAdminPage() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="border border-gray-300 rounded px-2 py-1 bg-white"
+                className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800"
               >
                 <option value="">전체</option>
                 {Object.keys(STATUS_LABEL).map((s) => (
@@ -184,55 +185,52 @@ export default function FeatureRequestsAdminPage() {
               </select>
             </div>
           </div>
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            {filteredPosts.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-gray-400">등록된 항목이 없습니다.</div>
-            ) : (
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 text-xs text-gray-500">
-                  <tr>
-                    <th className="text-left px-3 py-2 font-medium w-24">상태</th>
-                    <th className="text-left px-3 py-2 font-medium w-28">유형</th>
-                    <th className="text-left px-3 py-2 font-medium">제목</th>
-                    <th className="text-left px-3 py-2 font-medium w-28">모듈</th>
-                    <th className="text-left px-3 py-2 font-medium w-24">작성자</th>
-                    <th className="text-left px-3 py-2 font-medium w-24">작성일</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredPosts.map((p) => {
-                    const sl = p.requestStatus ? STATUS_LABEL[p.requestStatus] : null;
-                    const typeLabel = p.requestType ? TYPE_LABEL[p.requestType] : "—";
-                    return (
-                      <tr key={p.id} className="border-t border-gray-100 hover:bg-blue-50/30 dark:hover:bg-blue-500/10">
-                        <td className="px-3 py-2">
-                          {sl ? (
-                            <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-medium border ${sl.color}`}>
-                              {sl.text}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-gray-400">—</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2 text-xs text-gray-700">{typeLabel}</td>
-                        <td className="px-3 py-2">
-                          <Link
-                            href={`/board/feature-request/feature-request-all/${p.id}`}
-                            className="text-blue-700 hover:underline dark:text-blue-300"
-                          >
-                            {p.title}
-                          </Link>
-                        </td>
-                        <td className="px-3 py-2 text-xs text-gray-600">{p.moduleArea ?? "—"}</td>
-                        <td className="px-3 py-2 text-xs text-gray-600">{p.author?.name ?? "—"}</td>
-                        <td className="px-3 py-2 text-xs text-gray-500">{fmtDate(p.publishedAt)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
+          <TableCard>
+            <Table fixed columnDividers>
+              <colgroup>
+                <col className="w-[10%]" />
+                <col className="w-[12%]" />
+                <col className="w-[40%]" />
+                <col className="w-[14%]" />
+                <col className="w-[12%]" />
+                <col className="w-[12%]" />
+              </colgroup>
+              <THead>
+                <Th align="center">상태</Th>
+                <Th align="center">유형</Th>
+                <Th align="center">제목</Th>
+                <Th align="center">모듈</Th>
+                <Th align="center">작성자</Th>
+                <Th align="center">작성일</Th>
+              </THead>
+              <TBody>
+                {filteredPosts.length === 0 ? (
+                  <TableEmpty colSpan={6}>등록된 항목이 없습니다.</TableEmpty>
+                ) : filteredPosts.map((p) => {
+                  const sl = p.requestStatus ? STATUS_LABEL[p.requestStatus] : null;
+                  const typeLabel = p.requestType ? TYPE_LABEL[p.requestType] : "—";
+                  return (
+                    <Tr key={p.id}>
+                      <Td align="center">
+                        {sl ? (
+                          <span className={`inline-block px-2 py-0.5 rounded text-[11px] font-medium border whitespace-nowrap ${sl.color}`}>{sl.text}</span>
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
+                      </Td>
+                      <Td align="center" truncate>{typeLabel}</Td>
+                      <Td strong truncate title={p.title}>
+                        <Link href={`/board/feature-request/feature-request-all/${p.id}`} className="hover:underline">{p.title}</Link>
+                      </Td>
+                      <Td dash align="center" truncate title={p.moduleArea ?? undefined}>{p.moduleArea}</Td>
+                      <Td dash align="center" truncate title={p.author?.name ?? undefined}>{p.author?.name}</Td>
+                      <Td align="center" mono>{fmtDate(p.publishedAt)}</Td>
+                    </Tr>
+                  );
+                })}
+              </TBody>
+            </Table>
+          </TableCard>
         </div>
 
         <div className="mt-6 px-4 py-3 bg-blue-50/60 border border-blue-200 rounded-lg text-sm text-gray-700 dark:bg-blue-500/10 dark:border-blue-900">

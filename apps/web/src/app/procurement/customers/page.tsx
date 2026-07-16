@@ -214,23 +214,22 @@ export default function CustomersPage() {
                     <td colSpan={8} className="bg-gray-50 px-6 py-3">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-sm font-medium text-gray-700">담당자 목록</span>
-                        <button onClick={() => { resetContactForm(); setShowContactForm(true); }}
-                          className="text-xs text-blue-600 hover:underline dark:text-blue-400">+ 추가</button>
+                        <RowButton onClick={() => { resetContactForm(); setShowContactForm(true); }}>+ 추가</RowButton>
                       </div>
                       {contacts.length === 0 ? (
                         <p className="text-xs text-gray-400">등록된 담당자가 없습니다.</p>
                       ) : (
                         <div className="space-y-1">
                           {contacts.map((ct) => (
-                            <div key={ct.id} className="flex items-center gap-3 text-sm bg-white rounded px-3 py-2 border">
+                            <div key={ct.id} className="flex items-center gap-3 text-sm bg-white dark:bg-gray-800 rounded px-3 py-2 border border-gray-200">
                               <span className="font-medium">{ct.name}</span>
-                              {ct.isPrimary && <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">주담당</span>}
+                              {ct.isPrimary && <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 px-1.5 py-0.5 rounded">주담당</span>}
                               <span className="text-gray-400 text-xs">{ct.department || ""} {ct.position || ""}</span>
                               <span className="text-gray-500 text-xs">{ct.phone || ""}</span>
                               <span className="text-gray-500 text-xs">{ct.email || ""}</span>
-                              <div className="ml-auto flex gap-2">
-                                <button onClick={() => handleContactEdit(ct)} className="text-blue-600 hover:underline text-xs dark:text-blue-400">수정</button>
-                                <button onClick={() => handleContactDelete(ct.id)} className="text-red-500 hover:underline text-xs dark:text-red-400">삭제</button>
+                              <div className="ml-auto flex gap-1.5">
+                                <RowButton onClick={() => handleContactEdit(ct)}>수정</RowButton>
+                                <RowButton danger onClick={() => handleContactDelete(ct.id)}>삭제</RowButton>
                               </div>
                             </div>
                           ))}

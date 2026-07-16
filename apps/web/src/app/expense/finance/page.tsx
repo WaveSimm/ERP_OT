@@ -7,6 +7,7 @@ import { fmtDate, fmtDateTime24 } from "@/lib/datetime";
 import { SettlementStatusBadge } from "../_components/settlement-status-badge";
 import { useTableSort } from "@/lib/hooks/useTableSort";
 import { useBulkSelect } from "@/lib/hooks/useBulkSelect";
+import { TableCard, Table, THead, Th, TBody, Tr, Td, TableEmpty, RowButton } from "@/components/ui/Table";
 
 export default function FinanceQueuePage() {
   const [tab, setTab] = useState<"APPROVED" | "RECEIVED">("APPROVED");
@@ -121,68 +122,62 @@ export default function FinanceQueuePage() {
         </div>
       )}
 
-      {loading ? (
-        <div className="py-12 text-center text-gray-400">불러오는 중...</div>
-      ) : sortedItems.length === 0 ? (
-        <div className="py-12 text-center text-gray-400">처리할 정산이 없습니다.</div>
-      ) : (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-xs text-gray-500 border-b border-gray-200">
-              <tr>
-                {tab === "APPROVED" && (
-                  <th className="px-3 py-2 w-8 text-center">
-                    <input type="checkbox" checked={sel.isAllSelected()} onChange={sel.toggleAll}
-                      ref={sel.headerRef} className="cursor-pointer" />
-                  </th>
-                )}
-                <th onClick={() => sort.handleSort("title")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">정산{sort.sortIndicator("title")}</th>
-                <th onClick={() => sort.handleSort("periodStart")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">기간{sort.sortIndicator("periodStart")}</th>
-                <th onClick={() => sort.handleSort("totalCount")} className="px-3 py-2 text-right cursor-pointer hover:bg-gray-100 select-none">건수{sort.sortIndicator("totalCount")}</th>
-                <th onClick={() => sort.handleSort("totalAmount")} className="px-3 py-2 text-right cursor-pointer hover:bg-gray-100 select-none">총액{sort.sortIndicator("totalAmount")}</th>
-                <th onClick={() => sort.handleSort("approvedAt")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">결재완료{sort.sortIndicator("approvedAt")}</th>
-                <th className="px-3 py-2 text-center">상태</th>
-                <th className="px-3 py-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedItems.map((s) => {
-                const checked = sel.isSelected(s.id);
-                return (
-                  <tr key={s.id} className={`border-t border-gray-100 ${checked ? "bg-blue-50/40" : ""}`}>
-                    {tab === "APPROVED" && (
-                      <td className="px-3 py-2 text-center">
-                        <input type="checkbox" checked={checked}
-                          onMouseDown={sel.handleMouseDown}
-                          onChange={() => sel.handleChange(s.id)}
-                          className="cursor-pointer" />
-                      </td>
+      <TableCard>
+        <Table columnDividers>
+          <THead>
+            {tab === "APPROVED" && (
+              <Th align="center" className="w-8">
+                <input type="checkbox" checked={sel.isAllSelected()} onChange={sel.toggleAll}
+                  ref={sel.headerRef} className="cursor-pointer" />
+              </Th>
+            )}
+            <Th align="center" onClick={() => sort.handleSort("title")} className="cursor-pointer hover:bg-gray-100 select-none">정산{sort.sortIndicator("title")}</Th>
+            <Th align="center" onClick={() => sort.handleSort("periodStart")} className="cursor-pointer hover:bg-gray-100 select-none">기간{sort.sortIndicator("periodStart")}</Th>
+            <Th align="center" onClick={() => sort.handleSort("totalCount")} className="cursor-pointer hover:bg-gray-100 select-none">건수{sort.sortIndicator("totalCount")}</Th>
+            <Th align="center" onClick={() => sort.handleSort("totalAmount")} className="cursor-pointer hover:bg-gray-100 select-none">총액{sort.sortIndicator("totalAmount")}</Th>
+            <Th align="center" onClick={() => sort.handleSort("approvedAt")} className="cursor-pointer hover:bg-gray-100 select-none">결재완료{sort.sortIndicator("approvedAt")}</Th>
+            <Th align="center">상태</Th>
+            <Th align="center">작업</Th>
+          </THead>
+          <TBody>
+            {loading ? (
+              <TableEmpty colSpan={tab === "APPROVED" ? 8 : 7}>불러오는 중...</TableEmpty>
+            ) : sortedItems.length === 0 ? (
+              <TableEmpty colSpan={tab === "APPROVED" ? 8 : 7}>처리할 정산이 없습니다.</TableEmpty>
+            ) : sortedItems.map((s) => {
+              const checked = sel.isSelected(s.id);
+              return (
+                <Tr key={s.id} className={checked ? "bg-blue-50/40 dark:bg-blue-500/10" : ""}>
+                  {tab === "APPROVED" && (
+                    <Td align="center">
+                      <input type="checkbox" checked={checked}
+                        onMouseDown={sel.handleMouseDown}
+                        onChange={() => sel.handleChange(s.id)}
+                        className="cursor-pointer" />
+                    </Td>
+                  )}
+                  <Td strong>
+                    <Link href={`/expense/settlements/${s.id}`} className="hover:underline">{s.title}</Link>
+                  </Td>
+                  <Td align="center" className="whitespace-nowrap text-xs">{fmtDate(s.periodStart)} ~ {fmtDate(s.periodEnd)}</Td>
+                  <Td align="right" mono>{s.totalCount}</Td>
+                  <Td align="right" mono>{Number(s.totalAmount).toLocaleString()}원</Td>
+                  <Td align="center" mono className="whitespace-nowrap">{s.approvedAt ? fmtDateTime24(s.approvedAt, { short: true }) : "-"}</Td>
+                  <Td align="center"><SettlementStatusBadge status={s.status} /></Td>
+                  <Td align="center">
+                    {s.status === "APPROVED" && (
+                      <RowButton onClick={() => receive(s.id)}>접수</RowButton>
                     )}
-                    <td className="px-3 py-2">
-                      <Link href={`/expense/settlements/${s.id}`} className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
-                        {s.title}
-                      </Link>
-                    </td>
-                    <td className="px-3 py-2 text-xs text-gray-500">{fmtDate(s.periodStart)} ~ {fmtDate(s.periodEnd)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-xs">{s.totalCount}</td>
-                    <td className="px-3 py-2 text-right tabular-nums font-medium">{Number(s.totalAmount).toLocaleString()}원</td>
-                    <td className="px-3 py-2 text-xs text-gray-500">{s.approvedAt ? fmtDateTime24(s.approvedAt, { short: true }) : "-"}</td>
-                    <td className="px-3 py-2 text-center"><SettlementStatusBadge status={s.status} /></td>
-                    <td className="px-3 py-2 text-right">
-                      {s.status === "APPROVED" && (
-                        <button onClick={() => receive(s.id)} className="px-2.5 py-1 text-xs bg-blue-600 text-white rounded">접수</button>
-                      )}
-                      {s.status === "RECEIVED" && (
-                        <button onClick={() => pay(s)} className="px-2.5 py-1 text-xs bg-green-600 text-white rounded">입금 완료</button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+                    {s.status === "RECEIVED" && (
+                      <RowButton onClick={() => pay(s)}>입금 완료</RowButton>
+                    )}
+                  </Td>
+                </Tr>
+              );
+            })}
+          </TBody>
+        </Table>
+      </TableCard>
     </div>
   );
 }

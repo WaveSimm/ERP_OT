@@ -4,12 +4,13 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { approvalApi } from "@/lib/api";
 import { useFillHeight } from "@/hooks/useFillHeight";
+import { TableCard, Table, THead, Th, TBody, Tr, Td, TableEmpty, StatusBadge } from "@/components/ui/Table";
 
 function getStatusStyle(status: string) {
-  if (status === "DRAFT") return "bg-gray-100 text-gray-700";
-  if (status === "APPROVED") return "bg-green-100 text-green-700";
-  if (status === "REJECTED") return "bg-red-100 text-red-700";
-  return "bg-yellow-100 text-yellow-700"; // 결재중
+  if (status === "DRAFT") return "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200";
+  if (status === "APPROVED") return "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300";
+  if (status === "REJECTED") return "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300";
+  return "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300"; // 결재중
 }
 
 function getStatusLabel(status: string) {
@@ -53,75 +54,69 @@ export default function ApprovalPage() {
 
   return (
     <div>
-      {loading ? (
-        <div className="text-center py-12 text-gray-400">로딩 중...</div>
-      ) : documents.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">
-          {tab === "pending" ? "대기 중인 결재가 없습니다." :
-           tab === "sent" ? "상신한 문서가 없습니다." : "완료된 문서가 없습니다."}
-        </div>
-      ) : (
-        <div ref={tableBoxRef} className="bg-white rounded-lg border border-gray-200 overflow-auto" style={{ maxHeight: tableMaxH }}>
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 z-10 bg-gray-50 text-gray-600 [&>tr>th]:border-b [&>tr>th]:border-gray-200">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium">문서번호</th>
-                <th className="text-left px-4 py-3 font-medium">양식</th>
-                <th className="text-left px-4 py-3 font-medium">제목</th>
-                <th className="text-left px-4 py-3 font-medium">기안자</th>
-                <th className="text-left px-4 py-3 font-medium">결재자</th>
-                <th className="text-center px-4 py-3 font-medium">상태</th>
-                <th className="text-center px-4 py-3 font-medium">금액</th>
-                <th className="text-right px-4 py-3 font-medium">상신일</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {documents.map((doc: any) => (
-                <tr
-                  key={doc.id}
-                  className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => router.push(`/approval/${doc.id}`)}
-                >
-                  <td className="px-4 py-3 text-gray-500 font-mono text-xs">
-                    {doc.documentNumber || "-"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">
-                      {doc.template?.name || "-"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 font-medium">{doc.title || "-"}</td>
-                  <td className="px-4 py-3 text-gray-600">{doc.requesterName || doc.drafterName || "-"}</td>
-                  <td className="px-4 py-3 text-gray-600">
-                    {(() => {
-                      if (doc.status === "DRAFT") return "-";
-                      const steps = doc.steps || [];
-                      if (doc.status === "APPROVED" || doc.status === "REJECTED") {
-                        const acted = steps.filter((s: any) => s.status === "APPROVED" || s.status === "REJECTED");
-                        const last = acted.sort((a: any, b: any) => b.stepOrder - a.stepOrder)[0];
-                        return last?.approverName || "-";
-                      }
-                      const pending = steps.find((s: any) => s.status === "PENDING");
-                      return pending?.approverName || "-";
-                    })()}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={`text-xs px-2 py-0.5 rounded ${getStatusStyle(doc.status)}`}>
-                      {getStatusLabel(doc.status)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {(doc.amount || doc.itemsTotal || doc.totalAmount) ? `₩${Number(doc.amount || doc.itemsTotal || doc.totalAmount).toLocaleString()}` : "-"}
-                  </td>
-                  <td className="px-4 py-3 text-right text-gray-500">
-                    {doc.submittedAt ? new Date(doc.submittedAt).toLocaleDateString("ko-KR") : "-"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <TableCard scrollRef={tableBoxRef} maxHeight={tableMaxH}>
+        <Table fixed columnDividers>
+          <colgroup>
+            <col className="w-[11%]" />
+            <col className="w-[12%]" />
+            <col className="w-[22%]" />
+            <col className="w-[10%]" />
+            <col className="w-[10%]" />
+            <col className="w-[9%]" />
+            <col className="w-[14%]" />
+            <col className="w-[12%]" />
+          </colgroup>
+          <THead>
+            <Th align="center">문서번호</Th>
+            <Th align="center">양식</Th>
+            <Th align="center">제목</Th>
+            <Th align="center">기안자</Th>
+            <Th align="center">결재자</Th>
+            <Th align="center">상태</Th>
+            <Th align="center">금액</Th>
+            <Th align="center">상신일</Th>
+          </THead>
+          <TBody>
+            {loading ? (
+              <TableEmpty colSpan={8}>로딩 중...</TableEmpty>
+            ) : documents.length === 0 ? (
+              <TableEmpty colSpan={8}>
+                {tab === "pending" ? "대기 중인 결재가 없습니다." :
+                 tab === "sent" ? "상신한 문서가 없습니다." : "완료된 문서가 없습니다."}
+              </TableEmpty>
+            ) : documents.map((doc: any) => (
+              <Tr key={doc.id} onClick={() => router.push(`/approval/${doc.id}`)}>
+                <Td dash mono align="left" truncate title={doc.documentNumber || undefined}>{doc.documentNumber}</Td>
+                <Td align="center"><StatusBadge color="gray">{doc.template?.name || "-"}</StatusBadge></Td>
+                <Td strong truncate title={doc.title || undefined}>{doc.title || "-"}</Td>
+                <Td dash align="center" truncate title={doc.requesterName || doc.drafterName || undefined}>{doc.requesterName || doc.drafterName}</Td>
+                <Td align="center" truncate>
+                  {(() => {
+                    if (doc.status === "DRAFT") return "-";
+                    const steps = doc.steps || [];
+                    if (doc.status === "APPROVED" || doc.status === "REJECTED") {
+                      const acted = steps.filter((s: any) => s.status === "APPROVED" || s.status === "REJECTED");
+                      const last = acted.sort((a: any, b: any) => b.stepOrder - a.stepOrder)[0];
+                      return last?.approverName || "-";
+                    }
+                    const pending = steps.find((s: any) => s.status === "PENDING");
+                    return pending?.approverName || "-";
+                  })()}
+                </Td>
+                <Td align="center">
+                  <span className={`text-xs px-2 py-0.5 rounded ${getStatusStyle(doc.status)}`}>
+                    {getStatusLabel(doc.status)}
+                  </span>
+                </Td>
+                <Td align="right" mono>
+                  {(doc.amount || doc.itemsTotal || doc.totalAmount) ? `₩${Number(doc.amount || doc.itemsTotal || doc.totalAmount).toLocaleString()}` : "-"}
+                </Td>
+                <Td align="center" mono>{doc.submittedAt ? new Date(doc.submittedAt).toLocaleDateString("ko-KR") : "-"}</Td>
+              </Tr>
+            ))}
+          </TBody>
+        </Table>
+      </TableCard>
     </div>
   );
 }

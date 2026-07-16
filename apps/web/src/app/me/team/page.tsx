@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { teamApi, getUser } from "@/lib/api";
 import { useRouter } from "next/navigation";
+import { TableCard, Table, THead, Th, TBody, Tr, Td, TableEmpty } from "@/components/ui/Table";
 
 const APPROVAL_STATUS: Record<string, { label: string; color: string }> = {
   PENDING:   { label: "대기",  color: "text-amber-600 bg-amber-50" },
@@ -195,43 +196,45 @@ function TeamAttendanceTable() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="text-sm text-gray-400 text-center py-6">불러오는 중...</div>
-      ) : (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">이름</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500">출근</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-orange-500 dark:text-orange-400">지각</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-red-500 dark:text-red-400">결근</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-blue-500 dark:text-blue-400">휴가</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500">총 근무</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-purple-500 dark:text-purple-400">휴일근무</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {members.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-400 text-xs">팀원 데이터가 없습니다.</td>
-                </tr>
-              )}
-              {members.map((m: any) => (
-                <tr key={m.userId} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-900">{m.name}</td>
-                  <td className="px-4 py-3 text-center text-gray-700">{m.normalCount ?? 0}</td>
-                  <td className="px-4 py-3 text-center text-orange-600 dark:text-orange-400">{m.lateCount ?? 0}</td>
-                  <td className="px-4 py-3 text-center text-red-600 dark:text-red-400">{m.absentCount ?? 0}</td>
-                  <td className="px-4 py-3 text-center text-blue-600 dark:text-blue-400">{m.leaveCount ?? 0}</td>
-                  <td className="px-4 py-3 text-center text-gray-700">{fmtMinutes(m.totalWorkMinutes ?? 0)}</td>
-                  <td className="px-4 py-3 text-center text-purple-600 dark:text-purple-400">{(m.totalOtHours ?? 0).toFixed(1)}h</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <TableCard>
+        <Table fixed columnDividers>
+          <colgroup>
+            <col className="w-[22%]" />
+            <col className="w-[13%]" />
+            <col className="w-[13%]" />
+            <col className="w-[13%]" />
+            <col className="w-[13%]" />
+            <col className="w-[13%]" />
+            <col className="w-[13%]" />
+          </colgroup>
+          <THead>
+            <Th align="center">이름</Th>
+            <Th align="center">출근</Th>
+            <Th align="center" className="text-orange-500 dark:text-orange-400">지각</Th>
+            <Th align="center" className="text-red-500 dark:text-red-400">결근</Th>
+            <Th align="center" className="text-blue-500 dark:text-blue-400">휴가</Th>
+            <Th align="center">총 근무</Th>
+            <Th align="center" className="text-purple-500 dark:text-purple-400">휴일근무</Th>
+          </THead>
+          <TBody>
+            {loading ? (
+              <TableEmpty colSpan={7}>불러오는 중...</TableEmpty>
+            ) : members.length === 0 ? (
+              <TableEmpty colSpan={7}>팀원 데이터가 없습니다.</TableEmpty>
+            ) : members.map((m: any) => (
+              <Tr key={m.userId}>
+                <Td strong>{m.name}</Td>
+                <Td align="center" mono>{m.normalCount ?? 0}</Td>
+                <Td align="center" mono className="text-orange-600 dark:text-orange-400">{m.lateCount ?? 0}</Td>
+                <Td align="center" mono className="text-red-600 dark:text-red-400">{m.absentCount ?? 0}</Td>
+                <Td align="center" mono className="text-blue-600 dark:text-blue-400">{m.leaveCount ?? 0}</Td>
+                <Td align="center" mono>{fmtMinutes(m.totalWorkMinutes ?? 0)}</Td>
+                <Td align="center" mono className="text-purple-600 dark:text-purple-400">{(m.totalOtHours ?? 0).toFixed(1)}h</Td>
+              </Tr>
+            ))}
+          </TBody>
+        </Table>
+      </TableCard>
     </div>
   );
 }

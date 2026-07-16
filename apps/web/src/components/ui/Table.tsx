@@ -37,7 +37,7 @@
  * 치환하면 시각 통일이 끝납니다. (className 은 필요 시 override 가능)
  */
 
-import type { ReactNode, Ref, HTMLAttributes, ThHTMLAttributes, TdHTMLAttributes } from "react";
+import type { ReactNode, Ref, HTMLAttributes, ButtonHTMLAttributes, ThHTMLAttributes, TdHTMLAttributes } from "react";
 
 /* 내부 유틸: 조건부 className 결합 */
 function cx(...parts: Array<string | false | null | undefined>): string {
@@ -310,7 +310,7 @@ export function TableActions({
   return <div className={cx("flex items-center gap-1.5", justify, className)}>{children}</div>;
 }
 
-interface RowButtonProps extends HTMLAttributes<HTMLButtonElement> {
+interface RowButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** 위험 액션(삭제 등): hover 시 빨강 */
   danger?: boolean;
   /** 보기/펼치기 등 비변경 액션: hover 시 회색 (수정=파랑, 삭제=빨강과 구분) */

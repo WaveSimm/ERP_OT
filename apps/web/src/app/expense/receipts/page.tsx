@@ -6,6 +6,7 @@ import { fmtDateTime24 } from "@/lib/datetime";
 import { useTableSort } from "@/lib/hooks/useTableSort";
 import { useBulkSelect } from "@/lib/hooks/useBulkSelect";
 import ReceiptDetailModal from "@/components/expense/ReceiptDetailModal";
+import { TableCard, Table, THead, Th, TBody, Tr, Td, TableEmpty } from "@/components/ui/Table";
 
 const OCR_LABEL: Record<string, string> = {
   PENDING: "OCR 대기",
@@ -15,10 +16,10 @@ const OCR_LABEL: Record<string, string> = {
 };
 
 const OCR_COLOR: Record<string, string> = {
-  PENDING: "bg-gray-100 text-gray-600",
-  RUNNING: "bg-blue-100 text-blue-700 animate-pulse",
-  DONE: "bg-emerald-100 text-emerald-700",
-  FAILED: "bg-red-100 text-red-700",
+  PENDING: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+  RUNNING: "bg-blue-100 text-blue-700 animate-pulse dark:bg-blue-500/20 dark:text-blue-300",
+  DONE: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
+  FAILED: "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300",
 };
 
 export default function ReceiptsPage() {
@@ -174,56 +175,53 @@ export default function ReceiptsPage() {
         </div>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr className="text-xs text-gray-500">
-              <th className="px-3 py-2 w-8 text-center">
-                <input type="checkbox" checked={sel.isAllSelected()} onChange={sel.toggleAll}
-                  ref={sel.headerRef} className="cursor-pointer" />
-              </th>
-              <th className="px-3 py-2 text-left">미리보기</th>
-              <th onClick={() => sort.handleSort("originalFileName")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">파일명{sort.sortIndicator("originalFileName")}</th>
-              <th onClick={() => sort.handleSort("ocrStatus")} className="px-3 py-2 text-center cursor-pointer hover:bg-gray-100 select-none">OCR{sort.sortIndicator("ocrStatus")}</th>
-              <th onClick={() => sort.handleSort("extractedMerchant")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">추출 가맹점{sort.sortIndicator("extractedMerchant")}</th>
-              <th onClick={() => sort.handleSort("extractedAmount")} className="px-3 py-2 text-right cursor-pointer hover:bg-gray-100 select-none">추출 금액{sort.sortIndicator("extractedAmount")}</th>
-              <th onClick={() => sort.handleSort("extractedDate")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">추출 일시{sort.sortIndicator("extractedDate")}</th>
-              <th onClick={() => sort.handleSort("matches")} className="px-3 py-2 text-center cursor-pointer hover:bg-gray-100 select-none">매칭{sort.sortIndicator("matches")}</th>
-              <th onClick={() => sort.handleSort("uploadedAt")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">업로드{sort.sortIndicator("uploadedAt")}</th>
-            </tr>
-          </thead>
-          <tbody>
+      <TableCard>
+        <Table columnDividers>
+          <THead>
+            <Th align="center" className="w-8">
+              <input type="checkbox" checked={sel.isAllSelected()} onChange={sel.toggleAll}
+                ref={sel.headerRef} className="cursor-pointer" />
+            </Th>
+            <Th align="center">미리보기</Th>
+            <Th align="center" onClick={() => sort.handleSort("originalFileName")} className="cursor-pointer hover:bg-gray-100 select-none">파일명{sort.sortIndicator("originalFileName")}</Th>
+            <Th align="center" onClick={() => sort.handleSort("ocrStatus")} className="cursor-pointer hover:bg-gray-100 select-none">OCR{sort.sortIndicator("ocrStatus")}</Th>
+            <Th align="center" onClick={() => sort.handleSort("extractedMerchant")} className="cursor-pointer hover:bg-gray-100 select-none">추출 가맹점{sort.sortIndicator("extractedMerchant")}</Th>
+            <Th align="center" onClick={() => sort.handleSort("extractedAmount")} className="cursor-pointer hover:bg-gray-100 select-none">추출 금액{sort.sortIndicator("extractedAmount")}</Th>
+            <Th align="center" onClick={() => sort.handleSort("extractedDate")} className="cursor-pointer hover:bg-gray-100 select-none">추출 일시{sort.sortIndicator("extractedDate")}</Th>
+            <Th align="center" onClick={() => sort.handleSort("matches")} className="cursor-pointer hover:bg-gray-100 select-none">매칭{sort.sortIndicator("matches")}</Th>
+            <Th align="center" onClick={() => sort.handleSort("uploadedAt")} className="cursor-pointer hover:bg-gray-100 select-none">업로드{sort.sortIndicator("uploadedAt")}</Th>
+          </THead>
+          <TBody>
             {loading ? (
-              <tr><td colSpan={9} className="py-12 text-center text-gray-400">불러오는 중...</td></tr>
+              <TableEmpty colSpan={9}>불러오는 중...</TableEmpty>
             ) : sortedItems.length === 0 ? (
-              <tr><td colSpan={9} className="py-12 text-center text-gray-400">아직 영수증이 없습니다.</td></tr>
+              <TableEmpty colSpan={9}>아직 영수증이 없습니다.</TableEmpty>
             ) : sortedItems.map((r) => {
               const checked = sel.isSelected(r.id);
               return (
-                <tr key={r.id}
-                  onClick={() => setDetailId(r.id)}
-                  className={`border-t border-gray-100 cursor-pointer hover:bg-gray-50 ${checked ? "bg-blue-50/40 hover:bg-blue-50/60 dark:bg-blue-500/10 dark:hover:bg-blue-500/20" : ""}`}>
-                  <td className="px-3 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                <Tr key={r.id} onClick={() => setDetailId(r.id)}
+                  className={checked ? "bg-blue-50/40 hover:bg-blue-50/60 dark:bg-blue-500/10 dark:hover:bg-blue-500/20" : ""}>
+                  <Td align="center" onClick={(e) => e.stopPropagation()}>
                     <input type="checkbox" checked={checked}
                       onMouseDown={sel.handleMouseDown}
                       onChange={() => sel.handleChange(r.id)}
                       className="cursor-pointer" />
-                  </td>
-                  <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                  </Td>
+                  <Td align="center" onClick={(e) => e.stopPropagation()}>
                     {r.fileType?.startsWith("image/") ? (
                       <a href={expenseApi.receiptDownloadUrl(r.id)} target="_blank" rel="noopener">
                         <img src={expenseApi.receiptDownloadUrl(r.id)} alt={r.originalFileName}
-                          className="w-12 h-12 object-cover rounded border border-gray-200" />
+                          className="w-12 h-12 object-cover rounded border border-gray-200 inline-block" />
                       </a>
                     ) : (
                       <a href={expenseApi.receiptDownloadUrl(r.id)} target="_blank" rel="noopener"
-                        className="text-blue-600 dark:text-blue-400 text-xs hover:underline">📄</a>
+                        className="text-xs hover:underline">📄</a>
                     )}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-gray-700 max-w-[200px] truncate" title={r.originalFileName}>{r.originalFileName}</td>
-                  <td className="px-3 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                  </Td>
+                  <Td className="max-w-[200px] truncate text-xs" title={r.originalFileName}>{r.originalFileName}</Td>
+                  <Td align="center" onClick={(e) => e.stopPropagation()}>
                     <div className="inline-flex items-center gap-1">
-                      <span className={`text-xs px-2 py-0.5 rounded ${OCR_COLOR[r.ocrStatus] ?? "bg-gray-100"}`}>
+                      <span className={`text-xs px-2 py-0.5 rounded whitespace-nowrap ${OCR_COLOR[r.ocrStatus] ?? "bg-gray-100 dark:bg-gray-700 dark:text-gray-300"}`}>
                         {OCR_LABEL[r.ocrStatus] ?? r.ocrStatus}
                       </span>
                       {(r.ocrStatus === "FAILED" || r.ocrStatus === "DONE") && (
@@ -231,20 +229,16 @@ export default function ReceiptsPage() {
                           onClick={() => retryOcr(r.id)}
                           disabled={retryingId === r.id}
                           title="OCR 재시도"
-                          className="text-xs px-1.5 py-0.5 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50">
+                          className="text-xs px-1.5 py-0.5 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50">
                           {retryingId === r.id ? "..." : "🔄"}
                         </button>
                       )}
                     </div>
-                  </td>
-                  <td className="px-3 py-2 text-sm">{r.extractedMerchant ?? <span className="text-gray-400">-</span>}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    {r.extractedAmount ? Number(r.extractedAmount).toLocaleString() : <span className="text-gray-400">-</span>}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-gray-600">
-                    {r.extractedDate ? fmtDateTime24(r.extractedDate, { short: true }) : <span className="text-gray-400">-</span>}
-                  </td>
-                  <td className="px-3 py-2 text-center text-xs">
+                  </Td>
+                  <Td dash>{r.extractedMerchant}</Td>
+                  <Td align="right" mono>{r.extractedAmount ? Number(r.extractedAmount).toLocaleString() : <span className="text-gray-400">-</span>}</Td>
+                  <Td align="center" mono className="whitespace-nowrap">{r.extractedDate ? fmtDateTime24(r.extractedDate, { short: true }) : "-"}</Td>
+                  <Td align="center">
                     {(() => {
                       const confirmed = (r.matches ?? []).filter((m: any) => m.confirmedAt).length;
                       const candidate = (r.matches ?? []).filter((m: any) => !m.confirmedAt).length;
@@ -252,14 +246,14 @@ export default function ReceiptsPage() {
                       if (candidate > 0) return <span className="text-amber-600 dark:text-amber-400">⚡{candidate}</span>;
                       return <span className="text-gray-400">없음</span>;
                     })()}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">{fmtDateTime24(r.uploadedAt, { short: true })}</td>
-                </tr>
+                  </Td>
+                  <Td align="center" mono className="whitespace-nowrap">{fmtDateTime24(r.uploadedAt, { short: true })}</Td>
+                </Tr>
               );
             })}
-          </tbody>
-        </table>
-      </div>
+          </TBody>
+        </Table>
+      </TableCard>
 
       {detailId && (
         <ReceiptDetailModal

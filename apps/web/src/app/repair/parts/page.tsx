@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { repairApi, supplierApi } from "@/lib/api";
 import SearchableSelect from "@/components/SearchableSelect";
+import { TableCard, Table, THead, Th, TBody, Tr, Td, TableActions, RowButton, TableEmpty } from "@/components/ui/Table";
 
 export default function PartsPage() {
   const [parts, setParts] = useState<any[]>([]);
@@ -96,18 +97,20 @@ export default function PartsPage() {
   return (
     <div className="space-y-4">
       {/* 검색/필터 */}
-      <div className="flex items-center gap-3">
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="부품번호, 이름, 제조사 검색"
-          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
-        <label className="flex items-center gap-1 text-sm text-gray-600">
+      <div className="flex items-center gap-3 flex-wrap">
+        <label className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300">
           <input type="checkbox" checked={lowStock} onChange={(e) => setLowStock(e.target.checked)}
-            className="rounded border-gray-300" />
+            className="rounded border-gray-300 dark:border-gray-600" />
           재고 부족
         </label>
-        <button onClick={() => { resetForm(); setShowForm(true); }}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700">+ 부품 등록</button>
-        <button onClick={() => setShowTxForm(!showTxForm)}
-          className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">입출고</button>
+        <div className="ml-auto flex items-center gap-3">
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="부품번호, 이름, 제조사 검색"
+            className="w-64 px-3 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-lg text-sm" />
+          <button onClick={() => { resetForm(); setShowForm(true); }}
+            className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700">+ 부품 등록</button>
+          <button onClick={() => setShowTxForm(!showTxForm)}
+            className="px-4 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">입출고</button>
+        </div>
       </div>
 
       {/* 입출고 폼 */}
@@ -203,50 +206,58 @@ export default function PartsPage() {
       )}
 
       {/* 부품 목록 */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        {loading ? (
-          <div className="py-8 text-center text-gray-400">불러오는 중...</div>
-        ) : parts.length === 0 ? (
-          <div className="py-8 text-center text-gray-400">등록된 부품이 없습니다.</div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="py-2 px-3 text-left text-xs text-gray-500">부품번호</th>
-                <th className="py-2 px-3 text-left text-xs text-gray-500">이름</th>
-                <th className="py-2 px-3 text-left text-xs text-gray-500">제조사</th>
-                <th className="py-2 px-3 text-right text-xs text-gray-500">단가</th>
-                <th className="py-2 px-3 text-right text-xs text-gray-500">재고</th>
-                <th className="py-2 px-3 text-right text-xs text-gray-500">최소</th>
-                <th className="py-2 px-3 text-left text-xs text-gray-500">위치</th>
-                <th className="py-2 px-3 text-right text-xs text-gray-500"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {parts.map((p) => {
-                const isLow = p.stockQuantity <= p.minStockLevel;
-                return (
-                  <tr key={p.id} className="border-t border-gray-100 hover:bg-gray-50">
-                    <td className="py-2 px-3 font-medium text-gray-800">{p.partNumber}</td>
-                    <td className="py-2 px-3">{p.name}</td>
-                    <td className="py-2 px-3 text-gray-600">{p.manufacturer || "-"}</td>
-                    <td className="py-2 px-3 text-right">{p.unitPrice ? Number(p.unitPrice).toLocaleString() : "-"}</td>
-                    <td className={`py-2 px-3 text-right font-semibold ${isLow ? "text-red-600 dark:text-red-400" : "text-gray-800"}`}>
-                      {p.stockQuantity}
-                    </td>
-                    <td className="py-2 px-3 text-right text-gray-500">{p.minStockLevel}</td>
-                    <td className="py-2 px-3 text-gray-500">{p.location || "-"}</td>
-                    <td className="py-2 px-3 text-right">
-                      <button onClick={() => editPart(p)} className="text-xs text-blue-600 hover:underline mr-2 dark:text-blue-400">수정</button>
-                      <button onClick={() => deletePart(p.id)} className="text-xs text-red-400 hover:underline">삭제</button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <TableCard>
+        <Table fixed columnDividers>
+          <colgroup>
+            <col className="w-[13%]" />
+            <col className="w-[20%]" />
+            <col className="w-[14%]" />
+            <col className="w-[11%]" />
+            <col className="w-[8%]" />
+            <col className="w-[8%]" />
+            <col className="w-[14%]" />
+            <col className="w-[12%]" />
+          </colgroup>
+          <THead>
+            <Th align="center">부품번호</Th>
+            <Th align="center">이름</Th>
+            <Th align="center">제조사</Th>
+            <Th align="center">단가</Th>
+            <Th align="center">재고</Th>
+            <Th align="center">최소</Th>
+            <Th align="center">위치</Th>
+            <Th align="center">작업</Th>
+          </THead>
+          <TBody>
+            {loading ? (
+              <TableEmpty colSpan={8}>불러오는 중...</TableEmpty>
+            ) : parts.length === 0 ? (
+              <TableEmpty colSpan={8}>등록된 부품이 없습니다.</TableEmpty>
+            ) : parts.map((p) => {
+              const isLow = p.stockQuantity <= p.minStockLevel;
+              return (
+                <Tr key={p.id}>
+                  <Td strong mono align="left" truncate title={p.partNumber}>{p.partNumber}</Td>
+                  <Td truncate title={p.name}>{p.name}</Td>
+                  <Td dash truncate title={p.manufacturer || undefined}>{p.manufacturer}</Td>
+                  <Td align="right" mono>{p.unitPrice ? Number(p.unitPrice).toLocaleString() : "-"}</Td>
+                  <Td align="right" mono>
+                    <span className={isLow ? "font-semibold text-red-600 dark:text-red-400" : ""}>{p.stockQuantity}</span>
+                  </Td>
+                  <Td align="right" mono>{p.minStockLevel}</Td>
+                  <Td dash truncate title={p.location || undefined}>{p.location}</Td>
+                  <Td align="center">
+                    <TableActions>
+                      <RowButton onClick={() => editPart(p)}>수정</RowButton>
+                      <RowButton danger onClick={() => deletePart(p.id)}>삭제</RowButton>
+                    </TableActions>
+                  </Td>
+                </Tr>
+              );
+            })}
+          </TBody>
+        </Table>
+      </TableCard>
     </div>
   );
 }

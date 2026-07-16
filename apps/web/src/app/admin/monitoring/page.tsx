@@ -10,13 +10,14 @@ import {
   type AlertEvent,
 } from "@/lib/api";
 import { fmtDateTime24 } from "@/lib/datetime";
+import { TableCard, Table, THead, Th, TBody, Tr, Td, TableEmpty, RowButton } from "@/components/ui/Table";
 
 const LEVEL_BADGE: Record<string, string> = {
-  CRIT: "bg-red-100 text-red-700",
-  WARN: "bg-amber-100 text-amber-700",
-  RECOVER: "bg-emerald-100 text-emerald-700",
-  TEST: "bg-indigo-100 text-indigo-700",
-  INFO: "bg-gray-100 text-gray-600",
+  CRIT: "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300",
+  WARN: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
+  RECOVER: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
+  TEST: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300",
+  INFO: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
 };
 
 export default function MonitoringPage() {
@@ -137,8 +138,7 @@ export default function MonitoringPage() {
             디스크 등 시스템 자원을 감시하고 임계 초과 시 이메일로 알립니다. 발송은 호스트 notifier가 큐를 처리합니다.
           </p>
         </div>
-        <button onClick={loadAll} disabled={busy}
-          className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50 disabled:opacity-50">새로고침</button>
+        <RowButton neutral disabled={busy} className="disabled:opacity-50" onClick={loadAll}>새로고침</RowButton>
       </div>
 
       {error && <div className="p-3 bg-red-50 text-red-700 dark:text-red-300 rounded text-sm">{error}</div>}
@@ -149,7 +149,7 @@ export default function MonitoringPage() {
         <h2 className="text-lg font-semibold text-gray-700 mb-3">모니터</h2>
         <div className="space-y-3">
           {monitors.map((mon) => (
-            <div key={mon.key} className="border rounded-lg p-4 bg-white">
+            <div key={mon.key} className="border border-gray-200 rounded-lg p-4 bg-white">
               <div className="flex items-center justify-between">
                 <div>
                   <span className="font-medium text-gray-800">{mon.name}</span>
@@ -159,7 +159,7 @@ export default function MonitoringPage() {
                   )}
                 </div>
                 <button onClick={() => toggleMonitor(mon)} disabled={busy}
-                  className={`px-3 py-1 text-xs rounded-full ${mon.enabled ? "bg-emerald-100 text-emerald-700" : "bg-gray-200 text-gray-500"}`}>
+                  className={`px-3 py-1 text-xs rounded-full ${mon.enabled ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300" : "bg-gray-200 text-gray-500"}`}>
                   {mon.enabled ? "활성" : "비활성"}
                 </button>
               </div>
@@ -169,16 +169,15 @@ export default function MonitoringPage() {
                     경고(WARN) %
                     <input type="number" min={1} max={100} value={edits[mon.key].warn}
                       onChange={(e) => setEdits((s) => ({ ...s, [mon.key]: { ...s[mon.key], warn: e.target.value } }))}
-                      className="block mt-1 w-24 border rounded px-2 py-1 text-sm" />
+                      className="block mt-1 w-24 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded px-2 py-1 text-sm" />
                   </label>
                   <label className="text-sm text-gray-600">
                     위험(CRIT) %
                     <input type="number" min={1} max={100} value={edits[mon.key].crit}
                       onChange={(e) => setEdits((s) => ({ ...s, [mon.key]: { ...s[mon.key], crit: e.target.value } }))}
-                      className="block mt-1 w-24 border rounded px-2 py-1 text-sm" />
+                      className="block mt-1 w-24 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded px-2 py-1 text-sm" />
                   </label>
-                  <button onClick={() => saveThresholds(mon)} disabled={busy}
-                    className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">저장</button>
+                  <RowButton disabled={busy} className="disabled:opacity-50" onClick={() => saveThresholds(mon)}>저장</RowButton>
                 </div>
               )}
             </div>
@@ -189,18 +188,17 @@ export default function MonitoringPage() {
       {/* 수신자 */}
       <section>
         <h2 className="text-lg font-semibold text-gray-700 mb-3">알림 수신자 (전역)</h2>
-        <div className="border rounded-lg bg-white divide-y">
+        <div className="border border-gray-200 rounded-lg bg-white divide-y divide-gray-200">
           {recipients.length === 0 && <div className="p-4 text-sm text-gray-400">등록된 수신자가 없습니다.</div>}
           {recipients.map((r) => (
             <div key={r.id} className="flex items-center justify-between px-4 py-2.5">
               <span className={`text-sm ${r.enabled ? "text-gray-800" : "text-gray-400 line-through"}`}>{r.address}</span>
               <div className="flex items-center gap-2">
                 <button onClick={() => toggleRecipient(r)} disabled={busy}
-                  className={`px-2.5 py-1 text-xs rounded-full ${r.enabled ? "bg-emerald-100 text-emerald-700" : "bg-gray-200 text-gray-500"}`}>
+                  className={`px-2.5 py-1 text-xs rounded-full ${r.enabled ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300" : "bg-gray-200 text-gray-500"}`}>
                   {r.enabled ? "수신" : "중지"}
                 </button>
-                <button onClick={() => removeRecipient(r)} disabled={busy}
-                  className="px-2.5 py-1 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 rounded">삭제</button>
+                <RowButton danger disabled={busy} className="disabled:opacity-50" onClick={() => removeRecipient(r)}>삭제</RowButton>
               </div>
             </div>
           ))}
@@ -208,11 +206,9 @@ export default function MonitoringPage() {
             <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addRecipient()}
               placeholder="email@example.com"
-              className="flex-1 border rounded px-3 py-1.5 text-sm" />
-            <button onClick={addRecipient} disabled={busy || !newEmail.trim()}
-              className="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-700 disabled:opacity-50">추가</button>
-            <button onClick={sendTest} disabled={busy}
-              className="px-3 py-1.5 text-sm border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-50 dark:hover:bg-blue-950 disabled:opacity-50">테스트 발송</button>
+              className="flex-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded px-3 py-1.5 text-sm" />
+            <RowButton disabled={busy} className="disabled:opacity-50" onClick={addRecipient}>추가</RowButton>
+            <RowButton neutral disabled={busy} className="disabled:opacity-50" onClick={sendTest}>테스트 발송</RowButton>
           </div>
         </div>
       </section>
@@ -220,43 +216,48 @@ export default function MonitoringPage() {
       {/* 이벤트 이력 */}
       <section>
         <h2 className="text-lg font-semibold text-gray-700 mb-3">이벤트 이력</h2>
-        <div className="border rounded-lg bg-white overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-500 text-xs">
-              <tr>
-                <th className="text-left px-3 py-2 font-medium">시각</th>
-                <th className="text-left px-3 py-2 font-medium">레벨</th>
-                <th className="text-left px-3 py-2 font-medium">모니터</th>
-                <th className="text-left px-3 py-2 font-medium">대상</th>
-                <th className="text-left px-3 py-2 font-medium">메시지</th>
-                <th className="text-left px-3 py-2 font-medium">발송</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {events.length === 0 && (
-                <tr><td colSpan={6} className="px-3 py-6 text-center text-gray-400">이벤트가 없습니다.</td></tr>
-              )}
-              {events.map((e) => (
-                <tr key={e.id} className="hover:bg-gray-50">
-                  <td className="px-3 py-2 whitespace-nowrap text-gray-600">{fmtDateTime24(e.createdAt, { short: true })}</td>
-                  <td className="px-3 py-2">
-                    <span className={`px-2 py-0.5 rounded text-xs ${LEVEL_BADGE[e.level] ?? "bg-gray-100 text-gray-600"}`}>{e.level}</span>
-                  </td>
-                  <td className="px-3 py-2 text-gray-600">{e.monitorKey}</td>
-                  <td className="px-3 py-2 text-gray-600">{e.source ?? "—"}</td>
-                  <td className="px-3 py-2 text-gray-700">{e.message}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">
+        <TableCard>
+          <Table fixed columnDividers>
+            <colgroup>
+              <col className="w-[15%]" />
+              <col className="w-[9%]" />
+              <col className="w-[15%]" />
+              <col className="w-[13%]" />
+              <col className="w-[36%]" />
+              <col className="w-[12%]" />
+            </colgroup>
+            <THead>
+              <Th align="center">시각</Th>
+              <Th align="center">레벨</Th>
+              <Th align="center">모니터</Th>
+              <Th align="center">대상</Th>
+              <Th align="center">메시지</Th>
+              <Th align="center">발송</Th>
+            </THead>
+            <TBody>
+              {events.length === 0 ? (
+                <TableEmpty colSpan={6}>이벤트가 없습니다.</TableEmpty>
+              ) : events.map((e) => (
+                <Tr key={e.id}>
+                  <Td align="center" mono className="whitespace-nowrap">{fmtDateTime24(e.createdAt, { short: true })}</Td>
+                  <Td align="center">
+                    <span className={`px-2 py-0.5 rounded text-xs whitespace-nowrap ${LEVEL_BADGE[e.level] ?? "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"}`}>{e.level}</span>
+                  </Td>
+                  <Td dash mono align="left" truncate title={e.monitorKey}>{e.monitorKey}</Td>
+                  <Td dash truncate title={e.source ?? undefined}>{e.source}</Td>
+                  <Td truncate title={e.message}>{e.message}</Td>
+                  <Td align="center" className="whitespace-nowrap">
                     {e.notify
                       ? (e.notifiedAt
                           ? <span className="text-emerald-600 dark:text-emerald-400 text-xs">✓ {fmtDateTime24(e.notifiedAt, { short: true })}</span>
                           : <span className="text-amber-600 dark:text-amber-400 text-xs">대기</span>)
-                      : <span className="text-gray-300 text-xs">—</span>}
-                  </td>
-                </tr>
+                      : <span className="text-gray-400 text-xs">—</span>}
+                  </Td>
+                </Tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TBody>
+          </Table>
+        </TableCard>
       </section>
     </div>
   );
