@@ -651,7 +651,7 @@ function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: 
           </div>
         </td>
 
-        {/* 프로젝트명 + 펼침 토글 */}
+        {/* 이름 — 프로젝트명 + 소유자·업데이트(작게) */}
         <td className="px-3 py-2.5">
           <div className="flex items-center gap-1.5 min-w-0">
             <button
@@ -668,46 +668,49 @@ function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: 
               <span className="shrink-0 text-xs text-red-600 dark:text-red-400 font-medium">CP지연</span>
             )}
           </div>
-          <div className="text-xs text-gray-400 mt-0.5 pl-5">{fmtDate(row.lastUpdatedAt)} 업데이트</div>
+          <div className="text-xs text-gray-400 mt-0.5 pl-5 truncate">{fmtDate(row.lastUpdatedAt)} 업데이트</div>
         </td>
 
-        {/* 소유자 — 프로젝트명과 타임라인 사이 */}
-        <td className="px-3 py-2.5 w-[120px] text-xs text-gray-500">
+        {/* 소유자 */}
+        <td className="px-3 py-2.5 text-xs text-gray-500">
           <span className="truncate block">
-            {ownerName ? <span title={`프로젝트 소유자: ${ownerName}`}>{ownerName}</span> : <span className="text-gray-300">-</span>}
+            {ownerName ? <span title={`소유자: ${ownerName}`}>{ownerName}</span> : <span className="text-gray-300">-</span>}
           </span>
         </td>
 
-        {/* 미니 타임라인 */}
-        <td className="px-3 py-1.5 w-[260px]">
+        {/* 타임라인 */}
+        <td className="px-3 py-1.5">
           <MiniTimeline events={row.weeklyTimeline} centerDate={date} />
         </td>
 
-        {/* 자원 — 접힌 행에선 비움(펼치면 태스크별 담당자 표시) */}
-        <td className="px-3 py-2.5 w-[160px] text-xs text-gray-300">-</td>
+        {/* 자원 — 헤더 행에선 비움(펼치면 태스크별 담당자) */}
+        <td className="px-3 py-2.5 text-xs text-gray-300">-</td>
 
-        {/* 진행률 — 타임라인 옆 (간격 넓힘) */}
-        <td className="pl-10 pr-3 py-2.5 w-28">
-          <div className="flex items-center gap-2">
+        {/* 진행률 */}
+        <td className="px-2 py-2.5">
+          <div className="flex items-center gap-1.5">
             <div className="flex-1 bg-gray-200 rounded-full h-1.5 overflow-hidden">
               <div
                 className={`h-1.5 rounded-full transition-all ${row.ragStatus === "RED" ? "bg-red-500" : row.ragStatus === "AMBER" ? "bg-yellow-400" : "bg-green-500"}`}
                 style={{ width: `${row.overallProgress}%` }}
               />
             </div>
-            <span className="text-xs text-gray-600 w-7 text-right">{row.overallProgress}%</span>
+            <span className="text-[11px] text-gray-600 shrink-0">{row.overallProgress}%</span>
           </div>
         </td>
 
+        {/* 비고 — 헤더 행에선 비움(펼치면 태스크별 최신 비고) */}
+        <td className="px-3 py-2.5 text-xs text-gray-300">-</td>
+
         {/* 이슈 — 카테고리 배지(지연/이슈/정체/예정/마일스톤). 로딩 전엔 심각도 숫자 배지 폴백 */}
-        <td className="pl-10 pr-3 py-2.5 whitespace-nowrap">
+        <td className="px-3 py-2.5">
           {totalIssues > 0 ? (
             issueCat ? (
-              <div className="flex items-center gap-1 text-xs">
+              <div className="flex items-center gap-1 flex-wrap text-xs">
                 <IssueCatBadges counts={issueCat} onSelect={setPopupCat} />
               </div>
             ) : (
-              <button onClick={() => setPopupCat("__all__")} className="flex items-center gap-1 text-xs">
+              <button onClick={() => setPopupCat("__all__")} className="flex items-center gap-1 flex-wrap text-xs">
                 {row.issueCount.critical > 0 && (
                   <span className="bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-medium">{row.issueCount.critical}</span>
                 )}
@@ -723,122 +726,78 @@ function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: 
             <span className="text-xs text-gray-300">-</span>
           )}
         </td>
-
-        {/* 여백 — 남는 가로를 오른쪽 끝에서 흡수 */}
-        <td />
       </tr>
 
-      {/* 펼침: ±7일 태스크 */}
-      {expanded && (
-        <tr className="border-b border-gray-100 last:border-b-0 bg-gray-50/50">
-          <td />
-          <td colSpan={7} className="px-3 py-2">
-            {loadingTasks && <span className="text-xs text-gray-400">태스크 불러오는 중…</span>}
-            {!loadingTasks && treeRows.length === 0 && (
-              <span className="text-xs text-gray-400">전주·이번주(±7일)에 해당하는 태스크가 없습니다.</span>
-            )}
-            {!loadingTasks && treeRows.length > 0 && (
-              <ul className="space-y-0.5">
-                {treeRows.map(({ task: t, depth, isLeaf }) => {
-                  const hasIssue = issueTaskIds.has(t.id);
-                  const issueText = issueByTask.get(t.id);
-                  const noteText = noteByTask.get(t.id);
-                  // 태스크 자원(담당자) 이름 — gantt 데이터의 resourceName 그대로 사용
-                  const assigneeNames = isLeaf
-                    ? Array.from(new Set(
-                        (t.segments ?? []).flatMap((s: any) => (s.assignments ?? []).map((a: any) => a.resourceName as string).filter(Boolean)),
-                      ))
-                    : [];
-                  return (
-                    <li key={t.id}>
-                      <button
-                        type="button"
-                        onClick={() => onSelectTask(t, row.id)}
-                        className={`w-full text-left flex items-center gap-3 text-sm rounded px-2 py-1.5 border transition-colors ${
-                          hasIssue
-                            ? "bg-red-50 border-red-300 text-red-800 dark:bg-red-500/10 hover:bg-red-100"
-                            : isLeaf
-                            ? "bg-white border-gray-100 text-gray-700 hover:bg-blue-50"
-                            : "bg-gray-50 border-transparent text-gray-800 hover:bg-blue-50"
-                        }`}
-                      >
-                        {/* 이름 존 — 고정폭(320px). 트리 들여쓰기는 내부 padding으로 처리해
-                            깊이와 무관하게 뒤따르는 타임라인 위치를 고정 */}
-                        <span
-                          className="w-[400px] shrink-0 flex items-center gap-1 overflow-hidden"
-                          style={{ paddingLeft: depth * 18 }}
-                        >
-                          {isLeaf && depth > 0 && <span className="text-gray-300 shrink-0">└</span>}
-                          {t.isMilestone && <span className="text-purple-600 shrink-0" title="마일스톤">◆</span>}
-                          {!isLeaf && <span className="text-gray-300 shrink-0">▸</span>}
-                          <span className={`truncate min-w-0 ${!isLeaf ? "font-semibold" : hasIssue ? "font-semibold" : "font-medium"}`}>{t.name}</span>
-                        </span>
-                        {isLeaf && (
-                          <>
-                            {/* 태스크명 → 타임라인 → 자원 → 비고 → 이슈. 타임라인은 프로젝트 행과 동일 위치 */}
-                            <span className="shrink-0 w-[260px]">
-                              <TaskMiniTimeline task={t} centerDate={date} />
-                            </span>
-                            {/* 자원(담당자) — 아바타 스택(간트와 동일), 최대 3 + +N */}
-                            <span className="shrink-0 w-[160px] flex items-center">
-                              {assigneeNames.length > 0 ? (
-                                <>
-                                  {assigneeNames.slice(0, 4).map((name, idx) => (
-                                    <span
-                                      key={name}
-                                      title={name}
-                                      className={`w-6 h-6 rounded-full ${avatarColor(name)} flex items-center justify-center text-white text-[9px] font-bold ring-2 ring-white shrink-0`}
-                                      style={{ marginLeft: idx === 0 ? 0 : -8, zIndex: 4 - idx }}
-                                    >
-                                      {name.slice(0, 2)}
-                                    </span>
-                                  ))}
-                                  {assigneeNames.length > 4 && (
-                                    <span
-                                      className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-[8px] font-bold ring-2 ring-white shrink-0"
-                                      style={{ marginLeft: -8, zIndex: 0 }}
-                                      title={assigneeNames.slice(4).join(", ")}
-                                    >
-                                      +{assigneeNames.length - 4}
-                                    </span>
-                                  )}
-                                </>
-                              ) : (
-                                <span className="text-gray-300 text-sm">-</span>
-                              )}
-                            </span>
-                            {/* 비고 컬럼 */}
-                            <span className="flex-1 min-w-0 truncate">
-                              {noteText
-                                ? <span className="text-gray-500" title={noteText}>{noteText}</span>
-                                : <span className="text-gray-300">-</span>}
-                            </span>
-                            {/* 이슈 컬럼 */}
-                            <span className="flex-1 min-w-0 truncate">
-                              {issueText
-                                ? <span className="text-red-600 font-medium" title={issueText}>{issueText}</span>
-                                : <span className="text-gray-300">-</span>}
-                            </span>
-                          </>
-                        )}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            {/* 하단 접기 — 위로 스크롤하지 않고 바로 접기 */}
-            {!loadingTasks && (
-              <div className="mt-2 flex justify-center">
-                <button
-                  type="button"
-                  onClick={collapse}
-                  className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1 rounded hover:bg-gray-100 transition-colors"
-                >
-                  ▲ 접기
-                </button>
+      {/* 펼침: ±7일 태스크 — 헤더와 동일한 7열(table-fixed)로 정렬 */}
+      {expanded && loadingTasks && (
+        <tr className="bg-gray-50/50"><td /><td colSpan={7} className="px-3 py-2 text-xs text-gray-400">태스크 불러오는 중…</td></tr>
+      )}
+      {expanded && !loadingTasks && treeRows.length === 0 && (
+        <tr className="bg-gray-50/50"><td /><td colSpan={7} className="px-3 py-2 text-xs text-gray-400">전주·이번주(±7일)에 해당하는 태스크가 없습니다.</td></tr>
+      )}
+      {expanded && !loadingTasks && treeRows.map(({ task: t, depth, isLeaf }) => {
+        const hasIssue = issueTaskIds.has(t.id);
+        const issueText = issueByTask.get(t.id);
+        const noteText = noteByTask.get(t.id);
+        const assigneeNames = isLeaf
+          ? Array.from(new Set((t.segments ?? []).flatMap((s: any) => (s.assignments ?? []).map((a: any) => a.resourceName as string).filter(Boolean))))
+          : [];
+        return (
+          <tr key={t.id}
+            onClick={() => onSelectTask(t, row.id)}
+            className={`border-b border-gray-100 cursor-pointer text-sm transition-colors ${hasIssue ? "bg-red-50 hover:bg-red-100 dark:bg-red-500/10 text-red-800" : "bg-gray-50/50 hover:bg-blue-50 text-gray-700"}`}>
+            <td />
+            {/* 이름 — 트리 들여쓰기(내부 padding → 타임라인 위치 고정) */}
+            <td className="px-3 py-1.5">
+              <div className="flex items-center gap-1 overflow-hidden" style={{ paddingLeft: depth * 18 }}>
+                {isLeaf && depth > 0 && <span className="text-gray-300 shrink-0">└</span>}
+                {t.isMilestone && <span className="text-purple-600 shrink-0" title="마일스톤">◆</span>}
+                {!isLeaf && <span className="text-gray-300 shrink-0">▸</span>}
+                <span className={`truncate ${!isLeaf || hasIssue ? "font-semibold" : "font-medium"}`}>{t.name}</span>
               </div>
-            )}
+            </td>
+            {/* 소유자 — 태스크 행은 비움 */}
+            <td />
+            {/* 타임라인 */}
+            <td className="px-3 py-1.5">{isLeaf && <TaskMiniTimeline task={t} centerDate={date} />}</td>
+            {/* 자원 — 아바타 스택 */}
+            <td className="px-3 py-1.5">
+              {isLeaf && (assigneeNames.length > 0 ? (
+                <div className="flex items-center">
+                  {assigneeNames.slice(0, 4).map((name, idx) => (
+                    <span key={name} title={name}
+                      className={`w-6 h-6 rounded-full ${avatarColor(name)} flex items-center justify-center text-white text-[9px] font-bold ring-2 ring-white shrink-0`}
+                      style={{ marginLeft: idx === 0 ? 0 : -8, zIndex: 4 - idx }}>
+                      {name.slice(0, 2)}
+                    </span>
+                  ))}
+                  {assigneeNames.length > 4 && (
+                    <span className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-[8px] font-bold ring-2 ring-white shrink-0"
+                      style={{ marginLeft: -8, zIndex: 0 }} title={assigneeNames.slice(4).join(", ")}>
+                      +{assigneeNames.length - 4}
+                    </span>
+                  )}
+                </div>
+              ) : <span className="text-gray-300 text-xs">-</span>)}
+            </td>
+            {/* 진행률 — 태스크 행은 비움 */}
+            <td className="px-2 py-1.5" />
+            {/* 비고 */}
+            <td className="px-3 py-1.5 truncate">
+              {isLeaf && (noteText ? <span className="text-gray-500" title={noteText}>{noteText}</span> : <span className="text-gray-300">-</span>)}
+            </td>
+            {/* 이슈 */}
+            <td className="px-3 py-1.5 truncate">
+              {isLeaf && (issueText ? <span className="text-red-600 font-medium" title={issueText}>{issueText}</span> : <span className="text-gray-300">-</span>)}
+            </td>
+          </tr>
+        );
+      })}
+      {expanded && !loadingTasks && treeRows.length > 0 && (
+        <tr className="bg-gray-50/50 border-b border-gray-100">
+          <td colSpan={8} className="py-1 text-center">
+            <button type="button" onClick={collapse}
+              className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1 rounded hover:bg-gray-100 transition-colors">▲ 접기</button>
           </td>
         </tr>
       )}
@@ -865,13 +824,13 @@ function FolderSection({ name, isDept, rows, date, onPin, onSelectTask, ownerByP
             <thead>
               <tr className="bg-gray-50 text-xs font-medium text-gray-600 border-b border-gray-200">
                 <th className="px-3 py-1.5 text-left w-10"></th>
-                <th className="px-3 py-1.5 text-left w-[280px]">프로젝트</th>
-                <th className="px-3 py-1.5 text-left w-[120px]">소유자</th>
-                <th className="px-3 py-1.5 text-left w-[260px]">타임라인 (±7일)</th>
-                <th className="px-3 py-1.5 text-left w-[160px]">자원</th>
-                <th className="pl-10 pr-3 py-1.5 text-left w-28">진행률</th>
-                <th className="pl-10 pr-3 py-1.5 text-left w-24">이슈</th>
-                <th className="px-3 py-1.5 text-left"></th>
+                <th className="px-3 py-1.5 text-left w-[260px]">프로젝트</th>
+                <th className="px-3 py-1.5 text-left w-[100px]">소유자</th>
+                <th className="px-3 py-1.5 text-left w-[288px]">타임라인 (±7일)</th>
+                <th className="px-3 py-1.5 text-left w-[110px]">자원</th>
+                <th className="px-2 py-1.5 text-left w-[84px]">진행률</th>
+                <th className="px-3 py-1.5 text-left">비고</th>
+                <th className="px-3 py-1.5 text-left">이슈</th>
               </tr>
             </thead>
             <tbody>
