@@ -350,7 +350,7 @@ function TaskMiniTimeline({ task, centerDate }: { task: Task; centerDate: string
       const delayed = e0 < centerDate && (s.progressPercent ?? 0) < 100;
       const color = delayed ? "#EF4444" : task.isCritical ? "#F97316" : "#22C55E";
       return (
-        <rect key={i} x={x1} y={10} width={Math.max(2, x2 - x1)} height={9} rx="2" fill={color} opacity={0.85}>
+        <rect key={i} x={x1} y={11} width={Math.max(2, x2 - x1)} height={6} rx="2" fill={color} opacity={0.85}>
           <title>{s.name} ({s.progressPercent ?? 0}%)</title>
         </rect>
       );
@@ -745,7 +745,7 @@ function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: 
         return (
           <tr key={t.id}
             onClick={() => onSelectTask(t, row.id)}
-            className={`border-b border-gray-100 cursor-pointer text-sm transition-colors ${hasIssue ? "bg-red-50 hover:bg-red-100 dark:bg-red-500/10 text-red-800" : "bg-gray-50/50 hover:bg-blue-50 text-gray-700"}`}>
+            className={`border-b border-gray-100 cursor-pointer text-sm transition-colors ${hasIssue ? "bg-red-50 hover:bg-red-100 dark:hover:bg-red-950 text-red-800 dark:text-red-300" : "bg-gray-50/50 dark:bg-gray-800/40 hover:bg-blue-50 dark:hover:bg-blue-950 text-gray-700"}`}>
             <td />
             {/* 이름 — 트리 들여쓰기(내부 padding → 타임라인 위치 고정) */}
             <td className="px-3 py-1.5">
@@ -766,13 +766,13 @@ function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: 
                 <div className="flex items-center">
                   {assigneeNames.slice(0, 4).map((name, idx) => (
                     <span key={name} title={name}
-                      className={`w-6 h-6 rounded-full ${avatarColor(name)} flex items-center justify-center text-white text-[9px] font-bold ring-2 ring-white shrink-0`}
+                      className={`w-6 h-6 rounded-full ${avatarColor(name)} flex items-center justify-center text-white text-[9px] font-bold ring-2 ring-white dark:ring-gray-900 shrink-0`}
                       style={{ marginLeft: idx === 0 ? 0 : -8, zIndex: 4 - idx }}>
                       {name.slice(0, 2)}
                     </span>
                   ))}
                   {assigneeNames.length > 4 && (
-                    <span className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-[8px] font-bold ring-2 ring-white shrink-0"
+                    <span className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-[8px] font-bold ring-2 ring-white dark:ring-gray-900 shrink-0"
                       style={{ marginLeft: -8, zIndex: 0 }} title={assigneeNames.slice(4).join(", ")}>
                       +{assigneeNames.length - 4}
                     </span>
@@ -788,7 +788,7 @@ function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: 
             </td>
             {/* 이슈 */}
             <td className="px-3 py-1.5 truncate">
-              {isLeaf && (issueText ? <span className="text-red-600 font-medium" title={issueText}>{issueText}</span> : <span className="text-gray-300">-</span>)}
+              {isLeaf && (issueText ? <span className="text-red-600 dark:text-red-400 font-medium" title={issueText}>{issueText}</span> : <span className="text-gray-300">-</span>)}
             </td>
           </tr>
         );
@@ -824,7 +824,7 @@ function FolderSection({ name, isDept, rows, date, onPin, onSelectTask, ownerByP
             <thead>
               <tr className="bg-gray-50 text-xs font-medium text-gray-600 border-b border-gray-200">
                 <th className="px-3 py-1.5 text-left w-10"></th>
-                <th className="px-3 py-1.5 text-left w-[260px]">프로젝트</th>
+                <th className="px-3 py-1.5 text-left w-[320px]">프로젝트</th>
                 <th className="px-3 py-1.5 text-left w-[100px]">소유자</th>
                 <th className="px-3 py-1.5 text-left w-[288px]">타임라인 (±7일)</th>
                 <th className="px-3 py-1.5 text-left w-[110px]">자원</th>
