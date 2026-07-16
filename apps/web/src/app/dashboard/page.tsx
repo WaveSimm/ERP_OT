@@ -569,19 +569,7 @@ function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: 
     <>
       {showIssues && <IssuePopup projectId={row.id} onClose={() => setShowIssues(false)} />}
 
-      {/* 프로젝트마다 컬럼 헤더 반복 (가독성) */}
-      <tr ref={headerRowRef} className="bg-gray-50 text-sm font-medium text-gray-500 border-b border-t border-gray-200 scroll-mt-16">
-        <th className="px-3 py-1.5 text-left w-10"></th>
-        <th className="px-3 py-1.5 text-left w-[280px]">프로젝트</th>
-        <th className="px-3 py-1.5 text-left w-[120px]">소유자</th>
-        <th className="px-3 py-1.5 text-left w-[260px]">타임라인 (±7일)</th>
-        <th className="px-3 py-1.5 text-left w-[160px]">자원</th>
-        <th className="pl-10 pr-3 py-1.5 text-left w-28">진행률</th>
-        <th className="pl-10 pr-3 py-1.5 text-left w-24">이슈</th>
-        <th className="px-3 py-1.5 text-left"></th>
-      </tr>
-
-      <tr className="border-b hover:bg-gray-50 transition-colors">
+      <tr ref={headerRowRef} className="border-b hover:bg-gray-50 transition-colors scroll-mt-16">
         <td className="px-3 py-2.5 w-10">
           <div className="flex items-center gap-1.5">
             <span className={`inline-block w-2.5 h-2.5 rounded-full ${RAG_COLOR[row.ragStatus]}`} />
@@ -800,6 +788,18 @@ function FolderSection({ name, isDept, rows, date, onPin, onSelectTask, ownerByP
       {open && (
         <div className="mt-1 rounded-lg border overflow-hidden">
           <table className="w-full table-fixed">
+            <thead>
+              <tr className="bg-gray-50 text-sm font-medium text-gray-500 border-b border-gray-200">
+                <th className="px-3 py-1.5 text-left w-10"></th>
+                <th className="px-3 py-1.5 text-left w-[280px]">프로젝트</th>
+                <th className="px-3 py-1.5 text-left w-[120px]">소유자</th>
+                <th className="px-3 py-1.5 text-left w-[260px]">타임라인 (±7일)</th>
+                <th className="px-3 py-1.5 text-left w-[160px]">자원</th>
+                <th className="pl-10 pr-3 py-1.5 text-left w-28">진행률</th>
+                <th className="pl-10 pr-3 py-1.5 text-left w-24">이슈</th>
+                <th className="px-3 py-1.5 text-left"></th>
+              </tr>
+            </thead>
             <tbody>
               {rows.map((p) => (
                 <FolderProjectRow key={p.id} row={p} date={date} onPin={onPin} onSelectTask={onSelectTask} ownerName={ownerByProject.get(p.id)} />
