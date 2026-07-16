@@ -468,8 +468,8 @@ function IssuePopup({ projectId, projectName, category, onClose }: { projectId: 
                           <span className={t.muted ? "text-gray-400" : "text-gray-800"}>{t.name}</span>
                         )}
                       </Td>
-                      <Td truncate className={t.cat === "MANUAL" ? "text-red-600 dark:text-red-400 font-bold" : "text-gray-900 dark:text-gray-100"}>
-                        {renderIssueContent(t)}
+                      <Td className={t.cat === "MANUAL" ? "text-red-600 dark:text-red-400 font-bold" : "text-gray-900 dark:text-gray-100"}>
+                        <span className="line-clamp-2">{renderIssueContent(t)}</span>
                       </Td>
                     </Tr>
                   );
