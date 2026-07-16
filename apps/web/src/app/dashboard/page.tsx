@@ -85,9 +85,9 @@ const RAG_RING: Record<string, string> = {
 };
 
 const RAG_TEXT: Record<string, string> = {
-  GREEN: "text-green-700",
-  AMBER: "text-yellow-700",
-  RED: "text-red-700",
+  GREEN: "text-green-700 dark:text-green-400",
+  AMBER: "text-yellow-700 dark:text-yellow-400",
+  RED: "text-red-700 dark:text-red-400",
 };
 
 const ISSUE_FILTER_OPTIONS = [
@@ -381,9 +381,9 @@ function IssuePopup({ projectId, onClose }: { projectId: string; onClose: () => 
   }, [projectId]);
 
   const SEV_COLOR: Record<string, string> = {
-    CRITICAL: "bg-red-100 text-red-800 border-red-200",
-    WARNING: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    INFO: "bg-blue-100 text-blue-800 border-blue-200",
+    CRITICAL: "bg-red-100 text-red-800 border-red-200 dark:bg-red-500/20 dark:text-red-50 dark:border-red-500/40",
+    WARNING: "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-500/20 dark:text-yellow-50 dark:border-yellow-500/40",
+    INFO: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-500/20 dark:text-blue-50 dark:border-blue-500/40",
   };
 
   return (
@@ -431,7 +431,7 @@ function ProjectRow({ row, date, onPin }: { row: ProjectRow; date: string; onPin
   return (
     <>
       {showIssues && <IssuePopup projectId={row.id} onClose={() => setShowIssues(false)} />}
-      <tr className="border-b hover:bg-gray-50 transition-colors">
+      <tr className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors">
         {/* RAG + 핀 */}
         <td className="px-3 py-2.5 w-10">
           <div className="flex items-center gap-1.5">
@@ -569,7 +569,7 @@ function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: 
     <>
       {showIssues && <IssuePopup projectId={row.id} onClose={() => setShowIssues(false)} />}
 
-      <tr ref={headerRowRef} className="border-b hover:bg-gray-50 transition-colors scroll-mt-16">
+      <tr ref={headerRowRef} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors scroll-mt-16">
         <td className="px-3 py-2.5 w-10">
           <div className="flex items-center gap-1.5">
             <span className={`inline-block w-2.5 h-2.5 rounded-full ${RAG_COLOR[row.ragStatus]}`} />
@@ -656,7 +656,7 @@ function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: 
 
       {/* 펼침: ±7일 태스크 */}
       {expanded && (
-        <tr className="border-b bg-gray-50/50">
+        <tr className="border-b border-gray-100 last:border-b-0 bg-gray-50/50">
           <td />
           <td colSpan={7} className="px-3 py-2">
             {loadingTasks && <span className="text-xs text-gray-400">태스크 불러오는 중…</span>}
@@ -786,10 +786,10 @@ function FolderSection({ name, isDept, rows, date, onPin, onSelectTask, ownerByP
         <span className="text-xs text-gray-500">{rows.length}개 프로젝트</span>
       </button>
       {open && (
-        <div className="mt-1 rounded-lg border overflow-hidden">
+        <div className="mt-1 rounded-lg border border-gray-200 overflow-hidden">
           <table className="w-full table-fixed">
             <thead>
-              <tr className="bg-gray-50 text-sm font-medium text-gray-500 border-b border-gray-200">
+              <tr className="bg-gray-50 text-xs font-medium text-gray-600 border-b border-gray-200">
                 <th className="px-3 py-1.5 text-left w-10"></th>
                 <th className="px-3 py-1.5 text-left w-[280px]">프로젝트</th>
                 <th className="px-3 py-1.5 text-left w-[120px]">소유자</th>
@@ -858,7 +858,7 @@ function FolderProjectsView({ folders, projects, date, onPin, onSelectTask, owne
         <div className="flex justify-end">
           <button
             onClick={toggleAll}
-            className="text-xs px-3 py-1.5 border rounded-lg hover:bg-gray-100 transition-colors text-gray-600"
+            className="text-xs px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-600"
           >
             {allCollapsed ? "전체 펼치기" : "전체 접기"}
           </button>
@@ -912,10 +912,10 @@ function GroupAccordion({ group, date, onPin }: { group: DashboardGroup; date: s
         {sc.critical > 0 && <span className="text-xs text-red-600 dark:text-red-400">{sc.critical} 위험</span>}
       </button>
       {open && group.projects.length > 0 && (
-        <div className="mt-1 rounded-lg border overflow-hidden">
+        <div className="mt-1 rounded-lg border border-gray-200 overflow-hidden">
           <table className="w-full table-fixed">
             <thead>
-              <tr className="bg-gray-50 text-xs text-gray-500 border-b">
+              <tr className="bg-gray-50 text-xs font-medium text-gray-600 border-b border-gray-200">
                 <th className="px-3 py-1.5 text-left w-10"></th>
                 <th className="px-3 py-1.5 text-left">프로젝트</th>
                 <th className="px-3 py-1.5 text-left w-28">진행률</th>
@@ -941,9 +941,9 @@ function GroupAccordion({ group, date, onPin }: { group: DashboardGroup; date: s
 // ─── 요약 카드 상세 팝업 ─────────────────────────────────────────────────────
 
 const RAG_LABEL: Record<string, { text: string; cls: string }> = {
-  GREEN: { text: "정상", cls: "bg-green-100 text-green-700" },
-  AMBER: { text: "경고", cls: "bg-yellow-100 text-yellow-700" },
-  RED: { text: "위험", cls: "bg-red-100 text-red-700" },
+  GREEN: { text: "정상", cls: "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300" },
+  AMBER: { text: "경고", cls: "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300" },
+  RED: { text: "위험", cls: "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300" },
 };
 
 const SEV_KO: Record<string, string> = { CRITICAL: "위험", WARNING: "경고", INFO: "정보" };
@@ -971,9 +971,9 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const SEV_STYLE: Record<string, string> = {
-  CRITICAL: "border-red-200 bg-red-50 text-red-800",
-  WARNING: "border-yellow-200 bg-yellow-50 text-yellow-800",
-  INFO: "border-blue-200 bg-blue-50 text-blue-800",
+  CRITICAL: "bg-red-50 text-red-800 dark:text-red-50",
+  WARNING: "bg-yellow-50 text-yellow-800 dark:text-yellow-50",
+  INFO: "bg-blue-50 text-blue-800 dark:text-blue-50",
 };
 
 function SummaryDetailPopup({ type, date, onClose }: { type: string; date: string; onClose: () => void }) {
@@ -1025,7 +1025,7 @@ function SummaryDetailPopup({ type, date, onClose }: { type: string; date: strin
           {!loading && type === "projects" && Array.isArray(data) && (
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-xs text-gray-500">
+                <tr className="bg-gray-50 text-xs font-medium text-gray-600 border-b border-gray-200">
                   <th className="py-1.5 text-left px-2">상태</th>
                   <th className="py-1.5 text-left px-2">프로젝트</th>
                   <th className="py-1.5 text-right px-2">진행률</th>
@@ -1036,7 +1036,7 @@ function SummaryDetailPopup({ type, date, onClose }: { type: string; date: strin
                 {data.map((p: any) => {
                   const rag = RAG_LABEL[p.ragStatus] ?? RAG_LABEL.GREEN;
                   return (
-                    <tr key={p.id} className="border-b hover:bg-gray-50">
+                    <tr key={p.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
                       <td className="py-2 px-2">
                         <span title={ragTooltip(p.ragStatus, issuesByProject[p.id])} className={`text-[11px] px-2 py-0.5 rounded-full font-medium cursor-help ${rag.cls}`}>{rag.text}</span>
                       </td>
@@ -1088,7 +1088,7 @@ function SummaryDetailPopup({ type, date, onClose }: { type: string; date: strin
                           ? [item.issue.taskName]
                           : (item.issue.metadata?.tasks as any[])?.map((t: any) => t.name).filter(Boolean) ?? [];
                         return (
-                          <div key={idx} className={`border rounded-lg px-4 py-2.5 text-sm ${SEV_STYLE[item.issue.severity] ?? ""}`}>
+                          <div key={idx} className={`rounded-lg px-4 py-2.5 text-sm ${SEV_STYLE[item.issue.severity] ?? ""}`}>
                             <div className="flex items-center justify-between">
                               <span className="font-medium">{item.issue.title}</span>
                               <span className="text-[11px] opacity-70">{item.issue.severity}</span>
@@ -1111,7 +1111,7 @@ function SummaryDetailPopup({ type, date, onClose }: { type: string; date: strin
           {!loading && type === "starting" && Array.isArray(data) && (
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-xs text-gray-500">
+                <tr className="bg-gray-50 text-xs font-medium text-gray-600 border-b border-gray-200">
                   <th className="py-1.5 text-left px-2">시작일</th>
                   <th className="py-1.5 text-left px-2">프로젝트</th>
                   <th className="py-1.5 text-left px-2">태스크 / 세그먼트</th>
@@ -1123,7 +1123,7 @@ function SummaryDetailPopup({ type, date, onClose }: { type: string; date: strin
                   <tr><td colSpan={4} className="text-center py-6 text-gray-400">이번 주 시작 세그먼트 없음</td></tr>
                 )}
                 {data.map((s: any) => (
-                  <tr key={s.segmentId} className="border-b hover:bg-gray-50">
+                  <tr key={s.segmentId} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
                     <td className="py-2 px-2 text-xs whitespace-nowrap">{s.startDate}</td>
                     <td className="py-2 px-2">
                       <Link href={`/projects/${s.projectId}`} className="text-blue-600 dark:text-blue-400 hover:underline text-xs" onClick={onClose}>
@@ -1148,7 +1148,7 @@ function SummaryDetailPopup({ type, date, onClose }: { type: string; date: strin
                 <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">완료 예정 세그먼트</h4>
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b text-xs text-gray-500">
+                    <tr className="bg-gray-50 text-xs font-medium text-gray-600 border-b border-gray-200">
                       <th className="py-1.5 text-left px-2">완료일</th>
                       <th className="py-1.5 text-left px-2">프로젝트</th>
                       <th className="py-1.5 text-left px-2">태스크 / 세그먼트</th>
@@ -1161,7 +1161,7 @@ function SummaryDetailPopup({ type, date, onClose }: { type: string; date: strin
                       <tr><td colSpan={5} className="text-center py-4 text-gray-400 text-xs">완료 예정 없음</td></tr>
                     )}
                     {data.endingSegments?.map((s: any) => (
-                      <tr key={s.segmentId} className="border-b hover:bg-gray-50">
+                      <tr key={s.segmentId} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
                         <td className="py-2 px-2 text-xs whitespace-nowrap">{s.endDate}</td>
                         <td className="py-2 px-2">
                           <Link href={`/projects/${s.projectId}`} className="text-blue-600 dark:text-blue-400 hover:underline text-xs" onClick={onClose}>
@@ -1186,7 +1186,7 @@ function SummaryDetailPopup({ type, date, onClose }: { type: string; date: strin
                   <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">마일스톤</h4>
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b text-xs text-gray-500">
+                      <tr className="bg-gray-50 text-xs font-medium text-gray-600 border-b border-gray-200">
                         <th className="py-1.5 text-left px-2">기한</th>
                         <th className="py-1.5 text-left px-2">프로젝트</th>
                         <th className="py-1.5 text-left px-2">마일스톤</th>
@@ -1194,7 +1194,7 @@ function SummaryDetailPopup({ type, date, onClose }: { type: string; date: strin
                     </thead>
                     <tbody>
                       {data.milestones.map((m: any) => (
-                        <tr key={m.taskId} className="border-b hover:bg-gray-50">
+                        <tr key={m.taskId} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
                           <td className="py-2 px-2 text-xs whitespace-nowrap">{m.dueDate}</td>
                           <td className="py-2 px-2">
                             <Link href={`/projects/${m.projectId}`} className="text-blue-600 dark:text-blue-400 hover:underline text-xs" onClick={onClose}>
@@ -1229,7 +1229,7 @@ function GlobalSummaryCards({ summary, date }: { summary: GlobalSummary; date: s
   const winEnd = date ? new Date(new Date(date).getTime() + 7 * 86400000).toISOString().slice(0, 10) : date;
   const rangeText = winStart ? `${winStart.slice(5)} ~ ${winEnd.slice(5)}` : "";
 
-  const cardCls = "bg-white rounded-xl border shadow-sm p-4 cursor-pointer hover:ring-2 hover:ring-blue-200 transition-all";
+  const cardCls = "bg-white rounded-xl border border-gray-200 shadow-sm p-4 cursor-pointer hover:ring-2 hover:ring-blue-200 transition-all";
 
   return (
     <>
@@ -1240,11 +1240,11 @@ function GlobalSummaryCards({ summary, date }: { summary: GlobalSummary; date: s
           <div className="text-xs text-gray-500 mb-1">프로젝트 현황</div>
           <div className="text-2xl font-bold text-gray-900">{summary.totalProjects}</div>
           <div className="flex flex-wrap gap-1.5 mt-2">
-            {sc.critical > 0 && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">{sc.critical} 위험</span>}
-            {sc.warning > 0 && <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">{sc.warning} 경고</span>}
-            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">{sc.onTrack} 정상</span>
+            {sc.critical > 0 && <span className="text-xs bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300 px-2 py-0.5 rounded-full">{sc.critical} 위험</span>}
+            {sc.warning > 0 && <span className="text-xs bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300 px-2 py-0.5 rounded-full">{sc.warning} 경고</span>}
+            <span className="text-xs bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300 px-2 py-0.5 rounded-full">{sc.onTrack} 정상</span>
             <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{sc.completed} 완료</span>
-            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{sc.onHold} 보류</span>
+            <span className="text-xs bg-slate-100 text-slate-600 dark:bg-slate-500/20 dark:text-slate-300 px-2 py-0.5 rounded-full">{sc.onHold} 보류</span>
           </div>
         </div>
 
@@ -1253,9 +1253,9 @@ function GlobalSummaryCards({ summary, date }: { summary: GlobalSummary; date: s
           <div className="text-xs text-gray-500 mb-1">이슈 현황</div>
           <div className="text-2xl font-bold text-gray-900">{ic.critical + ic.warning + ic.info}</div>
           <div className="flex flex-wrap gap-1.5 mt-2">
-            {ic.critical > 0 && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">{ic.critical} 위험</span>}
-            {ic.warning > 0 && <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">{ic.warning} 경고</span>}
-            {ic.info > 0 && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{ic.info} 정보</span>}
+            {ic.critical > 0 && <span className="text-xs bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300 px-2 py-0.5 rounded-full">{ic.critical} 위험</span>}
+            {ic.warning > 0 && <span className="text-xs bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300 px-2 py-0.5 rounded-full">{ic.warning} 경고</span>}
+            {ic.info > 0 && <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 px-2 py-0.5 rounded-full">{ic.info} 정보</span>}
             {ic.critical + ic.warning + ic.info === 0 && <span className="text-xs text-gray-400">이슈 없음</span>}
           </div>
         </div>
@@ -1415,14 +1415,14 @@ export default function CommandCenterDashboard() {
             <DateInput
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </label>
           {/* 그룹화(groupBy) 드롭다운 숨김 — 프로젝트 그룹 관리 화면·데이터 미구현이라 그룹없음 고정 (2026-06-24) */}
           <select
             value={issueFilter}
             onChange={(e) => setIssueFilter(e.target.value)}
-            className="text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {ISSUE_FILTER_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
@@ -1431,7 +1431,7 @@ export default function CommandCenterDashboard() {
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="text-sm px-3 py-1.5 border rounded-lg hover:bg-gray-100 disabled:opacity-50 transition-colors"
+            className="text-sm px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
           >
             {refreshing ? "새로고침 중..." : "↻ 새로고침"}
           </button>

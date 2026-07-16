@@ -7,6 +7,7 @@ import SearchableSelect from "@/components/SearchableSelect";
 import FilterableSelect from "@/components/FilterableSelect";
 import Pagination from "@/components/Pagination";
 import { useFillHeight } from "@/hooks/useFillHeight";
+import { TableCard, Table, THead, Th, TBody, Tr, Td, TableEmpty } from "@/components/ui/Table";
 
 const STATUS_LABELS: Record<string, string> = {
   RECEIVED: "접수", INSPECTING_1ST: "1차점검", QUOTED: "견적발행",
@@ -17,17 +18,17 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  RECEIVED: "bg-gray-100 text-gray-700",
-  INSPECTING_1ST: "bg-blue-100 text-blue-700",
-  QUOTED: "bg-yellow-100 text-yellow-700",
-  APPROVED: "bg-green-100 text-green-700",
-  REPAIRING: "bg-orange-100 text-orange-700",
-  SHIPPED_TO_MFG: "bg-purple-100 text-purple-700",
-  RECEIVED_FROM_MFG: "bg-purple-100 text-purple-700",
-  INSPECTING_2ND: "bg-blue-100 text-blue-700",
-  COMPLETED: "bg-emerald-100 text-emerald-700",
-  CLOSED: "bg-gray-200 text-gray-600",
-  CANCELLED: "bg-red-100 text-red-700",
+  RECEIVED: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200",
+  INSPECTING_1ST: "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300",
+  QUOTED: "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300",
+  APPROVED: "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300",
+  REPAIRING: "bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300",
+  SHIPPED_TO_MFG: "bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300",
+  RECEIVED_FROM_MFG: "bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300",
+  INSPECTING_2ND: "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300",
+  COMPLETED: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
+  CLOSED: "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+  CANCELLED: "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300",
 };
 
 const PRIORITY_LABELS: Record<string, string> = {
@@ -85,6 +86,10 @@ export default function RepairOrdersPage() {
   const sortIndicator = (key: SortKey) =>
     sortBy === key ? (sortOrder === "asc" ? " ▲" : " ▼") : "";
 
+  // 활성 정렬 컬럼을 파랑+굵게로 강조 (SortableHeader와 동일)
+  const sortCls = (key: SortKey) =>
+    `cursor-pointer hover:bg-gray-100 select-none${sortBy === key ? " text-blue-600 dark:text-blue-400 font-semibold" : ""}`;
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -120,12 +125,12 @@ export default function RepairOrdersPage() {
             </button>
           ))}
         </div>
-        <input
-          type="text" placeholder="접수번호, 고객명, 시리얼..."
-          value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm w-56 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-3">
+          <input
+            type="text" placeholder="접수번호, 고객명, 시리얼..."
+            value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-lg text-sm w-56 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
           <button onClick={() => setShowForm(true)}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700">
             + AS 접수
@@ -134,74 +139,65 @@ export default function RepairOrdersPage() {
       </div>
 
       {/* 목록 테이블 */}
-      <div ref={tableBoxRef} className="bg-white border border-gray-200 rounded-lg overflow-auto" style={{ maxHeight: tableMaxH }}>
-        <div>
-          <table className="w-full text-sm table-fixed">
-            <colgroup>
-              <col className="w-[88px]" />   {/* 접수번호: max12자 */}
-              <col className="w-[140px]" />  {/* 고객: 20자 */}
-              <col className="w-[200px]" />  {/* 장비: 30자 */}
-              <col className="w-[140px]" />  {/* S.N: 20자 */}
-              <col className="w-[72px]" />   {/* 상태 */}
-              <col className="w-[52px]" />   {/* 우선도 */}
-              <col className="w-[56px]" />   {/* 담당자: 3자 */}
-              <col className="w-[60px]" />   {/* 접수일 */}
-              <col className="w-[48px]" />   {/* 경과 */}
-            </colgroup>
-            <thead className="sticky top-0 z-10 bg-gray-50">
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th onClick={() => handleSort("orderNumber")}  className="px-2 py-2.5 text-left   text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">접수번호{sortIndicator("orderNumber")}</th>
-                <th onClick={() => handleSort("customer")}     className="px-2 py-2.5 text-left   text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">고객{sortIndicator("customer")}</th>
-                <th onClick={() => handleSort("asset")}        className="px-2 py-2.5 text-left   text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">장비{sortIndicator("asset")}</th>
-                <th onClick={() => handleSort("serialNumber")} className="px-2 py-2.5 text-left   text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">S.N{sortIndicator("serialNumber")}</th>
-                <th onClick={() => handleSort("status")}       className="px-2 py-2.5 text-center text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">상태{sortIndicator("status")}</th>
-                <th onClick={() => handleSort("priority")}     className="px-2 py-2.5 text-center text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">우선도{sortIndicator("priority")}</th>
-                <th onClick={() => handleSort("assignee")}     className="px-2 py-2.5 text-left   text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">담당자{sortIndicator("assignee")}</th>
-                <th onClick={() => handleSort("receivedAt")}   className="px-2 py-2.5 text-center text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-100 select-none">접수일{sortIndicator("receivedAt")}</th>
-                <th className="px-2 py-2.5 text-center text-xs font-semibold text-gray-500">경과</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr><td colSpan={9} className="text-center py-8 text-gray-400">불러오는 중...</td></tr>
-              )}
-              {!loading && orders.length === 0 && (
-                <tr><td colSpan={9} className="text-center py-8 text-gray-400">AS 접수 내역이 없습니다.</td></tr>
-              )}
-              {!loading && orders.map((o) => {
-                const assetName = o.customerAsset?.name || o.equipment?.name || o.sensor?.name || o.productName || "-";
-                const serialNumber = o.customerAsset?.serialNumber || o.equipment?.serialNumber || o.sensor?.serialNumber || o.productSerial || "-";
-                return (
-                  <tr key={o.id} onClick={() => router.push(`/repair/${o.id}`)}
-                    className="border-t border-gray-100 hover:bg-blue-50/50 cursor-pointer">
-                    <td className="px-2 py-2 font-medium text-blue-600 truncate dark:text-blue-400">{o.orderNumber}</td>
-                    <td className="px-2 py-2 text-gray-800 truncate" title={o.customer?.name}>{o.customer?.name || "-"}</td>
-                    <td className="px-2 py-2 text-gray-700 truncate" title={assetName}>{assetName}</td>
-                    <td className="px-2 py-2 text-gray-500 text-xs truncate" title={serialNumber}>{serialNumber}</td>
-                    <td className="px-2 py-2 text-center">
-                      <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium whitespace-nowrap ${STATUS_COLORS[o.status] || "bg-gray-100"}`}>
-                        {STATUS_LABELS[o.status] || o.status}
-                      </span>
-                    </td>
-                    <td className={`px-2 py-2 text-center text-xs font-medium ${PRIORITY_COLORS[o.priority]}`}>
-                      {PRIORITY_LABELS[o.priority]}
-                    </td>
-                    <td className="px-2 py-2 text-gray-700 text-xs">{o.assigneeName || "-"}</td>
-                    <td className="px-2 py-2 text-center text-gray-500 text-xs whitespace-nowrap">
-                      {new Date(o.receivedAt).toLocaleDateString("ko-KR", { month: "2-digit", day: "2-digit" })}
-                    </td>
-                    <td className="px-2 py-2 text-center text-gray-500 text-xs whitespace-nowrap">
-                      {o.status !== "CLOSED" && o.status !== "CANCELLED" ? `${daysSince(o.receivedAt)}일` : "-"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} />
-      </div>
+      <TableCard
+        scrollRef={tableBoxRef}
+        maxHeight={tableMaxH}
+        footer={<Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} />}
+      >
+        <Table fixed columnDividers>
+          <colgroup>
+            <col className="w-[88px]" />   {/* 접수번호 */}
+            <col className="w-[140px]" />  {/* 고객 */}
+            <col className="w-[200px]" />  {/* 장비 */}
+            <col className="w-[140px]" />  {/* S.N */}
+            <col className="w-[72px]" />   {/* 상태 */}
+            <col className="w-[52px]" />   {/* 우선도 */}
+            <col className="w-[56px]" />   {/* 담당자 */}
+            <col className="w-[60px]" />   {/* 접수일 */}
+            <col className="w-[48px]" />   {/* 경과 */}
+          </colgroup>
+          <THead>
+            <Th align="center" onClick={() => handleSort("orderNumber")} className={sortCls("orderNumber")}>접수번호{sortIndicator("orderNumber")}</Th>
+            <Th align="center" onClick={() => handleSort("customer")} className={sortCls("customer")}>고객{sortIndicator("customer")}</Th>
+            <Th align="center" onClick={() => handleSort("asset")} className={sortCls("asset")}>장비{sortIndicator("asset")}</Th>
+            <Th align="center" onClick={() => handleSort("serialNumber")} className={sortCls("serialNumber")}>S.N{sortIndicator("serialNumber")}</Th>
+            <Th align="center" onClick={() => handleSort("status")} className={sortCls("status")}>상태{sortIndicator("status")}</Th>
+            <Th align="center" onClick={() => handleSort("priority")} className={sortCls("priority")}>우선도{sortIndicator("priority")}</Th>
+            <Th align="center" onClick={() => handleSort("assignee")} className={sortCls("assignee")}>담당자{sortIndicator("assignee")}</Th>
+            <Th align="center" onClick={() => handleSort("receivedAt")} className={sortCls("receivedAt")}>접수일{sortIndicator("receivedAt")}</Th>
+            <Th align="center">경과</Th>
+          </THead>
+          <TBody>
+            {loading ? (
+              <TableEmpty colSpan={9}>불러오는 중...</TableEmpty>
+            ) : orders.length === 0 ? (
+              <TableEmpty colSpan={9}>AS 접수 내역이 없습니다.</TableEmpty>
+            ) : orders.map((o) => {
+              const assetName = o.customerAsset?.name || o.equipment?.name || o.sensor?.name || o.productName;
+              const serialNumber = o.customerAsset?.serialNumber || o.equipment?.serialNumber || o.sensor?.serialNumber || o.productSerial;
+              return (
+                <Tr key={o.id} onClick={() => router.push(`/repair/${o.id}`)}>
+                  <Td strong mono align="left" truncate title={o.orderNumber}>{o.orderNumber}</Td>
+                  <Td dash truncate title={o.customer?.name || undefined}>{o.customer?.name}</Td>
+                  <Td dash truncate title={assetName || undefined}>{assetName}</Td>
+                  <Td dash mono align="left" truncate title={serialNumber || undefined}>{serialNumber}</Td>
+                  <Td align="center">
+                    <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium whitespace-nowrap ${STATUS_COLORS[o.status] || "bg-gray-100"}`}>
+                      {STATUS_LABELS[o.status] || o.status}
+                    </span>
+                  </Td>
+                  <Td align="center">
+                    <span className={`text-xs font-medium ${PRIORITY_COLORS[o.priority]}`}>{PRIORITY_LABELS[o.priority]}</span>
+                  </Td>
+                  <Td dash align="center" truncate title={o.assigneeName || undefined}>{o.assigneeName}</Td>
+                  <Td align="center" mono>{new Date(o.receivedAt).toLocaleDateString("ko-KR", { month: "2-digit", day: "2-digit" })}</Td>
+                  <Td align="center" mono>{o.status !== "CLOSED" && o.status !== "CANCELLED" ? `${daysSince(o.receivedAt)}일` : "-"}</Td>
+                </Tr>
+              );
+            })}
+          </TBody>
+        </Table>
+      </TableCard>
 
       {/* AS 접수 모달 */}
       {showForm && (

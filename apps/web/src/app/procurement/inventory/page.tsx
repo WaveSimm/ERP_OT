@@ -258,12 +258,12 @@ export default function InventoryPage() {
       {/* 통계 카드 */}
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-lg border p-4">
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
             <div className="text-xs text-gray-500">전체 재고</div>
             <div className="text-2xl font-bold">{stats.total}</div>
           </div>
           {(stats.byStatus || []).map((s: any) => (
-            <div key={s.currentStatus} className="bg-white rounded-lg border p-4">
+            <div key={s.currentStatus} className="bg-white rounded-lg border border-gray-200 p-4">
               <div className="text-xs text-gray-500">{STATUS_LABELS[s.currentStatus] || s.currentStatus}</div>
               <div className="text-2xl font-bold">{s._count}</div>
             </div>

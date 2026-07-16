@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { procurementApi } from "@/lib/api";
 import { fmtDate } from "@/lib/datetime";
+import { TableCard, Table, THead, Th, TBody, Tr, Td, TableEmpty, RowButton } from "@/components/ui/Table";
 
 type Status = "PENDING" | "PAID" | "REJECTED";
 
@@ -44,55 +45,64 @@ export default function OrderCustomsTaxesTab() {
         <div className="ml-auto text-sm text-gray-500 self-center">총 {items.length}건</div>
       </div>
 
-      {loading ? <div className="text-center py-12 text-gray-400">로딩 중...</div>
-       : items.length === 0 ? <div className="text-center py-12 text-gray-400">{statusTab === "PENDING" ? "처리 대기 중인 관부가세가 없습니다." : "이력이 없습니다."}</div>
-       : (
-        <div className="bg-white rounded-lg border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">발주번호</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">제조사</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">고객사</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">통관일</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">관세</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">부가세</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">합계</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">납부일 / 사유</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {items.map(t => (
-                <tr key={t.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-mono">
-                    <a href={`/procurement/orders/${t.order?.id}`} className="text-blue-600 hover:underline dark:text-blue-400">{t.order?.orderNumber}</a>
-                  </td>
-                  <td className="px-4 py-3">{t.order?.manufacturer || "-"}</td>
-                  <td className="px-4 py-3 text-gray-600">{t.order?.customer || "-"}</td>
-                  <td className="px-4 py-3 text-gray-600 text-xs">{t.order?.customsDate ? fmtDate(t.order.customsDate) : "-"}</td>
-                  <td className="px-4 py-3 text-right font-mono">{fmtKRW(t.customsDuty)}</td>
-                  <td className="px-4 py-3 text-right font-mono">{fmtKRW(t.vat)}</td>
-                  <td className="px-4 py-3 text-right font-mono font-medium">{fmtKRW(t.totalAmount)}</td>
-                  <td className="px-4 py-3 text-gray-600 text-xs">
-                    {t.status === "PAID" && t.paidAt ? fmtDate(t.paidAt) :
-                     t.status === "REJECTED" && t.rejectReason ? <span className="text-red-600 dark:text-red-400">반려: {t.rejectReason}</span> :
-                     t.notes || ""}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {statusTab === "PENDING" && (
-                      <button onClick={() => setSelected(t)} className="text-xs px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">처리</button>
-                    )}
-                    {statusTab === "PAID" && (
-                      <button onClick={() => setSelected({ ...t, _editMode: true })} className="text-xs px-3 py-1 border border-blue-500 text-blue-600 rounded hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950">정정</button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <TableCard>
+        <Table fixed columnDividers>
+          <colgroup>
+            <col className="w-[11%]" />
+            <col className="w-[13%]" />
+            <col className="w-[13%]" />
+            <col className="w-[10%]" />
+            <col className="w-[11%]" />
+            <col className="w-[11%]" />
+            <col className="w-[12%]" />
+            <col className="w-[12%]" />
+            <col className="w-[7%]" />
+          </colgroup>
+          <THead>
+            <Th align="center">발주번호</Th>
+            <Th align="center">제조사</Th>
+            <Th align="center">고객사</Th>
+            <Th align="center">통관일</Th>
+            <Th align="center">관세</Th>
+            <Th align="center">부가세</Th>
+            <Th align="center">합계</Th>
+            <Th align="center">납부일 / 사유</Th>
+            <Th align="center">관리</Th>
+          </THead>
+          <TBody>
+            {loading ? (
+              <TableEmpty colSpan={9}>로딩 중...</TableEmpty>
+            ) : items.length === 0 ? (
+              <TableEmpty colSpan={9}>{statusTab === "PENDING" ? "처리 대기 중인 관부가세가 없습니다." : "이력이 없습니다."}</TableEmpty>
+            ) : items.map(t => (
+              <Tr key={t.id}>
+                <Td strong mono align="left">
+                  <a href={`/procurement/orders/${t.order?.id}`} className="hover:underline">{t.order?.orderNumber}</a>
+                </Td>
+                <Td dash truncate title={t.order?.manufacturer || undefined}>{t.order?.manufacturer}</Td>
+                <Td dash truncate title={t.order?.customer || undefined}>{t.order?.customer}</Td>
+                <Td align="center" mono>{t.order?.customsDate ? fmtDate(t.order.customsDate) : "-"}</Td>
+                <Td align="right" mono>{fmtKRW(t.customsDuty)}</Td>
+                <Td align="right" mono>{fmtKRW(t.vat)}</Td>
+                <Td align="right" mono>{fmtKRW(t.totalAmount)}</Td>
+                <Td truncate title={t.status === "PAID" && t.paidAt ? fmtDate(t.paidAt) : t.status === "REJECTED" && t.rejectReason ? `반려: ${t.rejectReason}` : (t.notes || "")}>
+                  {t.status === "PAID" && t.paidAt ? fmtDate(t.paidAt) :
+                   t.status === "REJECTED" && t.rejectReason ? <span className="text-red-600 dark:text-red-400">반려: {t.rejectReason}</span> :
+                   t.notes || ""}
+                </Td>
+                <Td align="center">
+                  {statusTab === "PENDING" && (
+                    <RowButton solid onClick={() => setSelected(t)}>처리</RowButton>
+                  )}
+                  {statusTab === "PAID" && (
+                    <RowButton onClick={() => setSelected({ ...t, _editMode: true })}>정정</RowButton>
+                  )}
+                </Td>
+              </Tr>
+            ))}
+          </TBody>
+        </Table>
+      </TableCard>
 
       {selected && (
         <ProcessModal

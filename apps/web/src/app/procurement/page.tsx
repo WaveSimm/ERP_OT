@@ -7,6 +7,7 @@ import Pagination from "@/components/Pagination";
 import SortableHeader from "@/components/SortableHeader";
 import { useFillHeight } from "@/hooks/useFillHeight";
 import { useSortPreference } from "@/hooks/useSortPreference";
+import { TableCard, Table, THead, Th, TBody, Tr, Td, TableEmpty } from "@/components/ui/Table";
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "초안", PENDING_APPROVAL: "승인대기", APPROVED: "승인",
@@ -16,18 +17,18 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  DRAFT: "bg-gray-100 text-gray-700",
-  PENDING_APPROVAL: "bg-yellow-100 text-yellow-700",
-  APPROVED: "bg-green-100 text-green-700",
-  REJECTED: "bg-red-100 text-red-700",
-  ORDERED: "bg-blue-100 text-blue-700",
-  PURCHASING: "bg-sky-100 text-sky-700",
-  SHIPPED: "bg-purple-100 text-purple-700",
-  CUSTOMS: "bg-orange-100 text-orange-700",
-  PARTIALLY_RECEIVED: "bg-amber-100 text-amber-700",
-  ARRIVED: "bg-emerald-100 text-emerald-700",
-  SETTLEMENT: "bg-cyan-100 text-cyan-700",
-  CLOSED: "bg-gray-200 text-gray-600",
+  DRAFT: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200",
+  PENDING_APPROVAL: "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300",
+  APPROVED: "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300",
+  REJECTED: "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300",
+  ORDERED: "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300",
+  PURCHASING: "bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300",
+  SHIPPED: "bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300",
+  CUSTOMS: "bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300",
+  PARTIALLY_RECEIVED: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
+  ARRIVED: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
+  SETTLEMENT: "bg-cyan-100 text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-300",
+  CLOSED: "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
 };
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
@@ -78,7 +79,7 @@ export default function ProcurementPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [dashboard, setDashboard] = useState<any>(null);
-  const { sortBy, sortOrder, handleSort } = useSortPreference("orders", "", "desc");
+  const { sortBy, sortOrder, handleSort, resetSort } = useSortPreference("orders", "", "desc");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -165,7 +166,7 @@ export default function ProcurementPage() {
         <select
           value={orderTypeFilter}
           onChange={(e) => { setOrderTypeFilter(e.target.value); setPage(1); }}
-          className="border rounded-lg px-3 py-1.5 text-sm"
+          className="border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-lg px-3 py-1.5 text-sm"
         >
           <option value="">전체 유형</option>
           <option value="PURCHASE">유환 발주</option>
@@ -175,7 +176,7 @@ export default function ProcurementPage() {
         <select
           value={currencyFilter}
           onChange={(e) => { setCurrencyFilter(e.target.value); setPage(1); }}
-          className="border rounded-lg px-3 py-1.5 text-sm"
+          className="border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-lg px-3 py-1.5 text-sm"
         >
           <option value="">모든 통화</option>
           <option value="EUR">EUR</option>
@@ -184,24 +185,29 @@ export default function ProcurementPage() {
           <option value="KRW">KRW</option>
         </select>
 
-        <input
-          type="text"
-          placeholder="발주번호, 제조사 검색..."
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          className="border rounded-lg px-3 py-1.5 text-sm w-60"
-        />
-
         <div className="ml-auto flex gap-2">
+          <input
+            type="text"
+            placeholder="발주번호, 제조사 검색..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            className="border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-lg px-3 py-1.5 text-sm w-60"
+          />
+          {sortBy && (
+            <button onClick={resetSort} title="정렬을 원래 순서로 되돌립니다"
+              className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
+              ↺ 정렬 초기화
+            </button>
+          )}
           <button
             onClick={() => router.push("/procurement/products")}
-            className="px-4 py-1.5 text-sm border rounded-lg hover:bg-gray-50"
+            className="px-4 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             품목 관리
           </button>
           <button
             onClick={() => router.push("/procurement/contracts")}
-            className="px-4 py-1.5 text-sm border rounded-lg hover:bg-gray-50"
+            className="px-4 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             계약 관리
           </button>
@@ -217,112 +223,106 @@ export default function ProcurementPage() {
       {/* /sticky 영역 끝 */}
 
       {/* Orders Table */}
-      <div ref={tableBoxRef} className="bg-white rounded-lg border overflow-auto" style={{ maxHeight: tableMaxH }}>
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 z-10 bg-gray-50 [&>tr>th]:border-b [&>tr>th]:border-gray-200">
-            <tr>
-              <SortableHeader sortKey="orderNumber" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">발주번호</SortableHeader>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">품목명</th>
-              <SortableHeader sortKey="manufacturer" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">제조사</SortableHeader>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">계약</th>
-              <SortableHeader sortKey="totalAmount" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="right" className="px-4 py-3 text-right font-medium text-gray-600">금액</SortableHeader>
-              <SortableHeader sortKey="status" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 text-center font-medium text-gray-600">발주현황</SortableHeader>
-              <th className="px-4 py-3 text-center font-medium text-gray-600 whitespace-nowrap">송금현황</th>
-              <th className="px-4 py-3 text-center font-medium text-gray-600">품목수</th>
-              <SortableHeader sortKey="orderDate" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">발주일</SortableHeader>
-              <SortableHeader sortKey="estimatedShipDate" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">선적예정일</SortableHeader>
-              <SortableHeader sortKey="actualShipDate" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">실제선적일</SortableHeader>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
+      <TableCard
+        scrollRef={tableBoxRef}
+        maxHeight={tableMaxH}
+        footer={<Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} />}
+      >
+        <Table fixed columnDividers>
+          <colgroup>
+            <col className="w-[10%]" />
+            <col className="w-[13%]" />
+            <col className="w-[9%]" />
+            <col className="w-[12%]" />
+            <col className="w-[10%]" />
+            <col className="w-[10%]" />
+            <col className="w-[9%]" />
+            <col className="w-[5%]" />
+            <col className="w-[8%]" />
+            <col className="w-[8%]" />
+            <col className="w-[6%]" />
+          </colgroup>
+          <THead>
+            <SortableHeader sortKey="orderNumber" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">발주번호</SortableHeader>
+            <Th align="center">품목명</Th>
+            <SortableHeader sortKey="manufacturer" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">제조사</SortableHeader>
+            <Th align="center">계약</Th>
+            <SortableHeader sortKey="totalAmount" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">금액</SortableHeader>
+            <SortableHeader sortKey="status" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">발주현황</SortableHeader>
+            <Th align="center">송금현황</Th>
+            <Th align="center">품목수</Th>
+            <SortableHeader sortKey="orderDate" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">발주일</SortableHeader>
+            <SortableHeader sortKey="estimatedShipDate" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">선적예정일</SortableHeader>
+            <SortableHeader sortKey="actualShipDate" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">실제선적일</SortableHeader>
+          </THead>
+          <TBody>
             {loading ? (
-              <tr><td colSpan={11} className="px-4 py-8 text-center text-gray-400">로딩 중...</td></tr>
+              <TableEmpty colSpan={11}>로딩 중...</TableEmpty>
             ) : orders.length === 0 ? (
-              <tr><td colSpan={11} className="px-4 py-8 text-center text-gray-400">발주가 없습니다.</td></tr>
-            ) : (
-              orders.map((o) => (
-                <tr
-                  key={o.id}
-                  onClick={() => router.push(`/procurement/orders/${o.id}`)}
-                  className="hover:bg-gray-50 cursor-pointer"
-                >
-                  <td className="px-4 py-3 font-mono text-blue-600 dark:text-blue-400 whitespace-nowrap min-w-[14ch]">{o.orderNumber}</td>
-                  <td className="px-4 py-3 text-gray-700">
-                    {o.firstItemName ? (
-                      <span className="truncate inline-block max-w-[16ch]" title={o.firstItemName}>
-                        {o.firstItemName}
-                        {(o._count?.items ?? 0) > 1 && <span className="text-gray-400 text-xs ml-1">외 {o._count.items - 1}건</span>}
-                      </span>
-                    ) : <span className="text-gray-300">-</span>}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="truncate inline-block max-w-[10ch]" title={o.manufacturer}>{o.manufacturer}</span>
-                  </td>
-                  <td className="px-4 py-3 text-gray-500">
-                    {o.contract ? (
-                      <span className="inline-block truncate max-w-[20ch]" title={`${o.contract.contractNumber}${o.contract.name ? ` - ${o.contract.name}` : ""}`}>
-                        {o.contract.contractNumber}{o.contract.name ? ` - ${o.contract.name}` : ""}
-                      </span>
-                    ) : "-"}
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono">{fmtAmount(o.totalAmount, o.currency)}</td>
-                  <td className="px-4 py-3 text-center whitespace-nowrap">
-                    {/* v1.6.1 (2026-05-15): CUSTOMS는 customsTax.status로 세금납부대기/완료 sub-status 표시 */}
-                    {(() => {
-                      if (o.status === "CUSTOMS") {
-                        const taxPaid = o.customsTax?.status === "PAID";
-                        const taxRejected = o.customsTax?.status === "REJECTED";
-                        const label = taxPaid ? "세금납부완료" : taxRejected ? "세금납부반려" : "세금납부대기";
-                        const cls = taxPaid ? "bg-emerald-100 text-emerald-700"
-                          : taxRejected ? "bg-red-100 text-red-700"
-                          : "bg-amber-100 text-amber-700";
-                        return (
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>{label}</span>
-                        );
-                      }
+              <TableEmpty colSpan={11}>발주가 없습니다.</TableEmpty>
+            ) : orders.map((o) => (
+              <Tr key={o.id} onClick={() => router.push(`/procurement/orders/${o.id}`)}>
+                <Td strong mono align="left" truncate title={o.orderNumber}>{o.orderNumber}</Td>
+                <Td truncate title={o.firstItemName || undefined}>
+                  {o.firstItemName ? (
+                    <>{o.firstItemName}{(o._count?.items ?? 0) > 1 && <span className="text-gray-400 text-xs ml-1">외 {o._count.items - 1}건</span>}</>
+                  ) : <span className="text-gray-400">-</span>}
+                </Td>
+                <Td dash truncate title={o.manufacturer || undefined}>{o.manufacturer}</Td>
+                <Td dash truncate title={o.contract ? `${o.contract.contractNumber}${o.contract.name ? ` - ${o.contract.name}` : ""}` : undefined}>
+                  {o.contract ? `${o.contract.contractNumber}${o.contract.name ? ` - ${o.contract.name}` : ""}` : undefined}
+                </Td>
+                <Td align="right" mono>{fmtAmount(o.totalAmount, o.currency)}</Td>
+                <Td align="center">
+                  {/* v1.6.1 (2026-05-15): CUSTOMS는 customsTax.status로 세금납부대기/완료 sub-status 표시 */}
+                  {(() => {
+                    if (o.status === "CUSTOMS") {
+                      const taxPaid = o.customsTax?.status === "PAID";
+                      const taxRejected = o.customsTax?.status === "REJECTED";
+                      const label = taxPaid ? "세금납부완료" : taxRejected ? "세금납부반려" : "세금납부대기";
+                      const cls = taxPaid ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
+                        : taxRejected ? "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300"
+                        : "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300";
                       return (
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[o.status] || ""}`}>
-                          {STATUS_LABELS[o.status] || o.status}
-                        </span>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${cls}`}>{label}</span>
                       );
-                    })()}
-                  </td>
-                  {/* v1.6 (2026-05-14): 송금현황 — 송금요청 / N차송금 / 완료 / 반려 */}
-                  <td className="px-4 py-3 text-center whitespace-nowrap">
-                    {(() => {
-                      const ps = o.paymentSummary || { requested: 0, completed: 0, rejected: 0, total: 0 };
-                      if (ps.total === 0) return <span className="text-gray-300 text-xs">-</span>;
-                      // 요청중 + 완료 0 → "송금요청"
-                      if (ps.requested > 0 && ps.completed === 0) {
-                        return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">송금요청</span>;
-                      }
-                      // 요청중 + 완료 N → "N차송금" (현재까지 N번 완료, 추가 요청 대기)
-                      if (ps.requested > 0 && ps.completed > 0) {
-                        return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">{ps.completed}차송금</span>;
-                      }
-                      // 요청 없음 + 완료 N → "완료"
-                      if (ps.requested === 0 && ps.completed > 0) {
-                        return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">완료</span>;
-                      }
-                      // 요청 없음 + 완료 없음 + 반려만 → "반려"
-                      if (ps.rejected > 0) {
-                        return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">반려</span>;
-                      }
-                      return <span className="text-gray-300 text-xs">-</span>;
-                    })()}
-                  </td>
-                  <td className="px-4 py-3 text-center text-gray-500">{o._count?.items ?? 0}</td>
-                  <td className="px-4 py-3 text-gray-500">{fmtDate(o.orderDate)}</td>
-                  <td className="px-4 py-3 text-gray-500">{fmtDate(o.estimatedShipDate)}</td>
-                  <td className="px-4 py-3 text-gray-500">{fmtDate(o.actualShipDate)}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} className="mt-4 border rounded-lg" />
+                    }
+                    return (
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${STATUS_COLORS[o.status] || ""}`}>
+                        {STATUS_LABELS[o.status] || o.status}
+                      </span>
+                    );
+                  })()}
+                </Td>
+                {/* v1.6 (2026-05-14): 송금현황 — 송금요청 / N차송금 / 완료 / 반려 */}
+                <Td align="center">
+                  {(() => {
+                    const ps = o.paymentSummary || { requested: 0, completed: 0, rejected: 0, total: 0 };
+                    if (ps.total === 0) return <span className="text-gray-400 text-xs">-</span>;
+                    if (ps.requested > 0 && ps.completed === 0) {
+                      return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">송금요청</span>;
+                    }
+                    if (ps.requested > 0 && ps.completed > 0) {
+                      return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">{ps.completed}차송금</span>;
+                    }
+                    if (ps.requested === 0 && ps.completed > 0) {
+                      return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300">완료</span>;
+                    }
+                    if (ps.rejected > 0) {
+                      return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300">반려</span>;
+                    }
+                    return <span className="text-gray-400 text-xs">-</span>;
+                  })()}
+                </Td>
+                <Td align="center" mono>{o._count?.items ?? 0}</Td>
+                <Td align="center" mono>{fmtDate(o.orderDate)}</Td>
+                <Td align="center" mono>{fmtDate(o.estimatedShipDate)}</Td>
+                <Td align="center" mono>{fmtDate(o.actualShipDate)}</Td>
+              </Tr>
+            ))}
+          </TBody>
+        </Table>
+      </TableCard>
     </div>
   );
 }
