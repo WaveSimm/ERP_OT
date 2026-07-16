@@ -96,7 +96,12 @@ export class IssueDetectorService {
         metadata: {
           delayedCount: delayedCriticalTasks.length,
           maxDelayDays: maxDelay,
-          tasks: delayedCriticalTasks.slice(0, 3).map((t) => ({ id: t.id, name: t.name })),
+          tasks: delayedCriticalTasks.map((t) => {
+            const latestEnd = t.segments.reduce((max: Date | null, s) => {
+              const d = new Date(s.endDate); return !max || d > max ? d : max;
+            }, null) as Date | null;
+            return { id: t.id, name: t.name, delayDays: latestEnd ? dateDiffDays(latestEnd, today) : 0 };
+          }),
         },
       });
     }
@@ -147,7 +152,12 @@ export class IssueDetectorService {
         detectedAt,
         metadata: {
           delayedCount: delayedNonCritical.length,
-          tasks: delayedNonCritical.slice(0, 3).map((t) => ({ id: t.id, name: t.name })),
+          tasks: delayedNonCritical.map((t) => {
+            const latestEnd = t.segments.reduce((max: Date | null, s) => {
+              const d = new Date(s.endDate); return !max || d > max ? d : max;
+            }, null) as Date | null;
+            return { id: t.id, name: t.name, delayDays: latestEnd ? dateDiffDays(latestEnd, today) : 0 };
+          }),
         },
       });
     }
@@ -169,7 +179,7 @@ export class IssueDetectorService {
         detectedAt,
         metadata: {
           staleCount: staleTasks.length,
-          tasks: staleTasks.slice(0, 3).map((t) => ({
+          tasks: staleTasks.map((t) => ({
             id: t.id, name: t.name,
             staleDays: dateDiffDays(new Date(t.updatedAt), today),
           })),
@@ -221,7 +231,7 @@ export class IssueDetectorService {
         detectedAt,
         metadata: {
           count: endingThisWeek.length,
-          segments: endingThisWeek.slice(0, 3),
+          segments: endingThisWeek,
         },
       });
     }

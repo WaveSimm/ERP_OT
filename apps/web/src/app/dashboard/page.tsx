@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { dashboardApi, folderApi, workLogApi, projectApi } from "@/lib/api";
+import { Table, THead, Th, TBody, Tr, Td, TableEmpty } from "@/components/ui/Table";
 import type { Folder, Task } from "@/lib/api/types";
 import { DateInput } from "@/components/ui/DateInput";
 import { fmtTime24 } from "@/lib/datetime";
@@ -369,9 +370,10 @@ function TaskMiniTimeline({ task, centerDate }: { task: Task; centerDate: string
 
 // ─── 이슈 팝업 ────────────────────────────────────────────────────────────────
 
-function IssuePopup({ projectId, onClose }: { projectId: string; onClose: () => void }) {
+function IssuePopup({ projectId, projectName, category, onClose }: { projectId: string; projectName?: string; category?: string; onClose: () => void }) {
   const [issues, setIssues] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeCat, setActiveCat] = useState<string | undefined>(category);
 
   useEffect(() => {
     dashboardApi.getProjectIssues(projectId)
@@ -380,42 +382,100 @@ function IssuePopup({ projectId, onClose }: { projectId: string; onClose: () => 
       .finally(() => setLoading(false));
   }, [projectId]);
 
-  const SEV_COLOR: Record<string, string> = {
-    CRITICAL: "bg-red-100 text-red-800 border-red-200 dark:bg-red-500/20 dark:text-red-50 dark:border-red-500/40",
-    WARNING: "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-500/20 dark:text-yellow-50 dark:border-yellow-500/40",
-    INFO: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-500/20 dark:text-blue-50 dark:border-blue-500/40",
-  };
+  // 카테고리별 이슈 개수 (상단 전환 탭용)
+  const catCounts: Record<string, number> = {};
+  for (const i of issues) { const b = issueBucket(i); catCounts[b] = (catCounts[b] ?? 0) + 1; }
+  const availableCats = ISSUE_BADGE_BUCKETS.filter((b) => (catCounts[b.key] ?? 0) > 0);
+
+  // 선택된 카테고리만 (activeCat 없으면 전체)
+  const shown = activeCat ? issues.filter((i) => issueBucket(i) === activeCat) : issues;
+
+  // 이슈 → 태스크 단위로 평탄화. 백엔드가 태스크명을 최대 3개까지만 주므로 초과분은 "외 N개".
+  const taskRows: { key: string; name: string; id?: string; title: string; cat: string; delayDays?: number; staleDays?: number; endDate?: string; milestoneDate?: string; muted?: boolean }[] = [];
+  for (const iss of shown) {
+    const bkt = issueBucket(iss);
+    const tasks = issueTasks(iss);
+    const totalCnt = iss.metadata?.delayedCount ?? iss.metadata?.staleCount ?? iss.metadata?.count ?? tasks.length;
+    if (tasks.length === 0) {
+      taskRows.push({ key: iss.id, name: "-", title: iss.title, cat: bkt });
+    } else {
+      tasks.forEach((tk, i) => taskRows.push({ key: `${iss.id}:${i}`, name: tk.name, id: tk.id, title: iss.title, cat: bkt, delayDays: tk.delayDays, staleDays: tk.staleDays, endDate: tk.endDate, milestoneDate: tk.milestoneDate }));
+      const extra = Math.max(0, totalCnt - tasks.length);
+      if (extra > 0) taskRows.push({ key: `${iss.id}:more`, name: `외 ${extra}개`, title: iss.title, cat: bkt, muted: true });
+    }
+  }
+
+  const catMeta = (key: string) => ISSUE_BADGE_BUCKETS.find((b) => b.key === key);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[70vh] flex flex-col"
+        className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[88vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-3 border-b">
-          <h3 className="font-semibold text-gray-900">이슈 상세</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl leading-none">×</button>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-gray-700/60">
+          <div className="flex items-baseline gap-4 min-w-0">
+            <h3 className="font-semibold text-gray-900 shrink-0">이슈 상세</h3>
+            {projectName && (
+              <Link href={`/projects/${projectId}`} onClick={onClose} className="text-[13px] text-gray-400 hover:text-gray-600 hover:underline truncate">{projectName}</Link>
+            )}
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl leading-none shrink-0">×</button>
         </div>
-        <div className="overflow-y-auto flex-1 p-4 space-y-2">
-          {loading && <p className="text-sm text-gray-400 text-center py-6">로딩 중...</p>}
-          {!loading && issues.length === 0 && (
-            <p className="text-sm text-gray-400 text-center py-6">이슈가 없습니다.</p>
+        {/* 카테고리 전환 탭 */}
+        {!loading && availableCats.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 px-5 py-2.5 border-b border-gray-200 dark:border-gray-700/60">
+            <button onClick={() => setActiveCat(undefined)}
+              className={`text-xs px-2.5 py-0.5 rounded-full font-medium transition-all ${!activeCat ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-500 opacity-70 hover:opacity-100"}`}>
+              전체 {issues.length}
+            </button>
+            {availableCats.map((b) => (
+              <button key={b.key} onClick={() => setActiveCat(b.key)}
+                className={`text-xs px-2.5 py-0.5 rounded-full font-medium transition-all ${b.cls} ${activeCat === b.key ? "opacity-100 font-semibold shadow-sm" : "opacity-45 hover:opacity-75"}`}>
+                {b.label} {catCounts[b.key]}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="overflow-y-auto flex-1 px-5 py-4">
+          {loading ? (
+            <p className="text-sm text-gray-400 text-center py-8">로딩 중...</p>
+          ) : (
+            <Table columnDividers>
+              <THead>
+                <Th align="center" className="w-24">상태</Th>
+                <Th align="center">태스크명</Th>
+                <Th align="center">이슈 내용</Th>
+              </THead>
+              <TBody>
+                {taskRows.length === 0 ? (
+                  <TableEmpty colSpan={3}>해당 태스크가 없습니다.</TableEmpty>
+                ) : taskRows.map((t) => {
+                  const meta = catMeta(t.cat);
+                  return (
+                    <Tr key={t.key}>
+                      <Td align="center">
+                        {meta && (
+                          <span className={`text-[11px] px-1.5 py-0.5 rounded font-medium whitespace-nowrap ${meta.cls}`}>{meta.label}</span>
+                        )}
+                      </Td>
+                      <Td>
+                        {t.id ? (
+                          <Link href={`/projects/${projectId}?taskId=${t.id}`} onClick={onClose}
+                            className="text-gray-900 dark:text-gray-100 font-medium hover:underline">{t.name}</Link>
+                        ) : (
+                          <span className={t.muted ? "text-gray-400" : "text-gray-800"}>{t.name}</span>
+                        )}
+                      </Td>
+                      <Td className={t.cat === "MANUAL" ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-gray-100"}>
+                        {renderIssueContent(t)}
+                      </Td>
+                    </Tr>
+                  );
+                })}
+              </TBody>
+            </Table>
           )}
-          {issues.map((iss) => (
-            <div key={iss.id} className={`border rounded-lg px-4 py-2.5 text-sm ${SEV_COLOR[iss.severity]}`}>
-              <div className="font-medium">{iss.title}</div>
-              <div className="opacity-80 text-xs mt-0.5">{iss.description}</div>
-              <div className="mt-2 flex gap-2">
-                <Link
-                  href={`/projects/${projectId}`}
-                  className="text-xs font-medium underline underline-offset-2 opacity-80 hover:opacity-100"
-                  onClick={onClose}
-                >
-                  프로젝트로 이동 →
-                </Link>
-              </div>
-            </div>
-          ))}
         </div>
       </div>
     </div>
@@ -425,12 +485,14 @@ function IssuePopup({ projectId, onClose }: { projectId: string; onClose: () => 
 // ─── 프로젝트 행 ──────────────────────────────────────────────────────────────
 
 function ProjectRow({ row, date, onPin }: { row: ProjectRow; date: string; onPin: (id: string) => void }) {
-  const [showIssues, setShowIssues] = useState(false);
+  // null=닫힘, "__all__"=전체, 그 외=해당 카테고리만
+  const [popupCat, setPopupCat] = useState<string | null>(null);
   const totalIssues = row.issueCount.critical + row.issueCount.warning + row.issueCount.info;
+  const issueCat = useContext(IssueCatContext).get(row.id);
 
   return (
     <>
-      {showIssues && <IssuePopup projectId={row.id} onClose={() => setShowIssues(false)} />}
+      {popupCat !== null && <IssuePopup projectId={row.id} projectName={row.name} category={popupCat === "__all__" ? undefined : popupCat} onClose={() => setPopupCat(null)} />}
       <tr className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors">
         {/* RAG + 핀 */}
         <td className="px-3 py-2.5 w-10">
@@ -473,23 +535,26 @@ function ProjectRow({ row, date, onPin }: { row: ProjectRow; date: string; onPin
         </td>
 
 
-        {/* 이슈 */}
-        <td className="px-3 py-2.5 w-24">
+        {/* 이슈 — 카테고리 배지 각각 클릭 → 그 카테고리 태스크만. 로딩 전엔 심각도 숫자 배지 폴백 */}
+        <td className="px-3 py-2.5 whitespace-nowrap">
           {totalIssues > 0 ? (
-            <button
-              onClick={() => setShowIssues(true)}
-              className="flex items-center gap-1 text-xs"
-            >
-              {row.issueCount.critical > 0 && (
-                <span className="bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-medium">{row.issueCount.critical}</span>
-              )}
-              {row.issueCount.warning > 0 && (
-                <span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">{row.issueCount.warning}</span>
-              )}
-              {row.issueCount.info > 0 && (
-                <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{row.issueCount.info}</span>
-              )}
-            </button>
+            issueCat ? (
+              <div className="flex items-center gap-1 text-xs">
+                <IssueCatBadges counts={issueCat} onSelect={setPopupCat} />
+              </div>
+            ) : (
+              <button onClick={() => setPopupCat("__all__")} className="flex items-center gap-1 text-xs">
+                {row.issueCount.critical > 0 && (
+                  <span className="bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-medium">{row.issueCount.critical}</span>
+                )}
+                {row.issueCount.warning > 0 && (
+                  <span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">{row.issueCount.warning}</span>
+                )}
+                {row.issueCount.info > 0 && (
+                  <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{row.issueCount.info}</span>
+                )}
+              </button>
+            )
           ) : (
             <span className="text-xs text-gray-300">-</span>
           )}
@@ -515,7 +580,8 @@ function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: 
   const [issueByTask, setIssueByTask] = useState<Map<string, string>>(new Map());
   const [noteByTask, setNoteByTask] = useState<Map<string, string>>(new Map());
   const [loadingTasks, setLoadingTasks] = useState(false);
-  const [showIssues, setShowIssues] = useState(false);
+  // null=닫힘, "__all__"=전체, 그 외=해당 카테고리만
+  const [popupCat, setPopupCat] = useState<string | null>(null);
   const headerRowRef = useRef<HTMLTableRowElement>(null);
 
   // 접을 때 해당 프로젝트(헤더 행) 위치로 스크롤 복귀 — 태스크를 펼쳐 아래로 내려간 뒤 접어도 위치 유지
@@ -527,6 +593,7 @@ function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: 
   const winStart = shiftDate(date, -7);
   const winEnd = shiftDate(date, 7);
   const totalIssues = row.issueCount.critical + row.issueCount.warning + row.issueCount.info;
+  const issueCat = useContext(IssueCatContext).get(row.id);
 
   useEffect(() => {
     if (!expanded || tasks !== null) return;
@@ -567,7 +634,7 @@ function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: 
 
   return (
     <>
-      {showIssues && <IssuePopup projectId={row.id} onClose={() => setShowIssues(false)} />}
+      {popupCat !== null && <IssuePopup projectId={row.id} projectName={row.name} category={popupCat === "__all__" ? undefined : popupCat} onClose={() => setPopupCat(null)} />}
 
       <tr ref={headerRowRef} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors scroll-mt-16">
         <td className="px-3 py-2.5 w-10">
@@ -631,20 +698,26 @@ function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: 
           </div>
         </td>
 
-        {/* 이슈 — 진행률 옆 (간격 넓힘) */}
-        <td className="pl-10 pr-3 py-2.5 w-24">
+        {/* 이슈 — 카테고리 배지(지연/이슈/정체/예정/마일스톤). 로딩 전엔 심각도 숫자 배지 폴백 */}
+        <td className="pl-10 pr-3 py-2.5 whitespace-nowrap">
           {totalIssues > 0 ? (
-            <button onClick={() => setShowIssues(true)} className="flex items-center gap-1 text-xs">
-              {row.issueCount.critical > 0 && (
-                <span className="bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-medium">{row.issueCount.critical}</span>
-              )}
-              {row.issueCount.warning > 0 && (
-                <span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">{row.issueCount.warning}</span>
-              )}
-              {row.issueCount.info > 0 && (
-                <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{row.issueCount.info}</span>
-              )}
-            </button>
+            issueCat ? (
+              <div className="flex items-center gap-1 text-xs">
+                <IssueCatBadges counts={issueCat} onSelect={setPopupCat} />
+              </div>
+            ) : (
+              <button onClick={() => setPopupCat("__all__")} className="flex items-center gap-1 text-xs">
+                {row.issueCount.critical > 0 && (
+                  <span className="bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-medium">{row.issueCount.critical}</span>
+                )}
+                {row.issueCount.warning > 0 && (
+                  <span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">{row.issueCount.warning}</span>
+                )}
+                {row.issueCount.info > 0 && (
+                  <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{row.issueCount.info}</span>
+                )}
+              </button>
+            )
           ) : (
             <span className="text-xs text-gray-300">-</span>
           )}
@@ -976,7 +1049,7 @@ const SEV_STYLE: Record<string, string> = {
   INFO: "bg-blue-50 text-blue-800 dark:text-blue-50",
 };
 
-function SummaryDetailPopup({ type, date, onClose }: { type: string; date: string; onClose: () => void }) {
+function SummaryDetailPopup({ type, date, categoryFilter, onClose }: { type: string; date: string; categoryFilter?: string | null; onClose: () => void }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   // 상태 배지 툴팁용: 프로젝트별 이슈 상세 (제목/설명/심각도)
@@ -1014,7 +1087,7 @@ function SummaryDetailPopup({ type, date, onClose }: { type: string; date: strin
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-3 border-b">
-          <h3 className="font-semibold text-gray-900">{TITLE[type] ?? type}</h3>
+          <h3 className="font-semibold text-gray-900">{TITLE[type] ?? type}{type === "issues" && categoryFilter ? ` · ${ISSUE_BUCKET_LABEL[categoryFilter] ?? ""}` : ""}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl leading-none">&times;</button>
         </div>
         <div className="overflow-y-auto flex-1 p-4">
@@ -1062,11 +1135,12 @@ function SummaryDetailPopup({ type, date, onClose }: { type: string; date: strin
           {/* 전체 이슈 */}
           {!loading && type === "issues" && Array.isArray(data) && (
             <div className="space-y-4">
-              {data.length === 0 && <p className="text-sm text-gray-400 text-center py-6">이슈 없음</p>}
               {(() => {
+                const items = categoryFilter ? data.filter((it: any) => issueBucket(it?.issue ?? {}) === categoryFilter) : data;
+                if (items.length === 0) return <p className="text-sm text-gray-400 text-center py-6">이슈 없음</p>;
                 const SEV_ORDER: Record<string, number> = { CRITICAL: 0, WARNING: 1, INFO: 2 };
                 const grouped = new Map<string, { projectId: string; projectName: string; items: any[] }>();
-                for (const item of data) {
+                for (const item of items) {
                   const key = item.projectId ?? "unknown";
                   if (!grouped.has(key)) grouped.set(key, { projectId: key, projectName: item.projectName ?? key, items: [] });
                   grouped.get(key)!.items.push(item);
@@ -1216,6 +1290,103 @@ function SummaryDetailPopup({ type, date, onClose }: { type: string; date: strin
   );
 }
 
+// ─── 이슈 카테고리 버킷 ───────────────────────────────────────────────────────
+// 심각도(위험/경고/정보) 대신 백엔드 issue-detector의 category로 분류.
+// 이슈 박스엔 '문제성' 3종만: 지연/이슈/정체. 완료예정(SCHEDULE_DELAY·INFO)·마일스톤은 상단 KPI로 분리.
+function issueBucket(iss: { category?: string; severity?: string }): string {
+  if (iss.category === "SCHEDULE_DELAY") return iss.severity === "INFO" ? "DUE_SOON" : "DELAY";
+  if (iss.category === "MANUAL_ISSUE") return "MANUAL";
+  if (iss.category === "PROGRESS_STALE") return "STALE";
+  if (iss.category === "MILESTONE_DUE") return "MILESTONE";
+  if (iss.category === "BUDGET_OVERRUN") return "BUDGET";
+  return "OTHER";
+}
+// 이슈 박스에 노출할 문제성 카테고리 (지연/이슈/정체)
+const ISSUE_BUCKETS: { key: string; label: string; cls: string }[] = [
+  { key: "MANUAL", label: "이슈", cls: "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300" },
+  { key: "DELAY",  label: "지연", cls: "bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300" },
+  { key: "STALE",  label: "정체", cls: "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300" },
+];
+const ISSUE_BUCKET_LABEL: Record<string, string> = {
+  DELAY: "지연", MANUAL: "이슈", STALE: "정체", DUE_SOON: "완료예정", MILESTONE: "마일스톤", BUDGET: "예산", OTHER: "기타",
+};
+
+// 프로젝트별 카테고리 개수 맵을 상단 카드·본문 행이 공유 (getSummaryDetails 1회 → 전역 공유)
+const IssueCatContext = createContext<Map<string, Record<string, number>>>(new Map());
+
+// 본문 이슈 열 배지용 카테고리 (지연=빨강·이슈=주황·정체=노랑·예정=파랑·마일스톤=보라)
+const ISSUE_BADGE_BUCKETS: { key: string; label: string; cls: string }[] = [
+  { key: "MANUAL",    label: "이슈",   cls: "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300" },
+  { key: "DELAY",     label: "지연",   cls: "bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300" },
+  { key: "STALE",     label: "정체",   cls: "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300" },
+  { key: "DUE_SOON",  label: "예정",   cls: "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300" },
+  { key: "MILESTONE", label: "마일스톤", cls: "bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300" },
+];
+
+// 이슈 객체에서 관련 태스크(이름+ID+원시 상세값) 추출 (백엔드 metadata 기준)
+// 완료예정(segments)만 ID가 없어 이동 불가 → id undefined.
+type IssueTask = { name: string; id?: string; delayDays?: number; staleDays?: number; endDate?: string; milestoneDate?: string };
+function issueTasks(iss: any): IssueTask[] {
+  if (iss?.taskName) {
+    return [{ name: iss.taskName, id: iss?.taskId, milestoneDate: iss?.metadata?.milestoneDate }];
+  }
+  const t = iss?.metadata?.tasks;
+  if (Array.isArray(t)) return t.map((x: any) => ({ name: x?.name, id: x?.id, delayDays: x?.delayDays, staleDays: x?.staleDays })).filter((x: any) => x.name);
+  const s = iss?.metadata?.segments;
+  if (Array.isArray(s)) return s.map((x: any) => ({ name: x?.taskName, endDate: x?.endDate })).filter((x: any) => x.name);
+  return [];
+}
+
+// MM/DD 포맷
+function mmdd(dateStr?: string): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// 이슈 내용 문장 구성 — 숫자만 굵게. (지연 delayDays는 백엔드 배포 후 값이 들어옴)
+function renderIssueContent(t: { cat: string; title: string; delayDays?: number; staleDays?: number; endDate?: string; milestoneDate?: string }) {
+  const B = (s: string) => <strong className="font-bold">{s}</strong>;
+  if (t.cat === "DELAY" && t.delayDays != null) {
+    const prefix = t.title.replace(/\s*지연$/, ""); // "태스크 일정" | "크리티컬 패스"
+    return <>{prefix} {B(`${t.delayDays}일`)} 지연</>;
+  }
+  if (t.cat === "STALE" && t.staleDays != null) {
+    return <>업데이트 {B(`${t.staleDays}일`)} 미갱신</>;
+  }
+  if (t.cat === "DUE_SOON" && t.endDate) {
+    return <>이번 주({mmdd(t.endDate)}) 완료 예정</>;
+  }
+  if (t.cat === "MILESTONE" && t.milestoneDate) {
+    return <>{t.title} ({mmdd(t.milestoneDate)})</>;
+  }
+  return <>{t.title}</>;
+}
+
+// 이슈 열 배지: 카테고리별 "라벨 N" 색 배지 (0인 카테고리는 숨김).
+// onSelect 있으면 각 배지가 버튼 → 그 카테고리만 필터해 팝업 열기.
+function IssueCatBadges({ counts, onSelect }: { counts?: Record<string, number>; onSelect?: (key: string) => void }) {
+  if (!counts) return null;
+  return (
+    <>
+      {ISSUE_BADGE_BUCKETS.map((b) => {
+        const n = counts[b.key] ?? 0;
+        if (n === 0) return null;
+        const cls = `px-1.5 py-0.5 rounded font-medium whitespace-nowrap ${b.cls}`;
+        return onSelect ? (
+          <button key={b.key} type="button"
+            onClick={(e) => { e.stopPropagation(); onSelect(b.key); }}
+            className={`${cls} hover:ring-2 hover:ring-blue-300 transition-shadow`}>
+            {b.label} {n}
+          </button>
+        ) : (
+          <span key={b.key} className={cls}>{b.label} {n}</span>
+        );
+      })}
+    </>
+  );
+}
+
 // ─── 전체 요약 카드 ───────────────────────────────────────────────────────────
 
 function GlobalSummaryCards({ summary, date }: { summary: GlobalSummary; date: string }) {
@@ -1223,6 +1394,15 @@ function GlobalSummaryCards({ summary, date }: { summary: GlobalSummary; date: s
   const ic = summary.issueCount;
   const we = summary.thisWeekEvents;
   const [detailType, setDetailType] = useState<string | null>(null);
+  const [issueCatFilter, setIssueCatFilter] = useState<string | null>(null);
+  // 프로젝트별 카테고리 맵(Context)에서 전역 합계 계산 — 별도 fetch 불필요(부모가 1회 fetch)
+  const issueCatMap = useContext(IssueCatContext);
+  const issueCounts = useMemo(() => {
+    if (issueCatMap.size === 0) return null;
+    const counts: Record<string, number> = {};
+    for (const rec of issueCatMap.values()) for (const k in rec) counts[k] = (counts[k] ?? 0) + rec[k];
+    return counts;
+  }, [issueCatMap]);
 
   // 집계 기간: 기준일(오늘) ~ +7일
   const winStart = date;
@@ -1233,7 +1413,7 @@ function GlobalSummaryCards({ summary, date }: { summary: GlobalSummary; date: s
 
   return (
     <>
-      {detailType && <SummaryDetailPopup type={detailType} date={date} onClose={() => setDetailType(null)} />}
+      {detailType && <SummaryDetailPopup type={detailType} date={date} categoryFilter={issueCatFilter} onClose={() => { setDetailType(null); setIssueCatFilter(null); }} />}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {/* 프로젝트 현황 */}
         <div className={cardCls} onClick={() => setDetailType("projects")}>
@@ -1248,15 +1428,25 @@ function GlobalSummaryCards({ summary, date }: { summary: GlobalSummary; date: s
           </div>
         </div>
 
-        {/* 이슈 현황 */}
-        <div className={cardCls} onClick={() => setDetailType("issues")}>
+        {/* 이슈 현황 — 카테고리별(지연/이슈/정체). 칩 클릭 시 해당 카테고리만 필터 팝업 */}
+        <div className={cardCls} onClick={() => { setIssueCatFilter(null); setDetailType("issues"); }}>
           <div className="text-xs text-gray-500 mb-1">이슈 현황</div>
-          <div className="text-2xl font-bold text-gray-900">{ic.critical + ic.warning + ic.info}</div>
+          <div className="text-2xl font-bold text-gray-900">
+            {issueCounts ? ISSUE_BUCKETS.reduce((s, b) => s + (issueCounts[b.key] ?? 0), 0) : (ic.critical + ic.warning + ic.info)}
+          </div>
           <div className="flex flex-wrap gap-1.5 mt-2">
-            {ic.critical > 0 && <span className="text-xs bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300 px-2 py-0.5 rounded-full">{ic.critical} 위험</span>}
-            {ic.warning > 0 && <span className="text-xs bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300 px-2 py-0.5 rounded-full">{ic.warning} 경고</span>}
-            {ic.info > 0 && <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 px-2 py-0.5 rounded-full">{ic.info} 정보</span>}
-            {ic.critical + ic.warning + ic.info === 0 && <span className="text-xs text-gray-400">이슈 없음</span>}
+            {ISSUE_BUCKETS.map((b) => {
+              const n = issueCounts?.[b.key] ?? 0;
+              if (n === 0) return null;
+              return (
+                <button key={b.key}
+                  onClick={(e) => { e.stopPropagation(); setIssueCatFilter(b.key); setDetailType("issues"); }}
+                  className={`text-xs px-2 py-0.5 rounded-full font-medium hover:ring-2 hover:ring-blue-200 transition-all ${b.cls}`}>
+                  {b.label} {n}
+                </button>
+              );
+            })}
+            {issueCounts && ISSUE_BUCKETS.every((b) => (issueCounts[b.key] ?? 0) === 0) && <span className="text-xs text-gray-400">이슈 없음</span>}
           </div>
         </div>
 
@@ -1295,6 +1485,28 @@ export default function CommandCenterDashboard() {
   const [presentationMode, setPresentationMode] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // 이슈 목록 1회 fetch → 프로젝트별 카테고리 맵 (상단 카드·본문 행 공유)
+  const [issuesList, setIssuesList] = useState<any[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    dashboardApi.getSummaryDetails("issues", date)
+      .then((list: any[]) => { if (alive) setIssuesList(list ?? []); })
+      .catch(() => { if (alive) setIssuesList([]); });
+    return () => { alive = false; };
+  }, [date]);
+  const issueCatByProject = useMemo(() => {
+    const m = new Map<string, Record<string, number>>();
+    for (const it of issuesList ?? []) {
+      const pid = it?.projectId;
+      if (!pid) continue;
+      const b = issueBucket(it?.issue ?? {});
+      const cur = m.get(pid) ?? {};
+      cur[b] = (cur[b] ?? 0) + 1;
+      m.set(pid, cur);
+    }
+    return m;
+  }, [issuesList]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1396,6 +1608,7 @@ export default function CommandCenterDashboard() {
   }
 
   return (
+    <IssueCatContext.Provider value={issueCatByProject}>
     <div ref={containerRef} className={`p-6 space-y-4${presentationMode ? " bg-gray-950 min-h-screen text-white" : ""}`}>
       {/* 헤더 */}
       <div className="flex items-center justify-between">
@@ -1501,5 +1714,6 @@ export default function CommandCenterDashboard() {
         />
       )}
     </div>
+    </IssueCatContext.Provider>
   );
 }
