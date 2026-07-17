@@ -72,7 +72,18 @@ export class IssueDetectorService {
     const taskById = new Map(project.tasks.map((t) => [t.id, t]));
     const parentIds = new Set(project.tasks.map((t) => t.parentId).filter(Boolean));
     const isLeaf = (t: { id: string }) => !parentIds.has(t.id);
-    const parentNameOf = (t: { parentId: string | null }) => (t.parentId ? taskById.get(t.parentId)?.name ?? null : null);
+    // 상위 전체 경로("최상위 › … › 직속부모")를 이어붙임. 순환은 guard로 방지.
+    const parentNameOf = (t: { parentId: string | null }): string | null => {
+      const names: string[] = [];
+      const guard = new Set<string>();
+      let cur = t.parentId ? taskById.get(t.parentId) : undefined;
+      while (cur && !guard.has(cur.id)) {
+        guard.add(cur.id);
+        names.unshift(cur.name);
+        cur = cur.parentId ? taskById.get(cur.parentId) : undefined;
+      }
+      return names.length ? names.join(" › ") : null;
+    };
 
     // ─── CRITICAL: 크리티컬 패스 지연 ─────────────────────────────────────────
     const delayedCriticalTasks = project.tasks.filter((t) => {
