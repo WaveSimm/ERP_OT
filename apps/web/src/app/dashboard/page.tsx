@@ -418,7 +418,7 @@ function IssuePopup({ projectId, projectName, category, onClose }: { projectId: 
           <div className="flex items-baseline gap-4 min-w-0">
             <h3 className="font-semibold text-gray-900 shrink-0">이슈 상세</h3>
             {projectName && (
-              <Link href={`/projects/${projectId}`} onClick={onClose} className="text-[13px] text-gray-400 hover:text-gray-600 hover:underline truncate">{projectName}</Link>
+              <Link href={`/projects/${projectId}`} onClick={onClose} className="text-base text-gray-400 hover:text-gray-600 hover:underline truncate">{projectName}</Link>
             )}
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl leading-none shrink-0">×</button>
@@ -460,14 +460,16 @@ function IssuePopup({ projectId, projectName, category, onClose }: { projectId: 
                           <span className={`text-[11px] px-1.5 py-0.5 rounded font-medium whitespace-nowrap ${meta.cls}`}>{meta.label}</span>
                         )}
                       </Td>
-                      <Td truncate title={t.parentName ? `${t.parentName} › ${t.name}` : t.name}>
-                        {t.parentName && <span className="text-gray-400 dark:text-gray-500">{t.parentName} › </span>}
-                        {t.id ? (
-                          <Link href={`/projects/${projectId}?taskId=${t.id}`} onClick={onClose}
-                            className="text-gray-900 dark:text-gray-100 font-medium hover:underline">{t.name}</Link>
-                        ) : (
-                          <span className={t.muted ? "text-gray-400" : "text-gray-800"}>{t.name}</span>
-                        )}
+                      <Td className="align-top" title={t.parentName ? `${t.parentName} › ${t.name}` : t.name}>
+                        {t.parentName && <div className="text-[11px] leading-tight text-gray-400 dark:text-gray-500 truncate">{t.parentName}</div>}
+                        <div className="truncate">
+                          {t.id ? (
+                            <Link href={`/projects/${projectId}?taskId=${t.id}`} onClick={onClose}
+                              className="text-gray-900 dark:text-gray-100 font-medium hover:underline">{t.name}</Link>
+                          ) : (
+                            <span className={t.muted ? "text-gray-400" : "text-gray-800"}>{t.name}</span>
+                          )}
+                        </div>
                       </Td>
                       <Td className={t.cat === "MANUAL" ? "text-red-600 dark:text-red-400 font-bold" : "text-gray-900 dark:text-gray-100"}>
                         <span className="line-clamp-2">{renderIssueContent(t)}</span>
@@ -748,7 +750,7 @@ function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: 
             onClick={() => onSelectTask(t, row.id)}
             className={`border-b border-gray-100 cursor-pointer text-sm transition-colors ${hasIssue ? "bg-red-50 hover:bg-red-100 dark:hover:bg-red-950 text-red-800 dark:text-red-300" : "bg-gray-50/50 dark:bg-gray-800/40 hover:bg-blue-50 dark:hover:bg-blue-950 text-gray-700"}`}>
             <td />
-            {/* 이름 — 트리 들여쓰기(내부 padding → 타임라인 위치 고정) */}
+            {/* 이름 — 여백 들여쓰기 + 태스크명 */}
             <td className="px-3 py-1.5">
               <div className="flex items-center gap-1 overflow-hidden" style={{ paddingLeft: depth * 18 }}>
                 {isLeaf && depth > 0 && <span className="text-gray-300 shrink-0">└</span>}
@@ -821,17 +823,18 @@ function FolderSection({ name, isDept, rows, date, onPin, onSelectTask, ownerByP
       </button>
       {open && (
         <div className="mt-1 rounded-lg border border-gray-200 overflow-hidden">
-          <table className="w-full table-fixed">
+          {/* 모든 열 세로 구분선(마지막 열 제외) */}
+          <table className="w-full table-fixed [&_td:not(:last-child)]:border-r [&_th:not(:last-child)]:border-r [&_td]:border-gray-100 [&_th]:border-gray-100 dark:[&_td]:border-gray-800 dark:[&_th]:border-gray-800">
             <thead>
               <tr className="bg-gray-50 text-xs font-medium text-gray-600 border-b border-gray-200">
-                <th className="px-3 py-1.5 text-left w-10"></th>
-                <th className="px-3 py-1.5 text-left w-[320px]">프로젝트</th>
-                <th className="px-3 py-1.5 text-left w-[100px]">소유자</th>
-                <th className="px-3 py-1.5 text-left w-[288px]">타임라인 (±7일)</th>
-                <th className="px-3 py-1.5 text-left w-[110px]">자원</th>
-                <th className="px-2 py-1.5 text-left w-[84px]">진행률</th>
-                <th className="px-3 py-1.5 text-left">비고</th>
-                <th className="px-3 py-1.5 text-left">이슈</th>
+                <th className="px-3 py-1.5 text-center w-10"></th>
+                <th className="px-3 py-1.5 text-center w-[320px]">프로젝트</th>
+                <th className="px-3 py-1.5 text-center w-[100px]">소유자</th>
+                <th className="px-3 py-1.5 text-center w-[288px]">타임라인 (±7일)</th>
+                <th className="px-3 py-1.5 text-center w-[110px]">자원</th>
+                <th className="px-2 py-1.5 text-center w-[84px]">진행률</th>
+                <th className="px-3 py-1.5 text-center">비고</th>
+                <th className="px-3 py-1.5 text-center">이슈</th>
               </tr>
             </thead>
             <tbody>
