@@ -82,9 +82,9 @@ export async function projectRoutes(fastify: FastifyInstance) {
     return reply.status(201).send(project);
   });
 
-  // POST /api/v1/projects/import-planner — MS Planner 플랜 일괄 이관 (ADMIN)
+  // POST /api/v1/projects/import-planner — MS Planner 플랜 일괄 이관 (OPERATOR 이상)
   fastify.post("/import-planner", {
-    preHandler: requireRole("ADMIN"),
+    preHandler: requireRole("ADMIN", "MANAGER", "OPERATOR"),
   }, async (req, reply) => {
     const dto = importPlannerSchema.parse(req.body);
     const result = await service.importPlanner(dto, req.userId);
