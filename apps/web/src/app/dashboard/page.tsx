@@ -411,7 +411,7 @@ function IssuePopup({ projectId, projectName, category, onClose }: { projectId: 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[88vh] flex flex-col"
+        className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-gray-700/60">
@@ -1101,6 +1101,37 @@ function SummaryDetailPopup({ type, date, categoryFilter, folders, onClose }: { 
     return m;
   }, [type, folders]);
 
+  // 프로젝트 현황 정렬: 부서 폴더 순서 → 폴더 내 프로젝트 순서 (가장 위 폴더 기준, 폴더 없으면 맨 뒤)
+  const projectFolderOrder = useMemo(() => {
+    // fo/io = 가장 위 폴더 기준 순서, count = 속한 부서 폴더 수(2 이상이면 여러 부서 공유)
+    const m = new Map<string, { fo: number; io: number; count: number }>();
+    if (!["projects", "starting", "ending"].includes(type)) return m;
+    for (const f of folders ?? []) {
+      if (!f.departmentId || f.parentId !== null) continue;
+      for (const it of f.projects ?? []) {
+        const prev = m.get(it.projectId);
+        if (!prev) {
+          m.set(it.projectId, { fo: f.sortOrder, io: it.sortOrder, count: 1 });
+        } else {
+          prev.count += 1;
+          if (f.sortOrder < prev.fo || (f.sortOrder === prev.fo && it.sortOrder < prev.io)) { prev.fo = f.sortOrder; prev.io = it.sortOrder; }
+        }
+      }
+    }
+    return m;
+  }, [type, folders]);
+
+  // 공통 비교자: 부서 폴더순 → 폴더내 순서 (단일부서 → 여러부서 공유 → 미분류)
+  const cmpByFolder = (aId: string, bId: string): number => {
+    const oa = projectFolderOrder.get(aId);
+    const ob = projectFolderOrder.get(bId);
+    const ta = !oa ? 2 : oa.count >= 2 ? 1 : 0;
+    const tb = !ob ? 2 : ob.count >= 2 ? 1 : 0;
+    if (ta !== tb) return ta - tb;
+    if (ta === 2) return 0;
+    return (oa!.fo - ob!.fo) || (oa!.io - ob!.io);
+  };
+
   let tabs: { key: string; label: string; count: number; cls?: string }[] = [];
   let totalCount = 0;
   if (type === "projects" && Array.isArray(data)) {
@@ -1125,12 +1156,24 @@ function SummaryDetailPopup({ type, date, categoryFilter, folders, onClose }: { 
       { key: "MILESTONE", label: "마일스톤", count: ms, cls: "bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300" },
     ].filter((t) => t.count > 0);
   }
-  const shownProjects = (type === "projects" && Array.isArray(data)) ? data.filter((p: any) => !filter || projBucket(p) === filter) : [];
-  const shownStarting = (type === "starting" && Array.isArray(data)) ? data.filter((s: any) => !filter || (filter === "__none__" ? (projectDeptMap.get(s.projectId) ?? []).length === 0 : (projectDeptMap.get(s.projectId) ?? []).includes(filter))) : [];
+  const shownProjects = (type === "projects" && Array.isArray(data))
+    ? data.filter((p: any) => !filter || projBucket(p) === filter).sort((a: any, b: any) => cmpByFolder(a.id, b.id))
+    : [];
+  // 시작/완료 세그먼트·마일스톤: 날짜 → 부서폴더순 → 폴더내순 → 태스크명
+  const shownStarting = (type === "starting" && Array.isArray(data))
+    ? data.filter((s: any) => !filter || (filter === "__none__" ? (projectDeptMap.get(s.projectId) ?? []).length === 0 : (projectDeptMap.get(s.projectId) ?? []).includes(filter)))
+        .sort((a: any, b: any) => (a.startDate || "").localeCompare(b.startDate || "") || cmpByFolder(a.projectId, b.projectId) || (a.taskName || "").localeCompare(b.taskName || ""))
+    : [];
+  const shownEndingSegments = (type === "ending" && data?.endingSegments)
+    ? [...data.endingSegments].sort((a: any, b: any) => (a.endDate || "").localeCompare(b.endDate || "") || cmpByFolder(a.projectId, b.projectId) || (a.taskName || "").localeCompare(b.taskName || ""))
+    : [];
+  const shownMilestones = (type === "ending" && data?.milestones)
+    ? [...data.milestones].sort((a: any, b: any) => (a.dueDate || "").localeCompare(b.dueDate || "") || cmpByFolder(a.projectId, b.projectId) || (a.taskName || "").localeCompare(b.taskName || ""))
+    : [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-3 border-b">
           <h3 className="font-semibold text-gray-900">{TITLE[type] ?? type}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl leading-none">&times;</button>
@@ -1155,40 +1198,45 @@ function SummaryDetailPopup({ type, date, categoryFilter, folders, onClose }: { 
 
           {/* 전체 프로젝트 */}
           {!loading && type === "projects" && Array.isArray(data) && (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 text-xs font-medium text-gray-600 border-b border-gray-200">
-                  <th className="py-1.5 text-left px-2">상태</th>
-                  <th className="py-1.5 text-left px-2">프로젝트</th>
-                  <th className="py-1.5 text-right px-2">진행률</th>
-                  <th className="py-1.5 text-right px-2">이슈</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table fixed columnDividers className="text-sm">
+              <colgroup>
+                <col className="w-20" />
+                <col />
+                <col className="w-24" />
+                <col className="w-28" />
+              </colgroup>
+              <THead sticky={false}>
+                <Th align="center">상태</Th>
+                <Th align="center">프로젝트</Th>
+                <Th align="center">진행률</Th>
+                <Th align="center">이슈</Th>
+              </THead>
+              <TBody>
+                {shownProjects.length === 0 && <TableEmpty colSpan={4}>프로젝트 없음</TableEmpty>}
                 {shownProjects.map((p: any) => {
                   const rag = RAG_LABEL[p.ragStatus] ?? RAG_LABEL.GREEN;
+                  const totalIssues = p.issueCount.critical + p.issueCount.warning + p.issueCount.info;
                   return (
-                    <tr key={p.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
-                      <td className="py-2 px-2">
-                        <span title={ragTooltip(p.ragStatus, issuesByProject[p.id])} className={`text-[11px] px-2 py-0.5 rounded-full font-medium cursor-help ${rag.cls}`}>{rag.text}</span>
-                      </td>
-                      <td className="py-2 px-2">
-                        <Link href={`/projects/${p.id}`} className="text-blue-600 dark:text-blue-400 hover:underline" onClick={onClose}>
-                          {p.name}
-                        </Link>
-                        <span className="ml-2 text-xs text-gray-400">{STATUS_LABEL[p.status] ?? p.status}</span>
-                      </td>
-                      <td className="py-2 px-2 text-right">{p.overallProgress}%</td>
-                      <td className="py-2 px-2 text-right">
+                    <Tr key={p.id}>
+                      <Td align="center">
+                        <span title={ragTooltip(p.ragStatus, issuesByProject[p.id])} className={`inline-block text-[11px] px-2 py-0.5 rounded-full font-medium cursor-help ${rag.cls}`}>{rag.text}</span>
+                      </Td>
+                      <Td strong truncate title={`${p.name} · ${STATUS_LABEL[p.status] ?? p.status}`}>
+                        <Link href={`/projects/${p.id}`} className="hover:underline" onClick={onClose}>{p.name}</Link>
+                        <span className="ml-2 text-xs font-normal text-gray-400">{STATUS_LABEL[p.status] ?? p.status}</span>
+                      </Td>
+                      <Td align="right" mono>{p.overallProgress}%</Td>
+                      <Td align="center">
                         {p.issueCount.critical > 0 && <span title={severityTooltip(issuesByProject[p.id], "CRITICAL")} className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded mr-1 cursor-help">{p.issueCount.critical}</span>}
                         {p.issueCount.warning > 0 && <span title={severityTooltip(issuesByProject[p.id], "WARNING")} className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded mr-1 cursor-help">{p.issueCount.warning}</span>}
                         {p.issueCount.info > 0 && <span title={severityTooltip(issuesByProject[p.id], "INFO")} className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded cursor-help">{p.issueCount.info}</span>}
-                      </td>
-                    </tr>
+                        {totalIssues === 0 && <span className="text-gray-300">-</span>}
+                      </Td>
+                    </Tr>
                   );
                 })}
-              </tbody>
-            </table>
+              </TBody>
+            </Table>
           )}
 
           {/* 전체 이슈 */}
@@ -1242,36 +1290,36 @@ function SummaryDetailPopup({ type, date, categoryFilter, folders, onClose }: { 
 
           {/* 이번 주 시작 */}
           {!loading && type === "starting" && Array.isArray(data) && (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 text-xs font-medium text-gray-600 border-b border-gray-200">
-                  <th className="py-1.5 text-left px-2">시작일</th>
-                  <th className="py-1.5 text-left px-2">프로젝트</th>
-                  <th className="py-1.5 text-left px-2">태스크 / 세그먼트</th>
-                  <th className="py-1.5 text-left px-2">담당</th>
-                </tr>
-              </thead>
-              <tbody>
-                {shownStarting.length === 0 && (
-                  <tr><td colSpan={4} className="text-center py-6 text-gray-400">이번 주 시작 세그먼트 없음</td></tr>
-                )}
+            <Table fixed columnDividers className="text-sm">
+              <colgroup>
+                <col className="w-28" />
+                <col />
+                <col />
+                <col className="w-40" />
+              </colgroup>
+              <THead sticky={false}>
+                <Th align="center">시작일</Th>
+                <Th align="center">프로젝트</Th>
+                <Th align="center">태스크 / 세그먼트</Th>
+                <Th align="center">담당</Th>
+              </THead>
+              <TBody>
+                {shownStarting.length === 0 && <TableEmpty colSpan={4}>이번 주 시작 세그먼트 없음</TableEmpty>}
                 {shownStarting.map((s: any) => (
-                  <tr key={s.segmentId} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
-                    <td className="py-2 px-2 text-xs whitespace-nowrap">{s.startDate}</td>
-                    <td className="py-2 px-2">
-                      <Link href={`/projects/${s.projectId}`} className="text-blue-600 dark:text-blue-400 hover:underline text-xs" onClick={onClose}>
-                        {s.projectName}
-                      </Link>
-                    </td>
-                    <td className="py-2 px-2">
-                      <div className="text-xs">{s.taskName}</div>
-                      <div className="text-[11px] text-gray-400">{s.segmentName}</div>
-                    </td>
-                    <td className="py-2 px-2 text-xs text-gray-500">{s.assignees?.join(", ") || "-"}</td>
-                  </tr>
+                  <Tr key={s.segmentId}>
+                    <Td align="center" mono className="whitespace-nowrap">{s.startDate}</Td>
+                    <Td strong truncate title={s.projectName}>
+                      <Link href={`/projects/${s.projectId}`} className="hover:underline" onClick={onClose}>{s.projectName}</Link>
+                    </Td>
+                    <Td truncate title={`${s.taskName} / ${s.segmentName}`}>
+                      {s.taskName}
+                      <span className="ml-1.5 text-xs text-gray-400">{s.segmentName}</span>
+                    </Td>
+                    <Td muted truncate dash>{s.assignees?.join(", ") || ""}</Td>
+                  </Tr>
                 ))}
-              </tbody>
-            </table>
+              </TBody>
+            </Table>
           )}
 
           {/* 이번 주 완료/마일스톤 */}
@@ -1280,67 +1328,67 @@ function SummaryDetailPopup({ type, date, categoryFilter, folders, onClose }: { 
               {(!filter || filter === "DUE_SOON") && (
               <div>
                 <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">완료 예정 세그먼트</h4>
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-gray-50 text-xs font-medium text-gray-600 border-b border-gray-200">
-                      <th className="py-1.5 text-left px-2">완료일</th>
-                      <th className="py-1.5 text-left px-2">프로젝트</th>
-                      <th className="py-1.5 text-left px-2">태스크 / 세그먼트</th>
-                      <th className="py-1.5 text-right px-2">진행률</th>
-                      <th className="py-1.5 text-left px-2">담당</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(!data.endingSegments || data.endingSegments.length === 0) && (
-                      <tr><td colSpan={5} className="text-center py-4 text-gray-400 text-xs">완료 예정 없음</td></tr>
-                    )}
-                    {data.endingSegments?.map((s: any) => (
-                      <tr key={s.segmentId} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
-                        <td className="py-2 px-2 text-xs whitespace-nowrap">{s.endDate}</td>
-                        <td className="py-2 px-2">
-                          <Link href={`/projects/${s.projectId}`} className="text-blue-600 dark:text-blue-400 hover:underline text-xs" onClick={onClose}>
-                            {s.projectName}
-                          </Link>
-                        </td>
-                        <td className="py-2 px-2">
-                          <div className="text-xs">{s.taskName}</div>
-                          <div className="text-[11px] text-gray-400">{s.segmentName}</div>
-                        </td>
-                        <td className="py-2 px-2 text-xs text-right">
-                          <span className={s.progressPercent < 50 ? "text-red-600 dark:text-red-400 font-medium" : ""}>{s.progressPercent}%</span>
-                        </td>
-                        <td className="py-2 px-2 text-xs text-gray-500">{s.assignees?.join(", ") || "-"}</td>
-                      </tr>
+                <Table fixed columnDividers className="text-sm">
+                  <colgroup>
+                    <col className="w-28" />
+                    <col />
+                    <col />
+                    <col className="w-20" />
+                    <col className="w-36" />
+                  </colgroup>
+                  <THead sticky={false}>
+                    <Th align="center">완료일</Th>
+                    <Th align="center">프로젝트</Th>
+                    <Th align="center">태스크 / 세그먼트</Th>
+                    <Th align="center">진행률</Th>
+                    <Th align="center">담당</Th>
+                  </THead>
+                  <TBody>
+                    {shownEndingSegments.length === 0 && <TableEmpty colSpan={5}>완료 예정 없음</TableEmpty>}
+                    {shownEndingSegments.map((s: any) => (
+                      <Tr key={s.segmentId}>
+                        <Td align="center" mono className="whitespace-nowrap">{s.endDate}</Td>
+                        <Td strong truncate title={s.projectName}>
+                          <Link href={`/projects/${s.projectId}`} className="hover:underline" onClick={onClose}>{s.projectName}</Link>
+                        </Td>
+                        <Td truncate title={`${s.taskName} / ${s.segmentName}`}>
+                          {s.taskName}
+                          <span className="ml-1.5 text-xs text-gray-400">{s.segmentName}</span>
+                        </Td>
+                        <Td align="right" mono className={s.progressPercent < 50 ? "!text-red-600 dark:!text-red-400 font-medium" : ""}>{s.progressPercent}%</Td>
+                        <Td muted truncate dash>{s.assignees?.join(", ") || ""}</Td>
+                      </Tr>
                     ))}
-                  </tbody>
-                </table>
+                  </TBody>
+                </Table>
               </div>
               )}
-              {(!filter || filter === "MILESTONE") && data.milestones && data.milestones.length > 0 && (
+              {(!filter || filter === "MILESTONE") && shownMilestones.length > 0 && (
                 <div>
                   <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">마일스톤</h4>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-gray-50 text-xs font-medium text-gray-600 border-b border-gray-200">
-                        <th className="py-1.5 text-left px-2">기한</th>
-                        <th className="py-1.5 text-left px-2">프로젝트</th>
-                        <th className="py-1.5 text-left px-2">마일스톤</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.milestones.map((m: any) => (
-                        <tr key={m.taskId} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
-                          <td className="py-2 px-2 text-xs whitespace-nowrap">{m.dueDate}</td>
-                          <td className="py-2 px-2">
-                            <Link href={`/projects/${m.projectId}`} className="text-blue-600 dark:text-blue-400 hover:underline text-xs" onClick={onClose}>
-                              {m.projectName}
-                            </Link>
-                          </td>
-                          <td className="py-2 px-2 text-xs">{m.taskName}</td>
-                        </tr>
+                  <Table fixed columnDividers className="text-sm">
+                    <colgroup>
+                      <col className="w-28" />
+                      <col />
+                      <col />
+                    </colgroup>
+                    <THead sticky={false}>
+                      <Th align="center">기한</Th>
+                      <Th align="center">프로젝트</Th>
+                      <Th align="center">마일스톤</Th>
+                    </THead>
+                    <TBody>
+                      {shownMilestones.map((m: any) => (
+                        <Tr key={m.taskId}>
+                          <Td align="center" mono className="whitespace-nowrap">{m.dueDate}</Td>
+                          <Td strong truncate title={m.projectName}>
+                            <Link href={`/projects/${m.projectId}`} className="hover:underline" onClick={onClose}>{m.projectName}</Link>
+                          </Td>
+                          <Td truncate title={m.taskName}>{m.taskName}</Td>
+                        </Tr>
                       ))}
-                    </tbody>
-                  </table>
+                    </TBody>
+                  </Table>
                 </div>
               )}
             </div>
