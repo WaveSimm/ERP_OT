@@ -279,16 +279,28 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     router.push("/login");
   };
 
-  // 30분 유휴(무활동) 시 자동 로그아웃 — 서버 세션(리프레시 토큰·쿠키)까지 종료
+  // 30분 유휴(무활동) 시 자동 로그아웃 — 탭 간 활동 공유(localStorage)로
+  //   한 탭이라도 활동하면 다른 탭들도 유휴 타이머가 리셋됨(여러 탭에서 조기 로그아웃 방지).
   useEffect(() => {
     if (!currentUser) return;
     const IDLE_MS = 30 * 60 * 1000;
-    let last = Date.now();
-    const bump = () => { last = Date.now(); };
+    const LS_KEY = "erp_last_activity";
+    localStorage.setItem(LS_KEY, String(Date.now())); // 세션 시작(로드) 시각으로 초기화
+    const readLast = () => {
+      const v = Number(localStorage.getItem(LS_KEY));
+      return Number.isFinite(v) && v > 0 ? v : Date.now();
+    };
+    let lastWrite = 0;
+    const bump = () => {
+      const now = Date.now();
+      if (now - lastWrite < 5000) return; // 5초 throttle: 잦은 이벤트에도 공유 write 최소화
+      lastWrite = now;
+      localStorage.setItem(LS_KEY, String(now)); // 다른 탭도 이 값을 읽어 유휴 판정
+    };
     const events = ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "click"];
     events.forEach((e) => window.addEventListener(e, bump, { passive: true }));
     const iv = setInterval(() => {
-      if (Date.now() - last > IDLE_MS) {
+      if (Date.now() - readLast() > IDLE_MS) { // 어느 탭이든 마지막 활동 기준
         clearInterval(iv);
         events.forEach((e) => window.removeEventListener(e, bump));
         authApi.logout().catch(() => {}).finally(() => { clearToken(); router.push("/login?idle=1"); });
