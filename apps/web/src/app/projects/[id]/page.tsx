@@ -182,7 +182,7 @@ export default function ProjectDetailPage() {
     }).catch(() => {});
     // 폴더 데이터: 서버 folderApi 우선 (다른 PC에서도 동일 구조), 실패 시 localStorage fallback
     folderApi.list().then((apiFolders: any[]) => {
-      setPickerFolders(apiFolders.map((f: any) => ({ id: f.id, name: f.name, parentId: f.parentId ?? null })));
+      const baseFolders = apiFolders.map((f: any) => ({ id: f.id, name: f.name, parentId: f.parentId ?? null }));
       const map: Record<string, string[]> = {};
       const order: Record<string, string[]> = {};
       for (const f of apiFolders) {
@@ -193,8 +193,26 @@ export default function ProjectDetailPage() {
           map[it.projectId].push(f.id);
         }
       }
-      setPickerProjMap(map);
-      setPickerFolderProjOrder(order);
+      // 내 즐겨찾기(가상 폴더) — 이동 picker에도 표시. 실제 폴더가 아니라 favorites를 별도 조회해 합침.
+      folderApi.favorites().then((fav: any) => {
+        const favIds: string[] = fav?.projectIds ?? [];
+        if (favIds.length) {
+          order["__fav__"] = favIds;
+          for (const pid of favIds) {
+            if (!map[pid]) map[pid] = [];
+            map[pid].push("__fav__");
+          }
+          setPickerFolders([{ id: "__fav__", name: "내 즐겨찾기", parentId: null }, ...baseFolders]);
+        } else {
+          setPickerFolders(baseFolders);
+        }
+        setPickerProjMap(map);
+        setPickerFolderProjOrder(order);
+      }).catch(() => {
+        setPickerFolders(baseFolders);
+        setPickerProjMap(map);
+        setPickerFolderProjOrder(order);
+      });
     }).catch(() => {
       // fallback — server 호출 실패 시 localStorage (구 동작 유지)
       try {
@@ -493,6 +511,19 @@ export default function ProjectDetailPage() {
   // ── 다중 선택 state ──────────────────────────────────────────────────────────
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // 태스크 접힘 상태를 프로젝트별로 기억 — 다른 페이지 갔다 돌아와도 복원
+  useEffect(() => {
+    if (typeof window === "undefined" || !projectId) return;
+    try {
+      const raw = localStorage.getItem(`erp_proj_task_collapsed:${projectId}`);
+      const arr = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(arr)) setCollapsed(new Set(arr));
+    } catch {}
+  }, [projectId]);
+  useEffect(() => {
+    if (typeof window === "undefined" || !projectId) return;
+    try { localStorage.setItem(`erp_proj_task_collapsed:${projectId}`, JSON.stringify([...collapsed])); } catch {}
+  }, [collapsed, projectId]);
   const lastSelectedRef = useRef<string | null>(null);
 
   // 선택 툴바 높이 — sticky 헤더(<thead>)의 top 오프셋 계산용 (툴바가 열 제목 위에 겹치지 않게)
