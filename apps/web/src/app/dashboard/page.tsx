@@ -771,7 +771,7 @@ function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: 
                     <span key={name} title={name}
                       className={`w-6 h-6 rounded-full ${avatarColor(name)} flex items-center justify-center text-white text-[9px] font-bold ring-2 ring-white dark:ring-gray-900 shrink-0`}
                       style={{ marginLeft: idx === 0 ? 0 : -8, zIndex: 4 - idx }}>
-                      {name.slice(0, 2)}
+                      {name.slice(-2)}
                     </span>
                   ))}
                   {assigneeNames.length > 4 && (

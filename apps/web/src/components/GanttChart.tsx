@@ -794,7 +794,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                             className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-bold shrink-0 ring-2 ring-white"
                             style={{ marginLeft: idx === 0 ? 0 : -8, zIndex: resources.length - idx }}
                           >
-                            {name.slice(0, 2)}
+                            {name.slice(-2)}
                           </span>
                         ))}
                       </div>

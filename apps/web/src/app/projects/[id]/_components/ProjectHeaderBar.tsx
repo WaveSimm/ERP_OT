@@ -162,7 +162,7 @@ export default function ProjectHeaderBar({
               {uniqueWorkers.slice(0, 4).map((w) => (
                 <div key={w.id} title={w.name}
                   className={`w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-bold ring-1 ring-white ${avatarColor(w.name)}`}>
-                  {w.name.slice(0, 2)}
+                  {w.name.slice(-2)}
                 </div>
               ))}
               {uniqueWorkers.length > 4 && (
