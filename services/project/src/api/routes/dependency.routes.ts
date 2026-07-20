@@ -1,7 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { DependencyService } from "../../application/dependency.service.js";
-import { requireRole, requireManager } from "../middleware/auth.middleware.js";
+import { requireOperator } from "../middleware/auth.middleware.js";
 
 const createSchema = z.object({
   predecessorTaskId: z.string(),
@@ -26,7 +26,7 @@ export async function dependencyRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/projects/:projectId/dependencies
   fastify.post("/projects/:projectId/dependencies", {
-    preHandler: requireManager(),
+    preHandler: requireOperator(),
   }, async (req, reply) => {
     const dto = createSchema.parse(req.body);
     const dep = await service.create(dto, req.userId);
@@ -35,7 +35,7 @@ export async function dependencyRoutes(fastify: FastifyInstance) {
 
   // DELETE /api/v1/dependencies/:id
   fastify.delete("/dependencies/:id", {
-    preHandler: requireRole("ADMIN", "MANAGER"),
+    preHandler: requireOperator(),
   }, async (req, reply) => {
     const { id } = req.params as { id: string };
     await service.delete(id, req.userId);

@@ -319,7 +319,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/projects/:projectId/tasks/:taskId/dependencies (Task↔Task 만)
   fastify.post("/:taskId/dependencies", {
-    preHandler: requireRole("ADMIN", "MANAGER"),
+    preHandler: requireRole("ADMIN", "MANAGER", "OPERATOR"),
   }, async (req, reply) => {
     const { projectId, taskId } = req.params as { projectId: string; taskId: string };
     const dto = addDependencySchema.parse(req.body);
@@ -329,7 +329,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
   // DELETE /api/v1/projects/:projectId/tasks/:taskId/dependencies/:predecessorId
   fastify.delete("/:taskId/dependencies/:predecessorId", {
-    preHandler: requireRole("ADMIN", "MANAGER"),
+    preHandler: requireRole("ADMIN", "MANAGER", "OPERATOR"),
   }, async (req, reply) => {
     const { taskId, predecessorId } = req.params as { projectId: string; taskId: string; predecessorId: string };
     await fastify.prisma.dependency.deleteMany({
@@ -340,7 +340,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/projects/:projectId/cpm — CPM 재계산
   fastify.post("/cpm", {
-    preHandler: requireRole("ADMIN", "MANAGER"),
+    preHandler: requireRole("ADMIN", "MANAGER", "OPERATOR"),
   }, async (req, reply) => {
     const { projectId } = req.params as { projectId: string };
     const result = await cpmService.runProjectCpm(projectId);
