@@ -1,12 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { authApi, setToken, setUser, clearToken } from "@/lib/api";
 
 // 로그인 시 아이디 뒤에 자동으로 붙는 고정 도메인 (운영 계정 전부 이 도메인).
 // 사용자가 전체 이메일(@ 포함)을 입력하면 그대로 사용(예외 계정 대비).
 const LOGIN_DOMAIN = "@oceant.onmicrosoft.com";
+// 마지막 접속 아이디 저장 (기기별 localStorage). clearToken/로그아웃으로 안 지워지는 별도 키.
+const LS_LAST_ID = "erp_last_login_id";
+const LS_REMEMBER_ON = "erp_remember_id";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,9 +18,21 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [idle, setIdle] = useState(false);
+  const [remember, setRemember] = useState(false);
+  const passwordRef = useRef<HTMLInputElement>(null);
   // 유휴 자동 로그아웃 안내 (useSearchParams는 Suspense 필요 → window 직접 사용)
   useEffect(() => {
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("idle") === "1") setIdle(true);
+  }, []);
+  // 마지막 접속 아이디 미리 채움 ("아이디 저장"을 체크했던 경우에만)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const on = localStorage.getItem(LS_REMEMBER_ON) === "1";
+    setRemember(on);
+    if (on) {
+      const last = localStorage.getItem(LS_LAST_ID);
+      if (last) { setUserId(last); passwordRef.current?.focus(); }
+    }
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -33,6 +48,13 @@ export default function LoginPage() {
       const { user } = await authApi.login(loginEmail, password);
       setToken(""); // no-op (호환), 잔존 정리
       setUser({ id: user.id, name: user.name, role: user.role, isTeamLeader: user.isTeamLeader });
+      if (remember) {
+        localStorage.setItem(LS_REMEMBER_ON, "1");
+        localStorage.setItem(LS_LAST_ID, raw);
+      } else {
+        localStorage.removeItem(LS_REMEMBER_ON);
+        localStorage.removeItem(LS_LAST_ID);
+      }
       router.push("/home");
     } catch (err: any) {
       setError(err.message ?? "로그인에 실패했습니다.");
@@ -81,6 +103,7 @@ export default function LoginPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>
               <input
+                ref={passwordRef}
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -89,6 +112,16 @@ export default function LoginPage() {
                 required
               />
             </div>
+
+            <label className="flex items-center gap-2 text-sm text-gray-600 select-none cursor-pointer">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              아이디 저장
+            </label>
 
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-2.5">
