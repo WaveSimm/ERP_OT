@@ -47,12 +47,12 @@ interface Props {
 
 function SegmentCard({
   seg, projectId, taskId, taskName, saving, setSaving, onRefresh, onDelete, readonly = false,
-  isHidden, onToggleVisibility, pushUndo, refreshKey = 0,
+  isFirst = false, isHidden, onToggleVisibility, pushUndo, refreshKey = 0,
 }: {
   seg: any; projectId: string; taskId: string; taskName?: string;
   saving: string | null; setSaving: (s: string | null) => void;
   onRefresh: () => void; onDelete: (segId: string) => void; readonly?: boolean;
-  isHidden?: boolean; onToggleVisibility?: () => void;
+  isFirst?: boolean; isHidden?: boolean; onToggleVisibility?: () => void;
   pushUndo?: (action: { label: string; undo: () => Promise<void>; redo: () => Promise<void> }) => void;
   refreshKey?: number;
 }) {
@@ -266,8 +266,11 @@ function SegmentCard({
     <div className={clsx("border rounded-lg p-3 space-y-2", isHidden ? "border-gray-100 bg-gray-50/50 dark:bg-gray-500/10 opacity-60" : "border-gray-200")}>
       {/* 구간명 + 토글 + 삭제 */}
       <div className="flex items-center gap-2">
-        {readonly ? (
-          <p className="flex-1 text-sm font-medium text-gray-800">{seg.name}</p>
+        {(readonly || isFirst) ? (
+          <p className="flex-1 text-sm font-medium text-gray-500 dark:text-gray-400"
+            title={isFirst ? "첫 구간명은 태스크명과 연동됩니다(태스크명으로 수정)" : undefined}>
+            {isFirst ? (taskName ?? seg.name) : seg.name}
+          </p>
         ) : (
           <input
             type="text" value={name}
@@ -1249,10 +1252,11 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
                 {(task.segments ?? []).length === 0 ? (
                   <p className="text-sm text-gray-400 text-center py-3">구간이 없습니다.</p>
                 ) : (
-                  (task.segments ?? []).map((seg: any) => (
+                  (task.segments ?? []).map((seg: any, segIdx: number) => (
                     <SegmentCard
                       key={seg.id}
                       seg={seg}
+                      isFirst={segIdx === 0}
                       projectId={projectId}
                       taskId={task.id}
                       taskName={task.name}

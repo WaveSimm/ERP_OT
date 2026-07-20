@@ -171,14 +171,17 @@ export class TaskService {
       await this.cascadeHold(taskId, existing.projectId, dto.status === "ON_HOLD");
     }
 
-    // 기본 구간명 동기화: 태스크명 변경 시, 기존 태스크명과 동일한 이름의 구간을
-    //   새 태스크명으로 함께 변경한다(생성 시 태스크명=구간명으로 만들어지는 "기본 구간" 케이스).
-    //   사용자가 별도로 지어둔 구간명(예: "1차"/"2차")은 그대로 보존한다.
+    // 첫 구간(sortOrder 최소)은 태스크명과 항상 동기화 — 태스크명 변경 시 첫 구간명도 함께 변경.
+    //   (이후 구간은 자유 이름이라 건드리지 않음)
     if (dto.name !== undefined && dto.name !== existing.name) {
-      await this.prisma.taskSegment.updateMany({
-        where: { taskId, name: existing.name },
-        data: { name: dto.name },
+      const firstSeg = await this.prisma.taskSegment.findFirst({
+        where: { taskId },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        select: { id: true },
       });
+      if (firstSeg) {
+        await this.prisma.taskSegment.update({ where: { id: firstSeg.id }, data: { name: dto.name } });
+      }
     }
 
     // 의미있는 변경만 activity 기록 (sortOrder/parentId 단독 변경은 드래그 재정렬로 제외)
@@ -380,10 +383,13 @@ export class TaskService {
 
     // 시점 task: startDate/endDate 어느 쪽 변경이든 둘 다 동기화
     const milestoneSync = segment.task.isMilestone && (dto.startDate !== undefined || dto.endDate !== undefined);
+    // 첫 구간(sortOrder 최소)은 태스크명과 연동되므로 이름 직접 변경 무시(태스크명으로만 변경)
+    const isFirstSeg = [...segment.task.segments]
+      .sort((a, b) => a.sortOrder - b.sortOrder || (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0))[0]?.id === segmentId;
     const updated = await this.prisma.taskSegment.update({
       where: { id: segmentId },
       data: {
-        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.name !== undefined && !isFirstSeg && { name: dto.name }),
         ...(milestoneSync
           ? { startDate: newStart, endDate: newEnd }
           : {
