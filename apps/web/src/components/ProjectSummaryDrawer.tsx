@@ -29,9 +29,9 @@ export default function ProjectSummaryDrawer({ projectId, onRename, onClose }: {
 
   const st = data ? (STATUS_CFG[data.status] ?? STATUS_CFG.PLANNING) : null;
 
-  // 프로젝트명 변경 — 관리자/매니저/소유자만, 이름 더블클릭으로 편집
+  // 프로젝트명 변경 — OPERATOR 이상 또는 소유자, 이름 더블클릭으로 편집 (백엔드 PATCH /projects/:id 와 동일 기준)
   const me = getUser();
-  const canRename = !!(onRename && me && data && (me.role === "ADMIN" || me.role === "MANAGER" || me.id === data.ownerId));
+  const canRename = !!(onRename && me && data && (me.role === "ADMIN" || me.role === "MANAGER" || me.role === "OPERATOR" || me.id === data.ownerId));
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [savingName, setSavingName] = useState(false);
