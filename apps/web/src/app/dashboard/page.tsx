@@ -578,6 +578,14 @@ function ProjectRow({ row, date, onPin }: { row: ProjectRow; date: string; onPin
 // 프로젝트 행 — 폴더 뷰용. 펼치면 ±7일 태스크 목록(수동이슈 강조) 표시.
 function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: ProjectRow; date: string; onPin: (id: string) => void; onSelectTask: (task: Task, projectId: string) => void; ownerName?: string }) {
   const [expanded, setExpanded] = useState(false); // 기본 접힘 — 사용자가 하나씩 펼침
+  // 페이지 이동 후 복귀 시 직전 펼침 상태 복원 + 토글 시 저장
+  useEffect(() => { setExpanded(lsGetArr(LS_DASH_ROW_EXPANDED).includes(row.id)); }, [row.id]);
+  const setExpandedPersist = (v: boolean) => {
+    setExpanded(v);
+    const cur = new Set(lsGetArr(LS_DASH_ROW_EXPANDED));
+    if (v) cur.add(row.id); else cur.delete(row.id);
+    lsSetArr(LS_DASH_ROW_EXPANDED, [...cur]);
+  };
   const [tasks, setTasks] = useState<Task[] | null>(null);
   const [issueTaskIds, setIssueTaskIds] = useState<Set<string>>(new Set());
   // 태스크별 미해결 이슈 내용 / 최근 비고 내용 (중간 컬럼용)
@@ -590,7 +598,7 @@ function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: 
 
   // 접을 때 해당 프로젝트(헤더 행) 위치로 스크롤 복귀 — 태스크를 펼쳐 아래로 내려간 뒤 접어도 위치 유지
   const collapse = () => {
-    setExpanded(false);
+    setExpandedPersist(false);
     requestAnimationFrame(() => headerRowRef.current?.scrollIntoView({ block: "start", behavior: "auto" }));
   };
 
@@ -658,7 +666,7 @@ function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: 
         <td className="px-3 py-2.5">
           <div className="flex items-center gap-1.5 min-w-0">
             <button
-              onClick={() => (expanded ? collapse() : setExpanded(true))}
+              onClick={() => (expanded ? collapse() : setExpandedPersist(true))}
               className="text-gray-400 hover:text-gray-600 text-xs w-4 shrink-0"
               title={expanded ? "태스크 접기" : "태스크 펼치기"}
             >
@@ -849,9 +857,23 @@ function FolderSection({ name, isDept, rows, date, onPin, onSelectTask, ownerByP
   );
 }
 
+// 전사 대시보드 폴더 섹션 접힘 상태 — 페이지 이동 후 복귀 시 유지 (UI preference)
+const LS_DASH_COLLAPSED = "erp_dashboard_folder_collapsed_v1";
+const LS_DASH_ROW_EXPANDED = "erp_dashboard_row_expanded_v1";
+const LS_DASH_GROUP_COLLAPSED = "erp_dashboard_group_collapsed_v1";
+function lsGetArr(key: string): string[] {
+  try { const v = JSON.parse(localStorage.getItem(key) ?? "null"); return Array.isArray(v) ? v : []; }
+  catch { return []; }
+}
+function lsSetArr(key: string, val: string[]) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+}
+
 // 폴더(부서 자동 구조) 기준으로 프로젝트를 그룹핑해 렌더
 function FolderProjectsView({ folders, projects, date, onPin, onSelectTask, ownerByProject }: { folders: Folder[]; projects: ProjectRow[]; date: string; onPin: (id: string) => void; onSelectTask: (task: Task, projectId: string) => void; ownerByProject: Map<string, string> }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // 페이지 이동 후 복귀 시 직전 접힘 상태 복원
+  useEffect(() => { setCollapsed(new Set(lsGetArr(LS_DASH_COLLAPSED))); }, []);
   const byId = new Map(projects.map((p) => [p.id, p]));
   // 어느 폴더에든 담긴 프로젝트 (미분류 계산용) — 여러 폴더에 중복 표시는 허용(자동+수동 모두 반영)
   const seen = new Set<string>();
@@ -886,9 +908,14 @@ function FolderProjectsView({ folders, projects, date, onPin, onSelectTask, owne
   const toggleOne = (key: string) => setCollapsed((prev) => {
     const n = new Set(prev);
     if (n.has(key)) n.delete(key); else n.add(key);
+    lsSetArr(LS_DASH_COLLAPSED, [...n]);
     return n;
   });
-  const toggleAll = () => setCollapsed(allCollapsed ? new Set() : new Set(allKeys));
+  const toggleAll = () => setCollapsed(() => {
+    const n = allCollapsed ? new Set<string>() : new Set(allKeys);
+    lsSetArr(LS_DASH_COLLAPSED, [...n]);
+    return n;
+  });
 
   return (
     <div className="space-y-3">
@@ -927,6 +954,15 @@ function FolderProjectsView({ folders, projects, date, onPin, onSelectTask, owne
 
 function GroupAccordion({ group, date, onPin }: { group: DashboardGroup; date: string; onPin: (id: string) => void }) {
   const [open, setOpen] = useState(true);
+  // 페이지 이동 후 복귀 시 직전 펼침 상태 복원
+  useEffect(() => { setOpen(!lsGetArr(LS_DASH_GROUP_COLLAPSED).includes(group.id)); }, [group.id]);
+  const toggleOpen = () => setOpen((v) => {
+    const nv = !v;
+    const cur = new Set(lsGetArr(LS_DASH_GROUP_COLLAPSED));
+    if (nv) cur.delete(group.id); else cur.add(group.id);
+    lsSetArr(LS_DASH_GROUP_COLLAPSED, [...cur]);
+    return nv;
+  });
   const ic = group.rollup.issueCount;
   const sc = group.rollup.statusCount;
 
@@ -934,7 +970,7 @@ function GroupAccordion({ group, date, onPin }: { group: DashboardGroup; date: s
     <div className="mb-3">
       <button
         className="w-full flex items-center gap-3 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-left transition-colors"
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggleOpen}
       >
         <span className="text-gray-400 text-xs w-4">{open ? "▼" : "▶"}</span>
         {group.color && (
