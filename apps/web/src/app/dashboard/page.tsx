@@ -462,12 +462,13 @@ function IssuePopup({ projectId, projectName, category, onClose }: { projectId: 
                       </Td>
                       <Td className="align-top" title={t.parentName ? `${t.parentName} › ${t.name}` : t.name}>
                         {t.parentName && <div className="text-[11px] leading-tight text-gray-400 dark:text-gray-500 truncate">{t.parentName}</div>}
-                        <div className="truncate">
+                        <div className="truncate text-base">
                           {t.id ? (
                             <Link href={`/projects/${projectId}?taskId=${t.id}`} onClick={onClose}
                               className="text-gray-900 dark:text-gray-100 font-medium hover:underline">{t.name}</Link>
                           ) : (
-                            <span className={t.muted ? "text-gray-400" : "text-gray-800"}>{t.name}</span>
+                            <Link href={`/projects/${projectId}`} onClick={onClose}
+                              className={`font-medium hover:underline ${t.muted ? "text-gray-500 dark:text-gray-400" : "text-gray-900 dark:text-gray-100"}`}>{t.name}</Link>
                           )}
                         </div>
                       </Td>
