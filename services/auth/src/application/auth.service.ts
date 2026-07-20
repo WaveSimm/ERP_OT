@@ -36,8 +36,8 @@ export interface RefreshContext {
   deviceId?: string | undefined;
 }
 
-const ACCESS_TTL_SECONDS = 60 * 60; // 1h (NEW-4: was 8h)
-const REFRESH_TTL_SECONDS = 7 * 86400; // 7d
+const ACCESS_TTL_SECONDS = 15 * 60; // 15m — refresh(30m)보다 짧게 두어 활동 중 자동 갱신(슬라이딩)되게
+const REFRESH_TTL_SECONDS = 30 * 60; // 30m 슬라이딩 — 모든 기기(모바일/외부/닫은 탭)에서 30분 유휴 로그아웃
 const JWT_ALGORITHM = "HS256" as const;
 
 export class AuthService {

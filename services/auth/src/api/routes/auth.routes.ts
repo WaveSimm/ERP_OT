@@ -21,10 +21,10 @@ const COOKIE_BASE = {
   sameSite: "strict" as const,
   secure: process.env.NODE_ENV === "production",
 };
-const ACCESS_COOKIE_MAX_AGE = 60 * 60; // 1h
-const REFRESH_COOKIE_MAX_AGE = 7 * 86400; // 7d
+const ACCESS_COOKIE_MAX_AGE = 15 * 60; // 15m (ACCESS_TTL과 동일)
+const REFRESH_COOKIE_MAX_AGE = 30 * 60; // 30m 슬라이딩 (REFRESH_TTL과 동일 — 30분 유휴 로그아웃)
 const DEVICE_COOKIE_MAX_AGE = 365 * 86400; // 1y (디바이스 식별 영구)
-const CSRF_COOKIE_MAX_AGE = 60 * 60; // 1h (Access와 동일 회전)
+const CSRF_COOKIE_MAX_AGE = 30 * 60; // 30m (세션 창과 동일 — refresh마다 재발급)
 
 // 클라이언트 IP 추출 (C6 forward 후 활용)
 function getClientIp(req: FastifyRequest): string | undefined {
