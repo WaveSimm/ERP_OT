@@ -1050,11 +1050,13 @@ const SEV_STYLE: Record<string, string> = {
   INFO: "bg-blue-50 text-blue-800 dark:text-blue-50",
 };
 
-function SummaryDetailPopup({ type, date, categoryFilter, onClose }: { type: string; date: string; categoryFilter?: string | null; onClose: () => void }) {
+function SummaryDetailPopup({ type, date, categoryFilter, folders, onClose }: { type: string; date: string; categoryFilter?: string | null; folders?: Folder[]; onClose: () => void }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   // 상태 배지 툴팁용: 프로젝트별 이슈 상세 (제목/설명/심각도)
   const [issuesByProject, setIssuesByProject] = useState<Record<string, any[]>>({});
+  // 상세 팝업 필터 (이슈는 카드에서 넘어온 카테고리로 초기화)
+  const [filter, setFilter] = useState<string | undefined>(type === "issues" ? (categoryFilter ?? undefined) : undefined);
 
   useEffect(() => {
     dashboardApi.getSummaryDetails(type, date)
@@ -1084,13 +1086,69 @@ function SummaryDetailPopup({ type, date, categoryFilter, onClose }: { type: str
     ending: "이번 주 완료 / 마일스톤",
   };
 
+  // ── 상세 팝업 필터 탭 (타입별) ──
+  const projectDeptMap = useMemo(() => {
+    const m = new Map<string, string[]>();
+    if (type !== "starting") return m;
+    for (const f of folders ?? []) {
+      if (!f.departmentId || f.parentId !== null) continue;
+      for (const it of f.projects ?? []) {
+        const a = m.get(it.projectId) ?? [];
+        if (!a.includes(f.name)) a.push(f.name);
+        m.set(it.projectId, a);
+      }
+    }
+    return m;
+  }, [type, folders]);
+
+  let tabs: { key: string; label: string; count: number; cls?: string }[] = [];
+  let totalCount = 0;
+  if (type === "projects" && Array.isArray(data)) {
+    totalCount = data.length;
+    tabs = PROJ_BUCKETS.map((b) => ({ ...b, count: data.filter((p: any) => projBucket(p) === b.key).length })).filter((t) => t.count > 0);
+  } else if (type === "issues" && Array.isArray(data)) {
+    totalCount = data.length;
+    tabs = ISSUE_BUCKETS.map((b) => ({ key: b.key, label: b.label, cls: b.cls, count: data.filter((it: any) => issueBucket(it?.issue ?? {}) === b.key).length })).filter((t) => t.count > 0);
+  } else if (type === "starting" && Array.isArray(data)) {
+    totalCount = data.length;
+    const names = new Set<string>();
+    let noneCount = 0;
+    for (const s of data) { const ds = projectDeptMap.get(s.projectId) ?? []; if (ds.length) ds.forEach((n) => names.add(n)); else noneCount++; }
+    tabs = [...names].map((n) => ({ key: n, label: n, count: data.filter((s: any) => (projectDeptMap.get(s.projectId) ?? []).includes(n)).length }));
+    if (noneCount > 0) tabs.push({ key: "__none__", label: "미분류", count: noneCount });
+  } else if (type === "ending" && data) {
+    const es = data.endingSegments?.length ?? 0;
+    const ms = data.milestones?.length ?? 0;
+    totalCount = es + ms;
+    tabs = [
+      { key: "DUE_SOON", label: "완료예정", count: es, cls: "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300" },
+      { key: "MILESTONE", label: "마일스톤", count: ms, cls: "bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300" },
+    ].filter((t) => t.count > 0);
+  }
+  const shownProjects = (type === "projects" && Array.isArray(data)) ? data.filter((p: any) => !filter || projBucket(p) === filter) : [];
+  const shownStarting = (type === "starting" && Array.isArray(data)) ? data.filter((s: any) => !filter || (filter === "__none__" ? (projectDeptMap.get(s.projectId) ?? []).length === 0 : (projectDeptMap.get(s.projectId) ?? []).includes(filter))) : [];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-3 border-b">
-          <h3 className="font-semibold text-gray-900">{TITLE[type] ?? type}{type === "issues" && categoryFilter ? ` · ${ISSUE_BUCKET_LABEL[categoryFilter] ?? ""}` : ""}</h3>
+          <h3 className="font-semibold text-gray-900">{TITLE[type] ?? type}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl leading-none">&times;</button>
         </div>
+        {!loading && tabs.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 px-5 py-2.5 border-b border-gray-200 dark:border-gray-700/60">
+            <button onClick={() => setFilter(undefined)}
+              className={`text-xs px-2.5 py-0.5 rounded-full font-medium transition-all ${!filter ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-500 opacity-70 hover:opacity-100"}`}>
+              전체 {totalCount}
+            </button>
+            {tabs.map((t) => (
+              <button key={t.key} onClick={() => setFilter(t.key)}
+                className={`text-xs px-2.5 py-0.5 rounded-full font-medium transition-all ${t.cls ?? "bg-gray-100 text-gray-600"} ${filter === t.key ? "opacity-100 font-semibold shadow-sm" : "opacity-45 hover:opacity-75"}`}>
+                {t.label} {t.count}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="overflow-y-auto flex-1 p-4">
           {loading && <p className="text-sm text-gray-400 text-center py-8">로딩 중...</p>}
           {!loading && !data && <p className="text-sm text-gray-400 text-center py-8">데이터 없음</p>}
@@ -1107,7 +1165,7 @@ function SummaryDetailPopup({ type, date, categoryFilter, onClose }: { type: str
                 </tr>
               </thead>
               <tbody>
-                {data.map((p: any) => {
+                {shownProjects.map((p: any) => {
                   const rag = RAG_LABEL[p.ragStatus] ?? RAG_LABEL.GREEN;
                   return (
                     <tr key={p.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
@@ -1137,7 +1195,7 @@ function SummaryDetailPopup({ type, date, categoryFilter, onClose }: { type: str
           {!loading && type === "issues" && Array.isArray(data) && (
             <div className="space-y-4">
               {(() => {
-                const items = categoryFilter ? data.filter((it: any) => issueBucket(it?.issue ?? {}) === categoryFilter) : data;
+                const items = filter ? data.filter((it: any) => issueBucket(it?.issue ?? {}) === filter) : data;
                 if (items.length === 0) return <p className="text-sm text-gray-400 text-center py-6">이슈 없음</p>;
                 const SEV_ORDER: Record<string, number> = { CRITICAL: 0, WARNING: 1, INFO: 2 };
                 const grouped = new Map<string, { projectId: string; projectName: string; items: any[] }>();
@@ -1194,10 +1252,10 @@ function SummaryDetailPopup({ type, date, categoryFilter, onClose }: { type: str
                 </tr>
               </thead>
               <tbody>
-                {data.length === 0 && (
+                {shownStarting.length === 0 && (
                   <tr><td colSpan={4} className="text-center py-6 text-gray-400">이번 주 시작 세그먼트 없음</td></tr>
                 )}
-                {data.map((s: any) => (
+                {shownStarting.map((s: any) => (
                   <tr key={s.segmentId} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
                     <td className="py-2 px-2 text-xs whitespace-nowrap">{s.startDate}</td>
                     <td className="py-2 px-2">
@@ -1219,6 +1277,7 @@ function SummaryDetailPopup({ type, date, categoryFilter, onClose }: { type: str
           {/* 이번 주 완료/마일스톤 */}
           {!loading && type === "ending" && data && (
             <div className="space-y-4">
+              {(!filter || filter === "DUE_SOON") && (
               <div>
                 <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">완료 예정 세그먼트</h4>
                 <table className="w-full text-sm">
@@ -1256,7 +1315,8 @@ function SummaryDetailPopup({ type, date, categoryFilter, onClose }: { type: str
                   </tbody>
                 </table>
               </div>
-              {data.milestones && data.milestones.length > 0 && (
+              )}
+              {(!filter || filter === "MILESTONE") && data.milestones && data.milestones.length > 0 && (
                 <div>
                   <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">마일스톤</h4>
                   <table className="w-full text-sm">
@@ -1310,6 +1370,20 @@ function issueTaskCount(iss: any): number {
     ?? (iss?.taskName ? 1 : (iss?.metadata?.tasks?.length ?? 1));
 }
 // 이슈 박스에 노출할 문제성 카테고리 (지연/이슈/정체)
+// 프로젝트 현황 카드 상세 필터 버킷 (상태 → 정상/경고/위험/완료/보류)
+const PROJ_BUCKETS: { key: string; label: string; cls: string }[] = [
+  { key: "GREEN",     label: "정상", cls: "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300" },
+  { key: "AMBER",     label: "경고", cls: "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300" },
+  { key: "RED",       label: "위험", cls: "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300" },
+  { key: "COMPLETED", label: "완료", cls: "bg-gray-100 text-gray-600" },
+  { key: "ON_HOLD",   label: "보류", cls: "bg-slate-100 text-slate-600 dark:bg-slate-500/20 dark:text-slate-300" },
+];
+function projBucket(p: any): string {
+  if (p?.status === "COMPLETED") return "COMPLETED";
+  if (p?.status === "ON_HOLD") return "ON_HOLD";
+  return p?.ragStatus ?? "GREEN";
+}
+
 const ISSUE_BUCKETS: { key: string; label: string; cls: string }[] = [
   { key: "MANUAL", label: "이슈", cls: "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300" },
   { key: "DELAY",  label: "지연", cls: "bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300" },
@@ -1404,7 +1478,7 @@ function IssueCatBadges({ counts, onSelect }: { counts?: Record<string, number>;
 
 // ─── 전체 요약 카드 ───────────────────────────────────────────────────────────
 
-function GlobalSummaryCards({ summary, date }: { summary: GlobalSummary; date: string }) {
+function GlobalSummaryCards({ summary, date, folders }: { summary: GlobalSummary; date: string; folders: Folder[] }) {
   const sc = summary.statusCount;
   const ic = summary.issueCount;
   const we = summary.thisWeekEvents;
@@ -1428,7 +1502,7 @@ function GlobalSummaryCards({ summary, date }: { summary: GlobalSummary; date: s
 
   return (
     <>
-      {detailType && <SummaryDetailPopup type={detailType} date={date} categoryFilter={issueCatFilter} onClose={() => { setDetailType(null); setIssueCatFilter(null); }} />}
+      {detailType && <SummaryDetailPopup type={detailType} date={date} categoryFilter={issueCatFilter} folders={folders} onClose={() => { setDetailType(null); setIssueCatFilter(null); }} />}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {/* 프로젝트 현황 */}
         <div className={cardCls} onClick={() => setDetailType("projects")}>
@@ -1684,7 +1758,7 @@ export default function CommandCenterDashboard() {
       {!loading && data && (
         <>
           {/* 전체 요약 카드 */}
-          <GlobalSummaryCards summary={data.globalSummary} date={date} />
+          <GlobalSummaryCards summary={data.globalSummary} date={date} folders={folders} />
 
           {/* 그룹 Accordion */}
           {data.groups.length > 0 && (
