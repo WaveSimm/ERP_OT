@@ -856,15 +856,16 @@ function FolderProjectsView({ folders, projects, date, onPin, onSelectTask, owne
   // 어느 폴더에든 담긴 프로젝트 (미분류 계산용) — 여러 폴더에 중복 표시는 허용(자동+수동 모두 반영)
   const seen = new Set<string>();
 
-  // folderApi.list()는 sortOrder(부서 순서) 오름차순 정렬 상태로 반환됨
+  // 전사 대시보드는 부서 폴더(departmentId 있는 것)만 섹션으로 표시.
+  // 부서 폴더에 담긴 프로젝트는 자동 분류(소유자 부서)든 수동 추가든 모두 그 부서로 분류하고,
+  // /projects 화면과 동일하게 폴더 내 sortOrder 순서를 유지한다.
   const sections = folders
-    .filter((f) => f.parentId === null)
+    .filter((f) => f.parentId === null && !!f.departmentId)
     .map((f) => {
       const rows: ProjectRow[] = [];
       const localSeen = new Set<string>();
-      for (const item of f.projects ?? []) {
-        // 전사 대시보드는 mandatory(부서 자동 분류)만 — 팀장이 수동 추가한 즐겨찾기(auto=false)는 제외
-        if (item.auto !== true) continue;
+      const items = [...(f.projects ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
+      for (const item of items) {
         if (localSeen.has(item.projectId)) continue; // 같은 폴더 내 중복만 제거
         const r = byId.get(item.projectId);
         if (r) {
