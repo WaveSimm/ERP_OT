@@ -510,20 +510,36 @@ export default function ProjectDetailPage() {
 
   // ── 다중 선택 state ──────────────────────────────────────────────────────────
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  // 태스크 접힘 상태를 프로젝트별로 기억 — 다른 페이지 갔다 돌아와도 복원
-  useEffect(() => {
-    if (typeof window === "undefined" || !projectId) return;
+  // 태스크 접힘 상태를 프로젝트별로 기억. localStorage에서 최초 렌더에 즉시 복원(effect 타이밍 무관).
+  const collapsedKey = (pid: string) => `erp_proj_task_collapsed:${pid}`;
+  const readCollapsed = (pid: string): Set<string> => {
+    if (typeof window === "undefined" || !pid) return new Set();
     try {
-      const raw = localStorage.getItem(`erp_proj_task_collapsed:${projectId}`);
+      const raw = localStorage.getItem(collapsedKey(pid));
       const arr = raw ? JSON.parse(raw) : [];
-      if (Array.isArray(arr)) setCollapsed(new Set(arr));
-    } catch {}
-  }, [projectId]);
+      return Array.isArray(arr) ? new Set<string>(arr) : new Set<string>();
+    } catch { return new Set<string>(); }
+  };
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => readCollapsed(projectId));
+  // 같은 라우트 내에서 프로젝트가 바뀌면 그 프로젝트 상태로 재복원 (첫 마운트는 초기값이 이미 처리).
+  const collapsedProjRef = useRef(projectId);
   useEffect(() => {
-    if (typeof window === "undefined" || !projectId) return;
-    try { localStorage.setItem(`erp_proj_task_collapsed:${projectId}`, JSON.stringify([...collapsed])); } catch {}
-  }, [collapsed, projectId]);
+    if (collapsedProjRef.current === projectId) return;
+    collapsedProjRef.current = projectId;
+    setCollapsed(readCollapsed(projectId));
+  }, [projectId]);
+  // 저장은 사용자가 접기/펼치기 할 때만(마운트 시 빈값 덮어쓰기 없음).
+  const setCollapsedPersist: typeof setCollapsed = (updater) => {
+    setCollapsed((prev) => {
+      const next = typeof updater === "function"
+        ? (updater as (p: Set<string>) => Set<string>)(prev)
+        : updater;
+      if (typeof window !== "undefined" && projectId) {
+        try { localStorage.setItem(collapsedKey(projectId), JSON.stringify([...next])); } catch {}
+      }
+      return next;
+    });
+  };
   const lastSelectedRef = useRef<string | null>(null);
 
   // 선택 툴바 높이 — sticky 헤더(<thead>)의 top 오프셋 계산용 (툴바가 열 제목 위에 겹치지 않게)
@@ -1276,7 +1292,7 @@ export default function ProjectDetailPage() {
             setCopyTargets={setCopyTargets}
             handleDeleteTask={handleDeleteTask}
             toggleSelect={toggleSelect}
-            setCollapsed={setCollapsed}
+            setCollapsed={setCollapsedPersist}
             saveTaskName={saveTaskName}
             startEdit={startEdit}
             saveStatus={saveStatus}
