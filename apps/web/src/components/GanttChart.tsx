@@ -679,7 +679,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                       ? <span className={clsx("mr-0.5",
                           task.status === "DONE"        ? "text-emerald-500" :
                           task.status === "IN_PROGRESS" ? "text-amber-500"   :
-                          task.status === "BLOCKED"     ? "text-red-500"     :
+                          task.status === "ON_HOLD"     ? "text-yellow-600"  :
                           "text-gray-500"
                         )}>◆</span>
                       : task.isCritical && <span className="mr-0.5">🔴</span>}
@@ -966,7 +966,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                   const colorClass =
                     task.status === "DONE"        ? "bg-emerald-500" :
                     task.status === "IN_PROGRESS" ? "bg-amber-500"   :
-                    task.status === "BLOCKED"     ? "bg-red-500"     :
+                    task.status === "ON_HOLD"     ? "bg-yellow-400"  :
                     "bg-gray-400"; // TODO
                   const tipTitle = `◆ ${task.name}\n` +
                     `상태: ${task.status}` +

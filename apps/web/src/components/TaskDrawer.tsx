@@ -12,9 +12,8 @@ import { fmtDateTime24 } from "@/lib/datetime";
 const STATUS_OPTIONS = [
   { value: "TODO",        label: "예정",  color: "bg-gray-100 text-gray-700" },
   { value: "IN_PROGRESS", label: "진행중", color: "bg-blue-100 text-blue-700" },
-  { value: "ON_HOLD",     label: "보류",  color: "bg-yellow-100 text-yellow-700" },
+  { value: "ON_HOLD",     label: "중단",  color: "bg-yellow-100 text-yellow-700" },
   { value: "DONE",        label: "완료",  color: "bg-green-100 text-green-700" },
-  { value: "BLOCKED",     label: "차단",  color: "bg-red-100 text-red-700" },
 ];
 
 const DEP_TYPES: Record<string, string> = {

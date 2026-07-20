@@ -54,15 +54,13 @@ const STATUS_COLOR: Record<string, string> = {
   IN_PROGRESS: "bg-blue-100 text-blue-700",
   ON_HOLD: "bg-yellow-100 text-yellow-700",
   DONE: "bg-green-100 text-green-700",
-  BLOCKED: "bg-red-100 text-red-600",
 };
 
 const STATUS_LABEL: Record<string, string> = {
   TODO: "예정",
   IN_PROGRESS: "진행중",
-  ON_HOLD: "보류",
+  ON_HOLD: "중단",
   DONE: "완료",
-  BLOCKED: "차단",
 };
 
 
@@ -74,7 +72,7 @@ const PROJECT_STATUS_LABEL: Record<string, string> = {
   CANCELLED: "취소",
 };
 
-type FilterStatus = "ALL" | "TODO" | "IN_PROGRESS" | "ON_HOLD" | "DONE" | "BLOCKED";
+type FilterStatus = "ALL" | "TODO" | "IN_PROGRESS" | "ON_HOLD" | "DONE";
 
 export default function MyTasksPage() {
   const router = useRouter();
@@ -145,7 +143,6 @@ export default function MyTasksPage() {
       in_progress: all.filter((t: any) => t.taskStatus === "IN_PROGRESS").length,
       on_hold: all.filter((t: any) => t.taskStatus === "ON_HOLD").length,
       done: all.filter((t: any) => t.taskStatus === "DONE").length,
-      blocked: all.filter((t: any) => t.taskStatus === "BLOCKED").length,
     };
   }, [groups]);
 
@@ -207,9 +204,8 @@ export default function MyTasksPage() {
     { label: "전체", count: counts.all, status: "ALL" as FilterStatus },
     { label: "예정", count: counts.todo, status: "TODO" as FilterStatus },
     { label: "진행중", count: counts.in_progress, status: "IN_PROGRESS" as FilterStatus },
-    { label: "보류", count: counts.on_hold, status: "ON_HOLD" as FilterStatus },
+    { label: "중단", count: counts.on_hold, status: "ON_HOLD" as FilterStatus },
     { label: "완료", count: counts.done, status: "DONE" as FilterStatus },
-    { label: "차단", count: counts.blocked, status: "BLOCKED" as FilterStatus },
   ];
 
   return (
@@ -396,9 +392,8 @@ export default function MyTasksPage() {
                                       >
                                         <option value="TODO">예정</option>
                                         <option value="IN_PROGRESS">진행중</option>
-                                        <option value="ON_HOLD">보류</option>
+                                        <option value="ON_HOLD">중단</option>
                                         <option value="DONE">완료</option>
-                                        <option value="BLOCKED">차단</option>
                                       </select>
                                     ) : (
                                       <span
@@ -470,9 +465,8 @@ export default function MyTasksPage() {
                                           >
                                             <option value="TODO">예정</option>
                                             <option value="IN_PROGRESS">진행중</option>
-                                            <option value="ON_HOLD">보류</option>
+                                            <option value="ON_HOLD">중단</option>
                                             <option value="DONE">완료</option>
-                                            <option value="BLOCKED">차단</option>
                                           </select>
                                         ) : (
                                           <span

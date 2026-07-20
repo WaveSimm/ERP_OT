@@ -48,10 +48,9 @@ export const TASK_STATUS_COLORS: Record<string, string> = {
   IN_PROGRESS: "bg-blue-100 text-blue-700",
   ON_HOLD: "bg-yellow-100 text-yellow-700",
   DONE: "bg-green-100 text-green-700",
-  BLOCKED: "bg-red-100 text-red-700",
 };
 export const TASK_STATUS_LABELS: Record<string, string> = {
-  TODO: "예정", IN_PROGRESS: "진행중", ON_HOLD: "보류", DONE: "완료", BLOCKED: "차단",
+  TODO: "예정", IN_PROGRESS: "진행중", ON_HOLD: "중단", DONE: "완료",
 };
 
 // 지연 판정: 미완료 + endDate가 오늘 이전
@@ -145,18 +144,17 @@ export function buildRolledUpTasks(taskList: any[]): any[] {
       task.overallProgress = Math.round(avg * 10) / 10;
     }
 
-    // 상태 롤업: 자식 상태 기반으로 부모 상태 결정
-    const statuses = children.map((c: any) => c.status);
-    if (statuses.some((s: string) => s === "BLOCKED")) {
-      task.status = "BLOCKED";
-    } else if (statuses.some((s: string) => s === "ON_HOLD")) {
-      task.status = "ON_HOLD";
-    } else if (statuses.every((s: string) => s === "DONE")) {
-      task.status = "DONE";
-    } else if (statuses.some((s: string) => s === "DONE" || s === "IN_PROGRESS")) {
-      task.status = "IN_PROGRESS";
-    } else {
-      task.status = "TODO";
+    // 상태 롤업: 부모 자신이 중단(ON_HOLD)이면 유지(중단은 위→아래 캐스케이드),
+    //   그 외에는 자식 기준 자동(완료/진행중/예정).
+    if (task.status !== "ON_HOLD") {
+      const statuses = children.map((c: any) => c.status);
+      if (statuses.every((s: string) => s === "DONE")) {
+        task.status = "DONE";
+      } else if (statuses.some((s: string) => s === "DONE" || s === "IN_PROGRESS")) {
+        task.status = "IN_PROGRESS";
+      } else {
+        task.status = "TODO";
+      }
     }
 
     // 자원: 모든 하위 자원 집계 (부모 자신 자원 포함)

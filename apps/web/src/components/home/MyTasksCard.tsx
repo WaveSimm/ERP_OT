@@ -26,8 +26,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   TODO: { label: "대기", color: "bg-gray-100 text-gray-600" },
   IN_PROGRESS: { label: "진행", color: "bg-blue-100 text-blue-700" },
   DONE: { label: "완료", color: "bg-green-100 text-green-700" },
-  ON_HOLD: { label: "보류", color: "bg-amber-100 text-amber-700" },
-  BLOCKED: { label: "막힘", color: "bg-red-100 text-red-700" },
+  ON_HOLD: { label: "중단", color: "bg-amber-100 text-amber-700" },
   CANCELLED: { label: "취소", color: "bg-gray-100 text-gray-500" },
 };
 
