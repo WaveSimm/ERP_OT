@@ -4,9 +4,13 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { authApi, setToken, setUser, clearToken } from "@/lib/api";
 
+// 로그인 시 아이디 뒤에 자동으로 붙는 고정 도메인 (운영 계정 전부 이 도메인).
+// 사용자가 전체 이메일(@ 포함)을 입력하면 그대로 사용(예외 계정 대비).
+const LOGIN_DOMAIN = "@oceant.onmicrosoft.com";
+
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,7 +28,9 @@ export default function LoginPage() {
       // 보안 일괄패치 PDCA Layer 3 (C1): accessToken은 응답 본문 없음 (cookie로만)
       // 기존 erp_token localStorage가 남아 있다면 정리
       clearToken();
-      const { user } = await authApi.login(email, password);
+      const raw = userId.trim();
+      const loginEmail = raw.includes("@") ? raw : `${raw.toLowerCase()}${LOGIN_DOMAIN}`;
+      const { user } = await authApi.login(loginEmail, password);
       setToken(""); // no-op (호환), 잔존 정리
       setUser({ id: user.id, name: user.name, role: user.role, isTeamLeader: user.isTeamLeader });
       router.push("/home");
@@ -44,7 +50,7 @@ export default function LoginPage() {
               <span className="text-white text-2xl font-bold">ERP</span>
             </div>
             <h1 className="text-2xl font-bold text-gray-900">ERP-OT 관리 시스템</h1>
-            <p className="text-sm text-gray-500 mt-1">이메일과 비밀번호로 로그인하세요</p>
+            <p className="text-sm text-gray-500 mt-1">아이디와 비밀번호로 로그인하세요</p>
           </div>
 
           {idle && (
@@ -55,16 +61,22 @@ export default function LoginPage() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">이메일</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="admin@erp-ot.local"
-                required
-                autoFocus
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">아이디</label>
+              <div className="flex items-stretch border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent">
+                <input
+                  type="text"
+                  value={userId}
+                  onChange={(e) => setUserId(e.target.value)}
+                  className="flex-1 min-w-0 px-4 py-2.5 bg-transparent focus:outline-none"
+                  placeholder="아이디"
+                  autoComplete="username"
+                  required
+                  autoFocus
+                />
+                <span className="flex items-center pr-3 pl-0.5 text-gray-900 font-semibold text-sm whitespace-nowrap select-none">
+                  {LOGIN_DOMAIN}
+                </span>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>

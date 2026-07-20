@@ -37,6 +37,10 @@ const ROLES = ["ADMIN", "MANAGER", "OPERATOR", "VIEWER"] as const;
 
 const EXPANDED_KEY = "erp_tab_users_expanded";
 
+// 계정 생성 시 아이디 뒤에 자동으로 붙는 고정 도메인 (로그인 폼과 동일 기준).
+// @ 포함 입력 시 전체 이메일 그대로 사용(예외 도메인 대비).
+const ACCOUNT_DOMAIN = "@oceant.onmicrosoft.com";
+
 export default function UserAccountsTab({ onResourcesChanged }: { onResourcesChanged?: () => void }) {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -294,7 +298,9 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
     setCreateError("");
     setSaving(true);
     try {
-      const created = await userManagementApi.create({ email: newEmail, name: newName, password: newPassword, role: newRole });
+      const rawId = newEmail.trim();
+      const email = rawId.includes("@") ? rawId : `${rawId.toLowerCase()}${ACCOUNT_DOMAIN}`;
+      const created = await userManagementApi.create({ email, name: newName, password: newPassword, role: newRole });
       if (newDeptId) {
         const dept = departments.find((d) => d.id === newDeptId);
         await userManagementApi.upsertProfile(created.id, {
@@ -591,9 +597,12 @@ export default function UserAccountsTab({ onResourcesChanged }: { onResourcesCha
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="홍길동" required />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">이메일</label>
-                <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="user@example.com" required />
+                <label className="block text-sm font-medium text-gray-700 mb-1">아이디</label>
+                <div className="flex items-stretch border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
+                  <input type="text" value={newEmail} onChange={(e) => setNewEmail(e.target.value)}
+                    className="flex-1 min-w-0 px-3 py-2 text-sm bg-transparent focus:outline-none" placeholder="아이디" autoComplete="off" required />
+                  <span className="flex items-center pr-3 pl-0.5 text-gray-900 font-semibold text-sm whitespace-nowrap select-none">{ACCOUNT_DOMAIN}</span>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">임시 비밀번호</label>
