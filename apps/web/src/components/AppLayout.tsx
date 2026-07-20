@@ -328,7 +328,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </button>
 
-          <nav className="hidden xl:flex items-center gap-2 shrink-0">
+          <nav className="hidden lg:flex items-center gap-2 shrink-0">
             {visibleNav.map((n) => {
               const [first, second] = n.short ?? splitLabel(n.label);
               return (
@@ -343,10 +343,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                       : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700",
                   )}
                 >
-                  {/* 한 줄 (xl+) */}
-                  <span className="hidden xl:inline whitespace-nowrap">{n.label}</span>
-                  {/* 두 줄 (xl 미만) — 아이콘 제거로 작은 화면에서도 라벨 표시 */}
-                  <span className="flex xl:hidden flex-col items-start leading-[1.1] text-left">
+                  {/* 한 줄 (lg+) */}
+                  <span className="hidden lg:inline whitespace-nowrap">{n.label}</span>
+                  {/* 두 줄 (lg 미만) — nav가 lg부터 보이므로 실질 미사용, 안전용 유지 */}
+                  <span className="flex lg:hidden flex-col items-start leading-[1.1] text-left">
                     <span className="whitespace-nowrap">{first}</span>
                     {second && <span className="whitespace-nowrap">{second}</span>}
                   </span>
@@ -355,7 +355,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             })}
           </nav>
 
-          <div className="hidden xl:flex items-center gap-2 shrink-0 ml-auto">
+          <div className="hidden lg:flex items-center gap-2 shrink-0 ml-auto">
             {/* 알림 벨 */}
             <button
               onClick={() => router.push("/me/notifications")}
@@ -445,11 +445,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             )}
           </div>
 
-          {/* 좁은 화면(xl 미만): 햄버거 버튼 */}
+          {/* 좁은 화면(lg 미만): 햄버거 버튼 */}
           <button
             onClick={() => setShowMobileMenu((v) => !v)}
             aria-label="메뉴"
-            className="xl:hidden ml-auto p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-md shrink-0"
+            className="lg:hidden ml-auto p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-md shrink-0"
           >
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
               {showMobileMenu
@@ -463,9 +463,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {showMobileMenu && (
           <>
             {/* 배경: 화면을 가리지 않는 투명 클릭영역(바깥 클릭 시 닫기) */}
-            <div className="xl:hidden fixed inset-0 top-14 z-30" onClick={() => setShowMobileMenu(false)} />
+            <div className="lg:hidden fixed inset-0 top-14 z-30" onClick={() => setShowMobileMenu(false)} />
             {/* 우측에서만 펼쳐지는 드로어 — 헤더 아래부터 화면 맨 아래까지 */}
-            <div className="xl:hidden fixed right-0 top-14 bottom-0 w-64 max-w-[85vw] bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 shadow-xl z-40 overflow-y-auto">
+            <div className="lg:hidden fixed right-0 top-14 bottom-0 w-64 max-w-[85vw] bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 shadow-xl z-40 overflow-y-auto">
               <div className="flex flex-col">
                 {/* 상단: 알림·다크·프로필·로그아웃 (가로, 전환 전 우측영역과 동일) */}
                 <div className="flex items-center gap-1 px-3 py-2 border-b border-gray-200 dark:border-gray-700">
