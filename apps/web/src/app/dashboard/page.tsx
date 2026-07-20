@@ -682,8 +682,8 @@ function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: 
           <div className="text-xs text-gray-400 mt-0.5 pl-5 truncate">{fmtDate(row.lastUpdatedAt)} 업데이트</div>
         </td>
 
-        {/* 소유자 */}
-        <td className="px-3 py-2.5 text-xs text-gray-500">
+        {/* 소유자 — 한 명이라 가운데 정렬 */}
+        <td className="px-3 py-2.5 text-xs text-gray-500 text-center">
           <span className="truncate block">
             {ownerName ? <span title={`소유자: ${ownerName}`}>{ownerName}</span> : <span className="text-gray-300">-</span>}
           </span>
@@ -836,8 +836,8 @@ function FolderSection({ name, isDept, rows, date, onPin, onSelectTask, ownerByP
             <thead>
               <tr className="bg-gray-50 text-xs font-medium text-gray-600 border-b border-gray-200">
                 <th className="px-3 py-1.5 text-center w-10"></th>
-                <th className="px-3 py-1.5 text-center w-[320px]">프로젝트</th>
-                <th className="px-3 py-1.5 text-center w-[100px]">소유자</th>
+                <th className="px-3 py-1.5 text-center w-[344px]">프로젝트</th>
+                <th className="px-3 py-1.5 text-center w-[84px]">소유자</th>
                 <th className="px-3 py-1.5 text-center w-[288px]">타임라인 (±7일)</th>
                 <th className="px-3 py-1.5 text-center w-[110px]">자원</th>
                 <th className="px-2 py-1.5 text-center w-[84px]">진행률</th>
@@ -1173,7 +1173,7 @@ function SummaryDetailPopup({ type, date, categoryFilter, folders, onClose }: { 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[92vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-3 border-b">
           <h3 className="font-semibold text-gray-900">{TITLE[type] ?? type}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl leading-none">&times;</button>
@@ -1315,7 +1315,7 @@ function SummaryDetailPopup({ type, date, categoryFilter, folders, onClose }: { 
                       {s.taskName}
                       <span className="ml-1.5 text-xs text-gray-400">{s.segmentName}</span>
                     </Td>
-                    <Td muted truncate dash>{s.assignees?.join(", ") || ""}</Td>
+                    <Td muted truncate dash title={s.assignees?.join(", ") || undefined}>{s.assignees?.join(", ") || ""}</Td>
                   </Tr>
                 ))}
               </TBody>
@@ -1334,7 +1334,7 @@ function SummaryDetailPopup({ type, date, categoryFilter, folders, onClose }: { 
                     <col />
                     <col />
                     <col className="w-20" />
-                    <col className="w-36" />
+                    <col className="w-44" />
                   </colgroup>
                   <THead sticky={false}>
                     <Th align="center">완료일</Th>
@@ -1356,7 +1356,7 @@ function SummaryDetailPopup({ type, date, categoryFilter, folders, onClose }: { 
                           <span className="ml-1.5 text-xs text-gray-400">{s.segmentName}</span>
                         </Td>
                         <Td align="right" mono className={s.progressPercent < 50 ? "!text-red-600 dark:!text-red-400 font-medium" : ""}>{s.progressPercent}%</Td>
-                        <Td muted truncate dash>{s.assignees?.join(", ") || ""}</Td>
+                        <Td muted truncate dash title={s.assignees?.join(", ") || undefined}>{s.assignees?.join(", ") || ""}</Td>
                       </Tr>
                     ))}
                   </TBody>
