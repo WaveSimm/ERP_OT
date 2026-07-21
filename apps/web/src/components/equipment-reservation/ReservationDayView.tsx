@@ -91,12 +91,12 @@ export default function ReservationDayView({
     const sorted = [...list].sort((a, b) => a.startAt.localeCompare(b.startAt));
 
     return (
-      <tr key={resource.id} className="border-b border-gray-100">
-        <td className="px-3 py-2 text-xs font-medium text-gray-800 bg-white border-r border-gray-200 truncate" title={resource.name}>
+      <tr key={resource.id} className="border-b border-gray-100 dark:border-gray-800">
+        <td className="px-3 py-3 text-xs font-medium text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 truncate" title={resource.name}>
           <span className="mr-1">{TYPE_ICON[resource.type] ?? "🔧"}</span>
           {resource.name}
         </td>
-        <td colSpan={TOTAL_SLOTS} className="p-0 relative" style={{ height: 36 }}>
+        <td colSpan={TOTAL_SLOTS} className="p-0 relative" style={{ height: 44 }}>
           {/* 빈 슬롯 (배경 + 클릭) */}
           <div className="absolute inset-0 flex">
             {slots.map((slot) => (
@@ -134,10 +134,10 @@ export default function ReservationDayView({
                   e.stopPropagation();
                   onInstanceClick?.(inst);
                 }}
-                className={`absolute rounded-md text-[10px] truncate text-left px-2 hover:brightness-110 transition ${
-                  isMine ? "bg-blue-600 text-white" : "bg-blue-200 text-blue-900"
+                className={`absolute rounded-md text-[10px] truncate text-left px-2 transition ${
+                  isMine ? "bg-blue-600 text-white hover:brightness-110" : "bg-blue-100 text-blue-900 hover:bg-blue-300"
                 } ${inst.isException ? "border border-amber-400" : ""}`}
-                style={{ left: `${left}%`, width: `${width}%`, top: 4, height: 28, zIndex: 5 }}
+                style={{ left: `${left}%`, width: `${width}%`, top: 6, height: 32, zIndex: 5 }}
                 title={`${inst.title} — ${fmtTime(inst.startAt)}~${fmtTime(inst.endAt)} (${inst.userName ?? "—"})${inst.isRecurring ? ` / ${inst.recurrenceSummary}` : ""}`}
               >
                 <span className="font-medium">{inst.title}</span>
@@ -159,17 +159,17 @@ export default function ReservationDayView({
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl">
+    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
       <table className="w-full text-xs border-collapse table-fixed">
         <colgroup>
-          <col style={{ width: 240 }} />
+          <col style={{ width: 320 }} />
           {slots.map((s) => (
             <col key={s.time} />
           ))}
         </colgroup>
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50">
-            <th className="text-left px-3 py-2 bg-gray-50 font-medium text-gray-600 border-r border-gray-200">
+            <th className="text-center px-3 py-2 bg-gray-50 font-medium text-gray-600 border-r border-gray-200">
               자원
             </th>
             {slots.map((s) => (
