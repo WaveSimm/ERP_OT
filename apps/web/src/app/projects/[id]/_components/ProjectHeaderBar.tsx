@@ -147,7 +147,6 @@ export default function ProjectHeaderBar({
         {/* 통계 */}
         <span className="text-[11px] text-gray-400 shrink-0 whitespace-nowrap">
           태스크 {nonMilestoneTasks.length} · 완료 {doneCount}
-          {criticalCount > 0 && <span className="text-red-500 dark:text-red-400"> · 크리티컬 {criticalCount}</span>}
         </span>
 
         {/* 작업시간 */}
@@ -175,14 +174,6 @@ export default function ProjectHeaderBar({
           </span>
         )}
 
-        {/* CPM 결과 */}
-        {cpmResult && (
-          <span className="text-[11px] bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-full shrink-0">
-            🔴 크리티컬 {criticalCount}개
-            <button onClick={() => setCpmResult(null)} className="ml-1 text-orange-400 hover:text-orange-600">×</button>
-          </span>
-        )}
-
         {/* 우측 액션 */}
         <div className="ml-auto flex items-center gap-2 shrink-0">
           <select
@@ -194,14 +185,6 @@ export default function ProjectHeaderBar({
               <option key={v} value={v}>{label}</option>
             ))}
           </select>
-          <button
-            onClick={handleRunCpm}
-            disabled={runningCpm || tasks.length === 0}
-            title="일정 병목(크리티컬 패스) 분석 — 지연되면 프로젝트 종료가 밀리는 태스크를 찾습니다"
-            className="text-sm px-3 py-1 border border-orange-300 dark:border-orange-700 text-orange-700 dark:text-orange-300 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-950 disabled:opacity-40 font-medium"
-          >
-            {runningCpm ? "⏳..." : "이슈분석"}
-          </button>
           {/* Baseline selector */}
           {baselines.length > 0 && (
             <select

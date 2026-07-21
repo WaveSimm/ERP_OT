@@ -77,7 +77,6 @@ export class DependencyService {
     });
 
     this.gateway.emitToProject(projectId, "dependency:created", { projectId, dependencyId: dep.id });
-    this.triggerCpmRecalc(projectId);
     return dep;
   }
 
@@ -93,7 +92,6 @@ export class DependencyService {
     const projectId = dep.predecessorTask?.projectId;
     if (projectId) {
       this.gateway.emitToProject(projectId, "dependency:deleted", { projectId, dependencyId: id });
-      this.triggerCpmRecalc(projectId);
     }
   }
 

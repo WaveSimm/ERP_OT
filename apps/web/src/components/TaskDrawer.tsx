@@ -993,11 +993,6 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
                 {s.label}
               </button>
             ))}
-            {task.isCritical && (
-              <span className="px-2 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-medium border-2 border-red-200">
-                🔴 크리티컬
-              </span>
-            )}
           </div>
           {isParent ? (
             <div className="flex items-center gap-3 pointer-events-none select-none">

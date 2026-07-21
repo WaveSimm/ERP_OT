@@ -85,44 +85,8 @@ export class IssueDetectorService {
       return names.length ? names.join(" › ") : null;
     };
 
-    // ─── CRITICAL: 크리티컬 패스 지연 ─────────────────────────────────────────
-    const delayedCriticalTasks = project.tasks.filter((t) => {
-      if (!isLeaf(t) || !t.isCritical || t.status === "DONE") return false;
-      const latestEnd = t.segments.reduce((max: Date | null, s) => {
-        const d = new Date(s.endDate);
-        return !max || d > max ? d : max;
-      }, null);
-      if (!latestEnd) return false;
-      return latestEnd < today && dateDiffDays(latestEnd, today) > thresholds.delayCriticalDays;
-    });
-
-    if (delayedCriticalTasks.length > 0) {
-      const maxDelay = Math.max(...delayedCriticalTasks.map((t) => {
-        const latestEnd = t.segments.reduce((max: Date | null, s) => {
-          const d = new Date(s.endDate); return !max || d > max ? d : max;
-        }, null) as Date;
-        return dateDiffDays(latestEnd, today);
-      }));
-      issues.push({
-        id: `CRITICAL_PATH_DELAYED:${projectId}`,
-        projectId,
-        severity: "CRITICAL",
-        category: "SCHEDULE_DELAY",
-        title: "크리티컬 패스 지연",
-        description: `크리티컬 패스 태스크 ${delayedCriticalTasks.length}개가 지연되었습니다. 최대 ${maxDelay}일 지연.`,
-        detectedAt,
-        metadata: {
-          delayedCount: delayedCriticalTasks.length,
-          maxDelayDays: maxDelay,
-          tasks: delayedCriticalTasks.map((t) => {
-            const latestEnd = t.segments.reduce((max: Date | null, s) => {
-              const d = new Date(s.endDate); return !max || d > max ? d : max;
-            }, null) as Date | null;
-            return { id: t.id, name: t.name, parentName: parentNameOf(t), delayDays: latestEnd ? dateDiffDays(latestEnd, today) : 0 };
-          }),
-        },
-      });
-    }
+    // 크리티컬 패스 지연(CRITICAL) 이슈는 폐기 — CPM 크리티컬 판정 제거 (2026-07-21).
+    //   실제 지연은 아래 "태스크 일정 지연"(WARNING)에서 크리티컬 구분 없이 감지.
 
     // 예산 이슈(BUDGET_CRITICAL/WARNING)는 폐기 — 예산 개념 미사용 (2026-06-24)
     // 자원 과부하 이슈(RESOURCE_CRITICAL/WARNING)는 폐기 — 미사용 (2026-07-10)
@@ -150,9 +114,9 @@ export class IssueDetectorService {
       });
     }
 
-    // ─── WARNING: 비크리티컬 태스크 지연 ───────────────────────────────────────
+    // ─── WARNING: 태스크 일정 지연 (리프 태스크, 크리티컬 구분 없음) ─────────────
     const delayedNonCritical = project.tasks.filter((t) => {
-      if (!isLeaf(t) || t.isCritical || t.status === "DONE") return false;
+      if (!isLeaf(t) || t.status === "DONE") return false;
       const latestEnd = t.segments.reduce((max: Date | null, s) => {
         const d = new Date(s.endDate); return !max || d > max ? d : max;
       }, null);
@@ -166,7 +130,7 @@ export class IssueDetectorService {
         severity: "WARNING",
         category: "SCHEDULE_DELAY",
         title: "태스크 일정 지연",
-        description: `비크리티컬 태스크 ${delayedNonCritical.length}개가 지연되었습니다.`,
+        description: `지연된 태스크 ${delayedNonCritical.length}개.`,
         detectedAt,
         metadata: {
           delayedCount: delayedNonCritical.length,

@@ -678,7 +678,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                           task.status === "ON_HOLD"     ? "text-yellow-600"  :
                           "text-gray-500"
                         )}>◆</span>
-                      : task.isCritical && <span className="mr-0.5">🔴</span>}
+                      : null}
                     {task.name}
                   </p>
                   )}
@@ -1183,7 +1183,6 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
       {/* Legend */}
       <div className="border-t border-gray-200 px-4 py-2 flex items-center gap-6 text-xs text-gray-500 flex-wrap">
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-blue-500 inline-block" /> 일반</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-500 inline-block" /> 크리티컬 패스</span>
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-green-500 inline-block" /> 완료</span>
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 bg-purple-500 inline-block" style={{ transform: "rotate(45deg)" }} />
