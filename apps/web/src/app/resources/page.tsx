@@ -163,9 +163,9 @@ export default function ResourcesPage() {
         router.replace("/admin/users");
         return;
       }
-      // 공용자산 탭은 /admin/equipment-resources로 이동 (2026-05-05)
+      // 공용자산 탭은 관리 섹션으로 이동 (2026-07-21: /management/equipment-resources)
       if (urlTab === "equipment") {
-        router.replace("/admin/equipment-resources");
+        router.replace("/management/equipment-resources");
         return;
       }
       const resolved: ResourceTab =

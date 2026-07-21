@@ -36,7 +36,6 @@ const NAV: NavItem[] = [
 const TEAM_LINKS = [{ href: "/me/team", label: "팀 근태/승인", icon: "👥" }];
 const ADMIN_LINKS = [
   { href: "/admin/users", label: "직원 관리", icon: "👤" },
-  { href: "/admin/equipment-resources", label: "공용자산 관리", icon: "💼" },
   { href: "/admin/approval-lines", label: "결재라인", icon: "🖋" },
   { href: "/admin/calendar", label: "회사 달력", icon: "📅" },
   { href: "/admin/activity-logs", label: "시스템 이력", icon: "📜" },
