@@ -135,11 +135,12 @@ export default function ReservationDayView({
                   onInstanceClick?.(inst);
                 }}
                 className={`absolute rounded-md text-[10px] truncate text-left px-2 transition ${
-                  isMine ? "bg-blue-600 text-white hover:brightness-110" : "bg-blue-100 text-blue-900 hover:bg-blue-300"
+                  isMine ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-blue-100 text-blue-900 hover:bg-blue-300"
                 } ${inst.isException ? "border border-amber-400" : ""}`}
                 style={{ left: `${left}%`, width: `${width}%`, top: 6, height: 32, zIndex: 5 }}
                 title={`${inst.title} — ${fmtTime(inst.startAt)}~${fmtTime(inst.endAt)} (${inst.userName ?? "—"})${inst.isRecurring ? ` / ${inst.recurrenceSummary}` : ""}`}
               >
+                {inst.isRecurring && <span className="mr-0.5 font-bold">↻</span>}
                 <span className="font-medium">{inst.title}</span>
                 <span className="opacity-75 ml-1">{inst.userName ?? ""}</span>
               </button>

@@ -128,7 +128,7 @@ export default function ReservationCalendar({
                 type="button"
                 onClick={() => onCellClick?.(resource.id, d.iso)}
                 className={`flex-1 border-r border-gray-100 dark:border-gray-800 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors ${
-                  d.isHoliday ? "bg-red-50/40 dark:bg-red-950/20" : d.isWeekend ? "bg-gray-50/50 dark:bg-gray-800/40" : ""
+                  d.isHoliday ? "bg-red-50/40 dark:bg-red-950/20" : d.isWeekend ? "bg-gray-100 dark:bg-gray-800/60" : ""
                 }`}
                 title={`${d.iso}${d.holidayName ? ` (${d.holidayName})` : ""} — 클릭하여 예약 추가`}
               />
@@ -169,7 +169,7 @@ export default function ReservationCalendar({
                 className={`absolute rounded-md text-[10px] truncate text-left px-2 transition ${
                   startsBefore ? "rounded-l-none" : ""
                 } ${endsAfter ? "rounded-r-none" : ""} ${
-                  isMine ? "bg-blue-600 text-white hover:brightness-110" : "bg-blue-100 text-blue-900 hover:bg-blue-300"
+                  isMine ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-blue-100 text-blue-900 hover:bg-blue-300"
                 } ${inst.isException ? "border border-amber-400" : ""}`}
                 style={{
                   left: `${left}%`,
@@ -181,6 +181,7 @@ export default function ReservationCalendar({
                 title={`${inst.title} — ${fmtTimeRange(inst.startAt, inst.endAt, inst.isAllDay)} (${inst.userName ?? "—"})${inst.isRecurring ? ` / ${inst.recurrenceSummary}` : ""}`}
               >
                 {startsBefore && <span className="mr-0.5">◂</span>}
+                {inst.isRecurring && <span className="mr-0.5 font-bold">↻</span>}
                 <span className="font-medium">{inst.title}</span>
                 <span className="opacity-75 ml-1">{inst.userName ?? ""}</span>
                 {endsAfter && <span className="ml-0.5">▸</span>}
@@ -218,12 +219,12 @@ export default function ReservationCalendar({
               const colorCls = d.isHoliday
                 ? "text-red-500 dark:text-red-400 font-medium"
                 : d.isWeekend
-                ? "text-gray-400"
+                ? "text-gray-500 dark:text-gray-400"
                 : "text-gray-500";
               return (
                 <th
                   key={d.iso}
-                  className={`text-center px-1 py-2 font-normal text-[11px] whitespace-nowrap ${colorCls} ${d.isHoliday ? "bg-red-100/40" : ""}`}
+                  className={`text-center px-1 py-2 font-normal text-[11px] whitespace-nowrap ${colorCls} ${d.isHoliday ? "bg-red-100/40" : d.isWeekend ? "bg-gray-100 dark:bg-gray-800/50" : ""}`}
                   title={d.holidayName ?? undefined}
                 >
                   {d.label} ({["일", "월", "화", "수", "목", "금", "토"][d.dow] ?? ""})

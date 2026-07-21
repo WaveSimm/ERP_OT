@@ -67,7 +67,10 @@ export default function ReservationDetailPopover({ instance, canModify, onClose,
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-40 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900 truncate">{instance.title}</h3>
+          <h3 className="font-semibold text-gray-900 truncate">
+            {instance.isRecurring && <span className="mr-1 font-bold text-gray-500">↻</span>}
+            {instance.title}
+          </h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
         </div>
 
