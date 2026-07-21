@@ -169,7 +169,13 @@ export default function ReservationCalendar({
                 className={`absolute rounded-md text-[10px] truncate text-left px-2 transition ${
                   startsBefore ? "rounded-l-none" : ""
                 } ${endsAfter ? "rounded-r-none" : ""} ${
-                  isMine ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-blue-100 text-blue-900 hover:bg-blue-300"
+                  inst.logType === "MAINTENANCE"
+                    ? isMine
+                      ? "bg-purple-500 text-white hover:bg-purple-600"
+                      : "bg-purple-100 text-purple-900 hover:bg-purple-300"
+                    : isMine
+                    ? "bg-blue-500 text-white hover:bg-blue-600"
+                    : "bg-blue-100 text-blue-900 hover:bg-blue-300"
                 } ${inst.isException ? "border border-amber-400" : ""}`}
                 style={{
                   left: `${left}%`,

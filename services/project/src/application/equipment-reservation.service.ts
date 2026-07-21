@@ -1,4 +1,5 @@
 import { PrismaClient, Prisma, ReservationStatus } from "@prisma/client";
+import fs from "node:fs";
 import { AppError } from "@erp-ot/shared";
 import {
   expand,
@@ -7,6 +8,12 @@ import {
   type Recurrence,
   type InstanceWindow,
 } from "./recurrence/recurrence-expander.js";
+import {
+  validateExtension,
+  resolveReservationDir,
+  writeStreamToFile,
+  type AttachmentCategory,
+} from "./reservation-attachment-storage.js";
 import type {
   CreateReservationDto,
   UpdateReservationDto,
@@ -46,6 +53,8 @@ export interface InstancePayload {
   isException: boolean;
   recurrenceSummary: string;
   status: ReservationStatus;
+  logType: string;        // "RENTAL" | "MAINTENANCE"
+  mileage: number | null; // 주행거리 — MAINTENANCE만
 }
 
 interface ConflictDetail {
@@ -59,7 +68,10 @@ interface ConflictDetail {
 const DEFAULT_WINDOW_DAYS = 31;
 
 export class EquipmentReservationService {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly storagePath: string = "/app/storage",
+  ) {}
 
   // ─── 조회 (반복 가상 전개) ──────────────────────────────────────────────────
 
@@ -160,6 +172,8 @@ export class EquipmentReservationService {
           isException: false,
           recurrenceSummary: recurrenceLabel(recurrence),
           status: r.status,
+          logType: r.logType,
+          mileage: r.mileage,
         });
       }
     }
@@ -232,6 +246,8 @@ export class EquipmentReservationService {
           endAt,
           isAllDay: dto.isAllDay ?? false,
           recurrence: recurrence ? (recurrence as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+          logType: dto.logType ?? "RENTAL",
+          mileage: dto.logType === "MAINTENANCE" ? (dto.mileage ?? null) : null,
         },
       });
     });
@@ -291,6 +307,15 @@ export class EquipmentReservationService {
                 recurrence: newRecurrence
                   ? (newRecurrence as unknown as Prisma.InputJsonValue)
                   : Prisma.JsonNull,
+              }
+            : {}),
+          ...(dto.logType !== undefined ? { logType: dto.logType } : {}),
+          ...(dto.logType !== undefined || dto.mileage !== undefined
+            ? {
+                mileage:
+                  (dto.logType ?? existing.logType) === "MAINTENANCE"
+                    ? (dto.mileage ?? existing.mileage)
+                    : null,
               }
             : {}),
         },
@@ -476,6 +501,8 @@ export class EquipmentReservationService {
       recurrence: Prisma.JsonValue | null;
       recurrenceParentId: string | null;
       status: ReservationStatus;
+      logType: string;
+      mileage: number | null;
     },
     parentId: string | null,
     isException: boolean,
@@ -499,7 +526,83 @@ export class EquipmentReservationService {
       isException,
       recurrenceSummary: recurrenceLabel(recurrence),
       status: r.status,
+      logType: r.logType,
+      mileage: r.mileage,
     };
+  }
+
+  // ─── 첨부 (차량정비 영수증·사진 등) ─────────────────────────────────────────────
+
+  async listAttachments(reservationId: string) {
+    return this.prisma.reservationAttachment.findMany({
+      where: { reservationId },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async uploadAttachment(
+    reservationId: string,
+    uploadedBy: string,
+    fileDto: { filename: string; mimetype: string; file: NodeJS.ReadableStream },
+    category: AttachmentCategory,
+  ) {
+    const reservation = await this.prisma.equipmentReservation.findUnique({
+      where: { id: reservationId },
+      include: { resource: { select: { id: true, name: true } } },
+    });
+    if (!reservation) throw new AppError(404, "RESERVATION_NOT_FOUND", "예약을 찾을 수 없습니다.");
+
+    const ext = validateExtension(fileDto.filename, category);
+    const dirPath = await resolveReservationDir(
+      this.storagePath,
+      reservation.resource.name,
+      reservation.resourceId,
+      reservationId,
+      category,
+    );
+    const nameMap = await this.fetchUserNames([uploadedBy]);
+    const uploaderName = nameMap.get(uploadedBy) ?? uploadedBy;
+    const { filePath, fileSize } = await writeStreamToFile(
+      dirPath,
+      fileDto.filename,
+      uploaderName,
+      ext,
+      fileDto.file,
+    );
+
+    return this.prisma.reservationAttachment.create({
+      data: {
+        reservationId,
+        fileName: fileDto.filename,
+        fileSize,
+        mimeType: fileDto.mimetype,
+        category,
+        storagePath: filePath,
+        resourceNameSnapshot: reservation.resource.name,
+        uploadedBy,
+      },
+    });
+  }
+
+  async getAttachmentForDownload(attachmentId: string) {
+    const attachment = await this.prisma.reservationAttachment.findUnique({ where: { id: attachmentId } });
+    if (!attachment) throw new AppError(404, "ATTACHMENT_NOT_FOUND", "첨부 파일을 찾을 수 없습니다.");
+    try {
+      await fs.promises.access(attachment.storagePath, fs.constants.R_OK);
+    } catch {
+      throw new AppError(404, "FILE_NOT_FOUND", "파일을 찾을 수 없습니다.");
+    }
+    return { attachment, stream: fs.createReadStream(attachment.storagePath) };
+  }
+
+  async deleteAttachment(attachmentId: string, userId: string, userRole: string) {
+    const attachment = await this.prisma.reservationAttachment.findUnique({ where: { id: attachmentId } });
+    if (!attachment) throw new AppError(404, "ATTACHMENT_NOT_FOUND", "첨부 파일을 찾을 수 없습니다.");
+    if (attachment.uploadedBy !== userId && !["ADMIN", "MANAGER"].includes(userRole)) {
+      throw new AppError(403, "FORBIDDEN", "삭제 권한이 없습니다.");
+    }
+    await this.prisma.reservationAttachment.delete({ where: { id: attachmentId } });
+    await fs.promises.unlink(attachment.storagePath).catch(() => {});
   }
 
   private async fetchUserNames(userIds: string[]): Promise<Map<string, string>> {

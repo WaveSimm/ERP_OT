@@ -6,6 +6,7 @@
 //   "장비"는 /equipment 페이지의 Equipment 모델로 분리.
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { equipmentResourceApi, type EquipmentResource } from "@/lib/api";
 import { useDragAutoScroll } from "@/hooks/useDragAutoScroll";
 
@@ -197,7 +198,19 @@ export function EquipmentResourcesPanel({ isAdmin }: { isAdmin: boolean }) {
                       )}
                     </td>
                   )}
-                  <td className="px-4 py-2 font-medium">{r.name}</td>
+                  <td className="px-4 py-2 font-medium">
+                    {r.type === "VEHICLE" ? (
+                      <Link
+                        href={`/management/equipment-resources/${r.id}`}
+                        className="text-gray-900 dark:text-gray-100 hover:text-blue-600 hover:underline"
+                        title="상세 이력 보기"
+                      >
+                        {r.name} <span className="text-gray-400">›</span>
+                      </Link>
+                    ) : (
+                      r.name
+                    )}
+                  </td>
                   <td className="px-4 py-2 text-xs text-gray-600">{TYPE_LABEL[r.type] ?? r.type}</td>
                   <td className="px-4 py-2">
                     <span className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[11px] font-medium ${

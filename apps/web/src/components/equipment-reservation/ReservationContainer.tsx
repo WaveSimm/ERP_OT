@@ -257,10 +257,16 @@ export default function ReservationContainer() {
           )}
           <div className="mt-3 flex items-center gap-3 text-[11px] text-gray-500 flex-wrap px-2">
             <span className="flex items-center gap-1">
-              <span className="inline-block w-4 h-3 bg-blue-500 rounded-sm" /> 내 예약
+              <span className="inline-block w-4 h-3 bg-blue-500 rounded-sm" /> 대여 내 예약
             </span>
             <span className="flex items-center gap-1">
-              <span className="inline-block w-4 h-3 bg-blue-100 rounded-sm" /> 다른 사람
+              <span className="inline-block w-4 h-3 bg-blue-100 rounded-sm" /> 대여 다른 사람
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-4 h-3 bg-purple-500 rounded-sm" /> 정비 내 예약
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-4 h-3 bg-purple-100 rounded-sm" /> 정비 다른 사람
             </span>
             <span className="flex items-center gap-1"><span className="font-bold">↻</span> 반복 시리즈</span>
           </div>
@@ -288,6 +294,7 @@ export default function ReservationContainer() {
           onClose={() => setDetailEntry(null)}
           onEdit={handleEdit}
           onChanged={() => setRefreshKey((k) => k + 1)}
+          wide
         />
       )}
     </div>
