@@ -28,7 +28,7 @@ export default function ReservationDetailPopover({ instance, canModify, onClose,
   const [error, setError] = useState<string | null>(null);
 
   async function handleCancelInstance() {
-    if (!confirm(`이 인스턴스(${fmtDateTime(instance.startAt, instance.isAllDay)})만 취소할까요?`)) return;
+    if (!confirm(`이 인스턴스(${fmtDateTime(instance.startAt, instance.isAllDay)})만 삭제할까요?`)) return;
     setBusy(true);
     setError(null);
     try {
@@ -39,7 +39,7 @@ export default function ReservationDetailPopover({ instance, canModify, onClose,
       onChanged();
       onClose();
     } catch (err: any) {
-      setError(err?.body?.message ?? err?.message ?? "취소 실패");
+      setError(err?.body?.message ?? err?.message ?? "삭제 실패");
     } finally {
       setBusy(false);
     }
@@ -47,8 +47,8 @@ export default function ReservationDetailPopover({ instance, canModify, onClose,
 
   async function handleCancelSeries() {
     const msg = instance.isRecurring
-      ? `반복 시리즈 전체를 취소할까요? (${instance.recurrenceSummary})`
-      : `예약을 취소할까요?\n사유: ${instance.title}`;
+      ? `반복 시리즈 전체를 삭제할까요? (${instance.recurrenceSummary})`
+      : `예약을 삭제할까요?\n사유: ${instance.title}`;
     if (!confirm(msg)) return;
     setBusy(true);
     setError(null);
@@ -57,7 +57,7 @@ export default function ReservationDetailPopover({ instance, canModify, onClose,
       onChanged();
       onClose();
     } catch (err: any) {
-      setError(err?.body?.message ?? err?.message ?? "취소 실패");
+      setError(err?.body?.message ?? err?.message ?? "삭제 실패");
     } finally {
       setBusy(false);
     }
@@ -118,11 +118,11 @@ export default function ReservationDetailPopover({ instance, canModify, onClose,
           <div className="px-5 py-3 border-t border-gray-200 flex gap-2">
             {instance.isRecurring && !instance.isException && (
               <RowButton type="button" tone="orange" onClick={handleCancelInstance} disabled={busy}>
-                이 인스턴스만 취소
+                이 인스턴스만 삭제
               </RowButton>
             )}
             <RowButton type="button" danger onClick={handleCancelSeries} disabled={busy}>
-              {instance.isRecurring ? "시리즈 전체 취소" : "취소"}
+              {instance.isRecurring ? "시리즈 전체 삭제" : "삭제"}
             </RowButton>
             <div className="flex-1" />
             <RowButton type="button" onClick={onEdit} disabled={busy}>
