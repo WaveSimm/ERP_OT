@@ -72,7 +72,7 @@ export class AttendanceService {
 
     const updated = await this.prisma.attendanceRecord.update({
       where: { userId_date: { userId, date: today } },
-      data: { checkOut: now, checkState: newState, netWorkMinutes: Math.max(0, netWorkMinutes) },
+      data: { checkOut: now, checkOutSource: "MANUAL", checkState: newState, netWorkMinutes: Math.max(0, netWorkMinutes) },
       include: { breakRecords: { orderBy: { breakOut: "desc" }, take: 1 } },
     });
     return this.formatTodayResponse(updated);

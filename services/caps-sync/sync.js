@@ -172,8 +172,12 @@ async function runDates(caps, pg, dates, label) {
     const outManual = ex && ex.checkOutSource === "MANUAL";
     if (inManual && outManual) { skipManual++; continue; }
 
-    const finalInTs = inManual ? (ex.checkIn ? new Date(ex.checkIn).toISOString().slice(0, 19).replace("T", " ") : null) : capsIn;
-    const finalOutTs = outManual ? (ex.checkOut ? new Date(ex.checkOut).toISOString().slice(0, 19).replace("T", " ") : null) : capsOut;
+    const exInTs = ex && ex.checkIn ? new Date(ex.checkIn).toISOString().slice(0, 19).replace("T", " ") : null;
+    const exOutTs = ex && ex.checkOut ? new Date(ex.checkOut).toISOString().slice(0, 19).replace("T", " ") : null;
+    // 캡스 값이 없으면(단말 미태그) 기존값 유지 — null로 덮어써 앱 수동 입력이 사라지던 문제 해결.
+    //   출근: 캡스 첫탭 있으면 캡스 우선, 없으면 기존 유지. 퇴근: 수동(MANUAL)이면 고정, 아니면 캡스 마지막탭, 없으면 기존 유지.
+    const finalInTs = inManual ? exInTs : (capsIn ?? exInTs);
+    const finalOutTs = outManual ? exOutTs : (capsOut ?? exOutTs);
     const inSrc = inManual ? "MANUAL" : "CAPS";
     const outSrc = outManual ? "MANUAL" : "CAPS";
 
