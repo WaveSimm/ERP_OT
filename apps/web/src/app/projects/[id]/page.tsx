@@ -540,6 +540,12 @@ export default function ProjectDetailPage() {
       return next;
     });
   };
+  // 접기/펼치기 토글 — 태스크 목록·간트가 공유(controlled). 지속형 setter로 위임.
+  const toggleCollapse = (taskId: string) => setCollapsedPersist((prev) => {
+    const next = new Set(prev);
+    next.has(taskId) ? next.delete(taskId) : next.add(taskId);
+    return next;
+  });
   const lastSelectedRef = useRef<string | null>(null);
 
   // 선택 툴바 높이 — sticky 헤더(<thead>)의 top 오프셋 계산용 (툴바가 열 제목 위에 겹치지 않게)
@@ -1204,6 +1210,8 @@ export default function ProjectDetailPage() {
               <GanttChart
                 data={computedGanttData!}
                 flatItems={flatItems}
+                collapsed={collapsed}
+                onToggleCollapse={toggleCollapse}
                 canRename={isOperator}
                 viewStart={viewStart || undefined}
                 viewEnd={viewEnd || undefined}

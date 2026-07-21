@@ -63,6 +63,7 @@ const RESOURCE_W = 150; // resource assignment column
 const DAY_PX = 28; // pixels per day
 const DIAMOND_SIZE = ROW_H - 16;                                   // 28px
 const DIAMOND_TIP = Math.round(DIAMOND_SIZE * 0.7 / Math.SQRT2);  // ≈14px — right/left tip offset from center
+const EMPTY_COLLAPSED: Set<string> = new Set();                   // controlled collapsed 미전달 시 안정적 기본값
 
 function parseDate(s: string) {
   return new Date(s + "T00:00:00");
@@ -82,7 +83,7 @@ function shiftDate(isoDate: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTaskClick, onTaskCopy, onTaskAddAbove, onTaskAddBelow, onTaskDelete, baselineSegments, allResources, onRefresh, pushUndo, projectId, inlineTaskName, onInlineTaskNameChange, inlineAdding, onInlineTaskCreate, selected, onToggleSelect, onToggleAll, dragIds, dropGap, onDragStart, onDragOver, onDrop, onDragEnd, onIndent, onOutdent, onCopySelected, onDeleteSelected, onClearSelection, onProgressChange, onAddTask, onAddMilestone, holidays, canRename }: {
+export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTaskClick, onTaskCopy, onTaskAddAbove, onTaskAddBelow, onTaskDelete, baselineSegments, allResources, onRefresh, pushUndo, projectId, inlineTaskName, onInlineTaskNameChange, inlineAdding, onInlineTaskCreate, selected, onToggleSelect, onToggleAll, dragIds, dropGap, onDragStart, onDragOver, onDrop, onDragEnd, onIndent, onOutdent, onCopySelected, onDeleteSelected, onClearSelection, onProgressChange, onAddTask, onAddMilestone, holidays, canRename, collapsed = EMPTY_COLLAPSED, onToggleCollapse }: {
   data: GanttData;
   canRename?: boolean;
   flatItems?: FlatItem[];
@@ -122,6 +123,10 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
   onAddMilestone?: () => void;
   /** 회사달력 v1.2 — 일자별 휴일 Map (date → 휴일명). 미전달 시 휴일 표시 안 함 */
   holidays?: Map<string, string>;
+  /** 접힘 상태(페이지 지속형) — 태스크 목록과 공유하는 controlled 상태 */
+  collapsed?: Set<string>;
+  /** 접기/펼치기 토글 — 페이지의 지속형 setter로 위임 */
+  onToggleCollapse?: (taskId: string) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -332,16 +337,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
     window.addEventListener("mouseup", onUp);
   }, [projectId, onRefresh, pushUndo]);
 
-  // Collapse state for parent tasks
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-
-  const toggleCollapse = useCallback((taskId: string) => {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      next.has(taskId) ? next.delete(taskId) : next.add(taskId);
-      return next;
-    });
-  }, []);
+  // 접힘 상태는 페이지(태스크 목록과 공유)에서 controlled prop 으로 받음: collapsed / onToggleCollapse
 
   // Build set of task IDs that have children
   const parentIds = useMemo(() => {
@@ -645,7 +641,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                   {/* Collapse toggle for parent tasks */}
                   {parentIds.has(task.id) ? (
                     <button
-                      onClick={(e) => { e.stopPropagation(); toggleCollapse(task.id); }}
+                      onClick={(e) => { e.stopPropagation(); onToggleCollapse?.(task.id); }}
                       className="w-4 h-4 flex items-center justify-center shrink-0 text-gray-400 hover:text-gray-700 transition-colors"
                       title={collapsed.has(task.id) ? "펼치기" : "접기"}
                     >
