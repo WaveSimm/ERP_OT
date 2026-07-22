@@ -102,7 +102,7 @@ export async function request<T>(path: string, init: RequestInit = {}, _isRetry 
   });
 
   // 401 silent refresh (refresh 자체 호출은 제외)
-  if (res.status === 401 && !_isRetry && !path.startsWith("/auth/refresh") && !path.startsWith("/auth/login")) {
+  if (res.status === 401 && !_isRetry && !path.startsWith("/auth/refresh") && !path.startsWith("/auth/login") && !path.startsWith("/auth/logout")) {
     const refreshed = await tryRefresh();
     if (refreshed) {
       return request<T>(path, init, true); // 한 번만 재시도

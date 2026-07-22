@@ -201,6 +201,24 @@ export class AuthService {
     }
   }
 
+  // refresh 쿠키만으로 로그아웃 — access 토큰이 만료됐어도 세션을 확실히 종료한다.
+  //   (로그아웃 라우트가 authenticate에 의존하지 않도록: 만료 상태 로그아웃 시 세션이 살아남는 버그 방지)
+  //   토큰 행에서 userId를 얻어 해당 디바이스의 refresh 토큰(회전 잔재 포함)을 모두 삭제하고 userId를 반환.
+  async logoutByRefreshToken(refreshToken: string, deviceId?: string): Promise<string | undefined> {
+    const tokenHash = this.hashToken(refreshToken);
+    const row = await this.prisma.refreshToken.findUnique({
+      where: { tokenHash },
+      select: { userId: true },
+    });
+    if (!row) return undefined;
+    if (deviceId) {
+      await this.prisma.refreshToken.deleteMany({ where: { userId: row.userId, deviceId } });
+    } else {
+      await this.prisma.refreshToken.deleteMany({ where: { tokenHash } });
+    }
+    return row.userId;
+  }
+
   // ─── logoutOtherDevices (NEW-7 — 다른 기기 모두 로그아웃) ──────────
   async logoutOtherDevices(userId: string, currentDeviceId: string) {
     await this.prisma.refreshToken.deleteMany({

@@ -274,8 +274,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   const handleLogout = () => {
-    clearToken();
-    router.push("/login");
+    // 서버 세션(쿠키+DB refresh 토큰)까지 확실히 종료 — clearToken만 하면 쿠키가 남아
+    //   북마크 재방문 시 유효 쿠키로 재인증돼 다시 로그인되는 버그가 있었음.
+    authApi.logout().catch(() => {}).finally(() => { clearToken(); router.push("/login"); });
   };
 
   // 30분 유휴(무활동) 시 자동 로그아웃 — 탭 간 활동 공유(localStorage)로

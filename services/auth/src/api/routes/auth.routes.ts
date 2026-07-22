@@ -181,18 +181,27 @@ export async function authRoutes(app: FastifyInstance, opts: { authService: Auth
   });
 
   // POST /api/v1/auth/logout — 현재 디바이스 세션만 종료
-  app.post("/logout", { preHandler: [authenticate] }, async (req, reply) => {
-    const deviceId = (req.cookies as Record<string, string>)["deviceId"];
-    await authService.logout(req.userId, deviceId);
+  //   authenticate에 의존하지 않는다: access 토큰이 만료된 상태로 로그아웃해도
+  //   refresh 쿠키 기준으로 DB 토큰을 삭제하고 쿠키를 정리해 세션을 확실히 끝낸다.
+  //   (기존엔 access 만료 시 로그아웃이 401로 무효화돼 세션이 살아남는 버그가 있었음)
+  app.post("/logout", async (req, reply) => {
+    const cookies = req.cookies as Record<string, string>;
+    const refreshToken = cookies["refreshToken"];
+    const deviceId = cookies["deviceId"];
+    const userId = refreshToken
+      ? await authService.logoutByRefreshToken(refreshToken, deviceId)
+      : undefined;
     clearAuthCookies(reply);
-    publishActivity({
-      action: "auth.logout",
-      userId: req.userId,
-      entityType: "user",
-      entityId: req.userId,
-      description: "로그아웃",
-      metadata: { deviceId, ipAddress: getClientIp(req) },
-    });
+    if (userId) {
+      publishActivity({
+        action: "auth.logout",
+        userId,
+        entityType: "user",
+        entityId: userId,
+        description: "로그아웃",
+        metadata: { deviceId, ipAddress: getClientIp(req) },
+      });
+    }
     return reply.code(204).send();
   });
 
