@@ -171,16 +171,19 @@ export class TaskService {
       await this.cascadeHold(taskId, existing.projectId, dto.status === "ON_HOLD");
     }
 
-    // 첫 구간(sortOrder 최소)은 태스크명과 항상 동기화 — 태스크명 변경 시 첫 구간명도 함께 변경.
-    //   (이후 구간은 자유 이름이라 건드리지 않음)
+    // 첫 구간(sortOrder 최소)은 "구간이 1개일 때만" 태스크명과 동기화 — 태스크명 변경 시 함께 변경.
+    //   구간이 여러 개면 첫 구간명도 자유 이름(사용자 편집 가능)이므로 덮어쓰지 않는다.
     if (dto.name !== undefined && dto.name !== existing.name) {
-      const firstSeg = await this.prisma.taskSegment.findFirst({
-        where: { taskId },
-        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-        select: { id: true },
-      });
-      if (firstSeg) {
-        await this.prisma.taskSegment.update({ where: { id: firstSeg.id }, data: { name: dto.name } });
+      const segCount = await this.prisma.taskSegment.count({ where: { taskId } });
+      if (segCount === 1) {
+        const firstSeg = await this.prisma.taskSegment.findFirst({
+          where: { taskId },
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          select: { id: true },
+        });
+        if (firstSeg) {
+          await this.prisma.taskSegment.update({ where: { id: firstSeg.id }, data: { name: dto.name } });
+        }
       }
     }
 
