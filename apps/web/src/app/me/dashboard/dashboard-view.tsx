@@ -168,7 +168,6 @@ function KanbanCardItem({ card, onUpdate, onOpenTask }: { card: KanbanCard; onUp
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 space-y-2">
       <div className="flex items-start gap-1.5">
-        {card.isCriticalPath && <span className="shrink-0 text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-medium">CPM</span>}
         <button className="text-xs text-gray-500 hover:text-blue-600 text-left truncate flex-1 min-w-0"
           onClick={() => router.push(`/projects/${card.projectId}`)} title={card.projectName}>
           {card.projectName}
@@ -364,7 +363,7 @@ function WeekCalendarView() {
                         {segs.map((seg: any) => (
                           <button key={`${seg.segmentId}-${day.date}`} type="button"
                             onClick={() => openTask(seg.projectId, seg.taskId)}
-                            className={`block w-full text-left px-1.5 py-0.5 rounded truncate hover:ring-1 hover:ring-blue-300 ${seg.isCriticalPath ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}
+                            className="block w-full text-left px-1.5 py-0.5 rounded truncate hover:ring-1 hover:ring-blue-300 bg-blue-100 text-blue-700"
                             title={`${seg.taskName} / ${seg.segmentName}`}>
                             {seg.segmentName}
                           </button>

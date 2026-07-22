@@ -167,7 +167,8 @@ export function buildRolledUpTasks(taskList: any[]): any[] {
 
   return taskList.map((t: any) => {
     const task = map.get(t.id) ?? t;
-    return { ...task, isCritical: task.isCritical && task.status !== "DONE" };
+    // 크리티컬(CPM) 폐기(2026-07-21): 표시용 isCritical을 강제로 끔 → 목록·간트 빨간 표시 제거
+    return { ...task, isCritical: false };
   });
 }
 

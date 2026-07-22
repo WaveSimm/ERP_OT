@@ -229,7 +229,7 @@ function MiniTimeline({ events, centerDate }: { events: TimelineEvent[]; centerD
     const ce = activeEv ? winEnd : endEv ? endEv.date.slice(0, 10) : winEnd;
     const x1 = Math.max(0, xForDate(cs));
     const x2 = Math.min(W, xForDate(ce) + DAY_W); // 종료일 포함
-    const color = rep.isDelayed ? "#EF4444" : rep.isCriticalPath ? "#F97316" : "#22C55E";
+    const color = rep.isDelayed ? "#EF4444" : "#22C55E";
     return { x1, x2: Math.max(x2, x1 + 2), color, e: rep };
   });
 
@@ -348,7 +348,7 @@ function TaskMiniTimeline({ task, centerDate }: { task: Task; centerDate: string
       const x1 = Math.max(0, xForDate(cs));
       const x2 = Math.min(W, xForDate(ce) + DAY_W); // 종료일 포함
       const delayed = e0 < centerDate && (s.progressPercent ?? 0) < 100;
-      const color = delayed ? "#EF4444" : task.isCritical ? "#F97316" : "#22C55E";
+      const color = delayed ? "#EF4444" : "#22C55E";
       return (
         <rect key={i} x={x1} y={11} width={Math.max(2, x2 - x1)} height={6} rx="2" fill={color} opacity={0.85}>
           <title>{s.name} ({s.progressPercent ?? 0}%)</title>
@@ -519,9 +519,6 @@ function ProjectRow({ row, date, onPin }: { row: ProjectRow; date: string; onPin
             <Link href={`/projects/${row.id}`} className="text-sm font-medium text-blue-700 dark:text-blue-300 hover:underline truncate" title={row.name}>
               {row.name}
             </Link>
-            {row.isCriticalPathDelayed && (
-              <span className="shrink-0 text-xs text-red-600 dark:text-red-400 font-medium">CP지연</span>
-            )}
           </div>
           <div className="text-xs text-gray-400 mt-0.5">{fmtDate(row.lastUpdatedAt)} 업데이트</div>
         </td>
@@ -676,9 +673,6 @@ function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: 
             <Link href={`/projects/${row.id}`} className="text-sm font-medium text-blue-700 dark:text-blue-300 hover:underline truncate" title={row.name}>
               {row.name}
             </Link>
-            {row.isCriticalPathDelayed && (
-              <span className="shrink-0 text-xs text-red-600 dark:text-red-400 font-medium">CP지연</span>
-            )}
           </div>
           <div className="text-xs text-gray-400 mt-0.5 pl-5 truncate">{fmtDate(row.lastUpdatedAt)} 업데이트</div>
         </td>
