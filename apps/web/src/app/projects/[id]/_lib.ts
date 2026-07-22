@@ -79,7 +79,7 @@ export type ColId = "status" | "dates" | "segProgress" | "progress" | "resources
 export const COL_CFG: Record<ColId, { label: string; width: string }> = {
   status:      { label: "상태",   width: "w-20" },
   dates:       { label: "기간",   width: "w-40" },
-  segProgress: { label: "구간진행률", width: "w-24" },
+  segProgress: { label: "완료 구간", width: "w-24" },
   progress:    { label: "전체진행률", width: "w-28" },
   resources:   { label: "자원",   width: "w-24" },
   note:        { label: "비고",   width: "w-32" },

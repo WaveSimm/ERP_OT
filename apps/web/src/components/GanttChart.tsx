@@ -759,7 +759,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
         {/* 구간 진행률 열 (자기 구간 완료/전체) */}
         <div className="shrink-0 border-r border-gray-200 flex flex-col relative" style={{ width: segW }}>
           <div className="sticky z-[23] bg-white h-14 border-b border-gray-200 px-1 flex items-end justify-center pb-1.5" style={{ top: hdrTop }}>
-            <span className="text-xs font-semibold text-gray-500 whitespace-nowrap">구간진행률</span>
+            <span className="text-xs font-semibold text-gray-500 whitespace-nowrap">완료 구간</span>
           </div>
           <div className="flex-1 overflow-hidden">
             {rows.map(({ task }) => {
