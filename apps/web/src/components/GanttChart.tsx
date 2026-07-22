@@ -177,8 +177,12 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
     try { return Number(localStorage.getItem("gantt_resourceW")) || RESOURCE_W; } catch { return RESOURCE_W; }
   });
 
+  const [segW, setSegW] = useState(() => {
+    try { return Number(localStorage.getItem("gantt_segW")) || SEG_W; } catch { return SEG_W; }
+  });
   useEffect(() => { try { localStorage.setItem("gantt_leftW", String(leftW)); } catch {} }, [leftW]);
   useEffect(() => { try { localStorage.setItem("gantt_resourceW", String(resourceW)); } catch {} }, [resourceW]);
+  useEffect(() => { try { localStorage.setItem("gantt_segW", String(segW)); } catch {} }, [segW]);
 
   // data prop이 새 날짜로 갱신되면 일치하는 override를 자동 정리
   useEffect(() => {
@@ -397,7 +401,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
   const totalDays = hasCustomRange
     ? daysBetween(rangeStart, rangeEnd) + 1
     : Math.max(daysBetween(rangeStart, rangeEnd) + 2, 30);
-  const timelinePanelW = Math.max(0, containerW - leftW - SEG_W - resourceW);
+  const timelinePanelW = Math.max(0, containerW - leftW - segW - resourceW);
   const dayPx = hasCustomRange && timelinePanelW > 10
     ? Math.max(2, timelinePanelW / totalDays)
     : DAY_PX;
@@ -753,7 +757,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
         </div>
 
         {/* 구간 진행률 열 (자기 구간 완료/전체) */}
-        <div className="shrink-0 border-r border-gray-200 flex flex-col" style={{ width: SEG_W }}>
+        <div className="shrink-0 border-r border-gray-200 flex flex-col relative" style={{ width: segW }}>
           <div className="sticky z-[23] bg-white h-14 border-b border-gray-200 px-1 flex items-end justify-center pb-1.5" style={{ top: hdrTop }}>
             <span className="text-xs font-semibold text-gray-500 whitespace-nowrap">구간진행률</span>
           </div>
@@ -778,6 +782,14 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                 </div>
               );
             })}
+          </div>
+          {/* 구간진행률 열 폭 조절 핸들 */}
+          <div
+            className="absolute top-0 bottom-0 z-20 cursor-col-resize group/sresize hover:bg-blue-300/20 transition-colors"
+            style={{ right: -4, width: 8 }}
+            onMouseDown={(e) => startResize(e, segW, setSegW, 44)}
+          >
+            <div className="absolute inset-y-0 left-1/2 w-px bg-gray-200 group-hover/sresize:bg-blue-400 transition-colors" />
           </div>
         </div>
 
@@ -1163,7 +1175,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
       {/* 인라인 태스크 추가 행 */}
       {onInlineTaskNameChange && onInlineTaskCreate !== undefined && (
         <div className="border-t border-gray-100 flex">
-          <div className="flex items-center gap-2 px-3 py-1.5 border-r border-gray-200" style={{ width: leftW + SEG_W + resourceW }}>
+          <div className="flex items-center gap-2 px-3 py-1.5 border-r border-gray-200" style={{ width: leftW + segW + resourceW }}>
             <span className="text-gray-300 text-xs w-4 shrink-0">+</span>
             <input
               type="text"

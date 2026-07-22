@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Fragment } from "react";
+import React, { Fragment, useState } from "react";
 import type { Dispatch, SetStateAction, RefObject } from "react";
 import { DateInput } from "@/components/ui/DateInput";
 import { RowContextMenu } from "@/components/RowContextMenu";
@@ -128,6 +128,41 @@ export default function TaskListTable({
   load,
   pushUndo,
 }: TaskListTableProps) {
+  // 열 폭 리사이즈 (간트처럼) — 전 프로젝트 공통 1벌 저장. 태스크명은 나머지 폭 자동 흡수(flex).
+  const DEFAULT_COL_W: Record<string, number> = { name: 320, status: 80, dates: 160, segProgress: 96, progress: 112, resources: 96, note: 128 };
+  const [colW, setColW] = useState<Record<string, number>>(() => {
+    if (typeof window === "undefined") return DEFAULT_COL_W;
+    try {
+      const saved = JSON.parse(localStorage.getItem("erp_task_col_widths_v1") ?? "null");
+      return { ...DEFAULT_COL_W, ...(saved && typeof saved === "object" ? saved : {}) };
+    } catch { return DEFAULT_COL_W; }
+  });
+  const startColResize = (e: React.MouseEvent, id: string, minW = 56) => {
+    e.preventDefault(); e.stopPropagation();
+    const startX = e.clientX;
+    const startW = colW[id] ?? DEFAULT_COL_W[id] ?? 100;
+    const onMove = (ev: MouseEvent) => {
+      const w = Math.max(minW, startW + ev.clientX - startX);
+      setColW((prev) => {
+        const next = { ...prev, [id]: w };
+        try { localStorage.setItem("erp_task_col_widths_v1", JSON.stringify(next)); } catch {}
+        return next;
+      });
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+    };
+    document.body.style.cursor = "col-resize";
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+  // 표 폭 = 모든 열 폭 합계(고정) → 한 열을 키우면 그 열만 오른쪽으로 커짐(재분배·대칭성장 없음).
+  const tableW =
+    24 + 32 + 32 +
+    (colW.name ?? DEFAULT_COL_W.name) +
+    colOrder.reduce((s, c) => s + (colW[c] ?? DEFAULT_COL_W[c] ?? 100), 0);
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-clip">
       {/* Multi-select toolbar — 스크롤해도 상단(글로벌 헤더 h-14 아래)에 고정 */}
@@ -165,7 +200,14 @@ export default function TaskListTable({
         </div>
       )}
 
-      <table className="w-full text-sm select-none">
+      <table className="text-sm select-none table-fixed" style={{ width: tableW }}>
+        <colgroup>
+          <col style={{ width: 24 }} />
+          <col style={{ width: 32 }} />
+          <col style={{ width: colW.name ?? DEFAULT_COL_W.name }} />
+          {colOrder.map((c) => <col key={c} style={{ width: colW[c] ?? DEFAULT_COL_W[c] ?? 100 }} />)}
+          <col style={{ width: 32 }} />
+        </colgroup>
         {/* 열 제목 — 스크롤해도 상단 고정. top = 상단 고정프레임 + 선택 툴바 높이 */}
         <thead className="sticky z-[23] bg-gray-50" style={{ top: `calc(var(--top-chrome, 56px) + ${selToolbarH}px)` }}>
           <tr className="border-b border-gray-200 bg-gray-50">
@@ -175,7 +217,17 @@ export default function TaskListTable({
                 checked={selected.size === flatItems.length && flatItems.length > 0}
                 className="cursor-pointer" />
             </th>
-            <th className="text-left px-3 py-2 font-semibold text-gray-600 text-xs w-96">태스크명</th>
+            <th className="relative text-left px-3 py-2 font-semibold text-gray-600 text-xs">
+              <span className="truncate block">태스크명</span>
+              <div
+                onMouseDown={(e) => startColResize(e, "name", 140)}
+                onClick={(e) => e.stopPropagation()}
+                className="absolute top-0 right-0 h-full w-2 cursor-col-resize group/cr z-10"
+                title="드래그로 열 폭 조절"
+              >
+                <div className="absolute inset-y-0 right-0 w-px bg-gray-200 group-hover/cr:bg-blue-400 transition-colors" />
+              </div>
+            </th>
             {colOrder.map((col) => {
               const cfg = COL_CFG[col];
               const isDraggingThis = colDragging === col;
@@ -190,14 +242,25 @@ export default function TaskListTable({
                   onDrop={(e) => handleColDrop(e, col)}
                   onDragEnd={() => { setColDragging(null); setColDropGap(null); }}
                   className={[
-                    `${col === "segProgress" ? "text-center" : "text-left"} px-3 py-2 font-semibold text-xs cursor-grab select-none ${cfg.width}`,
+                    `relative ${col === "segProgress" ? "text-center" : "text-left"} px-3 py-2 font-semibold text-xs cursor-grab select-none`,
                     isDraggingThis ? "opacity-40" : "text-gray-600",
                     gapBefore ? "border-l-2 border-l-blue-500" : "",
                     gapAfter  ? "border-r-2 border-r-blue-500" : "",
                   ].join(" ")}
                   title="드래그로 열 순서 변경"
                 >
-                  {cfg.label}
+                  <span className="truncate block">{cfg.label}</span>
+                  {/* 열 폭 조절 핸들 — 오른쪽 가장자리 드래그 */}
+                  <div
+                    onMouseDown={(e) => startColResize(e, col)}
+                    onClick={(e) => e.stopPropagation()}
+                    onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                    draggable={false}
+                    className="absolute top-0 right-0 h-full w-2 cursor-col-resize group/cr z-10"
+                    title="드래그로 열 폭 조절"
+                  >
+                    <div className="absolute inset-y-0 right-0 w-px bg-gray-200 group-hover/cr:bg-blue-400 transition-colors" />
+                  </div>
                 </th>
               );
             })}
@@ -338,7 +401,7 @@ export default function TaskListTable({
                     </td>
                   );
                   if (col === "dates") return (
-                    <td key="dates" className="px-3 text-[11px]"
+                    <td key="dates" className="px-3 text-[11px] truncate"
                       onClick={(e) => { if (task.isMilestone) return; e.stopPropagation(); startEdit(task.id, "dates", { start: task.effectiveStartDate ?? "", end: task.effectiveEndDate ?? "" }); }}>
                       {task.isMilestone ? (
                         task.effectiveStartDate
