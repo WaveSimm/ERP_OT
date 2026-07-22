@@ -4,7 +4,9 @@ import { IssueDetectorService, DashboardIssue } from "./issue-detector.service.j
 import { TimelineService, TimelineEvent } from "./timeline.service.js";
 import { resolveResourceNames } from "../shared/resource-name-resolver.js";
 
-const TTL = 300; // 5분
+// 갱신은 5분 크론(refreshAll 워밍)과 변경 시 즉시 무효화가 담당하고,
+// TTL은 크론이 죽었을 때의 안전망 — 크론 주기와 같으면 재워밍 직전에 만료돼 콜드 구간이 생긴다
+const TTL = 900; // 15분
 
 export interface ProjectRowSummary {
   id: string;
@@ -598,16 +600,19 @@ export class DashboardService {
         select: { id: true },
       });
 
+      // getDashboard와 동일한 기준일(자정)로 계산해야 캐시 소비 경로와 일치
       const date = new Date();
+      date.setHours(0, 0, 0, 0);
       const BATCH = 20;
       for (let i = 0; i < projects.length; i += BATCH) {
         const batch = projects.slice(i, i + BATCH);
         await Promise.all(batch.map(async (p) => {
-          await this.invalidateProject(p.id);
-          await this.computeProjectSummary(p.id, date);
+          const summary = await this.computeProjectSummary(p.id, date);
+          await this.redis.setex(`dashboard:project:${p.id}:summary`, TTL, JSON.stringify(summary));
         }));
       }
       await this.redis.del("dashboard:global:summary");
+      await this.getGlobalSummary(date);
       return { refreshed: projects.length };
     } finally {
       await this.redis.del("dashboard:refresh:lock");
