@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Fragment, useState } from "react";
+import React, { Fragment } from "react";
 import type { Dispatch, SetStateAction, RefObject } from "react";
 import { DateInput } from "@/components/ui/DateInput";
 import { RowContextMenu } from "@/components/RowContextMenu";
@@ -128,9 +128,22 @@ export default function TaskListTable({
   load,
   pushUndo,
 }: TaskListTableProps) {
-  // 열 폭 리사이즈 (간트처럼) — 전 프로젝트 공통 1벌 저장. 태스크명은 나머지 폭 자동 흡수(flex).
+  // 열 폭 조절 — 간트와 동일 방식: 데이터 열은 고정px(드래그 조절), 맨 끝 열이 남는 폭 흡수.
+  //   → 한 열을 키우면 그 열만 오른쪽으로 커지고(대칭성장 없음), 표는 컨테이너를 꽉 채움.
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [containerW, setContainerW] = React.useState(0);
+  React.useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setContainerW(e.contentRect.width));
+    ro.observe(el);
+    setContainerW(el.clientWidth);
+    return () => ro.disconnect();
+  }, []);
   const DEFAULT_COL_W: Record<string, number> = { name: 320, status: 80, dates: 160, segProgress: 96, progress: 112, resources: 96, note: 128 };
-  const [colW, setColW] = useState<Record<string, number>>(() => {
+  // 자원·상태는 너무 좁히면 내용이 넘쳐서 최소 폭 지정(마일스톤 배지 한 줄·아바타)
+  const COL_MIN: Record<string, number> = { status: 72, resources: 72 };
+  const [colW, setColW] = React.useState<Record<string, number>>(() => {
     if (typeof window === "undefined") return DEFAULT_COL_W;
     try {
       const saved = JSON.parse(localStorage.getItem("erp_task_col_widths_v1") ?? "null");
@@ -158,13 +171,14 @@ export default function TaskListTable({
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
   };
-  // 표 폭 = 모든 열 폭 합계(고정) → 한 열을 키우면 그 열만 오른쪽으로 커짐(재분배·대칭성장 없음).
-  const tableW =
-    24 + 32 + 32 +
-    (colW.name ?? DEFAULT_COL_W.name) +
+  // 맨 끝(삭제) 열이 남는 폭 흡수(min 32) → 데이터 열은 왼쪽 고정, 오른쪽으로만 확장.
+  const fixedExceptTail =
+    24 + 32 + (colW.name ?? DEFAULT_COL_W.name) +
     colOrder.reduce((s, c) => s + (colW[c] ?? DEFAULT_COL_W[c] ?? 100), 0);
+  const tailW = Math.max(32, containerW - fixedExceptTail);
+  const tableW = fixedExceptTail + tailW;
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-clip">
+    <div ref={containerRef} className="bg-white rounded-xl border border-gray-200 overflow-clip">
       {/* Multi-select toolbar — 스크롤해도 상단(글로벌 헤더 h-14 아래)에 고정 */}
       {selected.size > 0 && (
         <div ref={selToolbarRef} className="sticky z-[25] flex items-center gap-2 px-4 py-2 bg-blue-50 border-b border-blue-100" style={{ top: "var(--top-chrome, 56px)" }}>
@@ -205,8 +219,8 @@ export default function TaskListTable({
           <col style={{ width: 24 }} />
           <col style={{ width: 32 }} />
           <col style={{ width: colW.name ?? DEFAULT_COL_W.name }} />
-          {colOrder.map((c) => <col key={c} style={{ width: colW[c] ?? DEFAULT_COL_W[c] ?? 100 }} />)}
-          <col style={{ width: 32 }} />
+          {colOrder.map((c) => <col key={c} style={{ width: Math.max(COL_MIN[c] ?? 0, colW[c] ?? DEFAULT_COL_W[c] ?? 100) }} />)}
+          <col style={{ width: tailW }} />
         </colgroup>
         {/* 열 제목 — 스크롤해도 상단 고정. top = 상단 고정프레임 + 선택 툴바 높이 */}
         <thead className="sticky z-[23] bg-gray-50" style={{ top: `calc(var(--top-chrome, 56px) + ${selToolbarH}px)` }}>
@@ -250,9 +264,8 @@ export default function TaskListTable({
                   title="드래그로 열 순서 변경"
                 >
                   <span className="truncate block">{cfg.label}</span>
-                  {/* 열 폭 조절 핸들 — 오른쪽 가장자리 드래그 */}
                   <div
-                    onMouseDown={(e) => startColResize(e, col)}
+                    onMouseDown={(e) => startColResize(e, col, COL_MIN[col] ?? 56)}
                     onClick={(e) => e.stopPropagation()}
                     onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
                     draggable={false}
@@ -378,7 +391,7 @@ export default function TaskListTable({
                     <td key="status" className="px-2"
                       onClick={(e) => { if (task.isMilestone || parentTaskIds.has(task.id)) return; e.stopPropagation(); startEdit(task.id, "status", task.status); }}>
                       {task.isMilestone ? (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-purple-100 text-purple-700">마일스톤</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-purple-100 text-purple-700 whitespace-nowrap">마일스톤</span>
                       ) : isEditStatus ? (
                         <select autoFocus value={editVal}
                           onChange={(e) => saveStatus(task.id, e.target.value)}
@@ -454,7 +467,7 @@ export default function TaskListTable({
                     </td>
                   );
                   if (col === "resources") return (
-                    <td key="resources" className="px-3" onClick={(e) => e.stopPropagation()}>
+                    <td key="resources" className="px-3 overflow-hidden" onClick={(e) => e.stopPropagation()}>
                       <ResourcePickerPopover
                         task={task}
                         projectId={projectId}
