@@ -190,7 +190,7 @@ export default function TaskListTable({
                   onDrop={(e) => handleColDrop(e, col)}
                   onDragEnd={() => { setColDragging(null); setColDropGap(null); }}
                   className={[
-                    `text-left px-3 py-2 font-semibold text-xs cursor-grab select-none ${cfg.width}`,
+                    `${col === "segProgress" ? "text-center" : "text-left"} px-3 py-2 font-semibold text-xs cursor-grab select-none ${cfg.width}`,
                     isDraggingThis ? "opacity-40" : "text-gray-600",
                     gapBefore ? "border-l-2 border-l-blue-500" : "",
                     gapAfter  ? "border-r-2 border-r-blue-500" : "",
@@ -351,6 +351,19 @@ export default function TaskListTable({
                       )}
                     </td>
                   );
+                  if (col === "segProgress") {
+                    const segs: any[] = task.segments ?? [];
+                    const total = segs.length;
+                    const done = segs.filter((s: any) => (s.progressPercent ?? 0) >= 100).length;
+                    const allDone = total > 0 && done === total;
+                    return (
+                      <td key="segProgress" className="px-3 text-center text-[11px] tabular-nums" title="완료 구간 / 전체 구간 (자기 구간 기준)">
+                        {task.isMilestone || total === 0
+                          ? <span className="text-gray-300">–</span>
+                          : <span className={allDone ? "text-gray-400 dark:text-gray-500" : "text-gray-600 dark:text-gray-300"}>{done}/{total}</span>}
+                      </td>
+                    );
+                  }
                   if (col === "progress") return (
                     <td key="progress" className="px-3">
                       {task.isMilestone ? (

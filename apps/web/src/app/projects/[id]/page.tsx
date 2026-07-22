@@ -478,7 +478,14 @@ export default function ProjectDetailPage() {
       const saved: string[] = JSON.parse(localStorage.getItem("erp_task_cols_v1") ?? "null") ?? DEFAULT_COL_ORDER;
       // migrate: replace legacy "cpm" with "note"
       const migrated = saved.map((c) => c === "cpm" ? "note" : c) as ColId[];
-      return migrated.filter((c) => c in COL_CFG);
+      const filtered = migrated.filter((c) => c in COL_CFG);
+      // segProgress(구간) 신규 열: 기존 저장 순서에 없으면 기간(dates) 뒤에 삽입 (2026-07-22)
+      if (!filtered.includes("segProgress")) {
+        const di = filtered.indexOf("dates");
+        if (di >= 0) filtered.splice(di + 1, 0, "segProgress");
+        else filtered.push("segProgress");
+      }
+      return filtered;
     } catch { return DEFAULT_COL_ORDER; }
   });
   const [colDragging, setColDragging] = useState<ColId | null>(null);

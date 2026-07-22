@@ -75,15 +75,16 @@ export function avatarColor(name: string) {
 }
 
 // ── 태스크 목록 컬럼 순서 ─────────────────────────────────────────────────────
-export type ColId = "status" | "dates" | "progress" | "resources" | "note";
+export type ColId = "status" | "dates" | "segProgress" | "progress" | "resources" | "note";
 export const COL_CFG: Record<ColId, { label: string; width: string }> = {
-  status:    { label: "상태",   width: "w-20" },
-  dates:     { label: "기간",   width: "w-40" },
-  progress:  { label: "진행률", width: "w-28" },
-  resources: { label: "자원",   width: "w-24" },
-  note:      { label: "비고",   width: "w-32" },
+  status:      { label: "상태",   width: "w-20" },
+  dates:       { label: "기간",   width: "w-40" },
+  segProgress: { label: "구간진행률", width: "w-24" },
+  progress:    { label: "전체진행률", width: "w-28" },
+  resources:   { label: "자원",   width: "w-24" },
+  note:        { label: "비고",   width: "w-32" },
 };
-export const DEFAULT_COL_ORDER: ColId[] = ["status", "dates", "progress", "resources", "note"];
+export const DEFAULT_COL_ORDER: ColId[] = ["status", "dates", "segProgress", "progress", "resources", "note"];
 
 // 상위 태스크 rollup: 하위 태스크의 기간/진행률/상태/자원을 집계 (page.tsx에서 기계적 분리)
 export function buildRolledUpTasks(taskList: any[]): any[] {

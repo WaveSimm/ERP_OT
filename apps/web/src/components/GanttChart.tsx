@@ -59,6 +59,7 @@ const ROW_H = 36;
 const BAR_H = Math.round((ROW_H - 20) * 1.2); // 기본 높이의 120%
 const BAR_TOP = Math.round((ROW_H - BAR_H) / 2);
 const LEFT_W = 320;   // task name column (기본 폭 확대 — 태스크명 짤림 최소화)
+const SEG_W = 80;     // 구간진행률 열(완료/전체) — 이름과 자원 사이 고정폭
 const RESOURCE_W = 150; // resource assignment column
 const DAY_PX = 28; // pixels per day
 const DIAMOND_SIZE = ROW_H - 16;                                   // 28px
@@ -396,7 +397,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
   const totalDays = hasCustomRange
     ? daysBetween(rangeStart, rangeEnd) + 1
     : Math.max(daysBetween(rangeStart, rangeEnd) + 2, 30);
-  const timelinePanelW = Math.max(0, containerW - leftW - resourceW);
+  const timelinePanelW = Math.max(0, containerW - leftW - SEG_W - resourceW);
   const dayPx = hasCustomRange && timelinePanelW > 10
     ? Math.max(2, timelinePanelW / totalDays)
     : DAY_PX;
@@ -748,6 +749,35 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
             onMouseDown={(e) => startResize(e, leftW, setLeftW, 100)}
           >
             <div className="absolute inset-y-0 left-1/2 w-px bg-gray-200 group-hover/lresize:bg-blue-400 transition-colors" />
+          </div>
+        </div>
+
+        {/* 구간 진행률 열 (자기 구간 완료/전체) */}
+        <div className="shrink-0 border-r border-gray-200 flex flex-col" style={{ width: SEG_W }}>
+          <div className="sticky z-[23] bg-white h-14 border-b border-gray-200 px-1 flex items-end justify-center pb-1.5" style={{ top: hdrTop }}>
+            <span className="text-xs font-semibold text-gray-500 whitespace-nowrap">구간진행률</span>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            {rows.map(({ task }) => {
+              const segs: any[] = task.segments ?? [];
+              const total = segs.length;
+              const done = segs.filter((s: any) => (s.progressPercent ?? 0) >= 100).length;
+              const allDone = total > 0 && done === total;
+              return (
+                <div
+                  key={task.id}
+                  style={{ height: ROW_H }}
+                  className="flex items-center justify-center px-1 border-b border-gray-100 text-[11px] tabular-nums"
+                  title="완료 구간 / 전체 구간 (자기 구간 기준)"
+                >
+                  {task.isMilestone || total === 0 ? (
+                    <span className="text-gray-300">–</span>
+                  ) : (
+                    <span className={allDone ? "text-gray-400 dark:text-gray-500" : "text-gray-600 dark:text-gray-300"}>{done}/{total}</span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -1133,7 +1163,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
       {/* 인라인 태스크 추가 행 */}
       {onInlineTaskNameChange && onInlineTaskCreate !== undefined && (
         <div className="border-t border-gray-100 flex">
-          <div className="flex items-center gap-2 px-3 py-1.5 border-r border-gray-200" style={{ width: leftW + resourceW }}>
+          <div className="flex items-center gap-2 px-3 py-1.5 border-r border-gray-200" style={{ width: leftW + SEG_W + resourceW }}>
             <span className="text-gray-300 text-xs w-4 shrink-0">+</span>
             <input
               type="text"
