@@ -90,7 +90,9 @@ export function buildRolledUpTasks(taskList: any[]): any[] {
   if (taskList.length === 0) return [];
 
   // 트리 구성
-  const map = new Map(taskList.map((t: any) => [t.id, { ...t, _children: [] as any[] }]));
+  // 크리티컬(CPM) 폐기(2026-07-21): 래퍼 생성 시점에 isCritical을 끔 → _children(하위 태스크)까지 전 계층 반영.
+  //   (예전엔 최종 반환 객체에만 껐는데, buildFlatItems가 _children으로 하위 행을 그려 하위만 빨갛게 남았음)
+  const map = new Map(taskList.map((t: any) => [t.id, { ...t, isCritical: false, _children: [] as any[] }]));
   for (const t of map.values()) {
     if (t.parentId && map.has(t.parentId)) {
       map.get(t.parentId)!._children.push(t);
