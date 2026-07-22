@@ -597,6 +597,10 @@ export class TemplateService {
                 data: {
                   segmentId: newSeg.id,
                   resourceId: a.resourceId,
+                  // polymorphic FK(내부/외부/장비 중 하나)도 함께 복사 — XOR 제약 충족 필수
+                  personUserId: a.personUserId,
+                  externalPersonId: a.externalPersonId,
+                  equipmentResourceId: a.equipmentResourceId,
                   allocationMode: a.allocationMode,
                   allocationPercent: a.allocationPercent ?? null,
                   allocationHoursPerDay: a.allocationHoursPerDay ?? null,
@@ -716,6 +720,10 @@ export class TemplateService {
                   data: {
                     segmentId: newSeg.id,
                     resourceId: a.resourceId,
+                    // polymorphic FK(내부/외부/장비 중 하나)도 함께 복사 — XOR 제약 충족 필수
+                    personUserId: a.personUserId,
+                    externalPersonId: a.externalPersonId,
+                    equipmentResourceId: a.equipmentResourceId,
                     allocationMode: a.allocationMode,
                     allocationPercent: a.allocationPercent ?? null,
                     allocationHoursPerDay: a.allocationHoursPerDay ?? null,
