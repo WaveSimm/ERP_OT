@@ -1,0 +1,69 @@
+#!/bin/bash
+# ── post-commit: 커밋 시 '업데이트' 게시판(feature-update)에 자동 등록 ────────────
+#   커밋 메시지 유형(feat/fix/refactor…)을 [추가]/[디버깅]/[개선] 머리말로 변환해
+#   board_posts 에 1건 등록. DB/도커가 없거나 실패해도 커밋은 막지 않는다(|| true).
+#   주입은 psql -v + :'var' 로 안전 처리. 머지 커밋은 스킵.
+#
+#   설치(클론 후 1회): git config core.hooksPath scripts/git-hooks
+#   운영 DB(erp-ot-postgres 컨테이너)가 있는 서버에서만 실제 등록되고,
+#   개발 PC에서는 docker exec 실패 → 조용히 통과한다.
+#   중복 방어: rebase/cherry-pick 재적용 스킵 + 24h 내 같은 제목은 업서트(2026-07-22).
+set -uo pipefail
+
+BOARD="bfd8881c-2ae3-42e9-b50b-fb2378e333de"   # 업데이트 보드
+AUTHOR="dev-admin-001"                          # 개발자
+PGC="erp-ot-postgres"
+
+# 머지 커밋 스킵
+git rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1 && exit 0
+
+# rebase / cherry-pick 재적용 중 스킵 — 같은 커밋이 해시만 바뀌어 다시 만들어지는
+# 경우라 원본 커밋 때 이미 등록됨 (2026-07-22 같은 제목 2~3중 등록 원인)
+GD=$(git rev-parse --git-dir 2>/dev/null || echo .git)
+if [ -d "$GD/rebase-merge" ] || [ -d "$GD/rebase-apply" ] \
+   || [ -f "$GD/CHERRY_PICK_HEAD" ] || [ -d "$GD/sequencer" ]; then
+  exit 0
+fi
+
+subj=$(git log -1 --pretty=%s)
+body=$(git log -1 --pretty=%b)
+hash=$(git log -1 --pretty=%h)
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "-")
+
+# conventional-commit 유형 → 한글 머리말
+ctype=$(printf '%s' "$subj" | grep -oE '^[a-z]+' | head -1)
+case "$ctype" in
+  feat)                 tag="추가";;
+  fix)                  tag="디버깅";;
+  refactor|perf|improve|style) tag="개선";;
+  *)                    tag="기타";;
+esac
+
+# 제목: [태그] + 타입/스코프 프리픽스 제거한 제목
+clean=$(printf '%s' "$subj" | sed -E 's/^[a-z]+(\([^)]*\))?!?:[[:space:]]*//')
+title="[$tag] $clean"
+content="$clean"
+[ -n "$body" ] && content="$content"$'\n\n'"$body"
+content="$content"$'\n\n'"(커밋 $hash · 브랜치 $branch)"
+
+# 24시간 내 같은 제목 글이 있으면 새 글 대신 그 글을 최신 내용으로 갱신(업서트).
+# 같은 제목 커밋이 정상적으로 반복될 수 있으므로 스킵이 아니라 "최신이 남는" 방식.
+docker exec -i "$PGC" psql -U erp_user -d erp_ot -q \
+  -v ON_ERROR_STOP=1 -v board="$BOARD" -v author="$AUTHOR" -v title="$title" -v content="$content" \
+  >/dev/null 2>&1 <<'SQL' || true
+WITH existing AS (
+  SELECT id FROM public.board_posts
+  WHERE board_id = :'board' AND title = :'title'
+    AND created_at >= now() - interval '24 hours'
+  ORDER BY created_at DESC LIMIT 1
+), updated AS (
+  UPDATE public.board_posts
+  SET content = :'content', updated_at = now()
+  WHERE id IN (SELECT id FROM existing)
+  RETURNING id
+)
+INSERT INTO public.board_posts (id, board_id, author_id, title, content, published_at, created_at, updated_at)
+SELECT gen_random_uuid()::text, :'board', :'author', :'title', :'content', now(), now(), now()
+WHERE NOT EXISTS (SELECT 1 FROM existing);
+SQL
+exit 0
