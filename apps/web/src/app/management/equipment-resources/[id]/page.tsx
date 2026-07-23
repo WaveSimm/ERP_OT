@@ -11,6 +11,7 @@ import {
 } from "@/lib/api";
 import { fmtDate } from "@/lib/datetime";
 import { TableCard, Table, THead, Th, TBody, Tr, Td, TableEmpty, StatusBadge } from "@/components/ui/Table";
+import { DateInput } from "@/components/ui/DateInput";
 import ReservationDetailPopover from "@/components/equipment-reservation/ReservationDetailPopover";
 
 // 공용자산(차량) 상세 — 이력(대여/차량정비) 뷰 (2026-07-21)
@@ -41,9 +42,9 @@ function periodInline(startAt: string, endAt: string, isAllDay: boolean): { date
     : { date: dp(s), time: `${tp(s)} ~ ${dp(e)} ${tp(e)}` };
 }
 
-type Period = "3m" | "6m" | "1y" | "all";
+type Period = "3m" | "6m" | "1y" | "3y";
 
-// 이력 조회 윈도우: 선택 기간(과거) ~ 미래 6개월. "전체"는 과거 3년 상한(반복 전개 비용 방지).
+// 이력 조회 윈도우: 선택 기간(과거) ~ 미래 6개월. 프리셋은 유계(성능). 그보다 오래된 자료는 날짜 선택 필터로 조회.
 function historyWindow(period: Period) {
   const now = new Date();
   const to = new Date(now); to.setMonth(to.getMonth() + 6);
@@ -64,12 +65,18 @@ export default function EquipmentResourceDetailPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<LabelFilter>("ALL");
   const [period, setPeriod] = useState<Period>("1y");
+  // 날짜 선택 필터: 둘 다 채워지면 프리셋 대신 이 범위로 조회(프리셋 상한보다 오래된 자료 조회용).
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+  const customActive = Boolean(customFrom && customTo);
   const [selected, setSelected] = useState<ReservationInstance | null>(null);
 
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    const { from, to } = historyWindow(period);
+    const { from, to } = customFrom && customTo
+      ? { from: customFrom, to: customTo }
+      : historyWindow(period);
     Promise.all([
       equipmentResourceApi.get(id),
       equipmentReservationApi.list({ resourceId: id, from, to }),
@@ -82,7 +89,7 @@ export default function EquipmentResourceDetailPage() {
       .catch(() => { if (alive) { setResource(null); setItems([]); } })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [id, period]);
+  }, [id, period, customFrom, customTo]);
 
   const shown = useMemo(
     () => (filter === "ALL" ? items : items.filter((r) => r.logType === filter)),
@@ -90,7 +97,9 @@ export default function EquipmentResourceDetailPage() {
   );
 
   const reload = () => {
-    const { from, to } = historyWindow(period);
+    const { from, to } = customFrom && customTo
+      ? { from: customFrom, to: customTo }
+      : historyWindow(period);
     equipmentReservationApi
       .list({ resourceId: id, from, to })
       .then((list) => setItems((list ?? []).sort((a, b) => b.startAt.localeCompare(a.startAt))))
@@ -98,7 +107,7 @@ export default function EquipmentResourceDetailPage() {
   };
 
   const FILTERS: Array<[LabelFilter, string]> = [["ALL", "전체"], ["RENTAL", "대여"], ["MAINTENANCE", "차량정비"]];
-  const PERIODS: Array<[Period, string]> = [["3m", "3개월"], ["6m", "6개월"], ["1y", "1년"], ["all", "전체"]];
+  const PERIODS: Array<[Period, string]> = [["3m", "3개월"], ["6m", "6개월"], ["1y", "1년"], ["3y", "3년"]];
   const pillCls = (active: boolean) =>
     `px-3 py-1 text-xs rounded-full border ${
       active
@@ -139,8 +148,35 @@ export default function EquipmentResourceDetailPage() {
           <div className="flex flex-wrap items-center gap-1">
             <span className="text-[11px] text-gray-400 mr-0.5">기간</span>
             {PERIODS.map(([v, label]) => (
-              <button key={v} onClick={() => setPeriod(v)} className={pillCls(period === v)}>{label}</button>
+              <button
+                key={v}
+                onClick={() => { setPeriod(v); setCustomFrom(""); setCustomTo(""); }}
+                className={pillCls(!customActive && period === v)}
+              >
+                {label}
+              </button>
             ))}
+            <DateInput
+              value={customFrom}
+              max={customTo || "2100-12-31"}
+              onChange={(e) => setCustomFrom(e.target.value)}
+              className="h-6 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-1 text-[11px] text-gray-700 dark:text-gray-200"
+            />
+            <span className="text-[11px] text-gray-400">~</span>
+            <DateInput
+              value={customTo}
+              min={customFrom || "1900-01-01"}
+              onChange={(e) => setCustomTo(e.target.value)}
+              className="h-6 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-1 text-[11px] text-gray-700 dark:text-gray-200"
+            />
+            {customActive && (
+              <button
+                onClick={() => { setCustomFrom(""); setCustomTo(""); }}
+                className="text-[11px] text-gray-400 hover:text-gray-600 underline"
+              >
+                초기화
+              </button>
+            )}
             <span className="mx-1.5 h-4 w-px bg-gray-200 dark:bg-gray-700" />
             <span className="text-[11px] text-gray-400 mr-0.5">유형</span>
             {FILTERS.map(([v, label]) => (
