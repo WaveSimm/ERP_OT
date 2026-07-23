@@ -61,7 +61,8 @@ let refreshInFlight: Promise<boolean> | null = null;
 // silent refresh: 동시 다발 401을 단일 refresh로 해결
 // 보안 PDCA Layer 3: 전용 /api/auth/refresh 라우트 사용 (catch-all proxy CSRF 우회)
 //   refresh는 SameSite=strict cookie + reuse detection으로 CSRF 본질 차단
-async function tryRefresh(): Promise<boolean> {
+// export: AppLayout의 활동 기반 keepalive(30분 유휴정책 유지, 활동 중 서버 세션 슬라이딩)에서도 사용
+export async function tryRefresh(): Promise<boolean> {
   if (refreshInFlight) return refreshInFlight;
   refreshInFlight = (async () => {
     try {
@@ -108,7 +109,11 @@ export async function request<T>(path: string, init: RequestInit = {}, _isRetry 
       return request<T>(path, init, true); // 한 번만 재시도
     }
     clearToken();
-    if (typeof window !== "undefined") window.location.href = "/login";
+    if (typeof window !== "undefined") {
+      // 재로그인 후 원래 페이지로 복귀 (login 페이지가 next를 검증 후 사용)
+      const here = window.location.pathname + window.location.search;
+      window.location.href = here.startsWith("/login") ? "/login" : `/login?next=${encodeURIComponent(here)}`;
+    }
     throw new Error("Unauthorized");
   }
 

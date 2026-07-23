@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { clearToken, getUser, setUser, myProfileApi, notificationApi, authApi, boardApi } from "@/lib/api";
+import { clearToken, getUser, setUser, myProfileApi, notificationApi, authApi, boardApi, tryRefresh } from "@/lib/api";
 import { isManagementUser } from "@/lib/management";
 import clsx from "clsx";
 
@@ -281,18 +281,37 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   // 30분 유휴(무활동) 시 자동 로그아웃 — 탭 간 활동 공유(localStorage)로
   //   한 탭이라도 활동하면 다른 탭들도 유휴 타이머가 리셋됨(여러 탭에서 조기 로그아웃 방지).
+  // + 활동 기반 keepalive: 서버 refresh 토큰(30분 슬라이딩)은 /auth/refresh 호출로만 연장되므로,
+  //   API 호출 없이 활동만 하는 경우(긴 글 작성·PDF 열람)에도 세션이 유지되도록 주기 갱신.
+  //   포커스된 탭만 갱신 — 멀티탭 동시 refresh가 reuse detection(전 세션 무효화)을 오발시키는 것 방지.
+  // + 만료 2분 전 경고 배너(idleWarn): 활동 또는 "계속 사용" 클릭으로 즉시 연장.
+  const [idleWarn, setIdleWarn] = useState(false);
+  const idleWarnRef = useRef(false);
   useEffect(() => {
     if (!currentUser) return;
     const IDLE_MS = 30 * 60 * 1000;
+    const WARN_BEFORE_MS = 2 * 60 * 1000;
+    const KEEPALIVE_MS = 10 * 60 * 1000;
     const LS_KEY = "erp_last_activity";
     localStorage.setItem(LS_KEY, String(Date.now())); // 세션 시작(로드) 시각으로 초기화
+    let lastRefreshAt = Date.now(); // 로드 시점 기준 (access 유효 중 로드돼도 10분 내 keepalive로 보정됨)
     const readLast = () => {
       const v = Number(localStorage.getItem(LS_KEY));
       return Number.isFinite(v) && v > 0 ? v : Date.now();
     };
+    const slideServer = () => {
+      lastRefreshAt = Date.now();
+      void tryRefresh(); // 실패는 무시 — 진짜 만료면 다음 API 401 → login 리다이렉트가 처리
+    };
     let lastWrite = 0;
     const bump = () => {
       const now = Date.now();
+      if (idleWarnRef.current) {
+        // 경고 중 활동 재개 → 배너 닫고 서버 세션도 즉시 연장(만료 직전이므로 60초 틱을 기다리지 않음)
+        idleWarnRef.current = false;
+        setIdleWarn(false);
+        slideServer();
+      }
       if (now - lastWrite < 5000) return; // 5초 throttle: 잦은 이벤트에도 공유 write 최소화
       lastWrite = now;
       localStorage.setItem(LS_KEY, String(now)); // 다른 탭도 이 값을 읽어 유휴 판정
@@ -300,10 +319,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     const events = ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "click"];
     events.forEach((e) => window.addEventListener(e, bump, { passive: true }));
     const iv = setInterval(() => {
-      if (Date.now() - readLast() > IDLE_MS) { // 어느 탭이든 마지막 활동 기준
+      const idleFor = Date.now() - readLast(); // 어느 탭이든 마지막 활동 기준
+      if (idleFor > IDLE_MS) {
         clearInterval(iv);
         events.forEach((e) => window.removeEventListener(e, bump));
-        authApi.logout().catch(() => {}).finally(() => { clearToken(); router.push("/login?idle=1"); });
+        authApi.logout().catch(() => {}).finally(() => {
+          clearToken();
+          const here = window.location.pathname + window.location.search;
+          router.push(`/login?idle=1&next=${encodeURIComponent(here)}`);
+        });
+        return;
+      }
+      const warn = idleFor > IDLE_MS - WARN_BEFORE_MS;
+      idleWarnRef.current = warn;
+      setIdleWarn(warn);
+      // keepalive: 최근 활동이 있고, 마지막 서버 갱신이 오래됐고, 이 탭이 보이는 상태일 때만
+      if (idleFor < KEEPALIVE_MS && Date.now() - lastRefreshAt > KEEPALIVE_MS && document.visibilityState === "visible") {
+        slideServer();
       }
     }, 60 * 1000);
     return () => { events.forEach((e) => window.removeEventListener(e, bump)); clearInterval(iv); };
@@ -328,6 +360,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+      {idleWarn && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2.5 rounded-lg shadow-lg bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-700 text-sm text-amber-800 dark:text-amber-200">
+          <span>활동이 없어 곧 자동 로그아웃됩니다.</span>
+          <button
+            type="button"
+            onClick={() => { setIdleWarn(false); void tryRefresh(); }}
+            className="px-3 py-1 rounded-md bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700"
+          >
+            계속 사용
+          </button>
+        </div>
+      )}
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
         <div className="px-6 h-14 flex items-center gap-2">
           <button

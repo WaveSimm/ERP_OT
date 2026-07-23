@@ -19,10 +19,16 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [idle, setIdle] = useState(false);
   const [remember, setRemember] = useState(false);
+  const [nextPath, setNextPath] = useState<string | null>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
-  // 유휴 자동 로그아웃 안내 (useSearchParams는 Suspense 필요 → window 직접 사용)
+  // 유휴 자동 로그아웃 안내 + 복귀 경로 (useSearchParams는 Suspense 필요 → window 직접 사용)
   useEffect(() => {
-    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("idle") === "1") setIdle(true);
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("idle") === "1") setIdle(true);
+    // open redirect 방지: 내부 경로("/...")만 허용, "//host"·절대 URL 차단
+    const next = params.get("next");
+    if (next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/login")) setNextPath(next);
   }, []);
   // 마지막 접속 아이디 미리 채움 ("아이디 저장"을 체크했던 경우에만)
   useEffect(() => {
@@ -55,7 +61,7 @@ export default function LoginPage() {
         localStorage.removeItem(LS_REMEMBER_ON);
         localStorage.removeItem(LS_LAST_ID);
       }
-      router.push("/home");
+      router.push(nextPath ?? "/home"); // 세션 만료로 튕긴 경우 보던 페이지로 복귀
     } catch (err: any) {
       setError(err.message ?? "로그인에 실패했습니다.");
     } finally {
