@@ -4,7 +4,6 @@ interface ActivityTabProps {
   activities: any[];
   projectDeployments: any[];
   userMap: Record<string, string>;
-  commentContentMap: Record<string, string>;
   projectName?: string;
   onRefresh: () => void;
 }
@@ -13,7 +12,6 @@ export default function ActivityTab({
   activities,
   projectDeployments,
   userMap,
-  commentContentMap,
   projectName,
   onRefresh,
 }: ActivityTabProps) {
@@ -137,9 +135,9 @@ export default function ActivityTab({
                         {/* 상세 내용 */}
                         {(() => {
                           if (a.action === "COMMENT_CREATED" || a.action === "COMMENT_UPDATED") {
-                            // 1순위: 댓글 직접 조회 결과, 2순위: metadata.content, 3순위: 백엔드 enriched description
+                            // 1순위: metadata.content(신규 행), 2순위: 백엔드 enriched description(구 행 — comments 조인)
                             const GENERIC = ["댓글 작성", "댓글 수정"];
-                            const text = commentContentMap[a.entityId] || meta.content ||
+                            const text = meta.content ||
                               (a.description && !GENERIC.includes(a.description) ? a.description : null);
                             return text ? (
                               <div className="mt-1.5 bg-cyan-50 border-l-2 border-cyan-400 rounded-r-md px-2.5 py-1.5">

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import clsx from "clsx";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { projectApi, taskApi, resourceApi, baselineApi, commentApi, deploymentApi, userManagementApi, folderApi, listAssignableResources } from "@/lib/api";
+import { projectApi, taskApi, resourceApi, baselineApi, deploymentApi, userManagementApi, folderApi, listAssignableResources } from "@/lib/api";
 import nextDynamic from "next/dynamic";
 import { usePermission } from "@/hooks/usePermission";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
@@ -95,7 +95,6 @@ export default function ProjectDetailPage() {
   // 템플릿 적용/저장 상태는 프로젝트 목록 화면으로 이동 (2026-06-24)
 
   // Comment content map: commentId → content (for activity feed)
-  const [commentContentMap, setCommentContentMap] = useState<Record<string, string>>({});
 
   // Undo / Redo — undo/redo 실행 후 열린 Drawer도 갱신
   const selectedTaskRef = useRef<any>(null);
@@ -271,27 +270,11 @@ export default function ProjectDetailPage() {
     baselineApi.list(projectId).then(setBaselines).catch(() => {});
   }, [projectId]);
 
-  // 활동 피드 댓글 내용 조회 (metadata가 null인 기존 데이터 대응)
-  useEffect(() => {
-    const commentActivities = activities.filter(
-      (a) => a.action === "COMMENT_CREATED" || a.action === "COMMENT_UPDATED",
-    );
-    if (!commentActivities.length || !ganttData?.tasks?.length) return;
-    const commentIds = new Set(commentActivities.map((a: any) => a.entityId));
-    Promise.all(
-      (ganttData.tasks as any[]).map((t: any) =>
-        commentApi.list(t.id).catch(() => [] as any[]),
-      ),
-    ).then((results) => {
-      const map: Record<string, string> = {};
-      for (const comments of results) {
-        for (const c of comments as any[]) {
-          if (commentIds.has(c.id)) map[c.id] = c.content;
-        }
-      }
-      setCommentContentMap(map);
-    });
-  }, [activities, ganttData?.tasks]);
+  // (제거됨) 활동 피드 댓글 내용 N+1 조회 — 백엔드 listActivities가 comments를
+  // entityId로 조인해 description에 내용을 담아 내려주므로(collab.service.ts)
+  // 전 태스크 comments GET은 중복이었고, 활동탭 15초 폴링과 겹쳐 사용자
+  // rate limit(429 일 1,000건+)을 소진시키던 주범. metadata.content(신규 행)
+  // → enriched description(구 행) 순으로 ActivityTab이 처리한다.
 
   // active baseline 변경 시 세그먼트 로딩
   useEffect(() => {
@@ -1338,7 +1321,6 @@ export default function ProjectDetailPage() {
             activities={activities}
             projectDeployments={projectDeployments}
             userMap={userMap}
-            commentContentMap={commentContentMap}
             projectName={ganttData?.project?.name}
             onRefresh={loadActivities}
           />
