@@ -125,14 +125,15 @@ function taskRange(t: Task): { start: string; end: string } | null {
   return null;
 }
 
-// 태스크가 [winStart, winEnd] 기간과 겹치는지
+// 태스크가 [winStart, winEnd]에 걸치는 "자체 구간"을 하나라도 가지는지.
+// 상단 타임라인(구간 단위)과 동일 기준 — 리프/부모 구분 없이, 자체 구간이 창에 걸치면
+//   목록에도 타임라인을 그려 상단과 개수·순서를 맞춘다. (부모의 자체 구간도 상단이 보여주므로 하단도 보여줌)
 function overlapsWindow(t: Task, winStart: string, winEnd: string): boolean {
-  const r = taskRange(t);
-  if (!r) return false;
-  return r.start <= winEnd && r.end >= winStart;
+  const segs = (t.segments ?? []).filter((s) => s.startDate && s.endDate);
+  return segs.some((s) => s.startDate.slice(0, 10) <= winEnd && s.endDate.slice(0, 10) >= winStart);
 }
 
-interface TaskTreeRow { task: Task; depth: number; isLeaf: boolean; }
+interface TaskTreeRow { task: Task; depth: number; isLeaf: boolean; hasTimeline: boolean; }
 
 // ±7일 기간과 겹치는 '리프(최하위)' 태스크 + 그 조상만 포함한 WBS 트리(flatten).
 // 상위 태스크는 이름만, 리프에만 기간/진행률을 보여주기 위한 구조.
@@ -153,10 +154,11 @@ function buildTaskTreeRows(tasks: Task[], winStart: string, winEnd: string): Tas
   for (const arr of childrenOf.values()) arr.sort(sortFn);
   const isLeaf = (t: Task) => !(childrenOf.get(t.id)?.length);
 
-  // 리프이면서 기간이 ±7일에 겹치는 것 + 그 조상들 포함
+  // 자체 구간이 ±7일에 걸치는 태스크(리프/부모 무관) + 그 조상들 포함.
+  //   부모도 자체 구간이 창에 걸치면 상단에 막대가 뜨므로, 하단에도 포함해 타임라인을 그린다.
   const include = new Set<string>();
   for (const t of tasks) {
-    if (isLeaf(t) && overlapsWindow(t, winStart, winEnd)) {
+    if (overlapsWindow(t, winStart, winEnd)) {
       include.add(t.id);
       let cur: Task | undefined = t;
       while (cur?.parentId && byId.has(cur.parentId)) {
@@ -171,12 +173,39 @@ function buildTaskTreeRows(tasks: Task[], winStart: string, winEnd: string): Tas
     for (const n of nodes) {
       if (!include.has(n.id)) continue;
       const leaf = isLeaf(n);
-      rows.push({ task: n, depth, isLeaf: leaf });
+      // 자체 구간이 창에 걸치면 타임라인 표시(부모여도). 순수 상위(조상)만 이름줄.
+      rows.push({ task: n, depth, isLeaf: leaf, hasTimeline: overlapsWindow(n, winStart, winEnd) });
       if (!leaf) walk(childrenOf.get(n.id) ?? [], depth + 1);
     }
   };
   walk(roots, 0);
   return rows;
+}
+
+// 태스크 목록(WBS)과 동일한 순서 맵: taskId → DFS 인덱스 (sortOrder 기준, 계층 유지).
+// 상단 타임라인 막대를 이 순서로 정렬해 아래 태스크목록과 위→아래 순서를 맞춘다.
+function buildWbsOrder(tasks: Task[]): Map<string, number> {
+  const byId = new Map(tasks.map((t) => [t.id, t]));
+  const childrenOf = new Map<string, Task[]>();
+  const roots: Task[] = [];
+  for (const t of tasks) {
+    if (t.parentId && byId.has(t.parentId)) {
+      (childrenOf.get(t.parentId) ?? childrenOf.set(t.parentId, []).get(t.parentId)!).push(t);
+    } else {
+      roots.push(t);
+    }
+  }
+  const sortFn = (a: Task, b: Task) => a.sortOrder - b.sortOrder;
+  roots.sort(sortFn);
+  for (const arr of childrenOf.values()) arr.sort(sortFn);
+  const order = new Map<string, number>();
+  let i = 0;
+  const dfs = (node: Task) => {
+    order.set(node.id, i++);
+    for (const k of childrenOf.get(node.id) ?? []) dfs(k);
+  };
+  for (const r of roots) dfs(r);
+  return order;
 }
 
 
@@ -193,7 +222,7 @@ function avatarColor(name: string) {
   return AVATAR_COLORS[h % AVATAR_COLORS.length]!;
 }
 
-function MiniTimeline({ events, centerDate }: { events: TimelineEvent[]; centerDate: string }) {
+function MiniTimeline({ events, centerDate, wbsOrder }: { events: TimelineEvent[]; centerDate: string; wbsOrder?: Map<string, number> }) {
   const DAYS = 15; // -7 ~ +7
   const W = 240;
   const DAY_W = W / DAYS;
@@ -233,27 +262,24 @@ function MiniTimeline({ events, centerDate }: { events: TimelineEvent[]; centerD
     return { x1, x2: Math.max(x2, x1 + 2), color, e: rep };
   });
 
-  // 레인 패킹: 가로로 안 겹치는 막대는 같은 줄에, 겹치면 아래 줄로
-  bars.sort((a, b) => a.x1 - b.x1);
-  const MAX_LANES = 5;
-  const laneEnds: number[] = [];
-  const placed = bars.map((b) => {
-    let lane = laneEnds.findIndex((end) => b.x1 >= end - 0.5);
-    if (lane === -1) {
-      if (laneEnds.length < MAX_LANES) {
-        lane = laneEnds.length;
-        laneEnds.push(b.x2);
-      } else {
-        lane = MAX_LANES - 1; // 초과분은 마지막 줄에 겹쳐 표시(투명도로 밀도 구분)
-        laneEnds[lane] = Math.max(laneEnds[lane]!, b.x2);
-      }
-    } else {
-      laneEnds[lane] = b.x2;
+  // 정렬: wbsOrder 있으면 태스크목록(WBS)순, 없으면 시작일순.
+  bars.sort((a, b) => {
+    if (wbsOrder) {
+      const oa = wbsOrder.get(a.e.taskId) ?? Number.MAX_SAFE_INTEGER;
+      const ob = wbsOrder.get(b.e.taskId) ?? Number.MAX_SAFE_INTEGER;
+      if (oa !== ob) return oa - ob;
     }
+    return a.x1 - b.x1;
+  });
+  // 태스크당 1줄: 같은 태스크의 여러 구간은 같은 줄에 나란히 표시 (하단 목록과 개수·순서 일치).
+  const taskLane = new Map<string, number>();
+  const placed = bars.map((b) => {
+    let lane = taskLane.get(b.e.taskId);
+    if (lane === undefined) { lane = taskLane.size; taskLane.set(b.e.taskId, lane); }
     return { ...b, lane };
   });
 
-  const laneCount = Math.max(1, laneEnds.length);
+  const laneCount = Math.max(1, taskLane.size);
   const BAR_H = 6;
   const GAP = 3;
   const TOP = milestones.length > 0 ? 11 : 5; // 마일스톤 다이아몬드용 상단 여백
@@ -641,6 +667,8 @@ function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: 
 
   // ±7일에 걸리는 리프 태스크 + 조상을 트리로 (상위는 이름만, 리프에만 기간)
   const treeRows = buildTaskTreeRows(tasks ?? [], winStart, winEnd);
+  // 상단 타임라인을 태스크목록(WBS)과 같은 순서로 정렬하기 위한 맵 (펼쳐 tasks 로드된 뒤 적용)
+  const wbsOrder = tasks ? buildWbsOrder(tasks) : undefined;
 
   return (
     <>
@@ -686,7 +714,7 @@ function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: 
 
         {/* 타임라인 */}
         <td className="px-3 py-1.5">
-          <MiniTimeline events={row.weeklyTimeline} centerDate={date} />
+          <MiniTimeline events={row.weeklyTimeline} centerDate={date} wbsOrder={wbsOrder} />
         </td>
 
         {/* 자원 — 헤더 행에선 비움(펼치면 태스크별 담당자) */}
@@ -741,11 +769,11 @@ function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: 
       {expanded && !loadingTasks && treeRows.length === 0 && (
         <tr className="bg-gray-50/50"><td /><td colSpan={7} className="px-3 py-2 text-xs text-gray-400">전주·이번주(±7일)에 해당하는 태스크가 없습니다.</td></tr>
       )}
-      {expanded && !loadingTasks && treeRows.map(({ task: t, depth, isLeaf }) => {
+      {expanded && !loadingTasks && treeRows.map(({ task: t, depth, isLeaf, hasTimeline }) => {
         const hasIssue = issueTaskIds.has(t.id);
         const issueText = issueByTask.get(t.id);
         const noteText = noteByTask.get(t.id);
-        const assigneeNames = isLeaf
+        const assigneeNames = hasTimeline
           ? Array.from(new Set((t.segments ?? []).flatMap((s: any) => (s.assignments ?? []).map((a: any) => a.resourceName as string).filter(Boolean))))
           : [];
         return (
@@ -765,10 +793,10 @@ function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: 
             {/* 소유자 — 태스크 행은 비움 */}
             <td />
             {/* 타임라인 */}
-            <td className="px-3 py-1.5">{isLeaf && <TaskMiniTimeline task={t} centerDate={date} />}</td>
+            <td className="px-3 py-1.5">{hasTimeline && <TaskMiniTimeline task={t} centerDate={date} />}</td>
             {/* 자원 — 아바타 스택 */}
             <td className="px-3 py-1.5">
-              {isLeaf && (assigneeNames.length > 0 ? (
+              {hasTimeline && (assigneeNames.length > 0 ? (
                 <div className="flex items-center">
                   {assigneeNames.slice(0, 4).map((name, idx) => (
                     <span key={name} title={name}
@@ -790,11 +818,11 @@ function FolderProjectRow({ row, date, onPin, onSelectTask, ownerName }: { row: 
             <td className="px-2 py-1.5" />
             {/* 비고 */}
             <td className="px-3 py-1.5 truncate">
-              {isLeaf && (noteText ? <span className="text-gray-500" title={noteText}>{noteText}</span> : <span className="text-gray-300">-</span>)}
+              {hasTimeline && (noteText ? <span className="text-gray-500" title={noteText}>{noteText}</span> : <span className="text-gray-300">-</span>)}
             </td>
             {/* 이슈 */}
             <td className="px-3 py-1.5 truncate">
-              {isLeaf && (issueText ? <span className="text-red-600 dark:text-red-400 font-medium" title={issueText}>{issueText}</span> : <span className="text-gray-300">-</span>)}
+              {hasTimeline && (issueText ? <span className="text-red-600 dark:text-red-400 font-medium" title={issueText}>{issueText}</span> : <span className="text-gray-300">-</span>)}
             </td>
           </tr>
         );
