@@ -139,6 +139,7 @@ export const taskApi = {
     targetProjectId: string;
     includeSegments: boolean;
     includeAssignments: boolean;
+    includeDescendants?: boolean;
     dateOffsetDays: number;
   }) =>
     request<{ count: number; idMap: Record<string, string> }>(

@@ -622,11 +622,38 @@ export class TemplateService {
   async copyTasks(
     taskIds: string[],
     targetProjectId: string,
-    options: { includeSegments: boolean; includeAssignments: boolean; dateOffsetDays: number },
+    options: {
+      includeSegments: boolean;
+      includeAssignments: boolean;
+      includeDescendants?: boolean;
+      dateOffsetDays: number;
+    },
     userId: string,
   ) {
     if (taskIds.length === 0) {
       return { count: 0, idMap: {} as Record<string, string> };
+    }
+
+    // 하위 포함 옵션: 선택된 태스크의 모든 자손을 복사 세트에 재귀적으로 추가.
+    //   (상위 태스크는 자원이 자기 세그먼트가 아니라 하위 태스크에 롤업되어 표시되므로,
+    //    자손을 포함하지 않으면 복사본에서 자원이 누락됨)
+    if (options.includeDescendants) {
+      const allIds = new Set(taskIds);
+      let frontier = [...taskIds];
+      while (frontier.length > 0) {
+        const children = await this.prisma.task.findMany({
+          where: { parentId: { in: frontier } },
+          select: { id: true },
+        });
+        frontier = [];
+        for (const c of children) {
+          if (!allIds.has(c.id)) {
+            allIds.add(c.id);
+            frontier.push(c.id);
+          }
+        }
+      }
+      taskIds = [...allIds];
     }
 
     const sourceTasks = await this.prisma.task.findMany({

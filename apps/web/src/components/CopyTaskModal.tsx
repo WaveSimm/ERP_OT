@@ -21,6 +21,7 @@ export default function CopyTaskModal({ tasks, currentProjectId, onClose, onSucc
   const [targetProjectId, setTargetProjectId] = useState(currentProjectId);
   const [includeSegments, setIncludeSegments] = useState(true);
   const [includeAssignments, setIncludeAssignments] = useState(true);
+  const [includeDescendants, setIncludeDescendants] = useState(true);
   const [dateOffsetDays, setDateOffsetDays] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -51,6 +52,7 @@ export default function CopyTaskModal({ tasks, currentProjectId, onClose, onSucc
         targetProjectId,
         includeSegments,
         includeAssignments,
+        includeDescendants,
         dateOffsetDays,
       });
       onSuccess();
@@ -99,6 +101,18 @@ export default function CopyTaskModal({ tasks, currentProjectId, onClose, onSucc
 
           {/* 옵션 */}
           <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={includeDescendants}
+                onChange={(e) => setIncludeDescendants(e.target.checked)}
+                className="rounded border-gray-300"
+              />
+              <span>하위 태스크도 함께 복사</span>
+            </label>
+            <p className="text-xs text-gray-400 pl-6 -mt-1">
+              상위 태스크의 자원은 하위 태스크에 있으므로, 끄면 하위 자원이 복사되지 않습니다.
+            </p>
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input
                 type="checkbox"

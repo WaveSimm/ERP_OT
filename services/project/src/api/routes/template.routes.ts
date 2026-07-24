@@ -87,6 +87,8 @@ const bulkCopyTasksSchema = z.object({
   targetProjectId: z.string(),
   includeSegments: z.boolean().default(true),
   includeAssignments: z.boolean().default(false),
+  // 선택한 태스크의 모든 하위(자손) 태스크도 복사 세트에 포함 — 상위 태스크의 롤업 자원 누락 방지
+  includeDescendants: z.boolean().default(false),
   dateOffsetDays: z.number().int().default(0),
 });
 
@@ -195,6 +197,7 @@ export async function templateRoutes(fastify: FastifyInstance) {
       {
         includeSegments: dto.includeSegments,
         includeAssignments: dto.includeAssignments,
+        includeDescendants: dto.includeDescendants,
         dateOffsetDays: dto.dateOffsetDays,
       },
       req.userId,
