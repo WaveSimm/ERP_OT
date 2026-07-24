@@ -1,5 +1,6 @@
 import { PrismaClient, Prisma, TaskIssue } from "@prisma/client";
 import { createMentions } from "./mention.util.js";
+import { notifyMentionBell } from "./mention-bell.util.js";
 import { AuthUser, isProjectMember } from "./work-log-permissions";
 import { DashboardService } from "./dashboard/dashboard.service.js";
 
@@ -75,6 +76,13 @@ export class TaskIssueService {
       taskId,
       userIds: data.mentionedUserIds ?? [],
       actorId: user.id,
+    });
+    void notifyMentionBell(this.prisma, {
+      sourceType: "ISSUE",
+      userIds: data.mentionedUserIds ?? [],
+      actorId: user.id,
+      preview: data.content,
+      taskId,
     });
 
     return this.toDto(created);

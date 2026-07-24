@@ -155,6 +155,8 @@ const nextConfig = {
       { source: "/api/v1/holiday-work/:path*", destination: `${att}/api/v1/holiday-work/:path*` },
       { source: "/api/v1/policy/:path*", destination: `${att}/api/v1/policy/:path*` },
       { source: "/api/v1/team/:path*", destination: `${att}/api/v1/team/:path*` },
+      // 알림 벨: 실제 알림 데이터(공지·기능배정·휴가/OT)는 attendance.notifications 에 적재됨.
+      //   (project.mentions 는 멘션 전용·미미 → 통합 전까지 attendance 가 알림 소스)
       { source: "/api/v1/notifications", destination: `${att}/api/v1/notifications` },
       { source: "/api/v1/notifications/:path*", destination: `${att}/api/v1/notifications/:path*` },
       { source: "/api/v1/work-schedule", destination: `${att}/api/v1/work-schedule` },

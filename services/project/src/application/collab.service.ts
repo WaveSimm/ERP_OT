@@ -5,6 +5,7 @@ import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { AppError } from "@erp-ot/shared";
 import { ProjectGateway } from "../infrastructure/websocket/project.gateway.js";
+import { notifyMentionBell } from "./mention-bell.util.js";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -109,6 +110,14 @@ export class CollabService {
         })),
         skipDuplicates: true,
       });
+      // 알림 벨(attendance) 적재
+      void notifyMentionBell(this.prisma, {
+        sourceType: "COMMENT",
+        userIds: mentionedUserIds,
+        actorId: authorId,
+        preview: dto.content,
+        taskId,
+      });
     }
 
     await this.logActivity(
@@ -184,6 +193,17 @@ export class CollabService {
       }
       return updated;
     });
+
+    if (mentionedUserIds.length > 0) {
+      // 알림 벨(attendance) 적재
+      void notifyMentionBell(this.prisma, {
+        sourceType: "COMMENT",
+        userIds: mentionedUserIds,
+        actorId: userId,
+        preview: dto.content,
+        taskId: existing.taskId,
+      });
+    }
 
     for (const uid of mentionedUserIds) {
       this.gateway.emitToUser(uid, "mention:created", {

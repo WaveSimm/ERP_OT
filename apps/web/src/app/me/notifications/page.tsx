@@ -125,12 +125,14 @@ export default function NotificationsPage() {
             </div>
             <div className="flex-1 min-w-0">
               <div className={`text-sm font-medium ${n.isRead ? "text-gray-700" : "text-gray-900"}`}>
-                {n.actorId && n.actorId === myId
-                  ? "내가 남긴 리마인더"
-                  : (SOURCE_LABEL[n.sourceType] ?? "멘션")}
+                {/* attendance 알림(title/body) 우선, 없으면 멘션 스키마(sourceType/preview) 폴백 */}
+                {n.title
+                  ?? (n.actorId && n.actorId === myId
+                    ? "내가 남긴 리마인더"
+                    : (SOURCE_LABEL[n.sourceType] ?? "알림"))}
               </div>
               <div className={`text-xs mt-0.5 truncate ${n.isRead ? "text-gray-400" : "text-gray-600"}`}>
-                {n.preview}
+                {n.body ?? n.preview}
               </div>
               <div className="text-xs text-gray-400 mt-1">{timeAgo(n.createdAt)}</div>
             </div>

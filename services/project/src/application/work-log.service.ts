@@ -1,5 +1,6 @@
 import { PrismaClient, Prisma, WorkLog } from "@prisma/client";
 import { createMentions, syncMentions } from "./mention.util.js";
+import { notifyMentionBell } from "./mention-bell.util.js";
 import type { FastifyBaseLogger } from "fastify";
 import {
   AuthUser,
@@ -157,6 +158,13 @@ export class WorkLogService {
       userIds: data.mentionedUserIds ?? [],
       actorId: user.id,
     });
+    void notifyMentionBell(this.prisma, {
+      sourceType: "WORKLOG",
+      userIds: data.mentionedUserIds ?? [],
+      actorId: user.id,
+      preview: data.content,
+      taskId,
+    });
 
     return this.toDto(created);
   }
@@ -193,6 +201,13 @@ export class WorkLogService {
         taskId: log.taskId,
         userIds: data.mentionedUserIds,
         actorId: user.id,
+      });
+      void notifyMentionBell(this.prisma, {
+        sourceType: "WORKLOG",
+        userIds: data.mentionedUserIds,
+        actorId: user.id,
+        preview: updated.content,
+        taskId: log.taskId,
       });
     }
 
