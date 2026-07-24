@@ -42,16 +42,32 @@ export async function notificationRoutes(fastify: FastifyInstance) {
     for (const w of workLogs) previewMap.set(`WORKLOG:${w.id}`, w.content);
     for (const i of issues) previewMap.set(`ISSUE:${i.id}`, i.content);
 
-    const items = rows.map((r) => ({
-      id: r.id,
-      sourceType: r.sourceType,
-      sourceId: r.sourceId,
-      taskId: r.taskId,
-      actorId: r.actorId,
-      isRead: r.isRead,
-      createdAt: r.createdAt,
-      preview: previewMap.get(`${r.sourceType}:${r.sourceId}`) ?? null,
-    }));
+    // 딥링크: taskId → projectId 해석 후 /projects/:projectId?taskId=:taskId
+    const taskIds = [...new Set(rows.map((r) => r.taskId).filter((t): t is string => !!t))];
+    const taskProjectMap = new Map<string, string>();
+    if (taskIds.length > 0) {
+      const tasks = await fastify.prisma.task.findMany({
+        where: { id: { in: taskIds } },
+        select: { id: true, projectId: true },
+      });
+      for (const t of tasks) taskProjectMap.set(t.id, t.projectId);
+    }
+
+    const items = rows.map((r) => {
+      const projectId = r.taskId ? taskProjectMap.get(r.taskId) ?? null : null;
+      return {
+        id: r.id,
+        sourceType: r.sourceType,
+        sourceId: r.sourceId,
+        taskId: r.taskId,
+        projectId,
+        actorId: r.actorId,
+        isRead: r.isRead,
+        createdAt: r.createdAt,
+        preview: previewMap.get(`${r.sourceType}:${r.sourceId}`) ?? null,
+        linkUrl: projectId && r.taskId ? `/projects/${projectId}?taskId=${r.taskId}` : null,
+      };
+    });
 
     return reply.send({ items, total, page, pageSize });
   });
