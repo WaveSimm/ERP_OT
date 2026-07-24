@@ -205,6 +205,7 @@ export const postApi = {
       attachmentIds?: string[]; targetDepartmentId?: string | null;
       // 게시판 design v2.0 (2026-05-22): 기능 요구
       requestType?: string; moduleArea?: string;
+      mentionedUserIds?: string[];
     },
   ) =>
     request<BoardPost>(`/boards/${encodeURIComponent(boardCode)}/posts`, {
@@ -213,7 +214,7 @@ export const postApi = {
     }),
   update: (
     id: string,
-    data: { title?: string; content?: string; priority?: number; expiresAt?: string | null },
+    data: { title?: string; content?: string; priority?: number; expiresAt?: string | null; mentionedUserIds?: string[] },
   ) =>
     request<BoardPost>(`/posts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   remove: (id: string) => request<void>(`/posts/${id}`, { method: "DELETE" }),
@@ -241,10 +242,13 @@ export const postApi = {
 
 export const boardCommentApi = {
   list: (postId: string) => request<BoardComment[]>(`/posts/${postId}/comments`),
-  create: (postId: string, data: { content: string; parentId?: string }) =>
+  create: (postId: string, data: { content: string; parentId?: string; mentionedUserIds?: string[] }) =>
     request<BoardComment>(`/posts/${postId}/comments`, { method: "POST", body: JSON.stringify(data) }),
-  update: (id: string, content: string) =>
-    request<BoardComment>(`/comments/${id}`, { method: "PATCH", body: JSON.stringify({ content }) }),
+  update: (id: string, content: string, mentionedUserIds?: string[]) =>
+    request<BoardComment>(`/comments/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ content, ...(mentionedUserIds?.length ? { mentionedUserIds } : {}) }),
+    }),
   remove: (id: string) => request<void>(`/comments/${id}`, { method: "DELETE" }),
 };
 

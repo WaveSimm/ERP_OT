@@ -1,6 +1,7 @@
 import { PrismaClient, Prisma } from "@prisma/client";
 import type { AuthUserContext } from "../domain/board.types";
 import { canRead, canEdit, canDelete, canPin } from "./board-permissions";
+import { notifyMentions } from "./mention-notify.js";
 import type { EmbeddingService } from "./embedding.service";
 import type { FastifyBaseLogger } from "fastify";
 
@@ -202,6 +203,7 @@ export class PostService {
     // 게시판 design v2.0 (2026-05-22): 기능 요구 필드
     requestType?: "BUG" | "NEW_FEATURE" | "IMPROVEMENT" | "UI_UX" | "DOCS" | "OTHER" | undefined;
     moduleArea?: string | undefined;
+    mentionedUserIds?: string[] | undefined;
   }, user: AuthUserContext): Promise<string> {
     const board = await this.prisma.board.findUnique({
       where: { code: boardCode },
@@ -263,6 +265,16 @@ export class PostService {
     // 임베딩 (fire-and-forget)
     this.embedAndStorePost(post.id, data.title, data.content);
 
+    // @멘션 알림 (project 벨) — best-effort
+    void notifyMentions({
+      sourceType: "POST",
+      sourceId: post.id,
+      userIds: data.mentionedUserIds ?? [],
+      actorId: user.id,
+      preview: data.content,
+      linkUrl: `/board/${board.category.code}/${boardCode}/${post.id}`,
+    });
+
     return post.id;
   }
 
@@ -272,8 +284,12 @@ export class PostService {
     priority?: number | undefined;
     expiresAt?: string | null | undefined;
     targetDepartmentId?: string | null | undefined;
+    mentionedUserIds?: string[] | undefined;
   }, user: AuthUserContext) {
-    const post = await this.prisma.post.findUnique({ where: { id: postId } });
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId },
+      include: { board: { include: { category: { select: { code: true } } } } },
+    });
     if (!post) throw new PostError("POST_NOT_FOUND", "글을 찾을 수 없습니다.", 404);
     if (!canEdit(post, user)) throw new PostError("FORBIDDEN_EDIT", "수정 권한이 없습니다.", 403);
 
@@ -303,6 +319,17 @@ export class PostService {
     // 본문/제목 변경 시 재임베딩
     if (data.title !== undefined || data.content !== undefined) {
       this.embedAndStorePost(updated.id, updated.title, updated.content);
+    }
+
+    if (data.mentionedUserIds?.length) {
+      void notifyMentions({
+        sourceType: "POST",
+        sourceId: postId,
+        userIds: data.mentionedUserIds,
+        actorId: user.id,
+        preview: data.content ?? updated.content,
+        linkUrl: `/board/${post.board.category.code}/${post.board.code}/${postId}`,
+      });
     }
 
     return updated;

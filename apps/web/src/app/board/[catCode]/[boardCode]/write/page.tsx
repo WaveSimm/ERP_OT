@@ -7,6 +7,7 @@ import AppLayout from "@/components/AppLayout";
 import PostEditor from "@/components/board/PostEditor";
 import SearchBar from "@/components/board/SearchBar";
 import { boardApi, postApi, getUser } from "@/lib/api";
+import { extractMentionIds } from "@/components/MentionInput";
 
 export default function WritePostPage({
   params,
@@ -52,7 +53,8 @@ export default function WritePostPage({
     requestType?: string;
     moduleArea?: string;
   }) => {
-    const created = await postApi.create(boardCode, v);
+    const mentionedUserIds = await extractMentionIds(v.content);
+    const created = await postApi.create(boardCode, { ...v, mentionedUserIds });
     router.push(`/board/${catCode}/${boardCode}/${created.id}`);
   };
 

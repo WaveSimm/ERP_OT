@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { boardCommentApi, getUser } from "@/lib/api";
 import CommentForm from "./CommentForm";
+import { extractMentionIds, MentionText } from "@/components/MentionInput";
 import { CommentIcon } from "@/components/ui/icons";
 
 interface Comment {
@@ -51,7 +52,7 @@ function CommentItem({
   const [replying, setReplying] = useState(false);
 
   const handleEdit = async (content: string) => {
-    await boardCommentApi.update(comment.id, content);
+    await boardCommentApi.update(comment.id, content, await extractMentionIds(content));
     setEditing(false);
     onChange();
   };
@@ -63,7 +64,7 @@ function CommentItem({
   };
 
   const handleReply = async (content: string) => {
-    await boardCommentApi.create(postId, { content, parentId: comment.id });
+    await boardCommentApi.create(postId, { content, parentId: comment.id, mentionedUserIds: await extractMentionIds(content) });
     setReplying(false);
     onChange();
   };
@@ -89,7 +90,7 @@ function CommentItem({
           />
         ) : (
           <div className={`text-sm whitespace-pre-wrap ${comment.isDeleted ? "text-gray-400 italic" : "text-gray-800"}`}>
-            {comment.content}
+            {comment.isDeleted ? comment.content : <MentionText text={comment.content} />}
           </div>
         )}
 
@@ -190,7 +191,7 @@ export default function CommentTree({ postId }: { postId: string }) {
   })();
 
   const handleNewTopComment = async (content: string) => {
-    await boardCommentApi.create(postId, { content });
+    await boardCommentApi.create(postId, { content, mentionedUserIds: await extractMentionIds(content) });
     await reload();
   };
 

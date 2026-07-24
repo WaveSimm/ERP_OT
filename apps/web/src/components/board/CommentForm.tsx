@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import MentionInput from "@/components/MentionInput";
 
 export default function CommentForm({
   onSubmit,
@@ -38,12 +39,11 @@ export default function CommentForm({
 
   return (
     <form onSubmit={handleSubmit} className={compact ? "" : "mt-3"}>
-      <textarea
+      <MentionInput
         value={content}
-        onChange={(e) => setContent(e.target.value)}
-        placeholder={placeholder}
+        onChange={setContent}
+        placeholder={`${placeholder} (@로 멘션)`}
         rows={compact ? 2 : 3}
-        maxLength={2000}
         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
       />
       {error && (

@@ -7,6 +7,7 @@ import AppLayout from "@/components/AppLayout";
 import PostEditor from "@/components/board/PostEditor";
 import SearchBar from "@/components/board/SearchBar";
 import { postApi, getUser } from "@/lib/api";
+import { extractMentionIds } from "@/components/MentionInput";
 
 export default function EditPostPage({
   params,
@@ -58,6 +59,7 @@ export default function EditPostPage({
       expiresAt: v.expiresAt,
     };
     if (v.targetDepartmentId !== undefined) payload.targetDepartmentId = v.targetDepartmentId;
+    payload.mentionedUserIds = await extractMentionIds(v.content);
     await postApi.update(postId, payload);
     router.push(`/board/${catCode}/${boardCode}/${postId}`);
   };

@@ -64,8 +64,9 @@ export async function notificationRoutes(fastify: FastifyInstance) {
         actorId: r.actorId,
         isRead: r.isRead,
         createdAt: r.createdAt,
-        preview: previewMap.get(`${r.sourceType}:${r.sourceId}`) ?? null,
-        linkUrl: projectId && r.taskId ? `/projects/${projectId}?taskId=${r.taskId}` : null,
+        // 저장형(게시판 등) 우선, 없으면 태스크계 해석값
+        preview: r.preview ?? previewMap.get(`${r.sourceType}:${r.sourceId}`) ?? null,
+        linkUrl: r.linkUrl ?? (projectId && r.taskId ? `/projects/${projectId}?taskId=${r.taskId}` : null),
       };
     });
 

@@ -8,6 +8,8 @@ export interface CreateMentionsInput {
   taskId?: string | null;
   userIds: (string | undefined | null)[];
   actorId?: string | undefined;
+  preview?: string | null; // 크로스서비스(게시판) 저장형 미리보기
+  linkUrl?: string | null; // 크로스서비스(게시판) 저장형 링크
 }
 
 /**
@@ -25,6 +27,8 @@ export async function createMentions(prisma: MentionClient, input: CreateMention
       taskId: input.taskId ?? null,
       userId,
       actorId: input.actorId ?? null,
+      preview: input.preview ?? null,
+      linkUrl: input.linkUrl ?? null,
     })),
     skipDuplicates: true,
   });

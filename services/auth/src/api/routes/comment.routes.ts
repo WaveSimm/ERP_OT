@@ -83,7 +83,7 @@ export async function commentRoutes(
       const { id } = req.params as { id: string };
       const dto = updateCommentSchema.parse(req.body);
       const user = { id: req.userId, role: req.userRole };
-      const updated = await commentService.update(id, dto.content, user);
+      const updated = await commentService.update(id, dto.content, user, dto.mentionedUserIds);
       return reply.send(updated);
     } catch (err) {
       return handleError(reply, err);
