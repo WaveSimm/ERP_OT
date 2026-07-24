@@ -692,6 +692,11 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                       <CommentPopover taskId={task.id} count={(task as any).commentCount} />
                     </span>
                   )}
+                  {(task as any).attachmentCount > 0 && (
+                    <span className="ml-1 shrink-0 text-xs text-gray-400" title={`첨부 파일 ${(task as any).attachmentCount}개`}>
+                      📎 {(task as any).attachmentCount}
+                    </span>
+                  )}
                 </div>
                 {/* Progress or date — leaf task는 클릭하면 인라인 편집 */}
                 <div className="shrink-0 text-right min-w-[28px] flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>

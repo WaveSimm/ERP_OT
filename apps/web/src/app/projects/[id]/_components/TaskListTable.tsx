@@ -382,6 +382,11 @@ export default function TaskListTable({
                         <CommentPopover taskId={task.id} count={task.commentCount} />
                       </span>
                     )}
+                    {task.attachmentCount > 0 && (
+                      <span className="ml-1 shrink-0 text-xs text-gray-400" title={`첨부 파일 ${task.attachmentCount}개`}>
+                        📎 {task.attachmentCount}
+                      </span>
+                    )}
                   </div>
                 </td>
 

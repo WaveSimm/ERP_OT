@@ -628,7 +628,7 @@ export class ProjectService {
             include: { assignments: true },
             orderBy: { sortOrder: "asc" },
           },
-          _count: { select: { comments: true } },
+          _count: { select: { comments: true, attachments: true } },
           // 비고 열 = 최신 작업일지 1건 (workedAt DESC, 인덱스 [taskId,isDeleted,workedAt DESC])
           workLogs: {
             where: { isDeleted: false },
@@ -692,6 +692,7 @@ export class ProjectService {
             }
           : null,
         commentCount: task._count.comments,
+        attachmentCount: task._count.attachments,
         effectiveStartDate: effectiveStart?.toISOString().slice(0, 10) ?? null,
         effectiveEndDate: effectiveEnd?.toISOString().slice(0, 10) ?? null,
         segments: segs.map((s) => ({
