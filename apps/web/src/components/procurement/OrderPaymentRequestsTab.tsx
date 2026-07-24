@@ -5,6 +5,7 @@ import { procurementApi } from "@/lib/api";
 import { DateInput } from "@/components/ui/DateInput";
 import { fmtDate, fmtDateTime24 } from "@/lib/datetime";
 import SortableHeader, { SortOrder } from "@/components/SortableHeader";
+import { TableCard, Table, THead, Th, TBody, Tr, Td, TableEmpty, RowButton } from "@/components/ui/Table";
 
 const CURRENCY_SYMBOLS: Record<string, string> = { EUR: "€", GBP: "£", USD: "$", KRW: "₩" };
 const fmtAmount = (v: any, c?: string) => {
@@ -94,66 +95,66 @@ export default function OrderPaymentRequestsTab() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="발주번호·제조사·고객사 검색"
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md w-64"
+            className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-md w-64"
           />
         </div>
       </div>
 
-      {loading ? (
-        <div className="text-center py-12 text-gray-400">로딩 중...</div>
-      ) : displayItems.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">
-          {search ? `'${search}' 검색 결과 없음` : (statusTab === "REQUESTED" ? "대기 중인 송금 요청이 없습니다." : "내역이 없습니다.")}
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <SortableHeader sortKey="orderNumber" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">발주번호</SortableHeader>
-                <SortableHeader sortKey="manufacturer" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">제조사</SortableHeader>
-                <SortableHeader sortKey="customer" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">고객사</SortableHeader>
-                <th className="px-4 py-3 text-center font-medium text-gray-600">방식</th>
-                <SortableHeader sortKey="amount" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="right" className="px-4 py-3 text-right font-medium text-gray-600">금액</SortableHeader>
-                <SortableHeader sortKey="requestedAt" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">요청일시</SortableHeader>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">비고</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {displayItems.map((p: any) => (
-                <tr key={p.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-mono">
-                    <a href={`/procurement/orders/${p.order?.id}`} className="text-blue-600 hover:underline dark:text-blue-400">{p.order?.orderNumber}</a>
-                  </td>
-                  <td className="px-4 py-3">{p.order?.manufacturer || "-"}</td>
-                  <td className="px-4 py-3 text-gray-600">{p.order?.customer || "-"}</td>
-                  <td className="px-4 py-3 text-center">{p.paymentMethod || "-"}</td>
-                  <td className="px-4 py-3 text-right font-mono font-medium">{fmtAmount(p.amount, p.currency)}</td>
-                  <td className="px-4 py-3 text-gray-600 text-xs">{fmtDateTime(p.requestedAt)}</td>
-                  <td className="px-4 py-3 text-gray-600 text-xs">
-                    {statusTab === "REJECTED" && p.rejectReason ? <span className="text-red-600 dark:text-red-400">반려: {p.rejectReason}</span> : (p.notes || "")}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {statusTab === "REQUESTED" && (
-                      <button
-                        onClick={() => setSelected(p)}
-                        className="text-xs px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-                      >처리</button>
-                    )}
-                    {statusTab === "COMPLETED" && (
-                      <button
-                        onClick={() => setSelected({ ...p, _editMode: true })}
-                        className="text-xs px-3 py-1 border border-blue-500 text-blue-600 rounded hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950"
-                      >정정</button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <TableCard>
+        <Table fixed columnDividers>
+          <colgroup>
+            <col className="w-[12%]" />
+            <col className="w-[14%]" />
+            <col className="w-[14%]" />
+            <col className="w-[8%]" />
+            <col className="w-[14%]" />
+            <col className="w-[13%]" />
+            <col className="w-[15%]" />
+            <col className="w-[10%]" />
+          </colgroup>
+          <THead>
+            <SortableHeader sortKey="orderNumber" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">발주번호</SortableHeader>
+            <SortableHeader sortKey="manufacturer" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">제조사</SortableHeader>
+            <SortableHeader sortKey="customer" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">고객사</SortableHeader>
+            <Th align="center">방식</Th>
+            <SortableHeader sortKey="amount" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">금액</SortableHeader>
+            <SortableHeader sortKey="requestedAt" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">요청일시</SortableHeader>
+            <Th align="center">비고</Th>
+            <Th align="center">관리</Th>
+          </THead>
+          <TBody>
+            {loading ? (
+              <TableEmpty colSpan={8}>로딩 중...</TableEmpty>
+            ) : displayItems.length === 0 ? (
+              <TableEmpty colSpan={8}>
+                {search ? `'${search}' 검색 결과 없음` : (statusTab === "REQUESTED" ? "대기 중인 송금 요청이 없습니다." : "내역이 없습니다.")}
+              </TableEmpty>
+            ) : displayItems.map((p: any) => (
+              <Tr key={p.id}>
+                <Td strong mono align="left">
+                  <a href={`/procurement/orders/${p.order?.id}`} className="hover:underline">{p.order?.orderNumber}</a>
+                </Td>
+                <Td dash truncate title={p.order?.manufacturer || undefined}>{p.order?.manufacturer}</Td>
+                <Td dash truncate title={p.order?.customer || undefined}>{p.order?.customer}</Td>
+                <Td dash align="center">{p.paymentMethod}</Td>
+                <Td align="right" mono>{fmtAmount(p.amount, p.currency)}</Td>
+                <Td align="center" mono>{fmtDateTime(p.requestedAt)}</Td>
+                <Td truncate title={statusTab === "REJECTED" && p.rejectReason ? `반려: ${p.rejectReason}` : (p.notes || "")}>
+                  {statusTab === "REJECTED" && p.rejectReason ? <span className="text-red-600 dark:text-red-400">반려: {p.rejectReason}</span> : (p.notes || "")}
+                </Td>
+                <Td align="center">
+                  {statusTab === "REQUESTED" && (
+                    <RowButton solid onClick={() => setSelected(p)}>처리</RowButton>
+                  )}
+                  {statusTab === "COMPLETED" && (
+                    <RowButton onClick={() => setSelected({ ...p, _editMode: true })}>정정</RowButton>
+                  )}
+                </Td>
+              </Tr>
+            ))}
+          </TBody>
+        </Table>
+      </TableCard>
 
       {selected && (
         <ProcessRequestModal

@@ -112,11 +112,11 @@ export default function ReservationCalendar({
       }
     }
     const trackCount = Math.max(1, tracks.length);
-    const rowHeight = trackCount * 26 + 10;
+    const rowHeight = trackCount * 30 + 16;
 
     return (
-      <tr key={resource.id} className="border-b border-gray-100">
-        <td className="px-3 py-2 text-xs font-medium text-gray-800 bg-white border-r border-gray-200 truncate" title={resource.name}>
+      <tr key={resource.id} className="border-b border-gray-100 dark:border-gray-800">
+        <td className="px-3 py-3 text-xs font-medium text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 truncate" title={resource.name}>
           <span className="mr-1">{TYPE_ICON[resource.type] ?? "🔧"}</span>
           {resource.name}
         </td>
@@ -127,8 +127,8 @@ export default function ReservationCalendar({
                 key={d.iso}
                 type="button"
                 onClick={() => onCellClick?.(resource.id, d.iso)}
-                className={`flex-1 border-r border-gray-100 hover:bg-blue-50/50 transition-colors ${
-                  d.isHoliday ? "bg-red-50/40" : d.isWeekend ? "bg-gray-50/50" : ""
+                className={`flex-1 border-r border-gray-100 dark:border-gray-800 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors ${
+                  d.isHoliday ? "bg-red-50/40 dark:bg-red-950/20" : d.isWeekend ? "bg-gray-100 dark:bg-gray-800/60" : ""
                 }`}
                 title={`${d.iso}${d.holidayName ? ` (${d.holidayName})` : ""} — 클릭하여 예약 추가`}
               />
@@ -146,8 +146,13 @@ export default function ReservationCalendar({
             const endRatio = Math.max(0, Math.min(1, (endHour - DAY_WINDOW_START_HOUR) / DAY_WINDOW_HOURS));
             const leftPos = dayIdxStart + startRatio;
             const rightPos = dayIdxEnd + endRatio;
-            const left = (leftPos / totalDays) * 100;
-            const widthPctRaw = (rightPos - leftPos) * 100 / totalDays;
+            // 이번 주 밖으로 이어지는 예약은 표 안(0~totalDays)으로 잘라서 그림 + 계속됨 표시
+            const startsBefore = leftPos < 0;
+            const endsAfter = rightPos > totalDays;
+            const cLeftPos = Math.max(0, leftPos);
+            const cRightPos = Math.min(totalDays, rightPos);
+            const left = (cLeftPos / totalDays) * 100;
+            const widthPctRaw = (cRightPos - cLeftPos) * 100 / totalDays;
             // 단일 일자 + 윈도우 밖 시각이면 width≈0 → 렌더 스킵
             if (widthPctRaw < 0.1) return null;
             const width = Math.max(0.5, widthPctRaw);
@@ -161,20 +166,31 @@ export default function ReservationCalendar({
                   e.stopPropagation();
                   onInstanceClick?.(inst);
                 }}
-                className={`absolute rounded-md text-[10px] truncate text-left px-2 hover:brightness-110 transition ${
-                  isMine ? "bg-blue-600 text-white" : "bg-blue-200 text-blue-900"
+                className={`absolute rounded-md text-[10px] truncate text-left px-2 transition ${
+                  startsBefore ? "rounded-l-none" : ""
+                } ${endsAfter ? "rounded-r-none" : ""} ${
+                  inst.logType === "MAINTENANCE"
+                    ? isMine
+                      ? "bg-purple-500 text-white hover:bg-purple-600"
+                      : "bg-purple-100 text-purple-900 hover:bg-purple-300"
+                    : isMine
+                    ? "bg-blue-500 text-white hover:bg-blue-600"
+                    : "bg-blue-100 text-blue-900 hover:bg-blue-300"
                 } ${inst.isException ? "border border-amber-400" : ""}`}
                 style={{
                   left: `${left}%`,
                   width: `${width}%`,
-                  top: 4 + trackIdx * 26,
-                  height: 22,
+                  top: 7 + trackIdx * 30,
+                  height: 24,
                   zIndex: 5,
                 }}
                 title={`${inst.title} — ${fmtTimeRange(inst.startAt, inst.endAt, inst.isAllDay)} (${inst.userName ?? "—"})${inst.isRecurring ? ` / ${inst.recurrenceSummary}` : ""}`}
               >
+                {startsBefore && <span className="mr-0.5">◂</span>}
+                {inst.isRecurring && <span className="mr-0.5 font-bold">↻</span>}
                 <span className="font-medium">{inst.title}</span>
                 <span className="opacity-75 ml-1">{inst.userName ?? ""}</span>
+                {endsAfter && <span className="ml-0.5">▸</span>}
               </button>
             );
           })}
@@ -186,38 +202,38 @@ export default function ReservationCalendar({
   if (resources.length === 0) {
     return (
       <div className="text-center py-12 text-gray-400 text-sm">
-        등록된 활성 자원이 없습니다. <a href="/admin/equipment-resources" className="text-blue-600 dark:text-blue-400 underline">공용자산 관리</a>에서 추가하세요.
+        등록된 활성 자원이 없습니다. <a href="/management/equipment-resources" className="text-blue-600 dark:text-blue-400 underline">공용자산 관리</a>에서 추가하세요.
       </div>
     );
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl">
+    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
       <table className="w-full text-xs border-collapse table-fixed">
         <colgroup>
-          <col style={{ width: 240 }} />
+          <col style={{ width: 320 }} />
           {days.map((d) => (
             <col key={d.iso} />
           ))}
         </colgroup>
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
-            <th className="text-left px-3 py-2 bg-gray-50 font-medium text-gray-600 border-r border-gray-200">
+          <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+            <th className="text-center px-3 py-2 bg-gray-50 dark:bg-gray-800 font-medium text-gray-600 dark:text-gray-300 border-r border-gray-200 dark:border-gray-700">
               자원
             </th>
             {days.map((d) => {
               const colorCls = d.isHoliday
                 ? "text-red-500 dark:text-red-400 font-medium"
                 : d.isWeekend
-                ? "text-gray-400"
+                ? "text-gray-500 dark:text-gray-400"
                 : "text-gray-500";
               return (
                 <th
                   key={d.iso}
-                  className={`text-center px-1 py-2 font-normal text-[11px] ${colorCls} ${d.isHoliday ? "bg-red-100/40" : ""}`}
+                  className={`text-center px-1 py-2 font-normal text-[11px] whitespace-nowrap ${colorCls} ${d.isHoliday ? "bg-red-100/40" : d.isWeekend ? "bg-gray-100 dark:bg-gray-800/50" : ""}`}
                   title={d.holidayName ?? undefined}
                 >
-                  {d.label}
+                  {d.label} ({["일", "월", "화", "수", "목", "금", "토"][d.dow] ?? ""})
                 </th>
               );
             })}

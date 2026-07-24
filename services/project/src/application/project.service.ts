@@ -664,8 +664,8 @@ export class ProjectService {
         ? Math.round(segs.reduce((sum, s) => sum + s.progressPercent, 0) / segs.length * 10) / 10
         : task.overallProgress;
 
-      // BLOCKED 는 수동 유지, 나머지는 진행률 기반 자동 결정
-      const computedStatus = task.status === "BLOCKED"
+      // 중단(ON_HOLD)은 수동 유지, 나머지는 진행률 기반 자동 결정
+      const computedStatus = task.status === "ON_HOLD"
         ? task.status
         : segProgress >= 100 ? "DONE"
         : segProgress > 0   ? "IN_PROGRESS"

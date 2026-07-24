@@ -5,6 +5,14 @@
 * { box-sizing: border-box; }
 html { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 
+/* 색 없는 bare `border`(기본색 #e5e7eb)의 다크모드 대응.
+   @layer base 라서 border-gray-· border-blue-· 등 유틸리티는 항상 우선함 →
+   색을 명시한 테두리는 그대로 두고, 색 미지정 border만 다크에서 #374151로 낮춤. */
+@layer base {
+  *, ::before, ::after { border-color: #e5e7eb; }
+  .dark *, .dark ::before, .dark ::after { border-color: #374151; }
+}
+
 /* ── 다크모드 전용 오버라이드 (모두 .dark 아래 → 라이트 모드엔 전혀 영향 없음) ──
    수백 컴포넌트에 dark: 를 달지 않고, .dark 일 때만 공통 "중립색" 유틸리티를
    다크 값으로 remap. 색상(파랑/빨강 등) 배지·버튼은 건드리지 않아 그대로 유지. */
@@ -46,6 +54,15 @@ html { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI',
 .dark textarea,
 .dark select { background-color: #1f2937; color: #f3f4f6; border-color: #374151; }
 .dark ::placeholder { color: #6b7280 !important; }
+
+/* 네이티브 날짜/시간 입력의 달력·시계 아이콘이 다크모드에서 검정이라 안 보임 → 밝게 반전 (전역) */
+.dark input[type="date"]::-webkit-calendar-picker-indicator,
+.dark input[type="time"]::-webkit-calendar-picker-indicator,
+.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+.dark input[type="month"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(0.85);
+  cursor: pointer;
+}
 
 /* 다크모드 스크롤바 */
 .dark ::-webkit-scrollbar { width: 12px; height: 12px; }

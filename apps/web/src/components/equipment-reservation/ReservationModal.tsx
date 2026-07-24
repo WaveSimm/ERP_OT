@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DateInput } from "@/components/ui/DateInput";
 import { TimeInput } from "@/components/ui/TimeInput";
 import {
   equipmentReservationApi,
+  reservationAttachmentApi,
   type EquipmentResource,
   type ReservationInstance,
   type ReservationRecurrence,
 } from "@/lib/api";
+import ReservationAttachmentSection from "./ReservationAttachmentSection";
 
 // 공용자산예약 (2026-05-05) — 등록·수정 모달
 //
@@ -135,6 +137,15 @@ export default function ReservationModal({
   const [title, setTitle] = useState<string>(entry?.title ?? "");
   const [description, setDescription] = useState<string>(entry?.description ?? "");
 
+  // 예약 유형 (대여/차량정비) — 차량정비는 차량 자원에서만. 주행거리는 정비만.
+  const selectedResource = resources.find((r) => r.id === resourceId);
+  const isVehicle = selectedResource?.type === "VEHICLE";
+  const [logType, setLogType] = useState<"RENTAL" | "MAINTENANCE">(entry?.logType ?? "RENTAL");
+  const [mileage, setMileage] = useState<string>(entry?.mileage != null ? String(entry.mileage) : "");
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  // 차량이 아니면 항상 대여로
+  useEffect(() => { if (!isVehicle && logType !== "RENTAL") setLogType("RENTAL"); }, [isVehicle, logType]);
+
   // 반복 (수정 모드에서는 1차 비활성 — 서버가 시리즈 부분 수정 미지원, 시리즈 전체 변경만 허용)
   const [recurEnabled, setRecurEnabled] = useState<boolean>(isRecurringEdit);
   const [freq, setFreq] = useState<"DAILY" | "WEEKLY" | "MONTHLY">("WEEKLY");
@@ -227,6 +238,7 @@ export default function ReservationModal({
 
     setSubmitting(true);
     try {
+      const mileageVal = logType === "MAINTENANCE" && mileage.trim() ? parseInt(mileage, 10) : null;
       if (isEdit) {
         await equipmentReservationApi.update(entry!.id, {
           title: title.trim(),
@@ -235,9 +247,11 @@ export default function ReservationModal({
           endAt: endIso,
           isAllDay,
           recurrence: recurrence ?? null,
+          logType,
+          mileage: mileageVal,
         }, "series");
       } else {
-        await equipmentReservationApi.create({
+        const created = await equipmentReservationApi.create({
           resourceId,
           title: title.trim(),
           description: description.trim() || null,
@@ -245,7 +259,14 @@ export default function ReservationModal({
           endAt: endIso,
           isAllDay,
           recurrence: recurrence ?? null,
+          logType,
+          mileage: mileageVal,
         });
+        // 신규 예약 생성 후 대기 중 첨부 업로드
+        for (const f of pendingFiles) {
+          const isImg = /\.(jpg|jpeg|png|gif|webp)$/i.test(f.name);
+          await reservationAttachmentApi.upload(created.id, f, isImg ? "IMAGE" : "FILE").catch(() => {});
+        }
       }
       onSaved();
     } catch (err: any) {
@@ -295,6 +316,29 @@ export default function ReservationModal({
             </select>
             {isEdit && <p className="text-[11px] text-gray-400 mt-1">자원은 수정할 수 없습니다.</p>}
           </div>
+
+          {/* 유형 (차량 자원만) */}
+          {isVehicle && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">유형</label>
+              <div className="flex gap-2">
+                {(["RENTAL", "MAINTENANCE"] as const).map((t) => (
+                  <button
+                    type="button"
+                    key={t}
+                    onClick={() => setLogType(t)}
+                    className={`flex-1 px-3 py-2 text-sm rounded-lg border ${
+                      logType === t
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    {t === "RENTAL" ? "대여" : "차량정비"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* 종일 토글 */}
           <label className="flex items-center gap-2 text-sm">
@@ -457,6 +501,34 @@ export default function ReservationModal({
             />
           </div>
 
+          {/* 주행거리 (차량정비만) */}
+          {isVehicle && logType === "MAINTENANCE" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                주행거리 (km) <span className="text-xs text-gray-400 ml-1">(선택)</span>
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={mileage}
+                onChange={(e) => setMileage(e.target.value)}
+                placeholder="예: 45200"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              />
+            </div>
+          )}
+
+          {/* 첨부 (차량 자원 — 대여·정비 모두 선택) */}
+          {isVehicle && (
+            <div className="border border-gray-200 rounded-lg p-3">
+              {isEdit ? (
+                <ReservationAttachmentSection reservationId={entry!.id} />
+              ) : (
+                <PendingFilePicker files={pendingFiles} onChange={setPendingFiles} />
+              )}
+            </div>
+          )}
+
           {/* 에러 + 충돌 */}
           {error && (
             <div className="px-3 py-2 bg-red-50 border border-red-200 rounded text-sm text-red-700 dark:text-red-300">
@@ -499,6 +571,53 @@ export default function ReservationModal({
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+// 신규 예약용 대기 첨부 선택기 — 예약 생성 후 일괄 업로드
+function PendingFilePicker({ files, onChange }: { files: File[]; onChange: (f: File[]) => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase">
+          📎 첨부 <span className="normal-case text-gray-400 font-normal">(등록 후 업로드)</span>
+        </h3>
+        <button
+          type="button"
+          onClick={() => ref.current?.click()}
+          className="px-2.5 py-1 text-xs border border-gray-300 rounded-lg hover:bg-gray-50"
+        >파일 선택</button>
+      </div>
+      <input
+        ref={ref}
+        type="file"
+        multiple
+        accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+        className="hidden"
+        onChange={(e) => {
+          const fs = Array.from(e.target.files ?? []);
+          e.target.value = "";
+          if (fs.length) onChange([...files, ...fs]);
+        }}
+      />
+      {files.length === 0 ? (
+        <p className="text-sm text-gray-400 text-center py-2">선택된 파일이 없습니다.</p>
+      ) : (
+        <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+          {files.map((f, i) => (
+            <li key={i} className="flex items-center gap-2 py-1.5 text-sm">
+              <span className="flex-1 truncate text-gray-800 dark:text-gray-100">{f.name}</span>
+              <button
+                type="button"
+                onClick={() => onChange(files.filter((_, j) => j !== i))}
+                className="text-gray-300 hover:text-red-500"
+              >×</button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

@@ -420,6 +420,10 @@ model EquipmentReservation {
   endAt               DateTime
   isAllDay            Boolean             @default(false)
 
+  // 예약 유형 (2026-07-21): 대여 / 차량정비. 정비는 주행거리·첨부 추가 입력.
+  logType             String              @default("RENTAL")          // "RENTAL" | "MAINTENANCE"
+  mileage             Int?                                            // 주행거리(km) — MAINTENANCE만
+
   // 반복 (null이면 단발)
   // {freq:"DAILY"|"WEEKLY"|"MONTHLY", interval?:int, byWeekday?:["MON",...], until?:"YYYY-MM-DD", count?:int}
   recurrence          Json?
@@ -434,12 +438,35 @@ model EquipmentReservation {
   updatedAt           DateTime            @updatedAt
 
   resource            EquipmentResource   @relation(fields: [resourceId], references: [id], onDelete: Restrict)
+  attachments         ReservationAttachment[]
 
   @@index([resourceId, startAt])              // 충돌 검사 핫패스
   @@index([userId, startAt(sort: Desc)])      // 내 예약 목록
   @@index([status])
   @@index([recurrenceParentId])
   @@map("equipment_reservations")
+  @@schema("project")
+}
+
+// 예약 첨부 (2026-07-21) — 차량정비 영수증·사진 등. 태스크 첨부 방식을 복제한 독립 테이블.
+//   물리 저장: <STORAGE_PATH>/ERP/공용자산/차량/<자원명>__<resourceId>/<reservationId>/<파일|이미지>/…
+//   결재 연동 대비: 파일명 파싱 대신 id + 메타(번호판 스냅샷 포함)로 참조.
+model ReservationAttachment {
+  id                   String               @id @default(cuid())
+  reservationId        String
+  fileName             String                                          // 원본 파일명
+  fileSize             Int
+  mimeType             String
+  category             String               @default("FILE")           // "FILE" | "IMAGE"
+  storagePath          String
+  resourceNameSnapshot String?                                         // 업로드 당시 자원명(번호판) 박제
+  uploadedBy           String
+  createdAt            DateTime             @default(now())
+
+  reservation          EquipmentReservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  @@index([reservationId])
+  @@map("reservation_attachments")
   @@schema("project")
 }
 

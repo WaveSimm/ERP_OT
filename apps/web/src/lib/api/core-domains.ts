@@ -351,6 +351,8 @@ export interface ReservationInstance {
   isException: boolean;
   recurrenceSummary: string;
   status: "CONFIRMED" | "CANCELED";
+  logType: "RENTAL" | "MAINTENANCE";  // 대여 / 차량정비
+  mileage: number | null;              // 주행거리 — MAINTENANCE만
 }
 
 export interface ReservationCreateInput {
@@ -361,6 +363,8 @@ export interface ReservationCreateInput {
   endAt: string;
   isAllDay?: boolean;
   recurrence?: ReservationRecurrence | null;
+  logType?: "RENTAL" | "MAINTENANCE";
+  mileage?: number | null;
 }
 
 export interface ReservationUpdateInput {
@@ -370,6 +374,20 @@ export interface ReservationUpdateInput {
   endAt?: string;
   isAllDay?: boolean;
   recurrence?: ReservationRecurrence | null;
+  logType?: "RENTAL" | "MAINTENANCE";
+  mileage?: number | null;
+}
+
+export interface ReservationAttachment {
+  id: string;
+  reservationId: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  category: "FILE" | "IMAGE";
+  resourceNameSnapshot: string | null;
+  uploadedBy: string;
+  createdAt: string;
 }
 
 export const equipmentReservationApi = {
@@ -412,6 +430,34 @@ export const equipmentReservationApi = {
       },
     );
   },
+};
+
+// 예약 첨부 (차량정비 영수증·사진 등, 2026-07-21) — taskAttachmentApi 패턴 복제
+export const reservationAttachmentApi = {
+  list: (reservationId: string) =>
+    request<ReservationAttachment[]>(`/equipment-reservations/${reservationId}/attachments`),
+  upload: async (reservationId: string, file: File, category: "FILE" | "IMAGE"): Promise<ReservationAttachment> => {
+    const headers: Record<string, string> = {};
+    const csrf = getCsrfToken();
+    if (csrf) headers["X-CSRF-Token"] = csrf;
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch(`${API_PREFIX}/equipment-reservations/${reservationId}/attachments?category=${category}`, {
+      method: "POST",
+      headers,
+      body: fd,
+      credentials: "include",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message ?? err.message ?? "업로드에 실패했습니다.");
+    }
+    return res.json();
+  },
+  delete: (reservationId: string, attachmentId: string) =>
+    request<void>(`/equipment-reservations/${reservationId}/attachments/${attachmentId}`, { method: "DELETE" }),
+  downloadUrl: (reservationId: string, attachmentId: string) =>
+    `${API_PREFIX}/equipment-reservations/${reservationId}/attachments/${attachmentId}/download`,
 };
 
 // 자원-모델-분리 PDCA Phase 3b-1: 외부 자원 API

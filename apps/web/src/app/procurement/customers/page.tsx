@@ -7,6 +7,7 @@ import { repairApi } from "@/lib/api";
 import Pagination from "@/components/Pagination";
 import SortableHeader from "@/components/SortableHeader";
 import { useSortPreference } from "@/hooks/useSortPreference";
+import { TableCard, Table, THead, Th, TBody, Tr, Td, TableActions, RowButton, TableEmpty } from "@/components/ui/Table";
 
 export default function CustomersPage() {
   const router = useRouter();
@@ -17,7 +18,7 @@ export default function CustomersPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const { sortBy, sortOrder, handleSort } = useSortPreference("customers");
+  const { sortBy, sortOrder, handleSort, resetSort } = useSortPreference("customers");
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -139,78 +140,96 @@ export default function CustomersPage() {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <h2 className="text-lg font-bold">고객사 관리</h2>
-        <input type="text" placeholder="고객사명 검색..." value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          className="border rounded-lg px-3 py-1.5 text-sm w-56" />
-        <span className="text-sm text-gray-400">{total}건</span>
-        <button onClick={() => { resetForm(); setShowForm(true); }}
-          className="ml-auto px-4 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-          + 고객사 등록
-        </button>
-      </div>
-
-      <div ref={tableBoxRef} className="bg-white rounded-lg border overflow-auto" style={{ maxHeight: tableMaxH }}>
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 z-10 bg-gray-50 [&>tr>th]:border-b [&>tr>th]:border-gray-200">
-            <tr>
-              <SortableHeader sortKey="name" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">고객사명</SortableHeader>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">사업자번호</th>
-              <SortableHeader sortKey="phone" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">전화</SortableHeader>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">이메일</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">주소</th>
-              <th className="px-4 py-3 text-center font-medium text-gray-600">보유자산</th>
-              <th className="px-4 py-3 text-center font-medium text-gray-600">AS건수</th>
-              <th className="px-4 py-3 text-center font-medium text-gray-600 w-40">작업</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
+      <TableCard
+        title="고객사 관리"
+        count={total}
+        scrollRef={tableBoxRef}
+        maxHeight={tableMaxH}
+        actions={
+          <>
+            <input type="text" placeholder="고객사명 검색..." value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              className="border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-lg px-3 py-1.5 text-sm w-56" />
+            {sortBy && (
+              <button onClick={resetSort} title="정렬을 원래 순서로 되돌립니다"
+                className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
+                ↺ 정렬 초기화
+              </button>
+            )}
+            <button onClick={() => { resetForm(); setShowForm(true); }}
+              className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              + 고객사 등록
+            </button>
+          </>
+        }
+        footer={<Pagination page={page} totalPages={Math.ceil(total / 50)} onPageChange={setPage} total={total} />}
+      >
+        <Table fixed columnDividers>
+          <colgroup>
+            <col className="w-[19%]" />
+            <col className="w-[10%]" />
+            <col className="w-[10%]" />
+            <col className="w-[16%]" />
+            <col className="w-[17%]" />
+            <col className="w-[7%]" />
+            <col className="w-[6%]" />
+            <col className="w-[15%]" />
+          </colgroup>
+          <THead>
+            <SortableHeader sortKey="name" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">고객사명</SortableHeader>
+            <Th align="center">사업자번호</Th>
+            <SortableHeader sortKey="phone" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">전화</SortableHeader>
+            <Th align="center">이메일</Th>
+            <Th align="center">주소</Th>
+            <Th align="center">보유자산</Th>
+            <Th align="center">AS건수</Th>
+            <Th align="center">작업</Th>
+          </THead>
+          <TBody>
             {loading ? (
-              <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">로딩 중...</td></tr>
+              <TableEmpty colSpan={8}>로딩 중...</TableEmpty>
             ) : customers.length === 0 ? (
-              <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">고객사가 없습니다.</td></tr>
+              <TableEmpty colSpan={8}>고객사가 없습니다.</TableEmpty>
             ) : customers.map((c) => (
               <>
-                <tr key={c.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-2.5 font-medium cursor-pointer hover:text-blue-600"
-                    onClick={() => router.push(`${basePath}/${c.id}`)}>{c.name}</td>
-                  <td className="px-4 py-2.5 text-gray-500 font-mono">{c.businessNo || "-"}</td>
-                  <td className="px-4 py-2.5 text-gray-500">{c.phone || "-"}</td>
-                  <td className="px-4 py-2.5 text-gray-500">{c.email || "-"}</td>
-                  <td className="px-4 py-2.5 text-gray-500 text-xs">{c.address || "-"}</td>
-                  <td className="px-4 py-2.5 text-center text-gray-600">{c._count?.assets ?? 0}</td>
-                  <td className="px-4 py-2.5 text-center text-gray-600">{c._count?.repairOrders ?? 0}</td>
-                  <td className="px-4 py-2.5 text-center">
-                    <button onClick={() => toggleContacts(c.id)} className="text-blue-600 hover:underline text-xs mr-2 dark:text-blue-400">
-                      {expandedId === c.id ? "접기" : "담당자"}
-                    </button>
-                    <button onClick={() => handleEdit(c)} className="text-blue-600 hover:underline text-xs mr-2 dark:text-blue-400">수정</button>
-                    <button onClick={() => handleDelete(c.id)} className="text-red-500 hover:underline text-xs dark:text-red-400">삭제</button>
-                  </td>
-                </tr>
+                <Tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/60">
+                  <Td strong truncate title={c.name} onClick={() => router.push(`${basePath}/${c.id}`)}
+                    className="cursor-pointer hover:underline">{c.name}</Td>
+                  <Td dash mono align="center" truncate title={c.businessNo || undefined}>{c.businessNo}</Td>
+                  <Td dash align="center" truncate title={c.phone || undefined}>{c.phone}</Td>
+                  <Td dash truncate title={c.email || undefined}>{c.email}</Td>
+                  <Td dash truncate title={c.address || undefined}>{c.address}</Td>
+                  <Td align="center" mono>{c._count?.assets ?? 0}</Td>
+                  <Td align="center" mono>{c._count?.repairOrders ?? 0}</Td>
+                  <Td align="center">
+                    <TableActions>
+                      <RowButton neutral onClick={() => toggleContacts(c.id)}>{expandedId === c.id ? "접기" : "담당자"}</RowButton>
+                      <RowButton onClick={() => handleEdit(c)}>수정</RowButton>
+                      <RowButton danger onClick={() => handleDelete(c.id)}>삭제</RowButton>
+                    </TableActions>
+                  </Td>
+                </Tr>
                 {expandedId === c.id && (
                   <tr key={`${c.id}-contacts`}>
                     <td colSpan={8} className="bg-gray-50 px-6 py-3">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-sm font-medium text-gray-700">담당자 목록</span>
-                        <button onClick={() => { resetContactForm(); setShowContactForm(true); }}
-                          className="text-xs text-blue-600 hover:underline dark:text-blue-400">+ 추가</button>
+                        <RowButton onClick={() => { resetContactForm(); setShowContactForm(true); }}>+ 추가</RowButton>
                       </div>
                       {contacts.length === 0 ? (
                         <p className="text-xs text-gray-400">등록된 담당자가 없습니다.</p>
                       ) : (
                         <div className="space-y-1">
                           {contacts.map((ct) => (
-                            <div key={ct.id} className="flex items-center gap-3 text-sm bg-white rounded px-3 py-2 border">
+                            <div key={ct.id} className="flex items-center gap-3 text-sm bg-white dark:bg-gray-800 rounded px-3 py-2 border border-gray-200">
                               <span className="font-medium">{ct.name}</span>
-                              {ct.isPrimary && <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">주담당</span>}
+                              {ct.isPrimary && <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 px-1.5 py-0.5 rounded">주담당</span>}
                               <span className="text-gray-400 text-xs">{ct.department || ""} {ct.position || ""}</span>
                               <span className="text-gray-500 text-xs">{ct.phone || ""}</span>
                               <span className="text-gray-500 text-xs">{ct.email || ""}</span>
-                              <div className="ml-auto flex gap-2">
-                                <button onClick={() => handleContactEdit(ct)} className="text-blue-600 hover:underline text-xs dark:text-blue-400">수정</button>
-                                <button onClick={() => handleContactDelete(ct.id)} className="text-red-500 hover:underline text-xs dark:text-red-400">삭제</button>
+                              <div className="ml-auto flex gap-1.5">
+                                <RowButton onClick={() => handleContactEdit(ct)}>수정</RowButton>
+                                <RowButton danger onClick={() => handleContactDelete(ct.id)}>삭제</RowButton>
                               </div>
                             </div>
                           ))}
@@ -248,11 +267,9 @@ export default function CustomersPage() {
                 )}
               </>
             ))}
-          </tbody>
-        </table>
-      </div>
-
-      <Pagination page={page} totalPages={Math.ceil(total / 50)} onPageChange={setPage} total={total} className="mt-4 border rounded-lg" />
+          </TBody>
+        </Table>
+      </TableCard>
 
       {/* 고객사 등록/수정 Modal */}
       {showForm && (

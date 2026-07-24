@@ -48,10 +48,9 @@ export const TASK_STATUS_COLORS: Record<string, string> = {
   IN_PROGRESS: "bg-blue-100 text-blue-700",
   ON_HOLD: "bg-yellow-100 text-yellow-700",
   DONE: "bg-green-100 text-green-700",
-  BLOCKED: "bg-red-100 text-red-700",
 };
 export const TASK_STATUS_LABELS: Record<string, string> = {
-  TODO: "예정", IN_PROGRESS: "진행중", ON_HOLD: "보류", DONE: "완료", BLOCKED: "차단",
+  TODO: "예정", IN_PROGRESS: "진행중", ON_HOLD: "중단", DONE: "완료",
 };
 
 // 지연 판정: 미완료 + endDate가 오늘 이전
@@ -76,22 +75,25 @@ export function avatarColor(name: string) {
 }
 
 // ── 태스크 목록 컬럼 순서 ─────────────────────────────────────────────────────
-export type ColId = "status" | "dates" | "progress" | "resources" | "note";
+export type ColId = "status" | "dates" | "segProgress" | "progress" | "resources" | "note";
 export const COL_CFG: Record<ColId, { label: string; width: string }> = {
-  status:    { label: "상태",   width: "w-20" },
-  dates:     { label: "기간",   width: "w-40" },
-  progress:  { label: "진행률", width: "w-28" },
-  resources: { label: "자원",   width: "w-24" },
-  note:      { label: "비고",   width: "w-32" },
+  status:      { label: "상태",   width: "w-20" },
+  dates:       { label: "기간",   width: "w-40" },
+  segProgress: { label: "완료 구간", width: "w-24" },
+  progress:    { label: "전체진행률", width: "w-28" },
+  resources:   { label: "자원",   width: "w-24" },
+  note:        { label: "비고",   width: "w-32" },
 };
-export const DEFAULT_COL_ORDER: ColId[] = ["status", "dates", "progress", "resources", "note"];
+export const DEFAULT_COL_ORDER: ColId[] = ["status", "dates", "segProgress", "progress", "resources", "note"];
 
 // 상위 태스크 rollup: 하위 태스크의 기간/진행률/상태/자원을 집계 (page.tsx에서 기계적 분리)
 export function buildRolledUpTasks(taskList: any[]): any[] {
   if (taskList.length === 0) return [];
 
   // 트리 구성
-  const map = new Map(taskList.map((t: any) => [t.id, { ...t, _children: [] as any[] }]));
+  // 크리티컬(CPM) 폐기(2026-07-21): 래퍼 생성 시점에 isCritical을 끔 → _children(하위 태스크)까지 전 계층 반영.
+  //   (예전엔 최종 반환 객체에만 껐는데, buildFlatItems가 _children으로 하위 행을 그려 하위만 빨갛게 남았음)
+  const map = new Map(taskList.map((t: any) => [t.id, { ...t, isCritical: false, _children: [] as any[] }]));
   for (const t of map.values()) {
     if (t.parentId && map.has(t.parentId)) {
       map.get(t.parentId)!._children.push(t);
@@ -145,18 +147,17 @@ export function buildRolledUpTasks(taskList: any[]): any[] {
       task.overallProgress = Math.round(avg * 10) / 10;
     }
 
-    // 상태 롤업: 자식 상태 기반으로 부모 상태 결정
-    const statuses = children.map((c: any) => c.status);
-    if (statuses.some((s: string) => s === "BLOCKED")) {
-      task.status = "BLOCKED";
-    } else if (statuses.some((s: string) => s === "ON_HOLD")) {
-      task.status = "ON_HOLD";
-    } else if (statuses.every((s: string) => s === "DONE")) {
-      task.status = "DONE";
-    } else if (statuses.some((s: string) => s === "DONE" || s === "IN_PROGRESS")) {
-      task.status = "IN_PROGRESS";
-    } else {
-      task.status = "TODO";
+    // 상태 롤업: 부모 자신이 중단(ON_HOLD)이면 유지(중단은 위→아래 캐스케이드),
+    //   그 외에는 자식 기준 자동(완료/진행중/예정).
+    if (task.status !== "ON_HOLD") {
+      const statuses = children.map((c: any) => c.status);
+      if (statuses.every((s: string) => s === "DONE")) {
+        task.status = "DONE";
+      } else if (statuses.some((s: string) => s === "DONE" || s === "IN_PROGRESS")) {
+        task.status = "IN_PROGRESS";
+      } else {
+        task.status = "TODO";
+      }
     }
 
     // 자원: 모든 하위 자원 집계 (부모 자신 자원 포함)
@@ -169,7 +170,8 @@ export function buildRolledUpTasks(taskList: any[]): any[] {
 
   return taskList.map((t: any) => {
     const task = map.get(t.id) ?? t;
-    return { ...task, isCritical: task.isCritical && task.status !== "DONE" };
+    // 크리티컬(CPM) 폐기(2026-07-21): 표시용 isCritical을 강제로 끔 → 목록·간트 빨간 표시 제거
+    return { ...task, isCritical: false };
   });
 }
 

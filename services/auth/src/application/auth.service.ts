@@ -36,8 +36,9 @@ export interface RefreshContext {
   deviceId?: string | undefined;
 }
 
-const ACCESS_TTL_SECONDS = 60 * 60; // 1h (NEW-4: was 8h)
-const REFRESH_TTL_SECONDS = 7 * 86400; // 7d
+const ACCESS_TTL_SECONDS = 15 * 60; // 15m — refresh(30m)보다 짧게 두어 활동 중 자동 갱신(슬라이딩)되게
+const REFRESH_TTL_SECONDS = 30 * 60; // 30m 슬라이딩 — 모든 기기(모바일/외부/닫은 탭)에서 30분 유휴 로그아웃
+const REUSE_GRACE_MS = 60 * 1000; // 회전 후 60초 내 같은 IP의 재사용 = 멀티탭 정상 레이스로 간주(전 세션 무효화 오발 방지)
 const JWT_ALGORITHM = "HS256" as const;
 
 export class AuthService {
@@ -134,25 +135,37 @@ export class AuthService {
       throw new AuthError(401, "유효하지 않은 refresh token입니다.", "INVALID_REFRESH");
     }
 
-    // ─── Reuse Detection ──────────────────────────────────────────
-    // 이미 회전된 토큰을 재사용하려는 시도 → 탈취 의심
+    // ─── Reuse Detection (+ grace) ────────────────────────────────
+    // 이미 회전된 토큰을 재사용하려는 시도 → 탈취 의심.
+    // 단, 멀티탭/동시 요청의 정상 레이스(두 탭이 같은 쿠키로 거의 동시에 refresh)가
+    // 오발되어 전 세션이 무효화되는 사고가 있어, "회전 직후 + 같은 IP"의 재사용은
+    // 공격이 아닌 레이스로 간주하고 정상 회전을 허용한다(오래된 행은 IP 미기록 → IP 불일치만 차단).
     if (stored.rotatedAt !== null) {
-      // 해당 사용자의 모든 세션 무효화
-      await this.prisma.refreshToken.deleteMany({ where: { userId: stored.userId } });
-      this.logger?.warn(
-        {
-          userId: stored.userId,
-          originalIp: stored.ipAddress,
-          attemptIp: ctx.ipAddress,
-          rotatedAt: stored.rotatedAt,
-        },
-        "[security-alert] Refresh token reuse detected — all sessions revoked",
-      );
-      throw new AuthError(
-        401,
-        "보안 위협이 감지되어 모든 세션이 종료되었습니다. 다시 로그인해 주세요.",
-        "REFRESH_REUSE_DETECTED",
-      );
+      const withinGrace = Date.now() - stored.rotatedAt.getTime() < REUSE_GRACE_MS;
+      const ipMismatch = !!stored.ipAddress && !!ctx.ipAddress && stored.ipAddress !== ctx.ipAddress;
+      if (withinGrace && !ipMismatch) {
+        this.logger?.info(
+          { userId: stored.userId, ip: ctx.ipAddress, rotatedAt: stored.rotatedAt },
+          "[auth] refresh race within grace — rotation allowed (not treated as reuse attack)",
+        );
+      } else {
+        // 해당 사용자의 모든 세션 무효화
+        await this.prisma.refreshToken.deleteMany({ where: { userId: stored.userId } });
+        this.logger?.warn(
+          {
+            userId: stored.userId,
+            originalIp: stored.ipAddress,
+            attemptIp: ctx.ipAddress,
+            rotatedAt: stored.rotatedAt,
+          },
+          "[security-alert] Refresh token reuse detected — all sessions revoked",
+        );
+        throw new AuthError(
+          401,
+          "보안 위협이 감지되어 모든 세션이 종료되었습니다. 다시 로그인해 주세요.",
+          "REFRESH_REUSE_DETECTED",
+        );
+      }
     }
 
     if (stored.expiresAt < new Date()) {
@@ -199,6 +212,24 @@ export class AuthService {
     } else {
       await this.prisma.refreshToken.deleteMany({ where: { userId } });
     }
+  }
+
+  // refresh 쿠키만으로 로그아웃 — access 토큰이 만료됐어도 세션을 확실히 종료한다.
+  //   (로그아웃 라우트가 authenticate에 의존하지 않도록: 만료 상태 로그아웃 시 세션이 살아남는 버그 방지)
+  //   토큰 행에서 userId를 얻어 해당 디바이스의 refresh 토큰(회전 잔재 포함)을 모두 삭제하고 userId를 반환.
+  async logoutByRefreshToken(refreshToken: string, deviceId?: string): Promise<string | undefined> {
+    const tokenHash = this.hashToken(refreshToken);
+    const row = await this.prisma.refreshToken.findUnique({
+      where: { tokenHash },
+      select: { userId: true },
+    });
+    if (!row) return undefined;
+    if (deviceId) {
+      await this.prisma.refreshToken.deleteMany({ where: { userId: row.userId, deviceId } });
+    } else {
+      await this.prisma.refreshToken.deleteMany({ where: { tokenHash } });
+    }
+    return row.userId;
   }
 
   // ─── logoutOtherDevices (NEW-7 — 다른 기기 모두 로그아웃) ──────────

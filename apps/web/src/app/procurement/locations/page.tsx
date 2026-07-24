@@ -6,6 +6,7 @@ import { inventoryApi } from "@/lib/api";
 import Pagination from "@/components/Pagination";
 import SortableHeader from "@/components/SortableHeader";
 import { useSortPreference } from "@/hooks/useSortPreference";
+import { TableCard, Table, THead, Th, TBody, Tr, Td, TableActions, RowButton, TableEmpty } from "@/components/ui/Table";
 
 const PAGE_SIZE = 50;
 
@@ -20,7 +21,7 @@ export default function LocationsPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
-  const { sortBy, sortOrder, handleSort } = useSortPreference("locations");
+  const { sortBy, sortOrder, handleSort, resetSort } = useSortPreference("locations");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -105,65 +106,71 @@ export default function LocationsPage() {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-4">
-        <h2 className="text-lg font-bold">창고관리</h2>
-        <input
-          type="text" placeholder="위치 검색..."
-          value={search} onChange={(e) => setSearch(e.target.value)}
-          className="border rounded-lg px-3 py-1.5 text-sm w-56"
-        />
-        <span className="text-sm text-gray-500">총 {total}건</span>
-        <div className="flex-1" />
-        <button onClick={() => { resetForm(); setShowForm(true); }}
-          className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-          + 위치 추가
-        </button>
-      </div>
-
       <p className="text-xs text-gray-400 mb-3">고객사 위치는 고객사 관리 탭에서 관리됩니다.</p>
 
-      <div ref={tableBoxRef} className="bg-white rounded-lg border overflow-auto" style={{ maxHeight: tableMaxH }}>
-        <table className="w-full text-sm table-fixed">
+      <TableCard
+        title="창고관리"
+        count={total}
+        scrollRef={tableBoxRef}
+        maxHeight={tableMaxH}
+        actions={
+          <>
+            <input type="text" placeholder="위치 검색..." value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-lg px-3 py-1.5 text-sm w-56" />
+            {sortBy && (
+              <button onClick={resetSort} title="정렬을 원래 순서로 되돌립니다"
+                className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
+                ↺ 정렬 초기화
+              </button>
+            )}
+            <button onClick={() => { resetForm(); setShowForm(true); }}
+              className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              + 위치 추가
+            </button>
+          </>
+        }
+        footer={<Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} />}
+      >
+        <Table fixed columnDividers>
           <colgroup>
-            <col className="w-[40%]" />
-            <col className="w-[35%]" />
+            <col className="w-[24%]" />
+            <col className="w-[51%]" />
             <col className="w-[10%]" />
             <col className="w-[15%]" />
           </colgroup>
-          <thead className="sticky top-0 z-10 bg-gray-50 [&>tr>th]:border-b [&>tr>th]:border-gray-200">
-            <tr>
-              <SortableHeader sortKey="name" currentSort={sortBy} order={sortOrder} onSort={handleSort} className="px-4 py-3 text-left font-medium text-gray-600">위치명</SortableHeader>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">설명</th>
-              <SortableHeader sortKey="isActive" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 text-center font-medium text-gray-600">상태</SortableHeader>
-              <th className="px-4 py-3 text-center font-medium text-gray-600">작업</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
+          <THead>
+            <SortableHeader sortKey="name" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">위치명</SortableHeader>
+            <Th align="center">설명</Th>
+            <SortableHeader sortKey="isActive" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">상태</SortableHeader>
+            <Th align="center">작업</Th>
+          </THead>
+          <TBody>
             {loading ? (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400">로딩 중...</td></tr>
+              <TableEmpty colSpan={4}>로딩 중...</TableEmpty>
             ) : locations.length === 0 ? (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400">등록된 위치가 없습니다.</td></tr>
+              <TableEmpty colSpan={4}>등록된 위치가 없습니다.</TableEmpty>
             ) : locations.map((loc) => (
-              <tr key={loc.id} className={`hover:bg-gray-50 ${!loc.isActive ? "opacity-50" : ""}`}>
-                <td className="px-4 py-2.5 font-medium truncate" title={loc.name}>{loc.name}</td>
-                <td className="px-4 py-2.5 text-gray-500 truncate" title={loc.description || ""}>{loc.description || "-"}</td>
-                <td className="px-4 py-2.5 text-center">
+              <Tr key={loc.id} className={`hover:bg-gray-50 dark:hover:bg-gray-800/60 ${!loc.isActive ? "opacity-50" : ""}`}>
+                <Td strong truncate title={loc.name}>{loc.name}</Td>
+                <Td dash truncate title={loc.description || undefined}>{loc.description}</Td>
+                <Td align="center">
                   <button onClick={() => handleToggleActive(loc)}
-                    className={`text-xs px-2 py-0.5 rounded ${loc.isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                    className={`text-xs px-2 py-0.5 rounded ${loc.isActive ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300" : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300"}`}>
                     {loc.isActive ? "활성" : "비활성"}
                   </button>
-                </td>
-                <td className="px-4 py-2.5 text-center">
-                  <button onClick={() => handleEdit(loc)} className="text-blue-600 hover:underline text-xs mr-2 dark:text-blue-400">수정</button>
-                  <button onClick={() => handleDelete(loc)} className="text-red-500 hover:underline text-xs dark:text-red-400">삭제</button>
-                </td>
-              </tr>
+                </Td>
+                <Td align="center">
+                  <TableActions>
+                    <RowButton onClick={() => handleEdit(loc)}>수정</RowButton>
+                    <RowButton danger onClick={() => handleDelete(loc)}>삭제</RowButton>
+                  </TableActions>
+                </Td>
+              </Tr>
             ))}
-          </tbody>
-        </table>
-      </div>
-
-      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} className="mt-4 border rounded-lg" />
+          </TBody>
+        </Table>
+      </TableCard>
 
       {/* Form Modal */}
       {showForm && (

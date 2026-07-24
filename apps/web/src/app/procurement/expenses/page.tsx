@@ -7,6 +7,7 @@ import SortableHeader from "@/components/SortableHeader";
 import { useSortPreference } from "@/hooks/useSortPreference";
 import OrderPaymentRequestsTab from "@/components/procurement/OrderPaymentRequestsTab";
 import OrderCustomsTaxesTab from "@/components/procurement/OrderCustomsTaxesTab";
+import { TableCard, Table, THead, Th, TBody, Tr, Td, TableEmpty, StatusBadge, type BadgeColor } from "@/components/ui/Table";
 
 const STATUS_LABELS: Record<string, string> = {
   FINANCE_RECEIVED: "재무 접수",
@@ -19,6 +20,12 @@ const STATUS_COLORS: Record<string, string> = {
   INVENTORY_DECIDED: "bg-blue-100 text-blue-700",
   ARRIVED: "bg-green-100 text-green-700",
   COMPLETED: "bg-gray-100 text-gray-600",
+};
+const STATUS_BADGE: Record<string, BadgeColor> = {
+  FINANCE_RECEIVED: "amber",
+  INVENTORY_DECIDED: "blue",
+  ARRIVED: "green",
+  COMPLETED: "gray",
 };
 
 function fmtMoney(v: number | string | null | undefined) {
@@ -66,7 +73,7 @@ function ExpenseApprovalTab() {
   const { ref: tableBoxRef, maxHeight: tableMaxH } = useFillHeight();
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
-  const { sortBy, sortOrder, handleSort } = useSortPreference("expenses-approval", "", "desc");
+  const { sortBy, sortOrder, handleSort, resetSort } = useSortPreference("expenses-approval", "", "desc");
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [acting, setActing] = useState(false);
   const [checkedItems, setCheckedItems] = useState<number[]>([]);
@@ -213,71 +220,74 @@ function ExpenseApprovalTab() {
 
   return (
     <div>
-      <div className="flex gap-2 mb-4">
+      <div className="flex items-center gap-3 mb-4">
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-          className="border rounded-lg px-3 py-2 text-sm">
+          className="border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-lg px-3 py-1.5 text-sm">
           <option value="">전체 상태</option>
           {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
+        {sortBy && (
+          <button onClick={resetSort} title="정렬을 원래 순서로 되돌립니다"
+            className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
+            ↺ 정렬 초기화
+          </button>
+        )}
       </div>
 
-      {loading ? (
-        <div className="text-center py-12 text-gray-400">로딩 중...</div>
-      ) : items.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">
-          재무 접수 건이 없습니다.
-          <p className="text-xs mt-2">지출결의서·개인정산 결재 승인 후 자동으로 등록됩니다.</p>
-        </div>
-      ) : (
-        <div ref={tableBoxRef} className="bg-white rounded-lg border overflow-auto" style={{ maxHeight: tableMaxH }}>
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 z-10 bg-gray-50 [&>tr>th]:border-b [&>tr>th]:border-gray-200">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">문서번호</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">제목</th>
-                <th className="px-4 py-3 text-center font-medium text-gray-600">종류</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">상신자</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">총액</th>
-                <SortableHeader sortKey="receivedAt" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 text-center font-medium text-gray-600">접수일</SortableHeader>
-                <SortableHeader sortKey="status" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 text-center font-medium text-gray-600">상태</SortableHeader>
-                <SortableHeader sortKey="paymentCompletedAt" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 text-center font-medium text-gray-600">송금</SortableHeader>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {items.map((item: any) => {
-                const ad = item.approvalDocument;
-                const payType = getPaymentType(item);
-                return (
-                  <tr key={item.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => openDetail(item)}>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-500">
-                      {ad?.documentNumber || ad?.document_number || "-"}
-                    </td>
-                    <td className="px-4 py-3 font-medium">{ad?.title || "-"}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`text-xs px-2 py-0.5 rounded ${payType.color}`}>{payType.label}</span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{ad?.requesterName || ad?.requester_name || "-"}</td>
-                    <td className="px-4 py-3 text-right">{fmtMoney(ad?.itemsTotal || ad?.items_total || ad?.amount)}</td>
-                    <td className="px-4 py-3 text-center text-gray-500">
-                      {item.receivedAt ? new Date(item.receivedAt).toLocaleDateString("ko-KR") : "-"}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`text-xs px-2 py-1 rounded ${STATUS_COLORS[item.status]}`}>
-                        {STATUS_LABELS[item.status]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {item.paymentCompletedAt
-                        ? <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">✓ {new Date(item.paymentCompletedAt).toLocaleDateString("ko-KR")}</span>
-                        : <span className="text-xs text-gray-400">미처리</span>}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <TableCard scrollRef={tableBoxRef} maxHeight={tableMaxH}>
+        <Table fixed columnDividers>
+          <colgroup>
+            <col className="w-[13%]" />
+            <col className="w-[22%]" />
+            <col className="w-[12%]" />
+            <col className="w-[10%]" />
+            <col className="w-[12%]" />
+            <col className="w-[10%]" />
+            <col className="w-[11%]" />
+            <col className="w-[10%]" />
+          </colgroup>
+          <THead>
+            <Th align="center">문서번호</Th>
+            <Th align="center">제목</Th>
+            <Th align="center">종류</Th>
+            <Th align="center">상신자</Th>
+            <Th align="center">총액</Th>
+            <SortableHeader sortKey="receivedAt" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">접수일</SortableHeader>
+            <SortableHeader sortKey="status" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">상태</SortableHeader>
+            <SortableHeader sortKey="paymentCompletedAt" currentSort={sortBy} order={sortOrder} onSort={handleSort} align="center" className="px-4 py-3 font-medium">송금</SortableHeader>
+          </THead>
+          <TBody>
+            {loading ? (
+              <TableEmpty colSpan={8}>로딩 중...</TableEmpty>
+            ) : items.length === 0 ? (
+              <TableEmpty colSpan={8}>
+                재무 접수 건이 없습니다.
+                <div className="mt-1 text-xs">지출결의서·개인정산 결재 승인 후 자동으로 등록됩니다.</div>
+              </TableEmpty>
+            ) : items.map((item: any) => {
+              const ad = item.approvalDocument;
+              const payType = getPaymentType(item);
+              const payBadge: BadgeColor = ad?.referenceType === "EXPENSE_SETTLEMENT" ? "purple" : "cyan";
+              return (
+                <Tr key={item.id} onClick={() => openDetail(item)}>
+                  <Td mono align="left" dash truncate title={ad?.documentNumber || ad?.document_number || undefined}>{ad?.documentNumber || ad?.document_number}</Td>
+                  <Td strong truncate title={ad?.title || undefined}>{ad?.title || "-"}</Td>
+                  <Td align="center"><StatusBadge color={payBadge}>{payType.label}</StatusBadge></Td>
+                  <Td dash align="center" truncate title={ad?.requesterName || ad?.requester_name || undefined}>{ad?.requesterName || ad?.requester_name}</Td>
+                  <Td align="right" mono>{fmtMoney(ad?.itemsTotal || ad?.items_total || ad?.amount)}</Td>
+                  <Td align="center" mono>{item.receivedAt ? new Date(item.receivedAt).toLocaleDateString("ko-KR") : "-"}</Td>
+                  <Td align="center"><StatusBadge color={STATUS_BADGE[item.status] || "gray"}>{STATUS_LABELS[item.status]}</StatusBadge></Td>
+                  <Td align="center">
+                    {item.paymentCompletedAt
+                      ? <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">✓ {new Date(item.paymentCompletedAt).toLocaleDateString("ko-KR")}</span>
+                      : <span className="text-xs text-gray-400">미처리</span>}
+                  </Td>
+                </Tr>
+              );
+            })}
+          </TBody>
+        </Table>
+      </TableCard>
 
       {/* 상세/액션 모달 — 좌: 정보·액션, 우: 영수증 미리보기 */}
       {selectedItem && (

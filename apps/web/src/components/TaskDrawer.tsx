@@ -12,9 +12,8 @@ import { fmtDateTime24 } from "@/lib/datetime";
 const STATUS_OPTIONS = [
   { value: "TODO",        label: "예정",  color: "bg-gray-100 text-gray-700" },
   { value: "IN_PROGRESS", label: "진행중", color: "bg-blue-100 text-blue-700" },
-  { value: "ON_HOLD",     label: "보류",  color: "bg-yellow-100 text-yellow-700" },
+  { value: "ON_HOLD",     label: "중단",  color: "bg-yellow-100 text-yellow-700" },
   { value: "DONE",        label: "완료",  color: "bg-green-100 text-green-700" },
-  { value: "BLOCKED",     label: "차단",  color: "bg-red-100 text-red-700" },
 ];
 
 const DEP_TYPES: Record<string, string> = {
@@ -48,12 +47,12 @@ interface Props {
 
 function SegmentCard({
   seg, projectId, taskId, taskName, saving, setSaving, onRefresh, onDelete, readonly = false,
-  isHidden, onToggleVisibility, pushUndo, refreshKey = 0,
+  isFirst = false, isSingleSeg = false, isHidden, onToggleVisibility, pushUndo, refreshKey = 0,
 }: {
   seg: any; projectId: string; taskId: string; taskName?: string;
   saving: string | null; setSaving: (s: string | null) => void;
   onRefresh: () => void; onDelete: (segId: string) => void; readonly?: boolean;
-  isHidden?: boolean; onToggleVisibility?: () => void;
+  isFirst?: boolean; isSingleSeg?: boolean; isHidden?: boolean; onToggleVisibility?: () => void;
   pushUndo?: (action: { label: string; undo: () => Promise<void>; redo: () => Promise<void> }) => void;
   refreshKey?: number;
 }) {
@@ -267,8 +266,11 @@ function SegmentCard({
     <div className={clsx("border rounded-lg p-3 space-y-2", isHidden ? "border-gray-100 bg-gray-50/50 dark:bg-gray-500/10 opacity-60" : "border-gray-200")}>
       {/* 구간명 + 토글 + 삭제 */}
       <div className="flex items-center gap-2">
-        {readonly ? (
-          <p className="flex-1 text-sm font-medium text-gray-800">{seg.name}</p>
+        {(readonly || (isFirst && isSingleSeg)) ? (
+          <p className="flex-1 text-sm font-medium text-gray-500 dark:text-gray-400"
+            title={isFirst && isSingleSeg ? "첫 구간명은 태스크명과 연동됩니다(태스크명으로 수정)" : undefined}>
+            {isFirst ? (taskName ?? seg.name) : seg.name}
+          </p>
         ) : (
           <input
             type="text" value={name}
@@ -991,11 +993,6 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
                 {s.label}
               </button>
             ))}
-            {task.isCritical && (
-              <span className="px-2 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-medium border-2 border-red-200">
-                🔴 크리티컬
-              </span>
-            )}
           </div>
           {isParent ? (
             <div className="flex items-center gap-3 pointer-events-none select-none">
@@ -1250,10 +1247,12 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
                 {(task.segments ?? []).length === 0 ? (
                   <p className="text-sm text-gray-400 text-center py-3">구간이 없습니다.</p>
                 ) : (
-                  (task.segments ?? []).map((seg: any) => (
+                  (task.segments ?? []).map((seg: any, segIdx: number) => (
                     <SegmentCard
                       key={seg.id}
                       seg={seg}
+                      isFirst={segIdx === 0}
+                      isSingleSeg={(task.segments ?? []).length === 1}
                       projectId={projectId}
                       taskId={task.id}
                       taskName={task.name}

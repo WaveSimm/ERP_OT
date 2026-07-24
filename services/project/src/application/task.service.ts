@@ -6,7 +6,7 @@ import { ProjectGateway } from "../infrastructure/websocket/project.gateway.js";
 import { AggregateService } from "./aggregate.service.js";
 
 const STATUS_KO: Record<string, string> = {
-  TODO: "예정", IN_PROGRESS: "진행중", DONE: "완료", BLOCKED: "차단",
+  TODO: "예정", IN_PROGRESS: "진행중", ON_HOLD: "중단", DONE: "완료",
 };
 
 // 옵셔널 필드는 Zod `.optional()`이 산출하는 `T | undefined`와 정합하도록 명시
@@ -164,14 +164,27 @@ export class TaskService {
       },
     });
 
-    // 기본 구간명 동기화: 태스크명 변경 시, 기존 태스크명과 동일한 이름의 구간을
-    //   새 태스크명으로 함께 변경한다(생성 시 태스크명=구간명으로 만들어지는 "기본 구간" 케이스).
-    //   사용자가 별도로 지어둔 구간명(예: "1차"/"2차")은 그대로 보존한다.
+    // 중단(ON_HOLD) 캐스케이드: 부모를 중단하면 하위(완료 제외)도 중단,
+    //   중단 해제하면 중단이던 하위를 진척률 기준 자동 상태로 되돌림. (진행/완료는 자동 롤업 유지)
+    if (dto.status !== undefined && dto.status !== existing.status
+        && (dto.status === "ON_HOLD" || existing.status === "ON_HOLD")) {
+      await this.cascadeHold(taskId, existing.projectId, dto.status === "ON_HOLD");
+    }
+
+    // 첫 구간(sortOrder 최소)은 "구간이 1개일 때만" 태스크명과 동기화 — 태스크명 변경 시 함께 변경.
+    //   구간이 여러 개면 첫 구간명도 자유 이름(사용자 편집 가능)이므로 덮어쓰지 않는다.
     if (dto.name !== undefined && dto.name !== existing.name) {
-      await this.prisma.taskSegment.updateMany({
-        where: { taskId, name: existing.name },
-        data: { name: dto.name },
-      });
+      const segCount = await this.prisma.taskSegment.count({ where: { taskId } });
+      if (segCount === 1) {
+        const firstSeg = await this.prisma.taskSegment.findFirst({
+          where: { taskId },
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          select: { id: true },
+        });
+        if (firstSeg) {
+          await this.prisma.taskSegment.update({ where: { id: firstSeg.id }, data: { name: dto.name } });
+        }
+      }
     }
 
     // 의미있는 변경만 activity 기록 (sortOrder/parentId 단독 변경은 드래그 재정렬로 제외)
@@ -373,10 +386,13 @@ export class TaskService {
 
     // 시점 task: startDate/endDate 어느 쪽 변경이든 둘 다 동기화
     const milestoneSync = segment.task.isMilestone && (dto.startDate !== undefined || dto.endDate !== undefined);
+    // 첫 구간(sortOrder 최소)은 태스크명과 연동되므로 이름 직접 변경 무시(태스크명으로만 변경)
+    const isFirstSeg = [...segment.task.segments]
+      .sort((a, b) => a.sortOrder - b.sortOrder || (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0))[0]?.id === segmentId;
     const updated = await this.prisma.taskSegment.update({
       where: { id: segmentId },
       data: {
-        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.name !== undefined && !isFirstSeg && { name: dto.name }),
         ...(milestoneSync
           ? { startDate: newStart, endDate: newEnd }
           : {
@@ -686,6 +702,41 @@ export class TaskService {
 
     // 프로젝트 상태 자동 동기화
     await this.syncProjectStatus(task.projectId);
+  }
+
+  /** 중단(ON_HOLD) 상태를 하위 태스크로 전파(위→아래). hold=true면 중단, false면 해제. */
+  private async cascadeHold(rootId: string, projectId: string, hold: boolean): Promise<void> {
+    const all = await this.prisma.task.findMany({
+      where: { projectId },
+      select: { id: true, parentId: true, status: true, overallProgress: true },
+    });
+    const childrenOf = new Map<string, typeof all>();
+    for (const t of all) {
+      if (!t.parentId) continue;
+      const arr = childrenOf.get(t.parentId);
+      if (arr) arr.push(t);
+      else childrenOf.set(t.parentId, [t]);
+    }
+    const descendants: typeof all = [];
+    const queue = [...(childrenOf.get(rootId) ?? [])];
+    while (queue.length) {
+      const t = queue.shift()!;
+      descendants.push(t);
+      const kids = childrenOf.get(t.id);
+      if (kids) queue.push(...kids);
+    }
+    if (hold) {
+      // 완료(DONE)·이미 중단 제외하고 중단 처리
+      const ids = descendants.filter((t) => t.status !== "DONE" && t.status !== "ON_HOLD").map((t) => t.id);
+      if (ids.length) await this.prisma.task.updateMany({ where: { id: { in: ids } }, data: { status: "ON_HOLD" } });
+    } else {
+      // 중단 해제: 중단이던 하위를 진척률 기준 자동 상태로 복귀
+      for (const t of descendants.filter((t) => t.status === "ON_HOLD")) {
+        const p = t.overallProgress ?? 0;
+        const s: TaskStatus = p >= 100 ? "DONE" : p > 0 ? "IN_PROGRESS" : "TODO";
+        await this.prisma.task.update({ where: { id: t.id }, data: { status: s } });
+      }
+    }
   }
 
   private async syncProjectStatus(projectId: string): Promise<void> {

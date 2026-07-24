@@ -3,11 +3,11 @@ import { ApprovalStatus, LeaveType } from "@prisma/client";
 
 // ─────────────────────────────────────────────
 // 관리부서 전용 — 관리>근태현황 (전 직원 휴가·휴일근무 + ecount 결재 확인)
-//   접근: ADMIN 역할 또는 관리부서(회계·경영지원·임원·대표이사) 소속.
+//   접근: ADMIN 역할 또는 관리부서(재무·경영지원·임원·대표이사) 소속.
 //   부서 판정은 auth 내부 API(all-with-departments, redis 5분 캐시) 기준 —
 //   프론트 메뉴 게이트(AppLayout MGMT_DEPTS)와 목록을 맞출 것.
 // ─────────────────────────────────────────────
-const MGMT_DEPTS = new Set(["회계팀", "경영지원팀", "임원", "대표이사"]);
+const MGMT_DEPTS = new Set(["재무팀", "경영지원팀", "임원", "대표이사"]);
 
 interface ApprovalCheckRow {
   kind: "LEAVE" | "HOLIDAY_WORK";

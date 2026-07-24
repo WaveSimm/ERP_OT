@@ -5,21 +5,22 @@ import { useFillHeight } from "@/hooks/useFillHeight";
 import { useRouter, useSearchParams } from "next/navigation";
 import { equipmentApi, sensorApi, equipmentCategoryApi, equipmentScheduleApi, supplierApi } from "@/lib/api";
 import SearchableSelect from "@/components/SearchableSelect";
+import { RowButton } from "@/components/ui/Table";
 
 const EQ_STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  AVAILABLE: { label: "가용", color: "bg-green-100 text-green-800" },
-  IN_OPERATION: { label: "운용중", color: "bg-blue-100 text-blue-800" },
-  IN_MAINTENANCE: { label: "정비중", color: "bg-yellow-100 text-yellow-800" },
-  BROKEN: { label: "고장", color: "bg-red-100 text-red-800" },
-  RETIRED: { label: "퇴역", color: "bg-gray-100 text-gray-500" },
+  AVAILABLE: { label: "가용", color: "bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300" },
+  IN_OPERATION: { label: "운용중", color: "bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300" },
+  IN_MAINTENANCE: { label: "정비중", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/20 dark:text-yellow-300" },
+  BROKEN: { label: "고장", color: "bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-300" },
+  RETIRED: { label: "퇴역", color: "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300" },
 };
 
 const SN_STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  AVAILABLE: { label: "가용", color: "bg-green-100 text-green-800" },
-  DEPLOYED: { label: "투입중", color: "bg-blue-100 text-blue-800" },
-  IN_MAINTENANCE: { label: "정비중", color: "bg-yellow-100 text-yellow-800" },
-  BROKEN: { label: "고장", color: "bg-red-100 text-red-800" },
-  RETIRED: { label: "퇴역", color: "bg-gray-100 text-gray-500" },
+  AVAILABLE: { label: "가용", color: "bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300" },
+  DEPLOYED: { label: "투입중", color: "bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300" },
+  IN_MAINTENANCE: { label: "정비중", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/20 dark:text-yellow-300" },
+  BROKEN: { label: "고장", color: "bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-300" },
+  RETIRED: { label: "퇴역", color: "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300" },
 };
 
 type EquipmentTab = "equipment" | "sensors" | "schedule";
@@ -127,13 +128,7 @@ function EquipmentListTab() {
 
   return (
     <>
-      <div className="flex items-center justify-start mb-4">
-        <button onClick={() => setShowForm(true)} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
-          + 장비 등록
-        </button>
-      </div>
-
-      {/* Filters */}
+      {/* Filters + 등록 (한 줄, 등록은 우측) */}
       <div className="flex gap-3 mb-4">
         <select value={filters.categoryId} onChange={(e) => setFilters({ ...filters, categoryId: e.target.value })}
           className="border rounded px-3 py-2 text-sm">
@@ -148,6 +143,9 @@ function EquipmentListTab() {
         <input type="text" placeholder="이름/일련번호 검색" value={filters.search}
           onChange={(e) => setFilters({ ...filters, search: e.target.value })}
           className="border rounded px-3 py-2 text-sm flex-1" />
+        <button onClick={() => setShowForm(true)} className="shrink-0 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
+          + 장비 등록
+        </button>
       </div>
 
       {/* Create Form */}
@@ -241,7 +239,7 @@ function EquipmentListTab() {
             }
 
             return (
-              <div key={eq.id} className="bg-white border rounded-lg p-4 hover:shadow-md transition flex items-center gap-4">
+              <div key={eq.id} className="bg-white border dark:border-gray-700/60 rounded-lg p-4 hover:shadow-md transition flex items-center gap-4">
                 <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-2xl shrink-0 cursor-pointer"
                   onClick={() => router.push(`/equipment/${eq.id}`)}>
                   {eq.category?.name === "USV" ? "🚤" : eq.category?.name === "AUV" ? "🤿" : "🔧"}
@@ -257,14 +255,8 @@ function EquipmentListTab() {
                   </div>
                 </div>
                 <div className="flex gap-1.5 shrink-0">
-                  <button onClick={() => startEdit(eq)}
-                    className="px-3 py-1.5 text-xs font-medium border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors">
-                    수정
-                  </button>
-                  <button onClick={() => handleDelete(eq.id, eq.name)}
-                    className="px-3 py-1.5 text-xs font-medium border border-red-200 rounded-lg text-red-500 hover:bg-red-50 transition-colors dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950">
-                    삭제
-                  </button>
+                  <RowButton onClick={() => startEdit(eq)}>수정</RowButton>
+                  <RowButton danger onClick={() => handleDelete(eq.id, eq.name)}>삭제</RowButton>
                 </div>
               </div>
             );
@@ -368,13 +360,7 @@ function SensorListTab() {
 
   return (
     <>
-      <div className="flex items-center justify-start mb-4">
-        <button onClick={() => setShowForm(true)} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
-          + 센서 등록
-        </button>
-      </div>
-
-      {/* Filters */}
+      {/* Filters + 등록 (한 줄, 등록은 우측) */}
       <div className="flex gap-3 mb-4">
         <select value={filters.categoryId} onChange={(e) => setFilters({ ...filters, categoryId: e.target.value })}
           className="border rounded px-3 py-2 text-sm">
@@ -389,6 +375,9 @@ function SensorListTab() {
         <input type="text" placeholder="이름/일련번호 검색" value={filters.search}
           onChange={(e) => setFilters({ ...filters, search: e.target.value })}
           className="border rounded px-3 py-2 text-sm flex-1" />
+        <button onClick={() => setShowForm(true)} className="shrink-0 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
+          + 센서 등록
+        </button>
       </div>
 
       {/* Create Form */}
@@ -482,7 +471,7 @@ function SensorListTab() {
             }
 
             return (
-              <div key={sn.id} className="bg-white border rounded-lg p-4 hover:shadow-md transition flex items-center gap-4">
+              <div key={sn.id} className="bg-white border dark:border-gray-700/60 rounded-lg p-4 hover:shadow-md transition flex items-center gap-4">
                 <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-lg shrink-0 cursor-pointer"
                   onClick={() => router.push(`/equipment/sensors/${sn.id}`)}>📡</div>
                 <div className="flex-1 min-w-0 cursor-pointer" onClick={() => router.push(`/equipment/sensors/${sn.id}`)}>
@@ -502,14 +491,8 @@ function SensorListTab() {
                   </div>
                 </div>
                 <div className="flex gap-1.5 shrink-0">
-                  <button onClick={() => startEdit(sn)}
-                    className="px-3 py-1.5 text-xs font-medium border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors">
-                    수정
-                  </button>
-                  <button onClick={() => handleDelete(sn.id, sn.name)}
-                    className="px-3 py-1.5 text-xs font-medium border border-red-200 rounded-lg text-red-500 hover:bg-red-50 transition-colors dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950">
-                    삭제
-                  </button>
+                  <RowButton onClick={() => startEdit(sn)}>수정</RowButton>
+                  <RowButton danger onClick={() => handleDelete(sn.id, sn.name)}>삭제</RowButton>
                 </div>
               </div>
             );
@@ -602,14 +585,16 @@ function ScheduleTab() {
   return (
     <>
       <div className="flex items-center gap-3 mb-2">
-        <select value={assetType} onChange={(e) => setAssetType(e.target.value)} className="border rounded px-3 py-1.5 text-sm">
+        <select value={assetType} onChange={(e) => setAssetType(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded px-3 py-1.5 text-sm">
           <option value="ALL">전체</option>
           <option value="EQUIPMENT">장비만</option>
           <option value="SENSOR">센서만</option>
         </select>
-        <button onClick={() => setBaseDate(addMonths(baseDate, -1))} className="px-3 py-1.5 border rounded text-sm">&lt; 이전월</button>
-        <span className="font-semibold">{formatMonth(baseDate)}</span>
-        <button onClick={() => setBaseDate(addMonths(baseDate, 1))} className="px-3 py-1.5 border rounded text-sm">다음월 &gt;</button>
+        <div className="ml-auto flex items-center gap-2">
+          <button onClick={() => setBaseDate(addMonths(baseDate, -1))} className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-sm hover:bg-gray-50 dark:hover:bg-gray-800">&lt; 이전월</button>
+          <span className="font-semibold min-w-[84px] text-center">{formatMonth(baseDate)}</span>
+          <button onClick={() => setBaseDate(addMonths(baseDate, 1))} className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-sm hover:bg-gray-50 dark:hover:bg-gray-800">다음월 &gt;</button>
+        </div>
       </div>
       <div className="flex gap-4 text-xs mb-4">
         {Object.entries(SCHED_TYPE_LABELS).map(([k, v]) => (
@@ -625,11 +610,11 @@ function ScheduleTab() {
       ) : !data?.assets?.length ? (
         <div className="text-center py-12 text-gray-400">일정이 없습니다.</div>
       ) : (
-        <div ref={tableBoxRef} className="bg-white border rounded-lg overflow-auto" style={{ maxHeight: tableMaxH }}>
+        <div ref={tableBoxRef} className="bg-white border dark:border-gray-700/60 rounded-lg overflow-auto" style={{ maxHeight: tableMaxH }}>
           <table className="w-full text-sm" style={{ minWidth: `${200 + daysInMonth * 28}px` }}>
             <thead className="sticky top-0 z-20">
-              <tr className="bg-gray-50 border-b">
-                <th className="p-2 text-left w-48 sticky left-0 bg-gray-50 z-30">자산</th>
+              <tr className="bg-gray-50 border-b dark:border-gray-700/60">
+                <th className="p-2 text-center w-48 sticky left-0 bg-gray-50 z-30">자산</th>
                 {Array.from({ length: daysInMonth }, (_, i) => (
                   <th key={i} className="p-1 text-center text-xs text-gray-400 w-7">
                     {i + 1}
@@ -639,7 +624,7 @@ function ScheduleTab() {
             </thead>
             <tbody>
               {data.assets.map((asset: any) => (
-                <tr key={asset.id} className="border-b hover:bg-gray-50">
+                <tr key={asset.id} className="border-b dark:border-gray-700/60 hover:bg-gray-50">
                   <td className="p-2 sticky left-0 bg-white z-10">
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs text-gray-400">{asset.type === "EQUIPMENT" ? "🔧" : "📡"}</span>

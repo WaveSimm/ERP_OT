@@ -21,10 +21,10 @@ const COOKIE_BASE = {
   sameSite: "strict" as const,
   secure: process.env.NODE_ENV === "production",
 };
-const ACCESS_COOKIE_MAX_AGE = 60 * 60; // 1h
-const REFRESH_COOKIE_MAX_AGE = 7 * 86400; // 7d
+const ACCESS_COOKIE_MAX_AGE = 15 * 60; // 15m (ACCESS_TTL과 동일)
+const REFRESH_COOKIE_MAX_AGE = 30 * 60; // 30m 슬라이딩 (REFRESH_TTL과 동일 — 30분 유휴 로그아웃)
 const DEVICE_COOKIE_MAX_AGE = 365 * 86400; // 1y (디바이스 식별 영구)
-const CSRF_COOKIE_MAX_AGE = 60 * 60; // 1h (Access와 동일 회전)
+const CSRF_COOKIE_MAX_AGE = 30 * 60; // 30m (세션 창과 동일 — refresh마다 재발급)
 
 // 클라이언트 IP 추출 (C6 forward 후 활용)
 function getClientIp(req: FastifyRequest): string | undefined {
@@ -181,18 +181,27 @@ export async function authRoutes(app: FastifyInstance, opts: { authService: Auth
   });
 
   // POST /api/v1/auth/logout — 현재 디바이스 세션만 종료
-  app.post("/logout", { preHandler: [authenticate] }, async (req, reply) => {
-    const deviceId = (req.cookies as Record<string, string>)["deviceId"];
-    await authService.logout(req.userId, deviceId);
+  //   authenticate에 의존하지 않는다: access 토큰이 만료된 상태로 로그아웃해도
+  //   refresh 쿠키 기준으로 DB 토큰을 삭제하고 쿠키를 정리해 세션을 확실히 끝낸다.
+  //   (기존엔 access 만료 시 로그아웃이 401로 무효화돼 세션이 살아남는 버그가 있었음)
+  app.post("/logout", async (req, reply) => {
+    const cookies = req.cookies as Record<string, string>;
+    const refreshToken = cookies["refreshToken"];
+    const deviceId = cookies["deviceId"];
+    const userId = refreshToken
+      ? await authService.logoutByRefreshToken(refreshToken, deviceId)
+      : undefined;
     clearAuthCookies(reply);
-    publishActivity({
-      action: "auth.logout",
-      userId: req.userId,
-      entityType: "user",
-      entityId: req.userId,
-      description: "로그아웃",
-      metadata: { deviceId, ipAddress: getClientIp(req) },
-    });
+    if (userId) {
+      publishActivity({
+        action: "auth.logout",
+        userId,
+        entityType: "user",
+        entityId: userId,
+        description: "로그아웃",
+        metadata: { deviceId, ipAddress: getClientIp(req) },
+      });
+    }
     return reply.code(204).send();
   });
 

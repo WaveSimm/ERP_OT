@@ -115,7 +115,7 @@ export async function templateRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/templates
   fastify.post("/templates", {
-    preHandler: requireRole("ADMIN", "MANAGER"),
+    preHandler: requireRole("ADMIN", "MANAGER", "OPERATOR"),
   }, async (req, reply) => {
     const dto = createTemplateSchema.parse(req.body);
     const template = await service.createTemplate(dto as CreateTemplateDto, req.userId);
@@ -124,7 +124,7 @@ export async function templateRoutes(fastify: FastifyInstance) {
 
   // PATCH /api/v1/templates/:templateId
   fastify.patch("/templates/:templateId", {
-    preHandler: requireRole("ADMIN", "MANAGER"),
+    preHandler: requireRole("ADMIN", "MANAGER", "OPERATOR"),
   }, async (req, reply) => {
     const { templateId } = req.params as { templateId: string };
     const dto = updateTemplateSchema.parse(req.body);
@@ -133,7 +133,7 @@ export async function templateRoutes(fastify: FastifyInstance) {
 
   // DELETE /api/v1/templates/:templateId
   fastify.delete("/templates/:templateId", {
-    preHandler: requireRole("ADMIN", "MANAGER"),
+    preHandler: requireRole("ADMIN", "MANAGER", "OPERATOR"),
   }, async (req, reply) => {
     const { templateId } = req.params as { templateId: string };
     await service.deleteTemplate(templateId);
@@ -151,7 +151,7 @@ export async function templateRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/templates/:templateId/instantiate
   fastify.post("/templates/:templateId/instantiate", {
-    preHandler: requireRole("ADMIN", "MANAGER"),
+    preHandler: requireRole("ADMIN", "MANAGER", "OPERATOR"),
   }, async (req, reply) => {
     const { templateId } = req.params as { templateId: string };
     const dto = instantiateSchema.parse(req.body);
@@ -163,7 +163,7 @@ export async function templateRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/projects/:projectId/save-as-template
   fastify.post("/projects/:projectId/save-as-template", {
-    preHandler: requireRole("ADMIN", "MANAGER"),
+    preHandler: requireRole("ADMIN", "MANAGER", "OPERATOR"),
   }, async (req, reply) => {
     const { projectId } = req.params as { projectId: string };
     const dto = saveAsTemplateSchema.parse(req.body);
@@ -175,7 +175,7 @@ export async function templateRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/projects/:projectId/tasks/:taskId/copy
   fastify.post("/projects/:projectId/tasks/:taskId/copy", {
-    preHandler: requireRole("ADMIN", "MANAGER"),
+    preHandler: requireRole("ADMIN", "MANAGER", "OPERATOR"),
   }, async (req, reply) => {
     const { taskId } = req.params as { projectId: string; taskId: string };
     const dto = copyTaskSchema.parse(req.body);
@@ -186,7 +186,7 @@ export async function templateRoutes(fastify: FastifyInstance) {
   // POST /api/v1/projects/:projectId/tasks/bulk-copy
   // 다중 태스크 복사 — 선택 세트 내부의 parent-child 관계 보존
   fastify.post("/projects/:projectId/tasks/bulk-copy", {
-    preHandler: requireRole("ADMIN", "MANAGER"),
+    preHandler: requireRole("ADMIN", "MANAGER", "OPERATOR"),
   }, async (req, reply) => {
     const dto = bulkCopyTasksSchema.parse(req.body);
     const result = await service.copyTasks(
@@ -204,7 +204,7 @@ export async function templateRoutes(fastify: FastifyInstance) {
 
   // POST /api/v1/projects/:projectId/milestones/:milestoneId/copy
   fastify.post("/projects/:projectId/milestones/:milestoneId/copy", {
-    preHandler: requireRole("ADMIN", "MANAGER"),
+    preHandler: requireRole("ADMIN", "MANAGER", "OPERATOR"),
   }, async (req, reply) => {
     const { milestoneId } = req.params as { projectId: string; milestoneId: string };
     const dto = copyMilestoneSchema.parse(req.body);

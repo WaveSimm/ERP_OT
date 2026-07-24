@@ -1,10 +1,19 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import "./globals.css";
+import PwaRegister from "@/components/PwaRegister";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://erp.oceantech.co.kr"),
   title: "ERP-OT 프로젝트 관리",
   description: "ERP/OT 프로젝트 관리 시스템",
+  applicationName: "ERP-OT",
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "ERP-OT" },
+  icons: { apple: "/icons/apple-touch-icon.png" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#2563eb",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -21,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       {/* Suspense 경계 — useSearchParams 등 CSR 훅을 쓰는 페이지의 정적 빌드 오류 방지 (전역 1회) */}
       <body className="bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 min-h-screen">
+        <PwaRegister />
         <Suspense fallback={null}>{children}</Suspense>
       </body>
     </html>

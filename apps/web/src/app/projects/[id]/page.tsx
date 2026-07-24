@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import clsx from "clsx";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { projectApi, taskApi, resourceApi, baselineApi, commentApi, deploymentApi, userManagementApi, folderApi, listAssignableResources } from "@/lib/api";
+import { projectApi, taskApi, resourceApi, baselineApi, deploymentApi, userManagementApi, folderApi, listAssignableResources } from "@/lib/api";
 import nextDynamic from "next/dynamic";
 import { usePermission } from "@/hooks/usePermission";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
@@ -95,7 +95,6 @@ export default function ProjectDetailPage() {
   // 템플릿 적용/저장 상태는 프로젝트 목록 화면으로 이동 (2026-06-24)
 
   // Comment content map: commentId → content (for activity feed)
-  const [commentContentMap, setCommentContentMap] = useState<Record<string, string>>({});
 
   // Undo / Redo — undo/redo 실행 후 열린 Drawer도 갱신
   const selectedTaskRef = useRef<any>(null);
@@ -182,7 +181,7 @@ export default function ProjectDetailPage() {
     }).catch(() => {});
     // 폴더 데이터: 서버 folderApi 우선 (다른 PC에서도 동일 구조), 실패 시 localStorage fallback
     folderApi.list().then((apiFolders: any[]) => {
-      setPickerFolders(apiFolders.map((f: any) => ({ id: f.id, name: f.name, parentId: f.parentId ?? null })));
+      const baseFolders = apiFolders.map((f: any) => ({ id: f.id, name: f.name, parentId: f.parentId ?? null }));
       const map: Record<string, string[]> = {};
       const order: Record<string, string[]> = {};
       for (const f of apiFolders) {
@@ -193,8 +192,26 @@ export default function ProjectDetailPage() {
           map[it.projectId].push(f.id);
         }
       }
-      setPickerProjMap(map);
-      setPickerFolderProjOrder(order);
+      // 내 즐겨찾기(가상 폴더) — 이동 picker에도 표시. 실제 폴더가 아니라 favorites를 별도 조회해 합침.
+      folderApi.favorites().then((fav: any) => {
+        const favIds: string[] = fav?.projectIds ?? [];
+        if (favIds.length) {
+          order["__fav__"] = favIds;
+          for (const pid of favIds) {
+            if (!map[pid]) map[pid] = [];
+            map[pid].push("__fav__");
+          }
+          setPickerFolders([{ id: "__fav__", name: "내 즐겨찾기", parentId: null }, ...baseFolders]);
+        } else {
+          setPickerFolders(baseFolders);
+        }
+        setPickerProjMap(map);
+        setPickerFolderProjOrder(order);
+      }).catch(() => {
+        setPickerFolders(baseFolders);
+        setPickerProjMap(map);
+        setPickerFolderProjOrder(order);
+      });
     }).catch(() => {
       // fallback — server 호출 실패 시 localStorage (구 동작 유지)
       try {
@@ -253,27 +270,11 @@ export default function ProjectDetailPage() {
     baselineApi.list(projectId).then(setBaselines).catch(() => {});
   }, [projectId]);
 
-  // 활동 피드 댓글 내용 조회 (metadata가 null인 기존 데이터 대응)
-  useEffect(() => {
-    const commentActivities = activities.filter(
-      (a) => a.action === "COMMENT_CREATED" || a.action === "COMMENT_UPDATED",
-    );
-    if (!commentActivities.length || !ganttData?.tasks?.length) return;
-    const commentIds = new Set(commentActivities.map((a: any) => a.entityId));
-    Promise.all(
-      (ganttData.tasks as any[]).map((t: any) =>
-        commentApi.list(t.id).catch(() => [] as any[]),
-      ),
-    ).then((results) => {
-      const map: Record<string, string> = {};
-      for (const comments of results) {
-        for (const c of comments as any[]) {
-          if (commentIds.has(c.id)) map[c.id] = c.content;
-        }
-      }
-      setCommentContentMap(map);
-    });
-  }, [activities, ganttData?.tasks]);
+  // (제거됨) 활동 피드 댓글 내용 N+1 조회 — 백엔드 listActivities가 comments를
+  // entityId로 조인해 description에 내용을 담아 내려주므로(collab.service.ts)
+  // 전 태스크 comments GET은 중복이었고, 활동탭 15초 폴링과 겹쳐 사용자
+  // rate limit(429 일 1,000건+)을 소진시키던 주범. metadata.content(신규 행)
+  // → enriched description(구 행) 순으로 ActivityTab이 처리한다.
 
   // active baseline 변경 시 세그먼트 로딩
   useEffect(() => {
@@ -460,7 +461,14 @@ export default function ProjectDetailPage() {
       const saved: string[] = JSON.parse(localStorage.getItem("erp_task_cols_v1") ?? "null") ?? DEFAULT_COL_ORDER;
       // migrate: replace legacy "cpm" with "note"
       const migrated = saved.map((c) => c === "cpm" ? "note" : c) as ColId[];
-      return migrated.filter((c) => c in COL_CFG);
+      const filtered = migrated.filter((c) => c in COL_CFG);
+      // segProgress(구간) 신규 열: 기존 저장 순서에 없으면 기간(dates) 뒤에 삽입 (2026-07-22)
+      if (!filtered.includes("segProgress")) {
+        const di = filtered.indexOf("dates");
+        if (di >= 0) filtered.splice(di + 1, 0, "segProgress");
+        else filtered.push("segProgress");
+      }
+      return filtered;
     } catch { return DEFAULT_COL_ORDER; }
   });
   const [colDragging, setColDragging] = useState<ColId | null>(null);
@@ -492,7 +500,42 @@ export default function ProjectDetailPage() {
 
   // ── 다중 선택 state ──────────────────────────────────────────────────────────
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // 태스크 접힘 상태를 프로젝트별로 기억. localStorage에서 최초 렌더에 즉시 복원(effect 타이밍 무관).
+  const collapsedKey = (pid: string) => `erp_proj_task_collapsed:${pid}`;
+  const readCollapsed = (pid: string): Set<string> => {
+    if (typeof window === "undefined" || !pid) return new Set();
+    try {
+      const raw = localStorage.getItem(collapsedKey(pid));
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? new Set<string>(arr) : new Set<string>();
+    } catch { return new Set<string>(); }
+  };
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => readCollapsed(projectId));
+  // 같은 라우트 내에서 프로젝트가 바뀌면 그 프로젝트 상태로 재복원 (첫 마운트는 초기값이 이미 처리).
+  const collapsedProjRef = useRef(projectId);
+  useEffect(() => {
+    if (collapsedProjRef.current === projectId) return;
+    collapsedProjRef.current = projectId;
+    setCollapsed(readCollapsed(projectId));
+  }, [projectId]);
+  // 저장은 사용자가 접기/펼치기 할 때만(마운트 시 빈값 덮어쓰기 없음).
+  const setCollapsedPersist: typeof setCollapsed = (updater) => {
+    setCollapsed((prev) => {
+      const next = typeof updater === "function"
+        ? (updater as (p: Set<string>) => Set<string>)(prev)
+        : updater;
+      if (typeof window !== "undefined" && projectId) {
+        try { localStorage.setItem(collapsedKey(projectId), JSON.stringify([...next])); } catch {}
+      }
+      return next;
+    });
+  };
+  // 접기/펼치기 토글 — 태스크 목록·간트가 공유(controlled). 지속형 setter로 위임.
+  const toggleCollapse = (taskId: string) => setCollapsedPersist((prev) => {
+    const next = new Set(prev);
+    next.has(taskId) ? next.delete(taskId) : next.add(taskId);
+    return next;
+  });
   const lastSelectedRef = useRef<string | null>(null);
 
   // 선택 툴바 높이 — sticky 헤더(<thead>)의 top 오프셋 계산용 (툴바가 열 제목 위에 겹치지 않게)
@@ -1157,6 +1200,8 @@ export default function ProjectDetailPage() {
               <GanttChart
                 data={computedGanttData!}
                 flatItems={flatItems}
+                collapsed={collapsed}
+                onToggleCollapse={toggleCollapse}
                 canRename={isOperator}
                 viewStart={viewStart || undefined}
                 viewEnd={viewEnd || undefined}
@@ -1245,7 +1290,7 @@ export default function ProjectDetailPage() {
             setCopyTargets={setCopyTargets}
             handleDeleteTask={handleDeleteTask}
             toggleSelect={toggleSelect}
-            setCollapsed={setCollapsed}
+            setCollapsed={setCollapsedPersist}
             saveTaskName={saveTaskName}
             startEdit={startEdit}
             saveStatus={saveStatus}
@@ -1276,7 +1321,6 @@ export default function ProjectDetailPage() {
             activities={activities}
             projectDeployments={projectDeployments}
             userMap={userMap}
-            commentContentMap={commentContentMap}
             projectName={ganttData?.project?.name}
             onRefresh={loadActivities}
           />

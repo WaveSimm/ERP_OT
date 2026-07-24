@@ -67,39 +67,26 @@ export class IssueDetectorService {
     const issues: DashboardIssue[] = [];
     const detectedAt = new Date().toISOString();
 
-    // ─── CRITICAL: 크리티컬 패스 지연 ─────────────────────────────────────────
-    const delayedCriticalTasks = project.tasks.filter((t) => {
-      if (!t.isCritical || t.status === "DONE") return false;
-      const latestEnd = t.segments.reduce((max: Date | null, s) => {
-        const d = new Date(s.endDate);
-        return !max || d > max ? d : max;
-      }, null);
-      if (!latestEnd) return false;
-      return latestEnd < today && dateDiffDays(latestEnd, today) > thresholds.delayCriticalDays;
-    });
+    // WBS 상위(부모) 태스크는 하위가 지연되면 롤업으로 같이 지연 잡힘 → 이중 계산 방지.
+    // 진행률 계산(task.service)과 동일하게 리프(자식 없는 태스크)만 카운트. 부모명은 표시용으로 첨부.
+    const taskById = new Map(project.tasks.map((t) => [t.id, t]));
+    const parentIds = new Set(project.tasks.map((t) => t.parentId).filter(Boolean));
+    const isLeaf = (t: { id: string }) => !parentIds.has(t.id);
+    // 상위 전체 경로("최상위 › … › 직속부모")를 이어붙임. 순환은 guard로 방지.
+    const parentNameOf = (t: { parentId: string | null }): string | null => {
+      const names: string[] = [];
+      const guard = new Set<string>();
+      let cur = t.parentId ? taskById.get(t.parentId) : undefined;
+      while (cur && !guard.has(cur.id)) {
+        guard.add(cur.id);
+        names.unshift(cur.name);
+        cur = cur.parentId ? taskById.get(cur.parentId) : undefined;
+      }
+      return names.length ? names.join(" › ") : null;
+    };
 
-    if (delayedCriticalTasks.length > 0) {
-      const maxDelay = Math.max(...delayedCriticalTasks.map((t) => {
-        const latestEnd = t.segments.reduce((max: Date | null, s) => {
-          const d = new Date(s.endDate); return !max || d > max ? d : max;
-        }, null) as Date;
-        return dateDiffDays(latestEnd, today);
-      }));
-      issues.push({
-        id: `CRITICAL_PATH_DELAYED:${projectId}`,
-        projectId,
-        severity: "CRITICAL",
-        category: "SCHEDULE_DELAY",
-        title: "크리티컬 패스 지연",
-        description: `크리티컬 패스 태스크 ${delayedCriticalTasks.length}개가 지연되었습니다. 최대 ${maxDelay}일 지연.`,
-        detectedAt,
-        metadata: {
-          delayedCount: delayedCriticalTasks.length,
-          maxDelayDays: maxDelay,
-          tasks: delayedCriticalTasks.slice(0, 3).map((t) => ({ id: t.id, name: t.name })),
-        },
-      });
-    }
+    // 크리티컬 패스 지연(CRITICAL) 이슈는 폐기 — CPM 크리티컬 판정 제거 (2026-07-21).
+    //   실제 지연은 아래 "태스크 일정 지연"(WARNING)에서 크리티컬 구분 없이 감지.
 
     // 예산 이슈(BUDGET_CRITICAL/WARNING)는 폐기 — 예산 개념 미사용 (2026-06-24)
     // 자원 과부하 이슈(RESOURCE_CRITICAL/WARNING)는 폐기 — 미사용 (2026-07-10)
@@ -127,9 +114,9 @@ export class IssueDetectorService {
       });
     }
 
-    // ─── WARNING: 비크리티컬 태스크 지연 ───────────────────────────────────────
+    // ─── WARNING: 태스크 일정 지연 (리프 태스크, 크리티컬 구분 없음) ─────────────
     const delayedNonCritical = project.tasks.filter((t) => {
-      if (t.isCritical || t.status === "DONE") return false;
+      if (!isLeaf(t) || t.status === "DONE") return false;
       const latestEnd = t.segments.reduce((max: Date | null, s) => {
         const d = new Date(s.endDate); return !max || d > max ? d : max;
       }, null);
@@ -143,11 +130,16 @@ export class IssueDetectorService {
         severity: "WARNING",
         category: "SCHEDULE_DELAY",
         title: "태스크 일정 지연",
-        description: `비크리티컬 태스크 ${delayedNonCritical.length}개가 지연되었습니다.`,
+        description: `지연된 태스크 ${delayedNonCritical.length}개.`,
         detectedAt,
         metadata: {
           delayedCount: delayedNonCritical.length,
-          tasks: delayedNonCritical.slice(0, 3).map((t) => ({ id: t.id, name: t.name })),
+          tasks: delayedNonCritical.map((t) => {
+            const latestEnd = t.segments.reduce((max: Date | null, s) => {
+              const d = new Date(s.endDate); return !max || d > max ? d : max;
+            }, null) as Date | null;
+            return { id: t.id, name: t.name, parentName: parentNameOf(t), delayDays: latestEnd ? dateDiffDays(latestEnd, today) : 0 };
+          }),
         },
       });
     }
@@ -156,7 +148,7 @@ export class IssueDetectorService {
     const staleThreshold = new Date(today);
     staleThreshold.setDate(today.getDate() - 7);
     const staleTasks = project.tasks.filter((t) =>
-      t.status === "IN_PROGRESS" && new Date(t.updatedAt) < staleThreshold,
+      isLeaf(t) && t.status === "IN_PROGRESS" && new Date(t.updatedAt) < staleThreshold,
     );
     if (staleTasks.length > 0) {
       issues.push({
@@ -169,8 +161,8 @@ export class IssueDetectorService {
         detectedAt,
         metadata: {
           staleCount: staleTasks.length,
-          tasks: staleTasks.slice(0, 3).map((t) => ({
-            id: t.id, name: t.name,
+          tasks: staleTasks.map((t) => ({
+            id: t.id, name: t.name, parentName: parentNameOf(t),
             staleDays: dateDiffDays(new Date(t.updatedAt), today),
           })),
         },
@@ -204,12 +196,13 @@ export class IssueDetectorService {
     }
 
     // ─── INFO: 이번 주 완료 예정 ────────────────────────────────────────────────
-    const endingThisWeek = project.tasks.flatMap((t) =>
-      t.segments.filter((s) => {
+    const endingThisWeek = project.tasks.flatMap((t) => {
+      if (!isLeaf(t)) return [];
+      return t.segments.filter((s) => {
         const end = new Date(s.endDate);
         return end >= today && end <= windowEnd && s.progressPercent < 100;
-      }).map((s) => ({ taskName: t.name, segmentName: s.name, endDate: s.endDate })),
-    );
+      }).map((s) => ({ taskId: t.id, taskName: t.name, parentName: parentNameOf(t), segmentName: s.name, endDate: s.endDate }));
+    });
     if (endingThisWeek.length > 0) {
       issues.push({
         id: `ENDING_THIS_WEEK:${projectId}`,
@@ -221,7 +214,7 @@ export class IssueDetectorService {
         detectedAt,
         metadata: {
           count: endingThisWeek.length,
-          segments: endingThisWeek.slice(0, 3),
+          segments: endingThisWeek,
         },
       });
     }

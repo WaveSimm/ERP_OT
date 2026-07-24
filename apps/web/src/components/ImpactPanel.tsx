@@ -205,7 +205,6 @@ export default function ImpactPanel({ projectId, tasks, onClose }: Props) {
                       <div key={i} className="rounded-lg border border-gray-200 p-3">
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-sm font-medium text-gray-800 flex items-center gap-1.5">
-                            {t.isCritical && <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />}
                             {t.taskName}
                           </span>
                           <span className={clsx(

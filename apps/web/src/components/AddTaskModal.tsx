@@ -20,7 +20,6 @@ export default function AddTaskModal({ projectId, defaultParentId, defaultSortOr
   const [isMilestone, setIsMilestone] = useState(defaultIsMilestone);
 
   // Task segment fields
-  const [segName, setSegName] = useState("");
   const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [endDate, setEndDate] = useState(() => {
     const d = new Date();
@@ -60,7 +59,7 @@ export default function AddTaskModal({ projectId, defaultParentId, defaultSortOr
       const segStart = isMilestone ? milestoneDate : startDate;
       const segEnd = isMilestone ? milestoneDate : endDate;
       const segment = await taskApi.createSegment(projectId, task.id, {
-        name: isMilestone ? "시점" : (segName.trim() || name.trim()),
+        name: isMilestone ? "시점" : name.trim(),
         startDate: segStart,
         endDate: segEnd,
       });
@@ -144,14 +143,7 @@ export default function AddTaskModal({ projectId, defaultParentId, defaultSortOr
           ) : (
             <div className="border-t border-gray-100 pt-4">
               <p className="text-xs font-semibold text-gray-500 uppercase mb-3">초기 구간</p>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">구간명</label>
-                <input
-                  type="text" value={segName} onChange={(e) => setSegName(e.target.value)}
-                  placeholder={name.trim() || "구간명"}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-              </div>
+              <p className="text-xs text-gray-400 mb-1">첫 구간명은 태스크명과 동일하게 만들어집니다.</p>
               <div className="grid grid-cols-2 gap-3 mt-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">시작일 *</label>

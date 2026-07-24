@@ -29,9 +29,9 @@ export default function ProjectSummaryDrawer({ projectId, onRename, onClose }: {
 
   const st = data ? (STATUS_CFG[data.status] ?? STATUS_CFG.PLANNING) : null;
 
-  // 프로젝트명 변경 — 관리자/매니저/소유자만, 이름 더블클릭으로 편집
+  // 프로젝트명 변경 — OPERATOR 이상 또는 소유자, 이름 더블클릭으로 편집 (백엔드 PATCH /projects/:id 와 동일 기준)
   const me = getUser();
-  const canRename = !!(onRename && me && data && (me.role === "ADMIN" || me.role === "MANAGER" || me.id === data.ownerId));
+  const canRename = !!(onRename && me && data && (me.role === "ADMIN" || me.role === "MANAGER" || me.role === "OPERATOR" || me.id === data.ownerId));
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [savingName, setSavingName] = useState(false);
@@ -150,8 +150,7 @@ export default function ProjectSummaryDrawer({ projectId, onRename, onClose }: {
                   <span className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full dark:text-green-300">완료 {data.taskStats.done}</span>
                   <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full dark:text-blue-300">진행 {data.taskStats.inProgress}</span>
                   <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">예정 {data.taskStats.todo}</span>
-                  {data.taskStats.blocked > 0 && <span className="text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-full dark:text-red-400">차단 {data.taskStats.blocked}</span>}
-                  {data.taskStats.onHold > 0 && <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">보류 {data.taskStats.onHold}</span>}
+                  {data.taskStats.onHold > 0 && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full dark:bg-amber-500/20 dark:text-amber-300">중단 {data.taskStats.onHold}</span>}
                   {data.taskStats.overdue > 0 && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">지연 {data.taskStats.overdue}</span>}
                 </div>
               </section>

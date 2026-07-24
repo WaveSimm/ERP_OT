@@ -1,5 +1,5 @@
 import { FastifyInstance } from "fastify";
-import { requireRole, requireManager, requireAdmin } from "../middleware/auth.middleware.js";
+import { requireOperator } from "../middleware/auth.middleware.js";
 
 export async function folderRoutes(fastify: FastifyInstance) {
   // 전체 폴더 목록
@@ -12,7 +12,7 @@ export async function folderRoutes(fastify: FastifyInstance) {
   // 폴더 생성
   fastify.post<{ Body: { name: string; parentId?: string; sortOrder?: number } }>(
     "/",
-    { preHandler: requireManager() },
+    { preHandler: requireOperator() },
     async (request, reply) => {
       // 보안 일괄패치 PDCA Layer 4 (NEW-1): "unknown" fallback 제거 — Layer 2 requireAuth가 userId 보장
       const userId = request.userId;
@@ -24,7 +24,7 @@ export async function folderRoutes(fastify: FastifyInstance) {
   // 폴더 수정 (이름, 부모, 순서)
   fastify.patch<{ Params: { id: string }; Body: { name?: string; parentId?: string; sortOrder?: number } }>(
     "/:id",
-    { preHandler: requireManager() },
+    { preHandler: requireOperator() },
     async (request, reply) => {
       const { id } = request.params;
       try {
@@ -38,7 +38,7 @@ export async function folderRoutes(fastify: FastifyInstance) {
   // 폴더 삭제
   fastify.delete<{ Params: { id: string } }>(
     "/:id",
-    { preHandler: requireAdmin() },
+    { preHandler: requireOperator() },
     async (request, reply) => {
       const { id } = request.params;
       try {
@@ -53,7 +53,7 @@ export async function folderRoutes(fastify: FastifyInstance) {
   // 폴더에 프로젝트 추가
   fastify.post<{ Params: { id: string }; Body: { projectId: string; sortOrder?: number } }>(
     "/:id/projects",
-    { preHandler: requireManager() },
+    { preHandler: requireOperator() },
     async (request, reply) => {
       const { id } = request.params;
       const { projectId, sortOrder } = request.body;
@@ -65,7 +65,7 @@ export async function folderRoutes(fastify: FastifyInstance) {
   // 폴더에서 프로젝트 제거
   fastify.delete<{ Params: { id: string; projectId: string } }>(
     "/:id/projects/:projectId",
-    { preHandler: requireAdmin() },
+    { preHandler: requireOperator() },
     async (request, reply) => {
       const { id, projectId } = request.params;
       await fastify.folderService.removeProject(id, projectId);
@@ -76,7 +76,7 @@ export async function folderRoutes(fastify: FastifyInstance) {
   // 폴더 내 프로젝트 순서 변경
   fastify.patch<{ Params: { id: string }; Body: { projectIds: string[] } }>(
     "/:id/reorder",
-    { preHandler: requireManager() },
+    { preHandler: requireOperator() },
     async (request) => {
       const { id } = request.params;
       const { projectIds } = request.body;
@@ -87,7 +87,7 @@ export async function folderRoutes(fastify: FastifyInstance) {
   // 폴더 순서 일괄 변경
   fastify.patch<{ Body: { folderIds: string[] } }>(
     "/reorder",
-    { preHandler: requireManager() },
+    { preHandler: requireOperator() },
     async (request) => {
       const { folderIds } = request.body;
       return fastify.folderService.reorderFolders(folderIds);

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { clearToken, getUser, setUser, myProfileApi, notificationApi, authApi, boardApi } from "@/lib/api";
+import { clearToken, getUser, setUser, myProfileApi, notificationApi, authApi, boardApi, tryRefresh } from "@/lib/api";
 import { isManagementUser } from "@/lib/management";
 import clsx from "clsx";
 
@@ -36,7 +36,6 @@ const NAV: NavItem[] = [
 const TEAM_LINKS = [{ href: "/me/team", label: "팀 근태/승인", icon: "👥" }];
 const ADMIN_LINKS = [
   { href: "/admin/users", label: "직원 관리", icon: "👤" },
-  { href: "/admin/equipment-resources", label: "공용자산 관리", icon: "💼" },
   { href: "/admin/approval-lines", label: "결재라인", icon: "🖋" },
   { href: "/admin/calendar", label: "회사 달력", icon: "📅" },
   { href: "/admin/activity-logs", label: "시스템 이력", icon: "📜" },
@@ -275,23 +274,68 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   const handleLogout = () => {
-    clearToken();
-    router.push("/login");
+    // 서버 세션(쿠키+DB refresh 토큰)까지 확실히 종료 — clearToken만 하면 쿠키가 남아
+    //   북마크 재방문 시 유효 쿠키로 재인증돼 다시 로그인되는 버그가 있었음.
+    authApi.logout().catch(() => {}).finally(() => { clearToken(); router.push("/login"); });
   };
 
-  // 30분 유휴(무활동) 시 자동 로그아웃 — 서버 세션(리프레시 토큰·쿠키)까지 종료
+  // 30분 유휴(무활동) 시 자동 로그아웃 — 탭 간 활동 공유(localStorage)로
+  //   한 탭이라도 활동하면 다른 탭들도 유휴 타이머가 리셋됨(여러 탭에서 조기 로그아웃 방지).
+  // + 활동 기반 keepalive: 서버 refresh 토큰(30분 슬라이딩)은 /auth/refresh 호출로만 연장되므로,
+  //   API 호출 없이 활동만 하는 경우(긴 글 작성·PDF 열람)에도 세션이 유지되도록 주기 갱신.
+  //   포커스된 탭만 갱신 — 멀티탭 동시 refresh가 reuse detection(전 세션 무효화)을 오발시키는 것 방지.
+  // + 만료 2분 전 경고 배너(idleWarn): 활동 또는 "계속 사용" 클릭으로 즉시 연장.
+  const [idleWarn, setIdleWarn] = useState(false);
+  const idleWarnRef = useRef(false);
   useEffect(() => {
     if (!currentUser) return;
     const IDLE_MS = 30 * 60 * 1000;
-    let last = Date.now();
-    const bump = () => { last = Date.now(); };
+    const WARN_BEFORE_MS = 2 * 60 * 1000;
+    const KEEPALIVE_MS = 10 * 60 * 1000;
+    const LS_KEY = "erp_last_activity";
+    localStorage.setItem(LS_KEY, String(Date.now())); // 세션 시작(로드) 시각으로 초기화
+    let lastRefreshAt = Date.now(); // 로드 시점 기준 (access 유효 중 로드돼도 10분 내 keepalive로 보정됨)
+    const readLast = () => {
+      const v = Number(localStorage.getItem(LS_KEY));
+      return Number.isFinite(v) && v > 0 ? v : Date.now();
+    };
+    const slideServer = () => {
+      lastRefreshAt = Date.now();
+      void tryRefresh(); // 실패는 무시 — 진짜 만료면 다음 API 401 → login 리다이렉트가 처리
+    };
+    let lastWrite = 0;
+    const bump = () => {
+      const now = Date.now();
+      if (idleWarnRef.current) {
+        // 경고 중 활동 재개 → 배너 닫고 서버 세션도 즉시 연장(만료 직전이므로 60초 틱을 기다리지 않음)
+        idleWarnRef.current = false;
+        setIdleWarn(false);
+        slideServer();
+      }
+      if (now - lastWrite < 5000) return; // 5초 throttle: 잦은 이벤트에도 공유 write 최소화
+      lastWrite = now;
+      localStorage.setItem(LS_KEY, String(now)); // 다른 탭도 이 값을 읽어 유휴 판정
+    };
     const events = ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "click"];
     events.forEach((e) => window.addEventListener(e, bump, { passive: true }));
     const iv = setInterval(() => {
-      if (Date.now() - last > IDLE_MS) {
+      const idleFor = Date.now() - readLast(); // 어느 탭이든 마지막 활동 기준
+      if (idleFor > IDLE_MS) {
         clearInterval(iv);
         events.forEach((e) => window.removeEventListener(e, bump));
-        authApi.logout().catch(() => {}).finally(() => { clearToken(); router.push("/login?idle=1"); });
+        authApi.logout().catch(() => {}).finally(() => {
+          clearToken();
+          const here = window.location.pathname + window.location.search;
+          router.push(`/login?idle=1&next=${encodeURIComponent(here)}`);
+        });
+        return;
+      }
+      const warn = idleFor > IDLE_MS - WARN_BEFORE_MS;
+      idleWarnRef.current = warn;
+      setIdleWarn(warn);
+      // keepalive: 최근 활동이 있고, 마지막 서버 갱신이 오래됐고, 이 탭이 보이는 상태일 때만
+      if (idleFor < KEEPALIVE_MS && Date.now() - lastRefreshAt > KEEPALIVE_MS && document.visibilityState === "visible") {
+        slideServer();
       }
     }, 60 * 1000);
     return () => { events.forEach((e) => window.removeEventListener(e, bump)); clearInterval(iv); };
@@ -316,6 +360,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+      {idleWarn && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2.5 rounded-lg shadow-lg bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-700 text-sm text-amber-800 dark:text-amber-200">
+          <span>활동이 없어 곧 자동 로그아웃됩니다.</span>
+          <button
+            type="button"
+            onClick={() => { setIdleWarn(false); void tryRefresh(); }}
+            className="px-3 py-1 rounded-md bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700"
+          >
+            계속 사용
+          </button>
+        </div>
+      )}
       <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
         <div className="px-6 h-14 flex items-center gap-2">
           <button
@@ -328,7 +384,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </button>
 
-          <nav className="hidden xl:flex items-center gap-2 shrink-0">
+          <nav className="hidden lg:flex items-center gap-2 shrink-0">
             {visibleNav.map((n) => {
               const [first, second] = n.short ?? splitLabel(n.label);
               return (
@@ -343,10 +399,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                       : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700",
                   )}
                 >
-                  {/* 한 줄 (xl+) */}
-                  <span className="hidden xl:inline whitespace-nowrap">{n.label}</span>
-                  {/* 두 줄 (xl 미만) — 아이콘 제거로 작은 화면에서도 라벨 표시 */}
-                  <span className="flex xl:hidden flex-col items-start leading-[1.1] text-left">
+                  {/* 한 줄 (lg+) */}
+                  <span className="hidden lg:inline whitespace-nowrap">{n.label}</span>
+                  {/* 두 줄 (lg 미만) — nav가 lg부터 보이므로 실질 미사용, 안전용 유지 */}
+                  <span className="flex lg:hidden flex-col items-start leading-[1.1] text-left">
                     <span className="whitespace-nowrap">{first}</span>
                     {second && <span className="whitespace-nowrap">{second}</span>}
                   </span>
@@ -355,7 +411,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             })}
           </nav>
 
-          <div className="hidden xl:flex items-center gap-2 shrink-0 ml-auto">
+          <div className="hidden lg:flex items-center gap-2 shrink-0 ml-auto">
             {/* 알림 벨 */}
             <button
               onClick={() => router.push("/me/notifications")}
@@ -445,11 +501,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             )}
           </div>
 
-          {/* 좁은 화면(xl 미만): 햄버거 버튼 */}
+          {/* 좁은 화면(lg 미만): 햄버거 버튼 */}
           <button
             onClick={() => setShowMobileMenu((v) => !v)}
             aria-label="메뉴"
-            className="xl:hidden ml-auto p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-md shrink-0"
+            className="lg:hidden ml-auto p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-md shrink-0"
           >
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
               {showMobileMenu
@@ -463,9 +519,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {showMobileMenu && (
           <>
             {/* 배경: 화면을 가리지 않는 투명 클릭영역(바깥 클릭 시 닫기) */}
-            <div className="xl:hidden fixed inset-0 top-14 z-30" onClick={() => setShowMobileMenu(false)} />
+            <div className="lg:hidden fixed inset-0 top-14 z-30" onClick={() => setShowMobileMenu(false)} />
             {/* 우측에서만 펼쳐지는 드로어 — 헤더 아래부터 화면 맨 아래까지 */}
-            <div className="xl:hidden fixed right-0 top-14 bottom-0 w-64 max-w-[85vw] bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 shadow-xl z-40 overflow-y-auto">
+            <div className="lg:hidden fixed right-0 top-14 bottom-0 w-64 max-w-[85vw] bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 shadow-xl z-40 overflow-y-auto">
               <div className="flex flex-col">
                 {/* 상단: 알림·다크·프로필·로그아웃 (가로, 전환 전 우측영역과 동일) */}
                 <div className="flex items-center gap-1 px-3 py-2 border-b border-gray-200 dark:border-gray-700">

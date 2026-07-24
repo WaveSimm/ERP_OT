@@ -59,10 +59,12 @@ const ROW_H = 36;
 const BAR_H = Math.round((ROW_H - 20) * 1.2); // 기본 높이의 120%
 const BAR_TOP = Math.round((ROW_H - BAR_H) / 2);
 const LEFT_W = 320;   // task name column (기본 폭 확대 — 태스크명 짤림 최소화)
+const SEG_W = 80;     // 구간진행률 열(완료/전체) — 이름과 자원 사이 고정폭
 const RESOURCE_W = 150; // resource assignment column
 const DAY_PX = 28; // pixels per day
 const DIAMOND_SIZE = ROW_H - 16;                                   // 28px
 const DIAMOND_TIP = Math.round(DIAMOND_SIZE * 0.7 / Math.SQRT2);  // ≈14px — right/left tip offset from center
+const EMPTY_COLLAPSED: Set<string> = new Set();                   // controlled collapsed 미전달 시 안정적 기본값
 
 function parseDate(s: string) {
   return new Date(s + "T00:00:00");
@@ -82,7 +84,7 @@ function shiftDate(isoDate: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTaskClick, onTaskCopy, onTaskAddAbove, onTaskAddBelow, onTaskDelete, baselineSegments, allResources, onRefresh, pushUndo, projectId, inlineTaskName, onInlineTaskNameChange, inlineAdding, onInlineTaskCreate, selected, onToggleSelect, onToggleAll, dragIds, dropGap, onDragStart, onDragOver, onDrop, onDragEnd, onIndent, onOutdent, onCopySelected, onDeleteSelected, onClearSelection, onProgressChange, onAddTask, onAddMilestone, holidays, canRename }: {
+export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTaskClick, onTaskCopy, onTaskAddAbove, onTaskAddBelow, onTaskDelete, baselineSegments, allResources, onRefresh, pushUndo, projectId, inlineTaskName, onInlineTaskNameChange, inlineAdding, onInlineTaskCreate, selected, onToggleSelect, onToggleAll, dragIds, dropGap, onDragStart, onDragOver, onDrop, onDragEnd, onIndent, onOutdent, onCopySelected, onDeleteSelected, onClearSelection, onProgressChange, onAddTask, onAddMilestone, holidays, canRename, collapsed = EMPTY_COLLAPSED, onToggleCollapse }: {
   data: GanttData;
   canRename?: boolean;
   flatItems?: FlatItem[];
@@ -122,6 +124,10 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
   onAddMilestone?: () => void;
   /** 회사달력 v1.2 — 일자별 휴일 Map (date → 휴일명). 미전달 시 휴일 표시 안 함 */
   holidays?: Map<string, string>;
+  /** 접힘 상태(페이지 지속형) — 태스크 목록과 공유하는 controlled 상태 */
+  collapsed?: Set<string>;
+  /** 접기/펼치기 토글 — 페이지의 지속형 setter로 위임 */
+  onToggleCollapse?: (taskId: string) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -171,8 +177,12 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
     try { return Number(localStorage.getItem("gantt_resourceW")) || RESOURCE_W; } catch { return RESOURCE_W; }
   });
 
+  const [segW, setSegW] = useState(() => {
+    try { return Number(localStorage.getItem("gantt_segW")) || SEG_W; } catch { return SEG_W; }
+  });
   useEffect(() => { try { localStorage.setItem("gantt_leftW", String(leftW)); } catch {} }, [leftW]);
   useEffect(() => { try { localStorage.setItem("gantt_resourceW", String(resourceW)); } catch {} }, [resourceW]);
+  useEffect(() => { try { localStorage.setItem("gantt_segW", String(segW)); } catch {} }, [segW]);
 
   // data prop이 새 날짜로 갱신되면 일치하는 override를 자동 정리
   useEffect(() => {
@@ -332,16 +342,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
     window.addEventListener("mouseup", onUp);
   }, [projectId, onRefresh, pushUndo]);
 
-  // Collapse state for parent tasks
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-
-  const toggleCollapse = useCallback((taskId: string) => {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      next.has(taskId) ? next.delete(taskId) : next.add(taskId);
-      return next;
-    });
-  }, []);
+  // 접힘 상태는 페이지(태스크 목록과 공유)에서 controlled prop 으로 받음: collapsed / onToggleCollapse
 
   // Build set of task IDs that have children
   const parentIds = useMemo(() => {
@@ -400,7 +401,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
   const totalDays = hasCustomRange
     ? daysBetween(rangeStart, rangeEnd) + 1
     : Math.max(daysBetween(rangeStart, rangeEnd) + 2, 30);
-  const timelinePanelW = Math.max(0, containerW - leftW - resourceW);
+  const timelinePanelW = Math.max(0, containerW - leftW - segW - resourceW);
   const dayPx = hasCustomRange && timelinePanelW > 10
     ? Math.max(2, timelinePanelW / totalDays)
     : DAY_PX;
@@ -645,7 +646,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                   {/* Collapse toggle for parent tasks */}
                   {parentIds.has(task.id) ? (
                     <button
-                      onClick={(e) => { e.stopPropagation(); toggleCollapse(task.id); }}
+                      onClick={(e) => { e.stopPropagation(); onToggleCollapse?.(task.id); }}
                       className="w-4 h-4 flex items-center justify-center shrink-0 text-gray-400 hover:text-gray-700 transition-colors"
                       title={collapsed.has(task.id) ? "펼치기" : "접기"}
                     >
@@ -679,10 +680,10 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                       ? <span className={clsx("mr-0.5",
                           task.status === "DONE"        ? "text-emerald-500" :
                           task.status === "IN_PROGRESS" ? "text-amber-500"   :
-                          task.status === "BLOCKED"     ? "text-red-500"     :
+                          task.status === "ON_HOLD"     ? "text-yellow-600"  :
                           "text-gray-500"
                         )}>◆</span>
-                      : task.isCritical && <span className="mr-0.5">🔴</span>}
+                      : null}
                     {task.name}
                   </p>
                   )}
@@ -755,6 +756,43 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
           </div>
         </div>
 
+        {/* 구간 진행률 열 (자기 구간 완료/전체) */}
+        <div className="shrink-0 border-r border-gray-200 flex flex-col relative" style={{ width: segW }}>
+          <div className="sticky z-[23] bg-white h-14 border-b border-gray-200 px-1 flex items-end justify-center pb-1.5" style={{ top: hdrTop }}>
+            <span className="text-xs font-semibold text-gray-500 whitespace-nowrap">완료 구간</span>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            {rows.map(({ task }) => {
+              const segs: any[] = task.segments ?? [];
+              const total = segs.length;
+              const done = segs.filter((s: any) => (s.progressPercent ?? 0) >= 100).length;
+              const allDone = total > 0 && done === total;
+              return (
+                <div
+                  key={task.id}
+                  style={{ height: ROW_H }}
+                  className="flex items-center justify-center px-1 border-b border-gray-100 text-[11px] tabular-nums"
+                  title="완료 구간 / 전체 구간 (자기 구간 기준)"
+                >
+                  {task.isMilestone || total === 0 ? (
+                    <span className="text-gray-300">–</span>
+                  ) : (
+                    <span className={allDone ? "text-gray-400 dark:text-gray-500" : "text-gray-600 dark:text-gray-300"}>{done}/{total}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {/* 구간진행률 열 폭 조절 핸들 */}
+          <div
+            className="absolute top-0 bottom-0 z-20 cursor-col-resize group/sresize hover:bg-blue-300/20 transition-colors"
+            style={{ right: -4, width: 8 }}
+            onMouseDown={(e) => startResize(e, segW, setSegW, 44)}
+          >
+            <div className="absolute inset-y-0 left-1/2 w-px bg-gray-200 group-hover/sresize:bg-blue-400 transition-colors" />
+          </div>
+        </div>
+
         {/* Resource assignment column */}
         <div className="shrink-0 border-r border-gray-200 flex flex-col relative" style={{ width: resourceW }}>
           <div className="sticky z-[23] bg-white h-14 border-b border-gray-200 px-3 flex items-end pb-1.5" style={{ top: hdrTop }}>
@@ -794,7 +832,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                             className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-bold shrink-0 ring-2 ring-white"
                             style={{ marginLeft: idx === 0 ? 0 : -8, zIndex: resources.length - idx }}
                           >
-                            {name.slice(0, 2)}
+                            {name.slice(-2)}
                           </span>
                         ))}
                       </div>
@@ -966,7 +1004,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
                   const colorClass =
                     task.status === "DONE"        ? "bg-emerald-500" :
                     task.status === "IN_PROGRESS" ? "bg-amber-500"   :
-                    task.status === "BLOCKED"     ? "bg-red-500"     :
+                    task.status === "ON_HOLD"     ? "bg-yellow-400"  :
                     "bg-gray-400"; // TODO
                   const tipTitle = `◆ ${task.name}\n` +
                     `상태: ${task.status}` +
@@ -1137,7 +1175,7 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
       {/* 인라인 태스크 추가 행 */}
       {onInlineTaskNameChange && onInlineTaskCreate !== undefined && (
         <div className="border-t border-gray-100 flex">
-          <div className="flex items-center gap-2 px-3 py-1.5 border-r border-gray-200" style={{ width: leftW + resourceW }}>
+          <div className="flex items-center gap-2 px-3 py-1.5 border-r border-gray-200" style={{ width: leftW + segW + resourceW }}>
             <span className="text-gray-300 text-xs w-4 shrink-0">+</span>
             <input
               type="text"
@@ -1187,7 +1225,6 @@ export default function GanttChart({ data, flatItems, viewStart, viewEnd, onTask
       {/* Legend */}
       <div className="border-t border-gray-200 px-4 py-2 flex items-center gap-6 text-xs text-gray-500 flex-wrap">
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-blue-500 inline-block" /> 일반</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-500 inline-block" /> 크리티컬 패스</span>
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-green-500 inline-block" /> 완료</span>
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 bg-purple-500 inline-block" style={{ transform: "rotate(45deg)" }} />

@@ -1,0 +1,8 @@
+# 이관 생성물(개인정보·데이터 포함) — 커밋 제외. 스크립트(transform.py/generate.py)만 버전관리.
+plan.json
+insert.sql
+rollback.sql
+copy-files.sh
+verify.sql
+applied-ids.json
+resmap.json

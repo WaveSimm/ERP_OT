@@ -45,6 +45,8 @@ export const createReservationSchema = z
     endAt: isoDateTime,
     isAllDay: z.boolean().optional(),
     recurrence: recurrenceSchema.nullable().optional(),
+    logType: z.enum(["RENTAL", "MAINTENANCE"]).optional(),
+    mileage: z.number().int().min(0).max(9_999_999).nullable().optional(),
   })
   .refine((d) => new Date(d.startAt) < new Date(d.endAt), {
     message: "종료시각은 시작시각보다 늦어야 합니다.",
@@ -65,6 +67,8 @@ export const updateReservationSchema = z
     endAt: isoDateTime.optional(),
     isAllDay: z.boolean().optional(),
     recurrence: recurrenceSchema.nullable().optional(),
+    logType: z.enum(["RENTAL", "MAINTENANCE"]).optional(),
+    mileage: z.number().int().min(0).max(9_999_999).nullable().optional(),
   })
   .refine(
     (d) => {

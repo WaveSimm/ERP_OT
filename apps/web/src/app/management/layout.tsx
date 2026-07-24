@@ -9,6 +9,7 @@ import { isManagementUser } from "@/lib/management";
 
 const TABS = [
   { key: "attendance", label: "근태현황", href: "/management/attendance" },
+  { key: "equipment", label: "공용자산 관리", href: "/management/equipment-resources" },
 ];
 
 export default function ManagementLayout({ children }: { children: React.ReactNode }) {

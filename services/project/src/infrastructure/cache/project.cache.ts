@@ -2,6 +2,7 @@ import { Redis } from "ioredis";
 
 const KEYS = {
   projectSummary: (id: string) => `dashboard:project:${id}:summary`,
+  projectIssues: (id: string) => `dashboard:project:${id}:issues`,
   groupRollup: (id: string) => `dashboard:group:${id}:rollup`,
   globalSummary: () => `dashboard:global:summary`,
   resourceUtilization: (id: string, start: string, end: string) =>
@@ -48,6 +49,7 @@ export class ProjectCacheService {
 
   async invalidateProjectSummary(projectId: string): Promise<void> {
     await this.redis.del(KEYS.projectSummary(projectId));
+    await this.redis.del(KEYS.projectIssues(projectId)); // 이슈(지연·정체·배지·팝업) 캐시도 함께 무효화
     await this.redis.del(KEYS.globalSummary());
   }
 

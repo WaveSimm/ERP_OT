@@ -133,7 +133,7 @@ export default function ResourcePickerPopover({ task, projectId, allResources, o
             className={`w-6 h-6 rounded-full ${avatarColor(name)} flex items-center justify-center text-white text-[9px] font-bold ring-2 ring-white shrink-0`}
             style={{ marginLeft: idx === 0 ? 0 : -8, zIndex: visibleAvatars.length - idx }}
           >
-            {name.slice(0, 2)}
+            {name.slice(-2)}
           </div>
         );
       })}
@@ -194,7 +194,7 @@ export default function ResourcePickerPopover({ task, projectId, allResources, o
                   className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 transition-colors disabled:opacity-50"
                 >
                   <div className={`w-6 h-6 rounded-full ${avatarColor(r.name)} flex items-center justify-center text-white text-[10px] font-bold shrink-0`}>
-                    {r.name.slice(0, 2)}
+                    {r.name.slice(-2)}
                   </div>
                   <span className={`flex-1 text-left text-xs truncate ${isAssigned ? "font-semibold text-blue-600 dark:text-blue-400" : "text-gray-700"}`}>
                     {r.name}

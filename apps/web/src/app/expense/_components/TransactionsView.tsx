@@ -9,6 +9,7 @@ import { useTableSort } from "@/lib/hooks/useTableSort";
 import { useBulkSelect } from "@/lib/hooks/useBulkSelect";
 import ReceiptDetailModal from "@/components/expense/ReceiptDetailModal";
 import SearchableSelect from "@/components/SearchableSelect";
+import { TableCard, Table, THead, Th, TBody, Tr, Td, TableEmpty } from "@/components/ui/Table";
 
 // v1.6.2 (2026-05-15): 사업(계약) 연계 — equipment.Contract
 type Contract = { id: string; contractNumber: string; name: string; client?: string; status?: string };
@@ -27,11 +28,11 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  PENDING: "bg-amber-100 text-amber-700",
-  CATEGORIZED: "bg-blue-100 text-blue-700",
-  EXCLUDED: "bg-gray-100 text-gray-500",
-  CANCELED: "bg-red-100 text-red-700",
-  SETTLED: "bg-emerald-100 text-emerald-700",
+  PENDING: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
+  CATEGORIZED: "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300",
+  EXCLUDED: "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300",
+  CANCELED: "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300",
+  SETTLED: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
 };
 
 // v1.6.1 (2026-05-15): 구분 옵션 — 회계 분류용. 자유 입력도 허용.
@@ -513,7 +514,11 @@ export function TransactionsView({ initialStatus = "TARGET", onChange }: { initi
           { v: "", l: "전체" },
         ].map((s) => (
           <button key={s.v} onClick={() => setStatusFilter(s.v)}
-            className={`px-2.5 py-1 text-xs rounded-md ${statusFilter === s.v ? "bg-blue-600 text-white" : "border border-gray-300 text-gray-600 hover:bg-gray-50"}`}>
+            className={`inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-medium transition-[background-color,color] ${
+              statusFilter === s.v
+                ? "border-blue-600 bg-blue-600 text-white"
+                : "border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-blue-700 hover:bg-blue-700 hover:text-white dark:hover:!border-blue-600 dark:hover:!bg-blue-600 dark:hover:!text-white"
+            }`}>
             {s.l}
           </button>
         ))}
@@ -529,23 +534,23 @@ export function TransactionsView({ initialStatus = "TARGET", onChange }: { initi
           className="px-2 py-1 text-xs border border-gray-300 rounded-md text-gray-700" />
         {(dateFrom || dateTo) && (
           <button onClick={() => { setDateFrom(""); setDateTo(""); }}
-            className="px-2 py-1 text-xs text-gray-500 border border-gray-300 rounded-md hover:bg-gray-50">기간 초기화</button>
+            className="inline-flex h-7 items-center rounded-md border border-gray-200 dark:border-gray-600 px-2.5 text-xs font-medium text-gray-600 dark:text-gray-300 transition-[background-color,color] hover:border-gray-600 hover:bg-gray-600 hover:text-white dark:hover:!border-gray-500 dark:hover:!bg-gray-500 dark:hover:!text-white">기간 초기화</button>
         )}
         <div className="ml-auto flex items-center gap-2">
           <input ref={fileInputRef} type="file" accept=".xls,.xlsx,.html"
             onChange={handleImport} disabled={importing} className="hidden" id="stmt-import" />
           <label htmlFor="stmt-import"
-            className={`px-3 py-1.5 text-sm border border-blue-300 text-blue-700 rounded-md hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-950 cursor-pointer ${importing ? "opacity-50 pointer-events-none" : ""}`}>
-            {importing ? "import 중..." : "📥 카드 명세서 import"}
+            className={`inline-flex h-8 items-center rounded-md border border-gray-200 dark:border-gray-600 px-3 text-sm font-medium text-gray-600 dark:text-gray-300 transition-[background-color,color] hover:border-blue-700 hover:bg-blue-700 hover:text-white dark:hover:!border-blue-600 dark:hover:!bg-blue-600 dark:hover:!text-white cursor-pointer ${importing ? "opacity-50 pointer-events-none" : ""}`}>
+            {importing ? "import 중..." : "카드 명세서 import"}
           </label>
           <button onClick={() => setShowManual(true)}
-            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">
+            className="inline-flex h-8 items-center rounded-md border border-gray-200 dark:border-gray-600 px-3 text-sm font-medium text-gray-600 dark:text-gray-300 transition-[background-color,color] hover:border-blue-700 hover:bg-blue-700 hover:text-white dark:hover:!border-blue-600 dark:hover:!bg-blue-600 dark:hover:!text-white">
             + 수동 입력
           </button>
           <input ref={receiptMultiInputRef} type="file" multiple accept="image/*,.pdf"
             onChange={handleReceiptMultiUpload} className="hidden" id="tx-receipt-multi" />
           <label htmlFor="tx-receipt-multi"
-            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 cursor-pointer">
+            className="inline-flex h-8 items-center rounded-md border border-gray-200 dark:border-gray-600 px-3 text-sm font-medium text-gray-600 dark:text-gray-300 transition-[background-color,color] hover:border-blue-700 hover:bg-blue-700 hover:text-white dark:hover:!border-blue-600 dark:hover:!bg-blue-600 dark:hover:!text-white cursor-pointer">
             + 영수증 업로드
           </label>
           {/* 거래 행에서 트리거하는 단일 영수증 업로드용 hidden input */}
@@ -630,74 +635,70 @@ export function TransactionsView({ initialStatus = "TARGET", onChange }: { initi
             <span className="text-gray-300">→</span>
             <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">정산완료</span>
             <span className="ml-3 text-gray-400">|</span>
-            <span className="ml-1">💡 Shift+클릭으로 범위 선택</span>
+            <span className="ml-1">Shift+클릭으로 범위 선택</span>
           </div>
         )}
         {statusFilter !== "SETTLED" && (
-          <span className="ml-auto text-[11px] text-gray-500">💡 Shift+클릭으로 범위 선택</span>
+          <span className="ml-auto text-[11px] text-gray-500">Shift+클릭으로 범위 선택</span>
         )}
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr className="text-xs text-gray-500">
-              <th className="px-3 py-2 w-8 text-center">
-                <input type="checkbox" checked={sel.isAllSelected()} onChange={sel.toggleAll}
-                  ref={sel.headerRef} className="cursor-pointer" />
-              </th>
-              <th onClick={() => sort.handleSort("transactedAt")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">거래일시{sort.sortIndicator("transactedAt")}</th>
-              <th onClick={() => sort.handleSort("merchant")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">가맹점{sort.sortIndicator("merchant")}</th>
-              <th onClick={() => sort.handleSort("source")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">결제수단{sort.sortIndicator("source")}</th>
-              <th onClick={() => sort.handleSort("amount")} className="px-3 py-2 text-right cursor-pointer hover:bg-gray-100 select-none">금액{sort.sortIndicator("amount")}</th>
-              <th className="px-3 py-2 text-left">
-                <SettlementHeaderFilter
-                  settlements={allSettlements}
-                  value={settlementFilter}
-                  onChange={(id) => {
-                    setSettlementFilter(id);
-                    // 특정 settlement 선택 시만 status 탭 무력화 (미분류는 status 탭과 조합 가능)
-                    if (id && id !== "__unclassified__") setStatusFilter("");
-                  }}
-                  open={settlementFilterOpen}
-                  setOpen={setSettlementFilterOpen}
-                />
-              </th>
-              <th onClick={() => sort.handleSort("contract")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">사업(계약){sort.sortIndicator("contract")}</th>
-              <th onClick={() => sort.handleSort("detail")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">구분{sort.sortIndicator("detail")}</th>
-              <th onClick={() => sort.handleSort("memo")} className="px-3 py-2 text-left cursor-pointer hover:bg-gray-100 select-none">상세내역{sort.sortIndicator("memo")}</th>
-              <th onClick={() => sort.handleSort("receipt")} className="px-3 py-2 text-center cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap">영수증{sort.sortIndicator("receipt")}</th>
-              <th onClick={() => sort.handleSort("status")} className="px-3 py-2 text-center cursor-pointer hover:bg-gray-100 select-none">상태{sort.sortIndicator("status")}</th>
-            </tr>
-          </thead>
-          <tbody>
+      <TableCard>
+        <Table columnDividers>
+          <THead>
+            <Th align="center" className="w-8">
+              <input type="checkbox" checked={sel.isAllSelected()} onChange={sel.toggleAll}
+                ref={sel.headerRef} className="cursor-pointer" />
+            </Th>
+            <Th align="center" onClick={() => sort.handleSort("transactedAt")} className="cursor-pointer hover:bg-gray-100 select-none">거래일시{sort.sortIndicator("transactedAt")}</Th>
+            <Th align="center" onClick={() => sort.handleSort("merchant")} className="cursor-pointer hover:bg-gray-100 select-none">가맹점{sort.sortIndicator("merchant")}</Th>
+            <Th align="center" onClick={() => sort.handleSort("source")} className="cursor-pointer hover:bg-gray-100 select-none">결제수단{sort.sortIndicator("source")}</Th>
+            <Th align="center" onClick={() => sort.handleSort("amount")} className="cursor-pointer hover:bg-gray-100 select-none">금액{sort.sortIndicator("amount")}</Th>
+            <Th align="center">
+              <SettlementHeaderFilter
+                settlements={allSettlements}
+                value={settlementFilter}
+                onChange={(id) => {
+                  setSettlementFilter(id);
+                  // 특정 settlement 선택 시만 status 탭 무력화 (미분류는 status 탭과 조합 가능)
+                  if (id && id !== "__unclassified__") setStatusFilter("");
+                }}
+                open={settlementFilterOpen}
+                setOpen={setSettlementFilterOpen}
+              />
+            </Th>
+            <Th align="center" onClick={() => sort.handleSort("contract")} className="cursor-pointer hover:bg-gray-100 select-none">사업(계약){sort.sortIndicator("contract")}</Th>
+            <Th align="center" onClick={() => sort.handleSort("detail")} className="cursor-pointer hover:bg-gray-100 select-none">구분{sort.sortIndicator("detail")}</Th>
+            <Th align="center" onClick={() => sort.handleSort("memo")} className="cursor-pointer hover:bg-gray-100 select-none">상세내역{sort.sortIndicator("memo")}</Th>
+            <Th align="center" onClick={() => sort.handleSort("receipt")} className="cursor-pointer hover:bg-gray-100 select-none whitespace-nowrap">영수증{sort.sortIndicator("receipt")}</Th>
+            <Th align="center" onClick={() => sort.handleSort("status")} className="cursor-pointer hover:bg-gray-100 select-none">상태{sort.sortIndicator("status")}</Th>
+          </THead>
+          <TBody>
             {loading ? (
-              <tr><td colSpan={11} className="py-12 text-center text-gray-400">불러오는 중...</td></tr>
+              <TableEmpty colSpan={11}>불러오는 중...</TableEmpty>
             ) : sortedItems.length === 0 ? (
-              <tr><td colSpan={11} className="py-12 text-center text-gray-400">거래가 없습니다.</td></tr>
+              <TableEmpty colSpan={11}>거래가 없습니다.</TableEmpty>
             ) : sortedItems.map((t) => {
               const checked = sel.isSelected(t.id);
               return (
-                <tr key={t.id}
-                  className={`border-t border-gray-100 ${t.isCanceled ? "bg-red-50/30 dark:bg-red-500/10" : ""} ${checked ? "bg-blue-50/40 dark:bg-blue-500/10" : ""}`}>
-                  <td className="px-3 py-2 text-center">
+                <Tr key={t.id}
+                  className={`${t.isCanceled ? "bg-red-50/30 dark:bg-red-500/10" : ""} ${checked ? "bg-blue-50/40 dark:bg-blue-500/10" : ""}`}>
+                  <Td align="center">
                     <input type="checkbox" checked={checked}
                       onMouseDown={sel.handleMouseDown}
                       onChange={() => sel.handleChange(t.id)}
                       className="cursor-pointer" />
-                  </td>
-                  <td className="px-3 py-2 text-xs text-gray-600 whitespace-nowrap">{fmtDateTime24(t.transactedAt, { short: true })}</td>
-                  <td className="px-3 py-2 text-gray-800">
+                  </Td>
+                  <Td align="center" mono className="whitespace-nowrap text-xs">{fmtDateTime24(t.transactedAt, { short: true })}</Td>
+                  <Td>
                     <span className={t.isCanceled ? "line-through text-gray-400" : ""}>{t.merchantName}</span>
                     {t.isCanceled && (
-                      <span className="ml-2 px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-700 rounded">취소</span>
+                      <span className="ml-2 px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300 rounded">취소</span>
                     )}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-gray-500">{t.source?.displayName ?? t.source?.name ?? "-"}</td>
-                  <td className="px-3 py-2 text-right tabular-nums font-medium">
-                    {Number(t.amount).toLocaleString()}
-                  </td>
-                  <td className="px-3 py-2">
+                  </Td>
+                  <Td dash className="text-xs">{t.source?.displayName ?? t.source?.name}</Td>
+                  <Td align="right" mono strong>{Number(t.amount).toLocaleString()}</Td>
+                  <Td>
                     {(() => {
                       const currentItem = (t.settlementItems ?? [])[0];
                       const currentSettlementId = currentItem?.settlementId ?? "";
@@ -710,7 +711,7 @@ export function TransactionsView({ initialStatus = "TARGET", onChange }: { initi
                           value={dropdownValue}
                           onChange={(e) => updateSettlement(t, e.target.value)}
                           disabled={!!locked}
-                          className={`text-xs border border-gray-300 rounded px-1.5 py-0.5 max-w-[160px] disabled:bg-gray-100 disabled:text-gray-500 ${t.status === "EXCLUDED" ? "text-gray-500" : ""}`}
+                          className={`text-xs border border-gray-300 dark:border-gray-600 rounded px-1.5 py-0.5 max-w-[160px] disabled:bg-gray-100 disabled:text-gray-500 ${t.status === "EXCLUDED" ? "text-gray-500" : ""}`}
                           title={locked ? `${currentStatus} 상태로 변경 불가` : ""}
                         >
                           <option value="">— 미설정 —</option>
@@ -727,8 +728,8 @@ export function TransactionsView({ initialStatus = "TARGET", onChange }: { initi
                         </select>
                       );
                     })()}
-                  </td>
-                  <td className="px-3 py-2">
+                  </Td>
+                  <Td>
                     <div className="min-w-[200px] max-w-[260px]">
                       <ContractCellSelect
                         value={t.contractId ? { id: t.contractId, number: t.contractNumber ?? "", name: t.contractName ?? "" } : null}
@@ -738,21 +739,21 @@ export function TransactionsView({ initialStatus = "TARGET", onChange }: { initi
                         allowClear
                       />
                     </div>
-                  </td>
-                  <td className="px-3 py-2">
+                  </Td>
+                  <Td>
                     <input type="text" list="detail-options" defaultValue={t.detail ?? ""}
                       onBlur={(e) => e.target.value !== (t.detail ?? "") && updateDetail(t.id, e.target.value)}
-                      className="text-xs border border-gray-200 rounded px-2 py-0.5 w-full max-w-[200px]"
+                      className="text-xs border border-gray-200 dark:border-gray-600 rounded px-2 py-0.5 w-full max-w-[200px]"
                       placeholder="구분 선택..." />
-                  </td>
-                  <td className="px-3 py-2">
+                  </Td>
+                  <Td>
                     <input type="text" defaultValue={t.memo ?? ""}
                       onBlur={(e) => e.target.value !== (t.memo ?? "") && updateMemo(t.id, e.target.value)}
-                      className="text-xs border border-gray-200 rounded px-2 py-0.5 w-full max-w-[260px]"
+                      className="text-xs border border-gray-200 dark:border-gray-600 rounded px-2 py-0.5 w-full max-w-[260px]"
                       placeholder={getDetailPlaceholder(t.detail)}
                       title={getDetailPlaceholder(t.detail)} />
-                  </td>
-                  <td className="px-3 py-2 text-center">
+                  </Td>
+                  <Td align="center">
                     {(() => {
                       const matches = t.matches ?? [];
                       const confirmed = matches.find((m: any) => m.confirmedAt);
@@ -779,19 +780,19 @@ export function TransactionsView({ initialStatus = "TARGET", onChange }: { initi
                         </button>
                       );
                     })()}
-                  </td>
-                  <td className="px-3 py-2 text-center">
+                  </Td>
+                  <Td align="center">
                     {(() => {
                       // 정산됨/입금완료 필터일 때는 정산 진행 단계 표시 (3-stage: 결재중/결재완료/정산완료)
                       // RECEIVED는 legacy(현재 워크플로우에선 미사용) — 결재완료로 표시
                       if (statusFilter === "SETTLED") {
                         const s = (t.settlementItems ?? [])[0]?.settlement;
                         if (s) {
-                          const stage = s.status === "SUBMITTED" ? { label: "결재중", color: "bg-blue-100 text-blue-700" }
-                            : ["APPROVED", "RECEIVED"].includes(s.status) ? { label: "결재완료", color: "bg-indigo-100 text-indigo-700" }
-                            : s.status === "PAID" ? { label: "정산완료", color: "bg-emerald-100 text-emerald-700" }
-                            : s.status === "REJECTED" ? { label: "반려", color: "bg-red-100 text-red-700" }
-                            : { label: s.status, color: "bg-gray-100 text-gray-700" };
+                          const stage = s.status === "SUBMITTED" ? { label: "결재중", color: "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300" }
+                            : ["APPROVED", "RECEIVED"].includes(s.status) ? { label: "결재완료", color: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300" }
+                            : s.status === "PAID" ? { label: "정산완료", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300" }
+                            : s.status === "REJECTED" ? { label: "반려", color: "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300" }
+                            : { label: s.status, color: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300" };
                           return (
                             <span className={`px-2 py-0.5 text-xs rounded whitespace-nowrap ${stage.color}`}>
                               {stage.label}
@@ -805,13 +806,13 @@ export function TransactionsView({ initialStatus = "TARGET", onChange }: { initi
                         </span>
                       );
                     })()}
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               );
             })}
-          </tbody>
-        </table>
-      </div>
+          </TBody>
+        </Table>
+      </TableCard>
 
       {showManual && (
         <ManualTransactionModal
@@ -976,7 +977,7 @@ function ManualTransactionModal({ sources, loadContractOptions, onClose, onSaved
               placeholder={form.detail.trim() ? getDetailPlaceholder(form.detail) : "예: 점심 식사 4명, 노트북 어댑터 등"}
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" />
             {form.detail.trim() && DETAIL_PLACEHOLDER[form.detail.trim()] && (
-              <p className="text-[10px] text-gray-500 mt-1">💡 {DETAIL_PLACEHOLDER[form.detail.trim()]}</p>
+              <p className="text-[10px] text-gray-500 mt-1">{DETAIL_PLACEHOLDER[form.detail.trim()]}</p>
             )}
           </Field>
           {err && <p className="text-sm text-red-600 dark:text-red-400">{err}</p>}

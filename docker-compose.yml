@@ -270,8 +270,10 @@ services:
       - "127.0.0.1:8000:8000"
     volumes:
       - ocr_models:/app/models
-    # 메모리 제한: PaddleOCR/EasyOCR 다국어 모델 lazy-load 누적 방지 (개발 PC 메모리 15GB 압박 완화)
-    mem_limit: 4g
+    # 메모리 제한: PaddleOCR/EasyOCR 다국어 모델 lazy-load 누적 방지.
+    # 4g는 개발 PC(15GB) 시절 값 — 대용량 스캔 문서 OCR 중 OOM kill 발생(2026-07-23 08:12,
+    # anon-rss 4.2GB 도달)해 운영서버(30GB) 기준 8g로 상향. 재발 시 입력 해상도/페이지 상한 추가 검토.
+    mem_limit: 8g
     mem_reservation: 1g
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
