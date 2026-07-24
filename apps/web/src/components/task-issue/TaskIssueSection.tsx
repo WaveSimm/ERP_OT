@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { taskIssueApi } from "@/lib/api";
+import MentionInput, { extractMentionIds, MentionText } from "@/components/MentionInput";
 import type { TaskIssue } from "@/lib/api/types";
 import { fmtDateTime24 } from "@/lib/datetime";
 
@@ -40,20 +41,14 @@ export default function TaskIssueSection({ taskId }: Props) {
     setError(null);
     setSubmitting(true);
     try {
-      const created = await taskIssueApi.create(taskId, { content });
+      const mentionedUserIds = await extractMentionIds(content);
+      const created = await taskIssueApi.create(taskId, { content, mentionedUserIds });
       setIssues((prev) => [created, ...prev]);
       setDraft("");
     } catch (err: any) {
       setError(err?.message ?? "이슈 등록 실패");
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && !e.nativeEvent.isComposing) {
-      e.preventDefault();
-      void handleCreate();
     }
   };
 
@@ -89,15 +84,13 @@ export default function TaskIssueSection({ taskId }: Props) {
     <div className="space-y-2">
       {/* 입력 — 텍스트 + Enter로 이슈 생성 */}
       <div className="flex items-center gap-2">
-        <input
-          type="text"
+        <MentionInput
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="이슈를 입력하고 Enter (미해결로 등록됩니다)"
-          maxLength={2000}
-          disabled={submitting}
-          className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50"
+          onChange={setDraft}
+          onSubmit={() => handleCreate()}
+          placeholder="이슈를 입력하고 Enter (@로 멘션 · 미해결로 등록)"
+          rows={1}
+          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50"
         />
         <button
           type="button"
@@ -149,7 +142,7 @@ export default function TaskIssueSection({ taskId }: Props) {
                       issue.isResolved ? "text-gray-400 line-through" : "text-gray-800 dark:text-gray-100"
                     }`}
                   >
-                    {issue.content}
+                    <MentionText text={issue.content} />
                   </div>
                   <div className="text-[11px] text-gray-400 mt-0.5">
                     {issue.authorName || "익명"} · {fmtDateTime24(issue.createdAt)}

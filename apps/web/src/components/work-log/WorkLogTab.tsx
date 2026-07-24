@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { workLogApi, getUser } from "@/lib/api";
+import { extractMentionIds } from "@/components/MentionInput";
 import WorkLogForm, { type WorkLogFormValue } from "./WorkLogForm";
 import WorkLogTimeline from "./WorkLogTimeline";
 import { type WorkLogItem } from "./WorkLogCard";
@@ -48,14 +49,16 @@ export default function WorkLogTab({ taskId, segments }: Props) {
   }, [taskId]);
 
   const handleCreate = async (v: WorkLogFormValue) => {
-    const payload: any = { content: v.content, workedAt: v.workedAt };
+    const mentionedUserIds = await extractMentionIds(v.content);
+    const payload: any = { content: v.content, workedAt: v.workedAt, mentionedUserIds };
     if (v.segmentId) payload.segmentId = v.segmentId;
     await workLogApi.create(taskId, payload);
     await reload();
   };
 
   const handleUpdate = async (id: string, v: WorkLogFormValue) => {
-    await workLogApi.update(id, { content: v.content, workedAt: v.workedAt });
+    const mentionedUserIds = await extractMentionIds(v.content);
+    await workLogApi.update(id, { content: v.content, workedAt: v.workedAt, mentionedUserIds });
     await reload();
   };
 

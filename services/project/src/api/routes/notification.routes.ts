@@ -24,16 +24,23 @@ export async function notificationRoutes(fastify: FastifyInstance) {
       fastify.prisma.mention.count({ where }),
     ]);
 
-    // 대상 미리보기 해석 (현재 COMMENT; WORKLOG·ISSUE·POST 는 후속 단계에서 추가)
-    const commentIds = rows.filter((r) => r.sourceType === "COMMENT").map((r) => r.sourceId);
-    const commentMap = new Map<string, string>();
-    if (commentIds.length > 0) {
-      const comments = await fastify.prisma.comment.findMany({
-        where: { id: { in: commentIds } },
-        select: { id: true, content: true },
-      });
-      for (const c of comments) commentMap.set(c.id, c.content);
-    }
+    // 대상 미리보기 해석 (COMMENT·WORKLOG·ISSUE; POST/BOARD_COMMENT는 게시판 단계에서 추가)
+    const idsOf = (type: string) => rows.filter((r) => r.sourceType === type).map((r) => r.sourceId);
+    const previewMap = new Map<string, string>(); // key: `${type}:${id}`
+    const [comments, workLogs, issues] = await Promise.all([
+      idsOf("COMMENT").length
+        ? fastify.prisma.comment.findMany({ where: { id: { in: idsOf("COMMENT") } }, select: { id: true, content: true } })
+        : Promise.resolve([]),
+      idsOf("WORKLOG").length
+        ? fastify.prisma.workLog.findMany({ where: { id: { in: idsOf("WORKLOG") } }, select: { id: true, content: true } })
+        : Promise.resolve([]),
+      idsOf("ISSUE").length
+        ? fastify.prisma.taskIssue.findMany({ where: { id: { in: idsOf("ISSUE") } }, select: { id: true, content: true } })
+        : Promise.resolve([]),
+    ]);
+    for (const c of comments) previewMap.set(`COMMENT:${c.id}`, c.content);
+    for (const w of workLogs) previewMap.set(`WORKLOG:${w.id}`, w.content);
+    for (const i of issues) previewMap.set(`ISSUE:${i.id}`, i.content);
 
     const items = rows.map((r) => ({
       id: r.id,
@@ -43,7 +50,7 @@ export async function notificationRoutes(fastify: FastifyInstance) {
       actorId: r.actorId,
       isRead: r.isRead,
       createdAt: r.createdAt,
-      preview: r.sourceType === "COMMENT" ? commentMap.get(r.sourceId) ?? null : null,
+      preview: previewMap.get(`${r.sourceType}:${r.sourceId}`) ?? null,
     }));
 
     return reply.send({ items, total, page, pageSize });

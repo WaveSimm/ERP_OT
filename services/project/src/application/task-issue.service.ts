@@ -1,4 +1,5 @@
 import { PrismaClient, Prisma, TaskIssue } from "@prisma/client";
+import { createMentions } from "./mention.util.js";
 import { AuthUser, isProjectMember } from "./work-log-permissions";
 import { DashboardService } from "./dashboard/dashboard.service.js";
 
@@ -50,7 +51,7 @@ export class TaskIssueService {
     return items.map((i) => this.toDto(i));
   }
 
-  async create(taskId: string, data: { content: string }, user: AuthUserWithName) {
+  async create(taskId: string, data: { content: string; mentionedUserIds?: string[] | undefined }, user: AuthUserWithName) {
     const task = await this.prisma.task.findUnique({ where: { id: taskId }, select: { id: true } });
     if (!task) throw new TaskIssueError("TASK_NOT_FOUND", "작업을 찾을 수 없습니다.", 404);
 
@@ -67,6 +68,15 @@ export class TaskIssueService {
       },
     });
     await this.invalidateDashboard(taskId);
+
+    await createMentions(this.prisma, {
+      sourceType: "ISSUE",
+      sourceId: created.id,
+      taskId,
+      userIds: data.mentionedUserIds ?? [],
+      actorId: user.id,
+    });
+
     return this.toDto(created);
   }
 

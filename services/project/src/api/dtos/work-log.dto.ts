@@ -6,11 +6,13 @@ export const createWorkLogSchema = z.object({
   content: z.string().min(1).max(51200),
   workedAt: dateString,
   segmentId: z.string().optional(),
+  mentionedUserIds: z.array(z.string()).optional(),
 });
 
 export const updateWorkLogSchema = z.object({
   content: z.string().min(1).max(51200).optional(),
   workedAt: dateString.optional(),
+  mentionedUserIds: z.array(z.string()).optional(),
 });
 
 export const listByTaskQuerySchema = z.object({

@@ -1,4 +1,5 @@
 import { PrismaClient, Prisma, WorkLog } from "@prisma/client";
+import { createMentions, syncMentions } from "./mention.util.js";
 import type { FastifyBaseLogger } from "fastify";
 import {
   AuthUser,
@@ -113,7 +114,7 @@ export class WorkLogService {
 
   async create(
     taskId: string,
-    data: { content: string; workedAt: string; segmentId?: string | undefined },
+    data: { content: string; workedAt: string; segmentId?: string | undefined; mentionedUserIds?: string[] | undefined },
     user: AuthUser & { name: string },
   ) {
     const task = await this.prisma.task.findUnique({ where: { id: taskId }, select: { id: true } });
@@ -149,12 +150,20 @@ export class WorkLogService {
     // 임베딩 (fire-and-forget)
     this.embedAndStoreWorkLog(created.id, created.task?.name ?? "", created.segment?.name ?? null, created.content);
 
+    await createMentions(this.prisma, {
+      sourceType: "WORKLOG",
+      sourceId: created.id,
+      taskId,
+      userIds: data.mentionedUserIds ?? [],
+      actorId: user.id,
+    });
+
     return this.toDto(created);
   }
 
   async update(
     id: string,
-    data: { content?: string | undefined; workedAt?: string | undefined },
+    data: { content?: string | undefined; workedAt?: string | undefined; mentionedUserIds?: string[] | undefined },
     user: AuthUser,
   ) {
     const log = await this.prisma.workLog.findUnique({ where: { id } });
@@ -175,6 +184,16 @@ export class WorkLogService {
     // 본문 변경 시 재임베딩
     if (data.content !== undefined) {
       this.embedAndStoreWorkLog(updated.id, updated.task?.name ?? "", updated.segment?.name ?? null, updated.content);
+    }
+
+    if (data.mentionedUserIds !== undefined) {
+      await syncMentions(this.prisma, {
+        sourceType: "WORKLOG",
+        sourceId: id,
+        taskId: log.taskId,
+        userIds: data.mentionedUserIds,
+        actorId: user.id,
+      });
     }
 
     return this.toDto(updated);

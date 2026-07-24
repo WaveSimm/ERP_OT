@@ -282,13 +282,13 @@ export const workLogApi = {
   },
   create: (
     taskId: string,
-    data: { content: string; workedAt: string; segmentId?: string },
+    data: { content: string; workedAt: string; segmentId?: string; mentionedUserIds?: string[] },
   ) =>
     request<WorkLog>(`/tasks/${taskId}/work-logs`, {
       method: "POST",
       body: JSON.stringify(data),
     }),
-  update: (id: string, data: { content?: string; workedAt?: string }) =>
+  update: (id: string, data: { content?: string; workedAt?: string; mentionedUserIds?: string[] }) =>
     request<WorkLog>(`/work-logs/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   remove: (id: string) => request<void>(`/work-logs/${id}`, { method: "DELETE" }),
 
@@ -347,7 +347,7 @@ export const workLogApi = {
 
 export const taskIssueApi = {
   listByTask: (taskId: string) => request<TaskIssue[]>(`/tasks/${taskId}/issues`),
-  create: (taskId: string, data: { content: string }) =>
+  create: (taskId: string, data: { content: string; mentionedUserIds?: string[] }) =>
     request<TaskIssue>(`/tasks/${taskId}/issues`, {
       method: "POST",
       body: JSON.stringify(data),

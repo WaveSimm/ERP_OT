@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { DateInput } from "@/components/ui/DateInput";
+import MentionInput from "@/components/MentionInput";
 
 function todayStr() {
   const d = new Date();
@@ -89,12 +90,11 @@ export default function WorkLogForm({
         )}
       </div>
 
-      <textarea
+      <MentionInput
         value={content}
-        onChange={(e) => setContent(e.target.value)}
-        placeholder="오늘 한 작업 내용을 markdown으로..."
+        onChange={setContent}
+        placeholder="오늘 한 작업 내용을 markdown으로... (@로 멘션)"
         rows={4}
-        maxLength={51200}
         className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm font-mono resize-y focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
 
