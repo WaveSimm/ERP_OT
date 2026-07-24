@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { notificationApi } from "@/lib/api";
+import { notificationApi, getUser } from "@/lib/api";
 
 // 멘션 출처별 아이콘/라벨 (폴리모픽)
 const SOURCE_ICON: Record<string, string> = {
@@ -38,6 +38,7 @@ export default function NotificationsPage() {
   const [markingAll, setMarkingAll] = useState(false);
 
   const PAGE_SIZE = 20;
+  const myId = getUser()?.id;
 
   const load = useCallback(async (p = 1, uo = unreadOnly, reset = false) => {
     setLoading(true);
@@ -120,11 +121,13 @@ export default function NotificationsPage() {
             }}
           >
             <div className="text-xl shrink-0 mt-0.5">
-              {SOURCE_ICON[n.sourceType] ?? "🔔"}
+              {n.actorId && n.actorId === myId ? "🔖" : (SOURCE_ICON[n.sourceType] ?? "🔔")}
             </div>
             <div className="flex-1 min-w-0">
               <div className={`text-sm font-medium ${n.isRead ? "text-gray-700" : "text-gray-900"}`}>
-                {SOURCE_LABEL[n.sourceType] ?? "멘션"}
+                {n.actorId && n.actorId === myId
+                  ? "내가 남긴 리마인더"
+                  : (SOURCE_LABEL[n.sourceType] ?? "멘션")}
               </div>
               <div className={`text-xs mt-0.5 truncate ${n.isRead ? "text-gray-400" : "text-gray-600"}`}>
                 {n.preview}

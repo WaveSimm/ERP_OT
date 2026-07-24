@@ -96,7 +96,8 @@ export class CollabService {
     const comment = await this.prisma.comment.create({ data });
 
     // 폴리모픽 멘션 생성(자기 자신 제외)
-    const mentionedUserIds = (dto.mentionedUserIds ?? []).filter((id) => id && id !== authorId);
+    // 자기 멘션 허용(의도적 리마인더 용도)
+    const mentionedUserIds = (dto.mentionedUserIds ?? []).filter((id) => !!id);
     if (mentionedUserIds.length > 0) {
       await this.prisma.mention.createMany({
         data: mentionedUserIds.map((userId) => ({
@@ -161,7 +162,8 @@ export class CollabService {
       throw new AppError(403, "FORBIDDEN", "본인 댓글만 수정할 수 있습니다.");
     }
 
-    const mentionedUserIds = (dto.mentionedUserIds ?? []).filter((id) => id && id !== userId);
+    // 자기 멘션 허용(의도적 리마인더 용도)
+    const mentionedUserIds = (dto.mentionedUserIds ?? []).filter((id) => !!id);
     const comment = await this.prisma.$transaction(async (tx) => {
       await tx.mention.deleteMany({ where: { sourceType: "COMMENT", sourceId: commentId } });
       const updated = await tx.comment.update({

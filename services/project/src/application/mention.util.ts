@@ -15,7 +15,8 @@ export interface CreateMentionsInput {
  * (댓글·작업일지·이슈 등 여러 서비스에서 공용 사용)
  */
 export async function createMentions(prisma: MentionClient, input: CreateMentionsInput): Promise<string[]> {
-  const ids = [...new Set(input.userIds.filter((u): u is string => !!u && u !== input.actorId))];
+  // 자기 멘션 허용(의도적 리마인더 용도) — actorId 제외하지 않음
+  const ids = [...new Set(input.userIds.filter((u): u is string => !!u))];
   if (ids.length === 0) return [];
   await prisma.mention.createMany({
     data: ids.map((userId) => ({
