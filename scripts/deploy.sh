@@ -26,6 +26,9 @@ if [ "$SKIP_PULL" != "--skip-pull" ]; then
   git pull --ff-only
 fi
 
+# 업데이트 게시판 등록 — 이번 배포에 포함된 커밋(포인터..HEAD, 멱등이라 중복 안전)
+scripts/update-board-post.sh || true
+
 deploy_web() {
   echo "[web] 컨테이너 내 프로덕션 빌드"
   docker compose exec web sh -c "npm run build"

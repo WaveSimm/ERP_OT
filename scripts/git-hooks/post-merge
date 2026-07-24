@@ -1,0 +1,5 @@
+#!/bin/bash
+# ── post-merge: git pull(ff 포함) 직후 새로 들어온 커밋을 업데이트 게시판에 등록 ──
+#   등록 로직·중복 방지는 update-board-post.sh(포인터 기반 멱등)가 전담.
+#   deploy.sh 를 안 거친 수동 pull 도 여기서 잡는다. pull --rebase 는 미발동 주의.
+exec "$(git rev-parse --show-toplevel)/scripts/update-board-post.sh"
