@@ -3,17 +3,20 @@
 import { useState, useEffect, useCallback } from "react";
 import { notificationApi } from "@/lib/api";
 
-const NOTIFICATION_ICONS: Record<string, string> = {
-  PROGRESS_STALE: "⏰",
-  TASK_DUE_SOON:  "📅",
-  TASK_ASSIGNED:  "📌",
-  COMMENT_MENTION:"💬",
-  OT_APPROVED:    "✅",
-  OT_REJECTED:    "❌",
-  LEAVE_APPROVED: "✅",
-  LEAVE_REJECTED: "❌",
-  RISK_DELAY:     "⚠",
-  RISK_OVERLOAD:  "🔴",
+// 멘션 출처별 아이콘/라벨 (폴리모픽)
+const SOURCE_ICON: Record<string, string> = {
+  COMMENT: "💬",
+  WORKLOG: "📝",
+  ISSUE: "⚠",
+  POST: "📢",
+  BOARD_COMMENT: "💬",
+};
+const SOURCE_LABEL: Record<string, string> = {
+  COMMENT: "댓글에서 회원님을 멘션했습니다",
+  WORKLOG: "작업일지에서 회원님을 멘션했습니다",
+  ISSUE: "이슈에서 회원님을 멘션했습니다",
+  POST: "게시글에서 회원님을 멘션했습니다",
+  BOARD_COMMENT: "덧글에서 회원님을 멘션했습니다",
 };
 
 function timeAgo(iso: string) {
@@ -117,14 +120,14 @@ export default function NotificationsPage() {
             }}
           >
             <div className="text-xl shrink-0 mt-0.5">
-              {NOTIFICATION_ICONS[n.type] ?? "🔔"}
+              {SOURCE_ICON[n.sourceType] ?? "🔔"}
             </div>
             <div className="flex-1 min-w-0">
               <div className={`text-sm font-medium ${n.isRead ? "text-gray-700" : "text-gray-900"}`}>
-                {n.title}
+                {SOURCE_LABEL[n.sourceType] ?? "멘션"}
               </div>
-              <div className={`text-xs mt-0.5 ${n.isRead ? "text-gray-400" : "text-gray-600"}`}>
-                {n.body}
+              <div className={`text-xs mt-0.5 truncate ${n.isRead ? "text-gray-400" : "text-gray-600"}`}>
+                {n.preview}
               </div>
               <div className="text-xs text-gray-400 mt-1">{timeAgo(n.createdAt)}</div>
             </div>

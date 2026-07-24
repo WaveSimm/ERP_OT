@@ -63,7 +63,6 @@ export class CollabService {
     await this.requireTask(taskId);
     const comments = await this.prisma.comment.findMany({
       where: { taskId },
-      include: { mentions: true },
       orderBy: { createdAt: "asc" },
     });
     // authorId → authorName 일괄 조회 (auth-service /internal/users/bulk)
@@ -94,13 +93,22 @@ export class CollabService {
     const task = await this.requireTask(taskId);
 
     const data: Prisma.CommentUncheckedCreateInput = { taskId, content: dto.content, authorId };
-    if (dto.mentionedUserIds && dto.mentionedUserIds.length > 0) {
-      data.mentions = { create: dto.mentionedUserIds.map((userId) => ({ userId })) };
+    const comment = await this.prisma.comment.create({ data });
+
+    // 폴리모픽 멘션 생성(자기 자신 제외)
+    const mentionedUserIds = (dto.mentionedUserIds ?? []).filter((id) => id && id !== authorId);
+    if (mentionedUserIds.length > 0) {
+      await this.prisma.mention.createMany({
+        data: mentionedUserIds.map((userId) => ({
+          sourceType: "COMMENT",
+          sourceId: comment.id,
+          taskId,
+          userId,
+          actorId: authorId,
+        })),
+        skipDuplicates: true,
+      });
     }
-    const comment = await this.prisma.comment.create({
-      data,
-      include: { mentions: true },
-    });
 
     await this.logActivity(
       task.projectId,
@@ -129,13 +137,13 @@ export class CollabService {
       comment: comment as unknown as Record<string, unknown>,
     });
 
-    const mentions = comment.mentions;
-    for (const mention of mentions ?? []) {
-      this.gateway.emitToUser(mention.userId, "mention:created", {
-        commentId: comment.id,
+    for (const userId of mentionedUserIds) {
+      this.gateway.emitToUser(userId, "mention:created", {
+        sourceType: "COMMENT",
+        sourceId: comment.id,
         taskId,
         projectId: task.projectId,
-        authorId,
+        actorId: authorId,
         content: dto.content,
       });
     }
@@ -153,19 +161,38 @@ export class CollabService {
       throw new AppError(403, "FORBIDDEN", "본인 댓글만 수정할 수 있습니다.");
     }
 
+    const mentionedUserIds = (dto.mentionedUserIds ?? []).filter((id) => id && id !== userId);
     const comment = await this.prisma.$transaction(async (tx) => {
-      await tx.mention.deleteMany({ where: { commentId } });
-      return tx.comment.update({
+      await tx.mention.deleteMany({ where: { sourceType: "COMMENT", sourceId: commentId } });
+      const updated = await tx.comment.update({
         where: { id: commentId },
-        data: {
-          content: dto.content,
-          ...(dto.mentionedUserIds && dto.mentionedUserIds.length > 0
-            ? { mentions: { create: dto.mentionedUserIds.map((uid) => ({ userId: uid })) } }
-            : {}),
-        },
-        include: { mentions: true },
+        data: { content: dto.content },
       });
+      if (mentionedUserIds.length > 0) {
+        await tx.mention.createMany({
+          data: mentionedUserIds.map((uid) => ({
+            sourceType: "COMMENT",
+            sourceId: commentId,
+            taskId: existing.taskId,
+            userId: uid,
+            actorId: userId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+      return updated;
     });
+
+    for (const uid of mentionedUserIds) {
+      this.gateway.emitToUser(uid, "mention:created", {
+        sourceType: "COMMENT",
+        sourceId: commentId,
+        taskId: existing.taskId,
+        projectId: existing.task.projectId,
+        actorId: userId,
+        content: dto.content,
+      });
+    }
 
     await this.logActivity(
       existing.task.projectId,

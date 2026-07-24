@@ -585,22 +585,27 @@ model Comment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  task     Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  mentions Mention[]
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@map("comments")
   @@schema("project")
 }
 
+// 폴리모픽 멘션 — commentId 고정 → sourceType/sourceId 로 여러 대상 지원
+//   sourceType: "COMMENT" | "WORKLOG" | "ISSUE" | "POST" | "BOARD_COMMENT"
+//   FK 관계는 두지 않는다(대상이 여러 테이블 + 향후 크로스서비스). 삭제 정합은 앱에서 처리.
 model Mention {
-  id        String  @id @default(cuid())
-  commentId String
-  userId    String
-  isRead    Boolean @default(false)
+  id         String   @id @default(cuid())
+  sourceType String
+  sourceId   String
+  taskId     String? // 딥링크·가시성 판단용(태스크계)
+  userId     String // 멘션 대상
+  actorId    String? // 멘션한 사람
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
 
-  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
-
-  @@unique([commentId, userId])
+  @@unique([sourceType, sourceId, userId])
+  @@index([userId, isRead])
   @@map("mentions")
   @@schema("project")
 }

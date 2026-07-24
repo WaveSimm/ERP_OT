@@ -14,26 +14,37 @@ export async function notificationRoutes(fastify: FastifyInstance) {
       ...(unreadOnly ? { isRead: false } : {}),
     };
 
-    const [items, total] = await Promise.all([
+    const [rows, total] = await Promise.all([
       fastify.prisma.mention.findMany({
         where,
-        include: {
-          comment: {
-            select: {
-              id: true,
-              content: true,
-              taskId: true,
-              authorId: true,
-              createdAt: true,
-            },
-          },
-        },
-        orderBy: { id: "desc" },
+        orderBy: { createdAt: "desc" },
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
       fastify.prisma.mention.count({ where }),
     ]);
+
+    // 대상 미리보기 해석 (현재 COMMENT; WORKLOG·ISSUE·POST 는 후속 단계에서 추가)
+    const commentIds = rows.filter((r) => r.sourceType === "COMMENT").map((r) => r.sourceId);
+    const commentMap = new Map<string, string>();
+    if (commentIds.length > 0) {
+      const comments = await fastify.prisma.comment.findMany({
+        where: { id: { in: commentIds } },
+        select: { id: true, content: true },
+      });
+      for (const c of comments) commentMap.set(c.id, c.content);
+    }
+
+    const items = rows.map((r) => ({
+      id: r.id,
+      sourceType: r.sourceType,
+      sourceId: r.sourceId,
+      taskId: r.taskId,
+      actorId: r.actorId,
+      isRead: r.isRead,
+      createdAt: r.createdAt,
+      preview: r.sourceType === "COMMENT" ? commentMap.get(r.sourceId) ?? null : null,
+    }));
 
     return reply.send({ items, total, page, pageSize });
   });
