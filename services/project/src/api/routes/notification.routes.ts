@@ -38,6 +38,13 @@ export async function notificationRoutes(fastify: FastifyInstance) {
     return reply.send({ items, total, page, pageSize });
   });
 
+  // GET /api/v1/notifications/unread-count — 미읽음 멘션 수 (알림 벨 배지)
+  fastify.get("/unread-count", async (req, reply) => {
+    const userId = req.userId;
+    const count = await fastify.prisma.mention.count({ where: { userId, isRead: false } });
+    return reply.send({ count });
+  });
+
   // PATCH /api/v1/notifications/:id/read — 개별 읽음 처리
   fastify.patch("/:id/read", async (req, reply) => {
     const { id } = req.params as { id: string };

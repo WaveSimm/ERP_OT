@@ -217,15 +217,15 @@ export const taskApi = {
 
 export const commentApi = {
   list: (taskId: string) => request<TaskComment[]>(`/tasks/${taskId}/comments`),
-  create: (taskId: string, content: string) =>
+  create: (taskId: string, content: string, mentionedUserIds?: string[]) =>
     request<TaskComment>(`/tasks/${taskId}/comments`, {
       method: "POST",
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, ...(mentionedUserIds?.length ? { mentionedUserIds } : {}) }),
     }),
-  update: (taskId: string, commentId: string, content: string) =>
+  update: (taskId: string, commentId: string, content: string, mentionedUserIds?: string[]) =>
     request<TaskComment>(`/tasks/${taskId}/comments/${commentId}`, {
       method: "PATCH",
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, ...(mentionedUserIds?.length ? { mentionedUserIds } : {}) }),
     }),
   delete: (taskId: string, commentId: string) =>
     request<void>(`/tasks/${taskId}/comments/${commentId}`, { method: "DELETE" }),

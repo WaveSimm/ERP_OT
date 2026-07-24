@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { taskApi, commentApi, resourceApi, deploymentApi, equipmentApi, sensorApi, listAssignableResources } from "@/lib/api";
+import MentionInput, { extractMentionIds, MentionText } from "@/components/MentionInput";
 import clsx from "clsx";
 import { DateInput } from "./ui/DateInput";
 import WorkLogTab from "./work-log/WorkLogTab";
@@ -812,12 +813,13 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
     } catch (e: any) { alert(e.message); }
   };
 
-  const handleComment = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleComment = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!newComment.trim()) return;
     setPostingComment(true);
     try {
-      await commentApi.create(task.id, newComment.trim());
+      const mentionedUserIds = await extractMentionIds(newComment.trim());
+      await commentApi.create(task.id, newComment.trim(), mentionedUserIds);
       setNewComment("");
       await loadComments();
       onRefresh();
@@ -889,7 +891,8 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
     const trimmed = editingContent.trim();
     if (!trimmed) return;
     try {
-      await commentApi.update(task.id, commentId, trimmed);
+      const mentionedUserIds = await extractMentionIds(trimmed);
+      await commentApi.update(task.id, commentId, trimmed, mentionedUserIds);
       setEditingCommentId(null);
       await loadComments();
       onRefresh();
@@ -1501,11 +1504,13 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
           <div className="px-6 py-4">
             <h3 className="text-xs font-semibold text-gray-500 uppercase mb-4">댓글 ({comments.length})</h3>
               <form onSubmit={handleComment} className="flex gap-2 mb-4">
-                <input
-                  type="text" value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="댓글을 입력하세요..."
-                  className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                <MentionInput
+                  value={newComment}
+                  onChange={setNewComment}
+                  onSubmit={() => handleComment()}
+                  placeholder="댓글을 입력하세요... (@로 멘션)"
+                  rows={1}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <button type="submit" disabled={postingComment || !newComment.trim()}
                   className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50">
@@ -1540,14 +1545,11 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
                         </div>
                         {editingCommentId === c.id ? (
                           <div className="mt-1 space-y-1.5">
-                            <textarea
+                            <MentionInput
                               autoFocus
                               value={editingContent}
-                              onChange={(e) => setEditingContent(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleUpdateComment(c.id); }
-                                if (e.key === "Escape") cancelEditComment();
-                              }}
+                              onChange={setEditingContent}
+                              onSubmit={() => handleUpdateComment(c.id)}
                               rows={2}
                               className="w-full px-2.5 py-1.5 text-sm border border-blue-400 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
@@ -1566,9 +1568,9 @@ export default function TaskDrawer({ task, projectId, isParent = false, onCopy, 
                         ) : (
                           <p
                             onClick={() => startEditComment(c)}
-                            className="text-sm text-gray-800 mt-0.5 cursor-pointer hover:bg-gray-50 rounded px-1 -mx-1 py-0.5 transition-colors"
+                            className="text-sm text-gray-800 mt-0.5 cursor-pointer hover:bg-gray-50 rounded px-1 -mx-1 py-0.5 transition-colors whitespace-pre-wrap"
                             title="클릭하여 수정"
-                          >{c.content}</p>
+                          ><MentionText text={c.content} /></p>
                         )}
                       </div>
                     </div>
